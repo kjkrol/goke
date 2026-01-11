@@ -16,16 +16,16 @@ type (
 	Discount struct{ Percentage float64 }
 
 	BillingSystem struct {
-		query *ecs.CachedQuery3[Order, Status, Discount]
+		view *ecs.View3[Order, Status, Discount]
 	}
 )
 
 func (s *BillingSystem) Init(reg *ecs.Registry) {
-	s.query = ecs.NewQuery3[Order, Status, Discount](reg)
+	s.view = ecs.NewView3[Order, Status, Discount](reg)
 }
 
 func (s *BillingSystem) Update(reg *ecs.Registry, d time.Duration) {
-	for _, row := range s.query.All() {
+	for _, row := range s.view.All() {
 		ord := row.V1
 		st := row.V2
 		disc := row.V3
@@ -47,7 +47,7 @@ func main() {
 	billing := &BillingSystem{}
 	engine.RegisterSystems([]ecs.System{billing})
 
-	order := ecs.Get[Order](engine, entity)
+	order := ecs.GetComponent[Order](engine, entity)
 	fmt.Printf("Order id: %v value: %v\n", order.ID, order.Total)
 	engine.UpdateSystems(time.Duration(time.Second))
 	fmt.Printf("Order id: %v value with discount: %v\n", order.ID, order.Total)

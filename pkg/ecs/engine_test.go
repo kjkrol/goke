@@ -25,17 +25,17 @@ type Discount struct {
 // system
 
 type BillingSystem struct {
-	query          *ecs.CachedQuery3[Order, Status, Discount]
+	view           *ecs.View3[Order, Status, Discount]
 	processedCount int
 }
 
 func (s *BillingSystem) Init(reg *ecs.Registry) {
-	s.query = ecs.NewQuery3[Order, Status, Discount](reg)
+	s.view = ecs.NewView3[Order, Status, Discount](reg)
 	s.processedCount = 0
 }
 
 func (s *BillingSystem) Update(reg *ecs.Registry, d time.Duration) {
-	for _, row := range s.query.All() {
+	for _, row := range s.view.All() {
 		s.processedCount++
 		ord := row.V1
 		st := row.V2
@@ -50,44 +50,39 @@ var _ ecs.System = (*BillingSystem)(nil)
 func TestECS_UseCase(t *testing.T) {
 	engine := ecs.NewEngine()
 
-	// Encja A: Spełnia wymagania (Order + Status + Discount)
 	eA := engine.CreateEntity()
 	ecs.Assign(engine, eA, Order{ID: "ORD-001", Total: 100.0})
 	ecs.Assign(engine, eA, Status{Processed: false})
 	ecs.Assign(engine, eA, Discount{Percentage: 10.0})
 
-	// Encja B: Nie spełnia wymagań (brak Discount)
 	eB := engine.CreateEntity()
 	ecs.Assign(engine, eB, Order{ID: "ORD-002", Total: 50.0})
 	ecs.Assign(engine, eB, Status{Processed: false})
 
-	// 3. System Przetwarzania
 	billingSystem := BillingSystem{}
 	engine.RegisterSystems([]ecs.System{&billingSystem})
 
 	engine.UpdateSystems(time.Duration(time.Second))
 
-	// Sprawdź, czy Each znalazł tylko 1 encję (eA)
 	if billingSystem.processedCount != 1 {
-		t.Errorf("System powinien przetworzyć 1 encję, przetworzył %d", billingSystem.processedCount)
+		t.Errorf("BillingSystem should have processed 1 entity, but it processed %d",
+			billingSystem.processedCount)
 	}
 
-	// Sprawdź, czy wskaźnik zadziałał (czy dane w Registry się zmieniły)
-	order := ecs.Get[Order](engine, eA)
-	status := ecs.Get[Status](engine, eA)
+	order := ecs.GetComponent[Order](engine, eA)
+	status := ecs.GetComponent[Status](engine, eA)
 
 	if order.Total != 90.0 {
-		t.Errorf("Rabat nie został naliczony poprawnie, Total: %v", order.Total)
+		t.Errorf("Discount has not been applied, Total: %v", order.Total)
 	}
 
 	if !status.Processed {
-		t.Error("Status nie został zmieniony na Processed")
+		t.Error("Status has not been changed to Processed")
 	}
 
 	engine.RemoveEntity(eA)
 
-	// Sprawdź czy dane fizycznie zniknęły z mapy storage (sprzątanie deleterem)
-	if ecs.Get[Order](engine, eA) != nil {
-		t.Error("Dane encji A powinny zostać usunięte z mapy Order")
+	if ecs.GetComponent[Order](engine, eA) != nil {
+		t.Error("Data of entity eA should have been removed from orders map")
 	}
 }

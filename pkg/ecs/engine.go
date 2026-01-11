@@ -4,40 +4,21 @@ import (
 	"time"
 )
 
-type (
-	Entity uint32
-
-	ComponentID int
-
-	System interface {
-		Init(*Registry)
-		Update(*Registry, time.Duration)
-	}
-
-	View struct {
-		mask Bitmask
-	}
-
-	Engine struct {
-		registry  *Registry
-		scheduler *scheduler
-	}
-)
+type Engine struct {
+	*Registry
+	scheduler *scheduler
+}
 
 func NewEngine() *Engine {
 	reg := newRegistry()
 	return &Engine{
-		registry:  reg,
+		Registry:  reg,
 		scheduler: newScheduler(reg),
 	}
 }
 
 func (e *Engine) CreateEntity() Entity {
-	return e.registry.createEntity()
-}
-
-func (e *Engine) RemoveEntity(entity Entity) {
-	e.registry.removeEntity(entity)
+	return e.entitiesRegistry.create()
 }
 
 func (e *Engine) RegisterSystems(systems []System) {
@@ -49,23 +30,25 @@ func (e *Engine) UpdateSystems(duration time.Duration) {
 }
 
 func RegisterComponent[T any](e *Engine) ComponentID {
-	return registerComponent[T](e.registry)
+	return ensureComponentRegistered[T](e.Registry.componentsManager)
 }
 
 func Assign[T any](e *Engine, entity Entity, component T) {
-	assign(e.registry, entity, component)
+	assign(e.Registry, entity, component)
 }
 
 func AssignByID[T any](e *Engine, entity Entity, id ComponentID, component T) {
-	assignByID(e.registry, entity, id, component)
+	assignByID(e.Registry, entity, id, component)
 }
 
 func Unassign[T any](e *Engine, entity Entity) {
-	unassign[T](e.registry, entity)
+	unassign[T](e.Registry, entity)
 }
 
 func UnassignByID[T any](e *Engine, entity Entity, id ComponentID) {
-	unassignByID[T](e.registry, entity, id)
+	e.Registry.unassignByID(entity, id)
 }
 
-func Get[T any](e *Engine, entity Entity) *T { return get[T](e.registry, entity) }
+func GetComponent[T any](e *Engine, entity Entity) *T {
+	return getComponent[T](e.Registry, entity)
+}

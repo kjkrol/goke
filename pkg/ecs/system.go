@@ -4,10 +4,16 @@ import (
 	"time"
 )
 
-type scheduler struct {
-	register *Registry
-	systems  []System
-}
+type (
+	System interface {
+		Init(*Registry)
+		Update(*Registry, time.Duration)
+	}
+	scheduler struct {
+		register *Registry
+		systems  []System
+	}
+)
 
 func newScheduler(register *Registry) *scheduler {
 	return &scheduler{
