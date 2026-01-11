@@ -31,13 +31,19 @@ func (m *entitiesRegistry) create() Entity {
 	return e
 }
 
-func (m *entitiesRegistry) destroy(e Entity) uint32 {
-	index := m.gen.release(e)
+func (m *entitiesRegistry) destroy(e Entity) bool {
+	index := uint32(uint64(e) & IndexMask)
+	gen := uint32(uint64(e) >> GenerationShift)
 
-	m.masks[index] = Bitmask{}
+	if index >= uint32(len(m.gen.generations)) || m.gen.generations[index] != gen {
+		return false
+	}
+
+	m.gen.release(e)
+	m.masks[index] = nil
 	m.list.remove(index)
 
-	return index
+	return true
 }
 
 func (m *entitiesRegistry) mask(e Entity) (Bitmask, bool) {
