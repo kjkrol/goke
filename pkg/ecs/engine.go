@@ -41,7 +41,7 @@ func (e *Engine) UpdateSystems(duration time.Duration) {
 }
 
 func RegisterComponent[T any](e *Engine) ComponentID {
-	return ensureComponentRegistered[T](e.Registry.componentsManager)
+	return ensureComponentRegistered[T](e.Registry.componentsRegistry)
 }
 
 func Assign[T any](e *Engine, entity Entity, component T) {

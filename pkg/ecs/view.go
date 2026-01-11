@@ -9,9 +9,9 @@ type View1[T1 any] struct {
 }
 
 func NewView1[T1 any](reg *Registry) *View1[T1] {
-	id1, _ := componentId[T1](reg.componentsManager)
+	id1, _ := componentId[T1](reg.componentsRegistry)
 	bitmask := Bitmask{}.Set(id1)
-	s1 := reg.componentsManager.storages[id1].(*ComponentStorage[T1])
+	s1 := reg.componentsRegistry.storages[id1].(*ComponentStorage[T1])
 	return &View1[T1]{reg, bitmask, id1, s1}
 }
 
@@ -56,11 +56,11 @@ type Row2[T1, T2 any] struct {
 }
 
 func NewView2[T1, T2 any](reg *Registry) *View2[T1, T2] {
-	id1, _ := componentId[T1](reg.componentsManager)
-	id2, _ := componentId[T2](reg.componentsManager)
+	id1, _ := componentId[T1](reg.componentsRegistry)
+	id2, _ := componentId[T2](reg.componentsRegistry)
 	bitmask := Bitmask{}.Set(id1).Set(id2)
-	s1 := reg.componentsManager.storages[id1].(*ComponentStorage[T1])
-	s2 := reg.componentsManager.storages[id2].(*ComponentStorage[T2])
+	s1 := reg.componentsRegistry.storages[id1].(*ComponentStorage[T1])
+	s2 := reg.componentsRegistry.storages[id2].(*ComponentStorage[T2])
 	return &View2[T1, T2]{reg, bitmask, id1, id2, s1, s2}
 }
 
@@ -111,14 +111,14 @@ type Row3[T1, T2, T3 any] struct {
 }
 
 func NewView3[T1, T2, T3 any](reg *Registry) *View3[T1, T2, T3] {
-	id1, _ := componentId[T1](reg.componentsManager)
-	id2, _ := componentId[T2](reg.componentsManager)
-	id3, _ := componentId[T3](reg.componentsManager)
+	id1, _ := componentId[T1](reg.componentsRegistry)
+	id2, _ := componentId[T2](reg.componentsRegistry)
+	id3, _ := componentId[T3](reg.componentsRegistry)
 
 	bitmask := Bitmask{}.Set(id1).Set(id2).Set(id3)
-	s1 := reg.componentsManager.storages[id1].(*ComponentStorage[T1])
-	s2 := reg.componentsManager.storages[id2].(*ComponentStorage[T2])
-	s3 := reg.componentsManager.storages[id3].(*ComponentStorage[T3])
+	s1 := reg.componentsRegistry.storages[id1].(*ComponentStorage[T1])
+	s2 := reg.componentsRegistry.storages[id2].(*ComponentStorage[T2])
+	s3 := reg.componentsRegistry.storages[id3].(*ComponentStorage[T3])
 	return &View3[T1, T2, T3]{reg, bitmask, id1, id2, id3, s1, s2, s3}
 }
 

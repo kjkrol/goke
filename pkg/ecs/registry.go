@@ -1,14 +1,14 @@
 package ecs
 
 type Registry struct {
-	entitiesRegistry  *entitiesRegistry
-	componentsManager *componentsManager
+	entitiesRegistry   *entitiesRegistry
+	componentsRegistry *componentsRegistry
 }
 
 func newRegistry() *Registry {
 	return &Registry{
-		entitiesRegistry:  newEntitiesRegistry(),
-		componentsManager: newComponentManager(),
+		entitiesRegistry:   newEntitiesRegistry(),
+		componentsRegistry: newComponentsRegistry(),
 	}
 }
 
@@ -18,12 +18,12 @@ func (r *Registry) RemoveEntity(entity Entity) {
 		return
 	}
 
-	r.componentsManager.removeAll(entity, mask)
+	r.componentsRegistry.removeAll(entity, mask)
 	r.entitiesRegistry.destroy(entity)
 }
 
 func assign[T any](reg *Registry, entity Entity, component T) {
-	id := ensureComponentRegistered[T](reg.componentsManager)
+	id := ensureComponentRegistered[T](reg.componentsRegistry)
 	assignByID(reg, entity, id, component)
 }
 
@@ -32,12 +32,12 @@ func assignByID[T any](reg *Registry, entity Entity, id ComponentID, component T
 	if !ok {
 		return
 	}
-	setComponentValue(reg.componentsManager, entity, id, component)
+	setComponentValue(reg.componentsRegistry, entity, id, component)
 	reg.entitiesRegistry.updateMask(entity, mask.Set(id))
 }
 
 func unassign[T any](reg *Registry, entity Entity) {
-	id, ok := componentId[T](reg.componentsManager)
+	id, ok := componentId[T](reg.componentsRegistry)
 	if !ok {
 		return
 	}
@@ -46,7 +46,7 @@ func unassign[T any](reg *Registry, entity Entity) {
 }
 
 func (r *Registry) UnassignByID(e Entity, id ComponentID) {
-	if deleter, ok := r.componentsManager.deleters[id]; ok {
+	if deleter, ok := r.componentsRegistry.deleters[id]; ok {
 		deleter(e)
 	}
 
@@ -57,7 +57,7 @@ func (r *Registry) UnassignByID(e Entity, id ComponentID) {
 }
 
 func getComponent[T any](reg *Registry, e Entity) *T {
-	id, ok := componentId[T](reg.componentsManager)
+	id, ok := componentId[T](reg.componentsRegistry)
 	if !ok {
 		return nil
 	}
@@ -67,6 +67,6 @@ func getComponent[T any](reg *Registry, e Entity) *T {
 		return nil
 	}
 
-	storage := reg.componentsManager.storages[id].(*ComponentStorage[T])
+	storage := reg.componentsRegistry.storages[id].(*ComponentStorage[T])
 	return storage.data[e]
 }
