@@ -42,10 +42,10 @@ func unassign[T any](reg *Registry, entity Entity) {
 		return
 	}
 
-	reg.unassignByID(entity, id)
+	reg.UnassignByID(entity, id)
 }
 
-func (r *Registry) unassignByID(e Entity, id ComponentID) {
+func (r *Registry) UnassignByID(e Entity, id ComponentID) {
 	if deleter, ok := r.componentsManager.deleters[id]; ok {
 		deleter(e)
 	}
@@ -67,5 +67,6 @@ func getComponent[T any](reg *Registry, e Entity) *T {
 		return nil
 	}
 
-	return reg.componentsManager.storages[id].(map[Entity]*T)[e]
+	storage := reg.componentsManager.storages[id].(*ComponentStorage[T])
+	return storage.data[e]
 }

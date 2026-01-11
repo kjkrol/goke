@@ -4,10 +4,21 @@ import (
 	"time"
 )
 
-type Engine struct {
-	*Registry
-	scheduler *scheduler
-}
+type (
+	EngineAPI interface {
+		CreateEntity() Entity
+		RemoveEntity(entity Entity)
+
+		UnassignByID(e Entity, id ComponentID)
+
+		RegisterSystems(systems []System)
+		UpdateSystems(duration time.Duration)
+	}
+	Engine struct {
+		*Registry
+		scheduler *scheduler
+	}
+)
 
 func NewEngine() *Engine {
 	reg := newRegistry()
@@ -43,10 +54,6 @@ func AssignByID[T any](e *Engine, entity Entity, id ComponentID, component T) {
 
 func Unassign[T any](e *Engine, entity Entity) {
 	unassign[T](e.Registry, entity)
-}
-
-func UnassignByID[T any](e *Engine, entity Entity, id ComponentID) {
-	e.Registry.unassignByID(entity, id)
 }
 
 func GetComponent[T any](e *Engine, entity Entity) *T {

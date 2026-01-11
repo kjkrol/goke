@@ -6,26 +6,26 @@ type ComponentID int
 
 type componentsManager struct {
 	typeIDs  map[reflect.Type]ComponentID
-	storages map[ComponentID]any
+	storages map[ComponentID]storageInterface
 	deleters map[ComponentID]func(Entity)
 }
 
 func newComponentManager() *componentsManager {
 	return &componentsManager{
 		typeIDs:  make(map[reflect.Type]ComponentID),
-		storages: make(map[ComponentID]any),
+		storages: make(map[ComponentID]storageInterface),
 		deleters: make(map[ComponentID]func(Entity)),
 	}
 }
 
-func (m *componentsManager) register(t reflect.Type, createStorage func() any, deleter func(Entity)) ComponentID {
+func (m *componentsManager) register(t reflect.Type, storage storageInterface, deleter func(Entity)) ComponentID {
 	if id, ok := m.typeIDs[t]; ok {
 		return id
 	}
 
 	id := ComponentID(len(m.typeIDs))
 	m.typeIDs[t] = id
-	m.storages[id] = createStorage()
+	m.storages[id] = storage
 	m.deleters[id] = deleter
 
 	return id
@@ -49,25 +49,25 @@ func componentId[T any](m *componentsManager) (ComponentID, bool) {
 	return m.id(componentType)
 }
 
-func setComponentValue[T any](m *componentsManager, e Entity, id ComponentID, val T) {
-	storage := m.storages[id].(map[Entity]*T)
-	v := val
-	storage[e] = &v
+func setComponentValue[T any](m *componentsManager, entity Entity, id ComponentID, val T) {
+	storage := GetTypedStorage[T](m, id)
+	storage.Set(entity, val)
 }
 
-func ensureComponentRegistered[T any](reg *componentsManager) ComponentID {
+func ensureComponentRegistered[T any](m *componentsManager) ComponentID {
 	componentType := reflect.TypeFor[T]()
 
-	if id, ok := reg.id(componentType); ok {
+	if id, ok := m.id(componentType); ok {
 		return id
 	}
 
-	return reg.register(componentType,
-		func() any { return make(map[Entity]*T) },
-		func(e Entity) {
-			if storage, ok := reg.storages[reg.typeIDs[componentType]].(map[Entity]*T); ok {
-				delete(storage, e)
-			}
-		},
-	)
+	storage := &ComponentStorage[T]{
+		data: make(map[Entity]*T),
+	}
+	return m.register(componentType, storage, storage.remove)
+}
+
+func GetTypedStorage[T any](m *componentsManager, id ComponentID) *ComponentStorage[T] {
+	s := m.storages[id]
+	return s.(*ComponentStorage[T])
 }

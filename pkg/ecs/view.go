@@ -5,13 +5,13 @@ type View1[T1 any] struct {
 	reg  *Registry
 	mask Bitmask
 	id1  ComponentID
-	s1   map[Entity]*T1
+	s1   *ComponentStorage[T1]
 }
 
 func NewView1[T1 any](reg *Registry) *View1[T1] {
 	id1, _ := componentId[T1](reg.componentsManager)
 	bitmask := Bitmask{}.Set(id1)
-	s1 := reg.componentsManager.storages[id1].(map[Entity]*T1)
+	s1 := reg.componentsManager.storages[id1].(*ComponentStorage[T1])
 	return &View1[T1]{reg, bitmask, id1, s1}
 }
 
@@ -24,7 +24,7 @@ func (q *View1[T1]) Filtered(entities []Entity) func(func(Entity, *T1) bool) {
 		if entities == nil {
 			for e, m := range q.reg.entitiesRegistry.active() {
 				if m.Matches(q.mask) {
-					if !yield(e, q.s1[e]) {
+					if !yield(e, q.s1.Get(e)) {
 						return
 					}
 				}
@@ -32,7 +32,7 @@ func (q *View1[T1]) Filtered(entities []Entity) func(func(Entity, *T1) bool) {
 		} else {
 			for _, e := range entities {
 				if m, ok := q.reg.entitiesRegistry.mask(e); ok && m.Matches(q.mask) {
-					if !yield(e, q.s1[e]) {
+					if !yield(e, q.s1.Get(e)) {
 						return
 					}
 				}
@@ -46,8 +46,8 @@ type View2[T1, T2 any] struct {
 	reg      *Registry
 	mask     Bitmask
 	id1, id2 ComponentID
-	s1       map[Entity]*T1
-	s2       map[Entity]*T2
+	s1       *ComponentStorage[T1]
+	s2       *ComponentStorage[T2]
 }
 
 type Row2[T1, T2 any] struct {
@@ -59,8 +59,8 @@ func NewView2[T1, T2 any](reg *Registry) *View2[T1, T2] {
 	id1, _ := componentId[T1](reg.componentsManager)
 	id2, _ := componentId[T2](reg.componentsManager)
 	bitmask := Bitmask{}.Set(id1).Set(id2)
-	s1 := reg.componentsManager.storages[id1].(map[Entity]*T1)
-	s2 := reg.componentsManager.storages[id2].(map[Entity]*T2)
+	s1 := reg.componentsManager.storages[id1].(*ComponentStorage[T1])
+	s2 := reg.componentsManager.storages[id2].(*ComponentStorage[T2])
 	return &View2[T1, T2]{reg, bitmask, id1, id2, s1, s2}
 }
 
@@ -73,7 +73,7 @@ func (q *View2[T1, T2]) Filtered(entities []Entity) func(func(Entity, Row2[T1, T
 		if entities == nil {
 			for e, m := range q.reg.entitiesRegistry.active() {
 				if m.Matches(q.mask) {
-					if !yield(e, newRow2(q.s1[e], q.s2[e])) {
+					if !yield(e, newRow2(q.s1.Get(e), q.s2.Get(e))) {
 						return
 					}
 				}
@@ -81,7 +81,7 @@ func (q *View2[T1, T2]) Filtered(entities []Entity) func(func(Entity, Row2[T1, T
 		} else {
 			for _, e := range entities {
 				if m, ok := q.reg.entitiesRegistry.mask(e); ok && m.Matches(q.mask) {
-					if !yield(e, newRow2(q.s1[e], q.s2[e])) {
+					if !yield(e, newRow2(q.s1.Get(e), q.s2.Get(e))) {
 						return
 					}
 				}
@@ -99,9 +99,9 @@ type View3[T1, T2, T3 any] struct {
 	reg           *Registry
 	mask          Bitmask
 	id1, id2, id3 ComponentID
-	s1            map[Entity]*T1
-	s2            map[Entity]*T2
-	s3            map[Entity]*T3
+	s1            *ComponentStorage[T1]
+	s2            *ComponentStorage[T2]
+	s3            *ComponentStorage[T3]
 }
 
 type Row3[T1, T2, T3 any] struct {
@@ -116,9 +116,9 @@ func NewView3[T1, T2, T3 any](reg *Registry) *View3[T1, T2, T3] {
 	id3, _ := componentId[T3](reg.componentsManager)
 
 	bitmask := Bitmask{}.Set(id1).Set(id2).Set(id3)
-	s1 := reg.componentsManager.storages[id1].(map[Entity]*T1)
-	s2 := reg.componentsManager.storages[id2].(map[Entity]*T2)
-	s3 := reg.componentsManager.storages[id3].(map[Entity]*T3)
+	s1 := reg.componentsManager.storages[id1].(*ComponentStorage[T1])
+	s2 := reg.componentsManager.storages[id2].(*ComponentStorage[T2])
+	s3 := reg.componentsManager.storages[id3].(*ComponentStorage[T3])
 	return &View3[T1, T2, T3]{reg, bitmask, id1, id2, id3, s1, s2, s3}
 }
 
@@ -131,7 +131,7 @@ func (q *View3[T1, T2, T3]) Filtered(entities []Entity) func(func(Entity, Row3[T
 		if entities == nil {
 			for e, m := range q.reg.entitiesRegistry.active() {
 				if m.Matches(q.mask) {
-					if !yield(e, newRow3(q.s1[e], q.s2[e], q.s3[e])) {
+					if !yield(e, newRow3(q.s1.Get(e), q.s2.Get(e), q.s3.Get(e))) {
 						return
 					}
 				}
@@ -139,7 +139,7 @@ func (q *View3[T1, T2, T3]) Filtered(entities []Entity) func(func(Entity, Row3[T
 		} else {
 			for _, e := range entities {
 				if m, ok := q.reg.entitiesRegistry.mask(e); ok && m.Matches(q.mask) {
-					if !yield(e, newRow3(q.s1[e], q.s2[e], q.s3[e])) {
+					if !yield(e, newRow3(q.s1.Get(e), q.s2.Get(e), q.s3.Get(e))) {
 						return
 					}
 				}
