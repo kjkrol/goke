@@ -20,7 +20,7 @@ import (
 // -------------- View{{$n}} --------------
 
 type View{{$n}}[{{params $n}}] struct {
-	queryCore
+	viewBase
 	ids [{{$n}}]ComponentID
 }
 
@@ -28,9 +28,12 @@ type Row{{$n}}[{{params $n}}] struct {
 	{{fields $n}}
 }
 
+func (r Row{{$n}}[{{types $n}}]) Values() ({{params_ptrs $n}}) {
+	return {{row_returns $n}}
+}
+
 func NewView{{$n}}[{{params $n}}](reg *Registry) *View{{$n}}[{{types $n}}] {
 	{{registration $n}}
-
 	ids := [{{$n}}]ComponentID{ {{idList $n}} }
 	
 	var mask ArchetypeMask
@@ -38,28 +41,80 @@ func NewView{{$n}}[{{params $n}}](reg *Registry) *View{{$n}}[{{types $n}}] {
 		mask = mask.Set(id)
 	}
 
-	return &View{{$n}}[{{types $n}}]{
-		queryCore: newQueryCore(reg, mask),
-		ids:       ids,
+	v := &View{{$n}}[{{types $n}}]{
+		viewBase: viewBase{
+			reg:  reg,
+			mask: mask,
+		},
+		ids: ids,
 	}
+	
+	v.Reindex() 
+	return v
 }
 
 func (v *View{{$n}}[{{types $n}}]) All() iter.Seq2[Entity, Row{{$n}}[{{types $n}}]] {
 	return func(yield func(Entity, Row{{$n}}[{{types $n}}]) bool) {
-		for _, arch := range v.archetypes {
-			{{setup $n}}
+		for _, arch := range v.matched {
+			if arch.len == 0 {
+				continue
+			}
+
+			// HOISTING: Pobieramy kolumny raz na cały archetyp
+			{{range $i := seq $n}}
+			col{{add $i 1}} := arch.columns[v.ids[{{$i}}]]
+			ptr{{add $i 1}} := col{{add $i 1}}.data
+			size{{add $i 1}} := uintptr(col{{add $i 1}}.itemSize)
+			{{end}}
 
 			for i := 0; i < arch.len; i++ {
-				entity := arch.entities[i]
-				row := Row{{$n}}[{{types $n}}]{
-					{{rowFields $n}},
-				}
-
-				if !yield(entity, row) {
+				if !yield(arch.entities[i], Row{{$n}}[{{types $n}}]{ {{row_fields_all $n}} }) {
 					return
 				}
-
 				{{advance $n}}
+			}
+		}
+	}
+}
+
+func (v *View{{$n}}[{{types $n}}]) Filtered(entities []Entity) iter.Seq2[Entity, Row{{$n}}[{{types $n}}]] {
+	return func(yield func(Entity, Row{{$n}}[{{types $n}}]) bool) {
+		var lastArch *archetype
+		{{range $i := seq $n}}
+		var c{{add $i 1}} *column
+		{{end}}
+
+		for _, e := range entities {
+			mask, ok := v.reg.entitiesRegistry.GetMask(e)
+			if !ok || !mask.Contains(v.mask) {
+				continue
+			}
+
+			arch := v.reg.archetypeRegistry.Get(mask)
+			if arch == nil {
+				continue
+			}
+
+			if arch != lastArch {
+				{{range $i := seq $n}}
+				c{{add $i 1}} = arch.columns[v.ids[{{$i}}]]
+				{{end}}
+				lastArch = arch
+			}
+
+			idx, exists := arch.entityToIndex[e]
+			if !exists {
+				continue
+			}
+
+			row := Row{{$n}}[{{types $n}}]{
+				{{range $i := seq $n}}
+				V{{add $i 1}}: (*T{{add $i 1}})(unsafe.Add(c{{add $i 1}}.data, uintptr(idx)*uintptr(c{{add $i 1}}.itemSize))),
+				{{end}}
+			}
+
+			if !yield(e, row) {
+				return
 			}
 		}
 	}
@@ -69,6 +124,14 @@ func (v *View{{$n}}[{{types $n}}]) All() iter.Seq2[Entity, Row{{$n}}[{{types $n}
 
 func main() {
 	funcMap := template.FuncMap{
+		"add": func(a, b int) int { return a + b },
+		"seq": func(n int) []int {
+			res := make([]int, n)
+			for i := 0; i < n; i++ {
+				res[i] = i
+			}
+			return res
+		},
 		"params": func(n int) string {
 			p := make([]string, n)
 			for i := 0; i < n; i++ {
@@ -83,12 +146,26 @@ func main() {
 			}
 			return strings.Join(p, ", ")
 		},
+		"params_ptrs": func(n int) string {
+			p := make([]string, n)
+			for i := 0; i < n; i++ {
+				p[i] = fmt.Sprintf("*T%d", i+1)
+			}
+			return strings.Join(p, ", ")
+		},
 		"fields": func(n int) string {
 			f := make([]string, n)
 			for i := 0; i < n; i++ {
 				f[i] = fmt.Sprintf("V%d *T%d", i+1, i+1)
 			}
 			return strings.Join(f, "; ")
+		},
+		"row_returns": func(n int) string {
+			p := make([]string, n)
+			for i := 0; i < n; i++ {
+				p[i] = fmt.Sprintf("r.V%d", i+1)
+			}
+			return strings.Join(p, ", ")
 		},
 		"registration": func(n int) string {
 			var lines []string
@@ -104,20 +181,12 @@ func main() {
 			}
 			return strings.Join(ids, ", ")
 		},
-		"setup": func(n int) string {
-			var res []string
-			for i := 0; i < n; i++ {
-				res = append(res, fmt.Sprintf("ptr%d := arch.columns[v.ids[%d]].data", i+1, i))
-				res = append(res, fmt.Sprintf("size%d := uintptr(arch.columns[v.ids[%d]].itemSize)", i+1, i))
-			}
-			return strings.Join(res, "\n\t\t\t")
-		},
-		"rowFields": func(n int) string {
+		"row_fields_all": func(n int) string {
 			var res []string
 			for i := 0; i < n; i++ {
 				res = append(res, fmt.Sprintf("V%d: (*T%d)(ptr%d)", i+1, i+1, i+1))
 			}
-			return strings.Join(res, ",\n\t\t\t\t\t")
+			return strings.Join(res, ", ")
 		},
 		"advance": func(n int) string {
 			var res []string
