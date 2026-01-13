@@ -1,73 +1,54 @@
 package ecs
 
-import "reflect"
+import (
+	"reflect"
+)
 
 type ComponentID int
 
+type ComponentInfo struct {
+	ID   ComponentID
+	Size uintptr
+	Type reflect.Type
+}
+
 type componentsRegistry struct {
-	typeIDs  map[reflect.Type]ComponentID
-	storages map[ComponentID]storageInterface
-	deleters map[ComponentID]func(Entity)
+	typeToInfo map[reflect.Type]*ComponentInfo
+	idToInfo   map[ComponentID]*ComponentInfo
 }
 
 func newComponentsRegistry() *componentsRegistry {
 	return &componentsRegistry{
-		typeIDs:  make(map[reflect.Type]ComponentID),
-		storages: make(map[ComponentID]storageInterface),
-		deleters: make(map[ComponentID]func(Entity)),
+		typeToInfo: make(map[reflect.Type]*ComponentInfo),
+		idToInfo:   make(map[ComponentID]*ComponentInfo),
 	}
 }
 
-func (m *componentsRegistry) register(t reflect.Type, storage storageInterface, deleter func(Entity)) ComponentID {
-	if id, ok := m.typeIDs[t]; ok {
-		return id
+func (m *componentsRegistry) Get(t reflect.Type) (ComponentID, bool) {
+	if info, ok := m.typeToInfo[t]; ok {
+		return info.ID, true
+	}
+	return 0, false
+}
+
+func (m *componentsRegistry) GetOrRegister(t reflect.Type) ComponentID {
+	if info, ok := m.typeToInfo[t]; ok {
+		return info.ID
 	}
 
-	id := ComponentID(len(m.typeIDs))
-	m.typeIDs[t] = id
-	m.storages[id] = storage
-	m.deleters[id] = deleter
+	id := ComponentID(len(m.typeToInfo))
+	info := &ComponentInfo{
+		ID:   id,
+		Size: t.Size(),
+		Type: t,
+	}
 
+	m.typeToInfo[t] = info
+	m.idToInfo[id] = info
 	return id
-}
-
-func (m *componentsRegistry) id(t reflect.Type) (ComponentID, bool) {
-	id, ok := m.typeIDs[t]
-	return id, ok
-}
-
-func (m *componentsRegistry) removeAll(e Entity, mask Bitmask) {
-	mask.ForEachSet(func(id ComponentID) {
-		if deleter, ok := m.deleters[id]; ok {
-			deleter(e)
-		}
-	})
-}
-
-func componentId[T any](m *componentsRegistry) (ComponentID, bool) {
-	componentType := reflect.TypeFor[T]()
-	return m.id(componentType)
-}
-
-func setComponentValue[T any](m *componentsRegistry, entity Entity, id ComponentID, val T) {
-	storage := GetTypedStorage[T](m, id)
-	storage.Set(entity, val)
 }
 
 func ensureComponentRegistered[T any](m *componentsRegistry) ComponentID {
 	componentType := reflect.TypeFor[T]()
-
-	if id, ok := m.id(componentType); ok {
-		return id
-	}
-
-	storage := &ComponentStorage[T]{
-		data: make(map[Entity]*T),
-	}
-	return m.register(componentType, storage, storage.remove)
-}
-
-func GetTypedStorage[T any](m *componentsRegistry, id ComponentID) *ComponentStorage[T] {
-	s := m.storages[id]
-	return s.(*ComponentStorage[T])
+	return m.GetOrRegister(componentType)
 }

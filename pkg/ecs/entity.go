@@ -1,11 +1,16 @@
 package ecs
 
+const (
+	IndexMask       = 0xFFFFFFFF
+	GenerationShift = 32
+)
+
 type Entity uint64
 
 type entitiesRegistry struct {
 	gen   *entityGenerator
 	list  *aliveList
-	masks []Bitmask
+	masks []ArchetypeMask
 }
 
 func newEntitiesRegistry() *entitiesRegistry {
@@ -14,7 +19,7 @@ func newEntitiesRegistry() *entitiesRegistry {
 	return &entitiesRegistry{
 		gen:   newEntityGenerator(initialCapacity),
 		list:  newAliveList(initialCapacity),
-		masks: make([]Bitmask, 0, initialCapacity),
+		masks: make([]ArchetypeMask, 0, initialCapacity),
 	}
 }
 
@@ -23,10 +28,10 @@ func (m *entitiesRegistry) create() Entity {
 	index := uint32(uint64(e) & IndexMask)
 
 	for int(index) >= len(m.masks) {
-		m.masks = append(m.masks, Bitmask{})
+		m.masks = append(m.masks, ArchetypeMask{})
 	}
 
-	m.masks[index] = Bitmask{}
+	m.masks[index] = ArchetypeMask{}
 	m.list.add(index)
 	return e
 }
@@ -40,28 +45,28 @@ func (m *entitiesRegistry) destroy(e Entity) bool {
 	}
 
 	m.gen.release(e)
-	m.masks[index] = nil
+	m.masks[index] = ArchetypeMask{}
 	m.list.remove(index)
 
 	return true
 }
 
-func (m *entitiesRegistry) mask(e Entity) (Bitmask, bool) {
+func (m *entitiesRegistry) GetMask(e Entity) (ArchetypeMask, bool) {
 	index := uint32(uint64(e) & IndexMask)
 	gen := uint32(uint64(e) >> GenerationShift)
 
 	if index >= uint32(len(m.masks)) {
-		return Bitmask{}, false
+		return ArchetypeMask{}, false
 	}
 
 	if m.gen.generations[index] != gen {
-		return Bitmask{}, false
+		return ArchetypeMask{}, false
 	}
 
 	return m.masks[index], true
 }
 
-func (m *entitiesRegistry) updateMask(e Entity, newMask Bitmask) bool {
+func (m *entitiesRegistry) updateMask(e Entity, newMask ArchetypeMask) bool {
 	index := uint32(uint64(e) & IndexMask)
 	gen := uint32(uint64(e) >> GenerationShift)
 
@@ -73,8 +78,8 @@ func (m *entitiesRegistry) updateMask(e Entity, newMask Bitmask) bool {
 	return true
 }
 
-func (m *entitiesRegistry) active() func(func(e Entity, mask Bitmask) bool) {
-	return func(yield func(e Entity, mask Bitmask) bool) {
+func (m *entitiesRegistry) active() func(func(e Entity, mask ArchetypeMask) bool) {
+	return func(yield func(e Entity, mask ArchetypeMask) bool) {
 		for _, index := range m.list.alive {
 			gen := m.gen.generations[index]
 			e := Entity(uint64(gen)<<GenerationShift | uint64(index))
@@ -126,11 +131,6 @@ func (l *aliveList) remove(index uint32) {
 }
 
 //-----------------------------
-
-const (
-	IndexMask       = 0xFFFFFFFF
-	GenerationShift = 32
-)
 
 type entityGenerator struct {
 	lastID      uint32

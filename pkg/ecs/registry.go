@@ -1,72 +1,116 @@
 package ecs
 
+import (
+	"reflect"
+	"unsafe"
+)
+
 type Registry struct {
 	entitiesRegistry   *entitiesRegistry
 	componentsRegistry *componentsRegistry
+	archetypeRegistry  *archetypeRegistry
 }
 
 func newRegistry() *Registry {
+	componentsRegistry := newComponentsRegistry()
 	return &Registry{
 		entitiesRegistry:   newEntitiesRegistry(),
-		componentsRegistry: newComponentsRegistry(),
+		componentsRegistry: componentsRegistry,
+		archetypeRegistry:  newArchetypeRegistry(componentsRegistry),
 	}
 }
 
 func (r *Registry) RemoveEntity(entity Entity) {
-	mask, ok := r.entitiesRegistry.mask(entity)
+	mask, ok := r.entitiesRegistry.GetMask(entity)
 	if !ok {
 		return
 	}
 
-	r.componentsRegistry.removeAll(entity, mask)
+	arch := r.archetypeRegistry.Get(mask)
+	if arch == nil {
+		return
+	}
+
+	entityIndex, exists := arch.entityToIndex[entity]
+	if !exists {
+		return
+	}
+	arch.removeEntity(entityIndex)
+
 	r.entitiesRegistry.destroy(entity)
 }
 
 func assign[T any](reg *Registry, entity Entity, component T) {
-	id := ensureComponentRegistered[T](reg.componentsRegistry)
-	assignByID(reg, entity, id, component)
+	componentType := reflect.TypeFor[T]()
+	compID := reg.componentsRegistry.GetOrRegister(componentType)
+	assignByID(reg, entity, compID, component)
 }
 
-func assignByID[T any](reg *Registry, entity Entity, id ComponentID, component T) {
-	mask, ok := reg.entitiesRegistry.mask(entity)
-	if !ok {
-		return
-	}
-	setComponentValue(reg.componentsRegistry, entity, id, component)
-	reg.entitiesRegistry.updateMask(entity, mask.Set(id))
+func assignByID[T any](reg *Registry, entity Entity, compID ComponentID, component T) {
+	oldMask, _ := reg.entitiesRegistry.GetMask(entity)
+
+	newMask := oldMask.Set(compID)
+
+	newArch := reg.archetypeRegistry.GetOrRegister(newMask)
+
+	oldArch := reg.archetypeRegistry.Get(oldMask)
+
+	reg.archetypeRegistry.MoveEntity(entity, oldArch, newArch, compID, unsafe.Pointer(&component))
+
+	reg.entitiesRegistry.updateMask(entity, newMask)
 }
 
 func unassign[T any](reg *Registry, entity Entity) {
-	id, ok := componentId[T](reg.componentsRegistry)
+	componentType := reflect.TypeFor[T]()
+	id, ok := reg.componentsRegistry.Get(componentType)
 	if !ok {
 		return
 	}
 
-	reg.UnassignByID(entity, id)
+	reg.unassignByID(entity, id)
 }
 
-func (r *Registry) UnassignByID(e Entity, id ComponentID) {
-	if deleter, ok := r.componentsRegistry.deleters[id]; ok {
-		deleter(e)
+func (r *Registry) unassignByID(entity Entity, compID ComponentID) {
+	mask, maskExists := r.entitiesRegistry.GetMask(entity)
+	if !maskExists || !mask.IsSet(compID) {
+		return
 	}
 
-	if mask, ok := r.entitiesRegistry.mask(e); ok {
-		newMask := mask.Clear(id)
-		r.entitiesRegistry.updateMask(e, newMask)
-	}
+	newMask := mask.Clear(compID)
+	oldArch := r.archetypeRegistry.Get(mask)
+	newArch := r.archetypeRegistry.GetOrRegister(newMask)
+
+	r.archetypeRegistry.MoveEntityOnly(entity, oldArch, newArch)
+
+	r.entitiesRegistry.updateMask(entity, newMask)
 }
 
-func getComponent[T any](reg *Registry, e Entity) *T {
-	id, ok := componentId[T](reg.componentsRegistry)
+func getComponent[T any](reg *Registry, entity Entity) *T {
+	componentType := reflect.TypeFor[T]()
+	componentID, ok := reg.componentsRegistry.Get(componentType)
 	if !ok {
 		return nil
 	}
 
-	mask, exists := reg.entitiesRegistry.mask(e)
-	if !exists || !mask.IsSet(id) {
+	mask, ok := reg.entitiesRegistry.GetMask(entity)
+	if !ok {
 		return nil
 	}
 
-	storage := reg.componentsRegistry.storages[id].(*ComponentStorage[T])
-	return storage.data[e]
+	arch := reg.archetypeRegistry.Get(mask)
+	if arch == nil {
+		return nil
+	}
+
+	entityIndex, ok := arch.entityToIndex[entity]
+	if !ok {
+		return nil
+	}
+
+	col, ok := arch.columns[componentID]
+	if !ok {
+		return nil
+	}
+
+	return (*T)(col.GetElement(entityIndex))
 }
