@@ -48,11 +48,9 @@ func assign[T any](reg *Registry, entity Entity, component T) {
 
 func assignByID[T any](reg *Registry, entity Entity, compID ComponentID, component T) {
 	oldMask, _ := reg.entitiesRegistry.GetMask(entity)
-
 	newMask := oldMask.Set(compID)
 
 	newArch := reg.archetypeRegistry.GetOrRegister(newMask)
-
 	oldArch := reg.archetypeRegistry.Get(oldMask)
 
 	reg.archetypeRegistry.MoveEntity(entity, oldArch, newArch, compID, unsafe.Pointer(&component))
@@ -107,10 +105,11 @@ func getComponent[T any](reg *Registry, entity Entity) *T {
 		return nil
 	}
 
-	col, ok := arch.columns[componentID]
+	colIdx, ok := arch.colTable[componentID]
 	if !ok {
 		return nil
 	}
+	col := &arch.columns[colIdx]
 
 	return (*T)(col.GetElement(entityIndex))
 }

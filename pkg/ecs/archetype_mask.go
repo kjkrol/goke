@@ -55,3 +55,12 @@ func (b ArchetypeMask) IsSet(bit ComponentID) bool {
 	}
 	return (b[word] & (1 << pos)) != 0
 }
+
+// Count zwraca liczbę ustawionych bitów w masce (liczbę komponentów).
+func (b ArchetypeMask) Count() int {
+	count := 0
+	for i := 0; i < MaskSize; i++ {
+		count += bits.OnesCount64(b[i])
+	}
+	return count
+}
