@@ -97,6 +97,16 @@ The following benchmarks demonstrate the efficiency of SoA (Structure of Arrays)
 | **10,000** | **View3 Filtered** | 100 | **~463 ns** | 4.63 ns | O(1) Record Lookup |
 | **100,000** | **View3 Filtered** | 100 | **~462 ns** | 4.62 ns | O(1) Record Lookup |
 
+### Benchmarks (AMD Ryzen 7 5825U)
+The following benchmarks demonstrate the efficiency of SoA (Structure of Arrays) and the $O(1)$ nature of our record-based filtering on x86_64 architecture.
+
+| Registry Size ($N$) | Operation | Entities Processed ($k$) | Total Time | Per Entity | Mechanism |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| 100,000 | **View1 All** | 100,000 | ~47,292 ns | **0.47 ns** | Linear SoA Access |
+| 100,000 | **View3 All** | 100,000 | ~56,188 ns | **0.56 ns** | Multi-column SoA |
+| **1,000** | **View3 Filtered** | 100 | **~507 ns** | 5.07 ns | O(1) Record Lookup |
+| **10,000** | **View3 Filtered** | 100 | **~575 ns** | 5.75 ns | O(1) Record Lookup |
+| **100,000** | **View3 Filtered** | 100 | **~516 ns** | 5.16 ns | O(1) Record Lookup |
 
 ### Key Technical Takeaways
 
