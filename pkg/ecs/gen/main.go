@@ -14,7 +14,6 @@ import (
 	"iter"
 	"unsafe"
 )
-
 {{range .Count}}
 {{$n := .}}
 // -------------- View{{$n}} --------------
@@ -60,7 +59,6 @@ func (v *View{{$n}}[{{types $n}}]) All() iter.Seq2[Entity, Row{{$n}}[{{types $n}
 				continue
 			}
 
-			// HOISTING: Pobieramy kolumny raz na cały archetyp
 			{{range $i := seq $n}}
 			col{{add $i 1}} := arch.columns[v.ids[{{$i}}]]
 			ptr{{add $i 1}} := col{{add $i 1}}.data
@@ -78,46 +76,42 @@ func (v *View{{$n}}[{{types $n}}]) All() iter.Seq2[Entity, Row{{$n}}[{{types $n}
 }
 
 func (v *View{{$n}}[{{types $n}}]) Filtered(entities []Entity) iter.Seq2[Entity, Row{{$n}}[{{types $n}}]] {
-	return func(yield func(Entity, Row{{$n}}[{{types $n}}]) bool) {
-		var lastArch *archetype
-		{{range $i := seq $n}}
-		var c{{add $i 1}} *column
-		{{end}}
+    return func(yield func(Entity, Row{{$n}}[{{types $n}}]) bool) {
+        var lastArch *archetype
+        {{range $i := seq $n}}
+        var c{{add $i 1}} *column
+        {{end}}
 
-		for _, e := range entities {
-			mask, ok := v.reg.entitiesRegistry.GetMask(e)
-			if !ok || !mask.Contains(v.mask) {
-				continue
-			}
+        for _, e := range entities {
+            rec, ok := v.reg.entitiesRegistry.GetRecord(e)
+            if !ok {
+                continue
+            }
 
-			arch := v.reg.archetypeRegistry.Get(mask)
-			if arch == nil {
-				continue
-			}
+            arch := rec.arch
+            if arch == nil || !arch.mask.Contains(v.mask) {
+                continue
+            }
 
-			if arch != lastArch {
-				{{range $i := seq $n}}
-				c{{add $i 1}} = arch.columns[v.ids[{{$i}}]]
-				{{end}}
-				lastArch = arch
-			}
+            if arch != lastArch {
+                {{range $i := seq $n}}
+                c{{add $i 1}} = arch.columns[v.ids[{{$i}}]]
+                {{end}}
+                lastArch = arch
+            }
 
-			idx, exists := arch.entityToIndex[e]
-			if !exists {
-				continue
-			}
+            idx := rec.index
+            row := Row{{$n}}[{{types $n}}]{
+                {{range $i := seq $n}}
+                V{{add $i 1}}: (*T{{add $i 1}})(unsafe.Add(c{{add $i 1}}.data, uintptr(idx)*c{{add $i 1}}.itemSize)),
+                {{end}}
+            }
 
-			row := Row{{$n}}[{{types $n}}]{
-				{{range $i := seq $n}}
-				V{{add $i 1}}: (*T{{add $i 1}})(unsafe.Add(c{{add $i 1}}.data, uintptr(idx)*uintptr(c{{add $i 1}}.itemSize))),
-				{{end}}
-			}
-
-			if !yield(e, row) {
-				return
-			}
-		}
-	}
+            if !yield(e, row) {
+                return
+            }
+        }
+    }
 }
 {{end}}
 `

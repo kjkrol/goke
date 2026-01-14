@@ -7,28 +7,25 @@ import (
 const initCapacity = 1024
 
 type archetype struct {
-	mask          ArchetypeMask
-	entities      []Entity
-	columns       map[ComponentID]*column
-	entityToIndex map[Entity]int
-	len           int
-	cap           int
+	mask     ArchetypeMask
+	entities []Entity
+	columns  map[ComponentID]*column
+	len      int
+	cap      int
 }
 
 func newArchetype(mask ArchetypeMask) *archetype {
 	return &archetype{
-		mask:          mask,
-		entities:      make([]Entity, initCapacity),
-		columns:       make(map[ComponentID]*column),
-		entityToIndex: make(map[Entity]int),
-		len:           0,
-		cap:           initCapacity,
+		mask:     mask,
+		entities: make([]Entity, initCapacity),
+		columns:  make(map[ComponentID]*column),
+		len:      0,
+		cap:      initCapacity,
 	}
 }
 
-func (a *archetype) addEntity(entity Entity, compID ComponentID, data unsafe.Pointer) {
+func (a *archetype) addEntity(entity Entity, compID ComponentID, data unsafe.Pointer) int {
 	a.ensureCapacity()
-
 	newIdx := a.registerEntity(entity)
 
 	for id, col := range a.columns {
@@ -38,6 +35,7 @@ func (a *archetype) addEntity(entity Entity, compID ComponentID, data unsafe.Poi
 			col.zeroData(newIdx)
 		}
 	}
+	return newIdx
 }
 
 func (a *archetype) ensureCapacity() {
@@ -61,9 +59,8 @@ func (a *archetype) ensureCapacity() {
 	a.cap = newCap
 }
 
-func (a *archetype) removeEntity(index int) {
+func (a *archetype) removeEntity(index int) Entity {
 	lastIdx := a.len - 1
-	entityToRemove := a.entities[index]
 	lastEntity := a.entities[lastIdx]
 
 	for _, col := range a.columns {
@@ -75,19 +72,20 @@ func (a *archetype) removeEntity(index int) {
 
 	if index != lastIdx {
 		a.entities[index] = lastEntity
-		a.entityToIndex[lastEntity] = index
+		a.entities[lastIdx] = 0
+		a.len--
+		return lastEntity
 	}
 
 	a.entities[lastIdx] = 0
-	delete(a.entityToIndex, entityToRemove)
 	a.len--
+	return 0
 }
 
 func (a *archetype) registerEntity(entity Entity) int {
 	newIdx := a.len
 
 	a.entities[newIdx] = entity
-	a.entityToIndex[entity] = newIdx
 	a.len++
 
 	return newIdx
