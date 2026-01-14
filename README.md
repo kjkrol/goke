@@ -82,19 +82,28 @@ func main() {
 }
 ```
 
-## Performance Metrics
+## Performance & Scalability
 
-GOKE minimizes "Pointer Chasing" by ensuring data is ready in the CPU cache before the loop requests it. By organizing memory into Archetypes (Structure of Arrays), we achieve near-theoretical limits for data throughput on modern hardware.
+The engine is engineered for extreme scalability and deterministic performance. By utilizing a **Centralized Record System** (dense array lookup) instead of traditional hash maps, we have effectively decoupled query performance from the total entity count ($N$).
 
-| Operation (1000 entities) | Total Time | Per Entity | Mechanism |
-| :--- | :--- | :--- | :--- |
-| **View1 All** | ~502 ns | **0.50 ns** | Linear SoA Access |
-| **View3 All** | ~547 ns | **0.54 ns** | Multi-column SoA |
-| **Filtered Access** | ~3850 ns | **3.85 ns** | Entity-to-Index Map |
+### Benchmarks (Apple M1 Max)
+The following benchmarks demonstrate the efficiency of SoA (Structure of Arrays) and the $O(1)$ nature of our record-based filtering.
 
-*Benchmarks performed on AMD Ryzen 7 5825U. Performance results demonstrate that GOKE is significantly faster than traditional map-based or reflection-based ECS implementations in Go.*
+| Registry Size ($N$) | Operation | Entities Processed ($k$) | Total Time | Per Entity | Mechanism |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| 100,000 | **View1 All** | 100,000 | ~43,462 ns | **0.43 ns** | Linear SoA Access |
+| 100,000 | **View3 All** | 100,000 | ~73,639 ns | **0.73 ns** | Multi-column SoA |
+| **1,000** | **View3 Filtered** | 100 | **~455 ns** | 4.55 ns | O(1) Record Lookup |
+| **10,000** | **View3 Filtered** | 100 | **~463 ns** | 4.63 ns | O(1) Record Lookup |
+| **100,000** | **View3 Filtered** | 100 | **~462 ns** | 4.62 ns | O(1) Record Lookup |
 
 
+### Key Technical Takeaways
+
+* **Deterministic $O(1)$ Filtering:** As shown in the benchmarks, querying 100 specific entities takes exactly the same time (~462 ns) whether the registry contains 1,000 or 100,000 entities. This is achieved by bypassing hash map probing entirely.
+* **Extreme Data Locality:** With a processing speed of **~0.43 ns per entity** in linear scans, the engine operates at near-memory-bandwidth limits, fully utilizing CPU prefetching and L1/L2 caches.
+* **Hybrid Iterator Strategy:** Our generated `Filtered` queries implement a "Last Archetype Cache". If the filtered list contains entities from the same archetype, the engine reuses column pointers, significantly reducing pointer arithmetic and memory-to-register traffic.
+* **Zero-Map Overhead:** By moving the "Entity to Index" mapping to a centralized, dense array of `Records`, we eliminated the cache-miss-heavy map lookups that typically slow down ECS engines as they scale.
 
 ## Memory Architecture (L1/L2 Cache Optimization)
 
