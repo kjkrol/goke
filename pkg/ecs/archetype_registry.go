@@ -55,40 +55,46 @@ func (r *archetypeRegistry) GetOrRegister(mask ArchetypeMask) *archetype {
 	return arch
 }
 
-func (r *archetypeRegistry) MoveEntity(entity Entity, oldArch *archetype, newArch *archetype, newCompID ComponentID, newData unsafe.Pointer) {
+func (r *archetypeRegistry) MoveEntity(reg *Registry, entity Entity, oldArch *archetype, newArch *archetype, newCompID ComponentID, newData unsafe.Pointer) {
+	entID := uint32(entity & IndexMask)
+
+	// Scenario A: initial component
 	if oldArch == nil {
-		newArch.addEntity(entity, newCompID, newData)
+		newIdx := newArch.addEntity(entity, newCompID, newData)
+		reg.entitiesRegistry.setRecord(entity, newArch, newIdx)
 		return
 	}
 
-	oldIdx, ok := oldArch.entityToIndex[entity]
-	if !ok {
-		newArch.addEntity(entity, newCompID, newData)
-		return
-	}
-
+	// Scenario B: migration between archetypes
+	oldIdx := reg.entitiesRegistry.records[entID].index
 	newArch.ensureCapacity()
 	newIdx := newArch.registerEntity(entity)
 
-	for id, oldCol := range oldArch.columns {
-		if newCol, exists := newArch.columns[id]; exists {
-			src := oldCol.GetElement(oldIdx)
-			newCol.setData(newIdx, src)
+	for id, newCol := range newArch.columns {
+		if oldCol, exists := oldArch.columns[id]; exists {
+			newCol.setData(newIdx, oldCol.GetElement(oldIdx))
+		} else if id == newCompID {
+			newCol.setData(newIdx, newData)
+		} else {
+			newCol.zeroData(newIdx)
 		}
 	}
 
-	if newCol, ok := newArch.columns[newCompID]; ok {
-		newCol.setData(newIdx, newData)
+	// Swap-and-Pop
+	swappedEntity := oldArch.removeEntity(oldIdx)
+	if swappedEntity != 0 {
+		reg.entitiesRegistry.setRecord(swappedEntity, oldArch, oldIdx)
 	}
 
-	oldArch.removeEntity(oldIdx)
+	reg.entitiesRegistry.setRecord(entity, newArch, newIdx)
 }
 
-func (r *archetypeRegistry) MoveEntityOnly(entity Entity, oldArch *archetype, newArch *archetype) {
-	oldIdx, ok := oldArch.entityToIndex[entity]
+func (r *archetypeRegistry) MoveEntityOnly(reg *Registry, entity Entity, oldArch *archetype, newArch *archetype) {
+	rec, ok := reg.entitiesRegistry.GetRecord(entity)
 	if !ok {
 		return
 	}
+	oldIdx := rec.index
 
 	newArch.ensureCapacity()
 	newIdx := newArch.registerEntity(entity)
@@ -101,4 +107,7 @@ func (r *archetypeRegistry) MoveEntityOnly(entity Entity, oldArch *archetype, ne
 	}
 
 	oldArch.removeEntity(oldIdx)
+
+	rec.arch = newArch
+	rec.index = newIdx
 }

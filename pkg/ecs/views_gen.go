@@ -7,7 +7,6 @@ import (
 )
 
 
-
 // -------------- View1 --------------
 
 type View1[T1 any] struct {
@@ -51,7 +50,6 @@ func (v *View1[T1]) All() iter.Seq2[Entity, Row1[T1]] {
 				continue
 			}
 
-			// HOISTING: Pobieramy kolumny raz na cały archetyp
 			
 			col1 := arch.columns[v.ids[0]]
 			ptr1 := col1.data
@@ -69,46 +67,42 @@ func (v *View1[T1]) All() iter.Seq2[Entity, Row1[T1]] {
 }
 
 func (v *View1[T1]) Filtered(entities []Entity) iter.Seq2[Entity, Row1[T1]] {
-	return func(yield func(Entity, Row1[T1]) bool) {
-		var lastArch *archetype
-		
-		var c1 *column
-		
+    return func(yield func(Entity, Row1[T1]) bool) {
+        var lastArch *archetype
+        
+        var c1 *column
+        
 
-		for _, e := range entities {
-			mask, ok := v.reg.entitiesRegistry.GetMask(e)
-			if !ok || !mask.Contains(v.mask) {
-				continue
-			}
+        for _, e := range entities {
+            rec, ok := v.reg.entitiesRegistry.GetRecord(e)
+            if !ok {
+                continue
+            }
 
-			arch := v.reg.archetypeRegistry.Get(mask)
-			if arch == nil {
-				continue
-			}
+            arch := rec.arch
+            if arch == nil || !arch.mask.Contains(v.mask) {
+                continue
+            }
 
-			if arch != lastArch {
-				
-				c1 = arch.columns[v.ids[0]]
-				
-				lastArch = arch
-			}
+            if arch != lastArch {
+                
+                c1 = arch.columns[v.ids[0]]
+                
+                lastArch = arch
+            }
 
-			idx, exists := arch.entityToIndex[e]
-			if !exists {
-				continue
-			}
+            idx := rec.index
+            row := Row1[T1]{
+                
+                V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*c1.itemSize)),
+                
+            }
 
-			row := Row1[T1]{
-				
-				V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*uintptr(c1.itemSize))),
-				
-			}
-
-			if !yield(e, row) {
-				return
-			}
-		}
-	}
+            if !yield(e, row) {
+                return
+            }
+        }
+    }
 }
 
 
@@ -156,7 +150,6 @@ func (v *View2[T1, T2]) All() iter.Seq2[Entity, Row2[T1, T2]] {
 				continue
 			}
 
-			// HOISTING: Pobieramy kolumny raz na cały archetyp
 			
 			col1 := arch.columns[v.ids[0]]
 			ptr1 := col1.data
@@ -179,52 +172,48 @@ func (v *View2[T1, T2]) All() iter.Seq2[Entity, Row2[T1, T2]] {
 }
 
 func (v *View2[T1, T2]) Filtered(entities []Entity) iter.Seq2[Entity, Row2[T1, T2]] {
-	return func(yield func(Entity, Row2[T1, T2]) bool) {
-		var lastArch *archetype
-		
-		var c1 *column
-		
-		var c2 *column
-		
+    return func(yield func(Entity, Row2[T1, T2]) bool) {
+        var lastArch *archetype
+        
+        var c1 *column
+        
+        var c2 *column
+        
 
-		for _, e := range entities {
-			mask, ok := v.reg.entitiesRegistry.GetMask(e)
-			if !ok || !mask.Contains(v.mask) {
-				continue
-			}
+        for _, e := range entities {
+            rec, ok := v.reg.entitiesRegistry.GetRecord(e)
+            if !ok {
+                continue
+            }
 
-			arch := v.reg.archetypeRegistry.Get(mask)
-			if arch == nil {
-				continue
-			}
+            arch := rec.arch
+            if arch == nil || !arch.mask.Contains(v.mask) {
+                continue
+            }
 
-			if arch != lastArch {
-				
-				c1 = arch.columns[v.ids[0]]
-				
-				c2 = arch.columns[v.ids[1]]
-				
-				lastArch = arch
-			}
+            if arch != lastArch {
+                
+                c1 = arch.columns[v.ids[0]]
+                
+                c2 = arch.columns[v.ids[1]]
+                
+                lastArch = arch
+            }
 
-			idx, exists := arch.entityToIndex[e]
-			if !exists {
-				continue
-			}
+            idx := rec.index
+            row := Row2[T1, T2]{
+                
+                V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*c1.itemSize)),
+                
+                V2: (*T2)(unsafe.Add(c2.data, uintptr(idx)*c2.itemSize)),
+                
+            }
 
-			row := Row2[T1, T2]{
-				
-				V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*uintptr(c1.itemSize))),
-				
-				V2: (*T2)(unsafe.Add(c2.data, uintptr(idx)*uintptr(c2.itemSize))),
-				
-			}
-
-			if !yield(e, row) {
-				return
-			}
-		}
-	}
+            if !yield(e, row) {
+                return
+            }
+        }
+    }
 }
 
 
@@ -273,7 +262,6 @@ func (v *View3[T1, T2, T3]) All() iter.Seq2[Entity, Row3[T1, T2, T3]] {
 				continue
 			}
 
-			// HOISTING: Pobieramy kolumny raz na cały archetyp
 			
 			col1 := arch.columns[v.ids[0]]
 			ptr1 := col1.data
@@ -301,58 +289,54 @@ func (v *View3[T1, T2, T3]) All() iter.Seq2[Entity, Row3[T1, T2, T3]] {
 }
 
 func (v *View3[T1, T2, T3]) Filtered(entities []Entity) iter.Seq2[Entity, Row3[T1, T2, T3]] {
-	return func(yield func(Entity, Row3[T1, T2, T3]) bool) {
-		var lastArch *archetype
-		
-		var c1 *column
-		
-		var c2 *column
-		
-		var c3 *column
-		
+    return func(yield func(Entity, Row3[T1, T2, T3]) bool) {
+        var lastArch *archetype
+        
+        var c1 *column
+        
+        var c2 *column
+        
+        var c3 *column
+        
 
-		for _, e := range entities {
-			mask, ok := v.reg.entitiesRegistry.GetMask(e)
-			if !ok || !mask.Contains(v.mask) {
-				continue
-			}
+        for _, e := range entities {
+            rec, ok := v.reg.entitiesRegistry.GetRecord(e)
+            if !ok {
+                continue
+            }
 
-			arch := v.reg.archetypeRegistry.Get(mask)
-			if arch == nil {
-				continue
-			}
+            arch := rec.arch
+            if arch == nil || !arch.mask.Contains(v.mask) {
+                continue
+            }
 
-			if arch != lastArch {
-				
-				c1 = arch.columns[v.ids[0]]
-				
-				c2 = arch.columns[v.ids[1]]
-				
-				c3 = arch.columns[v.ids[2]]
-				
-				lastArch = arch
-			}
+            if arch != lastArch {
+                
+                c1 = arch.columns[v.ids[0]]
+                
+                c2 = arch.columns[v.ids[1]]
+                
+                c3 = arch.columns[v.ids[2]]
+                
+                lastArch = arch
+            }
 
-			idx, exists := arch.entityToIndex[e]
-			if !exists {
-				continue
-			}
+            idx := rec.index
+            row := Row3[T1, T2, T3]{
+                
+                V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*c1.itemSize)),
+                
+                V2: (*T2)(unsafe.Add(c2.data, uintptr(idx)*c2.itemSize)),
+                
+                V3: (*T3)(unsafe.Add(c3.data, uintptr(idx)*c3.itemSize)),
+                
+            }
 
-			row := Row3[T1, T2, T3]{
-				
-				V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*uintptr(c1.itemSize))),
-				
-				V2: (*T2)(unsafe.Add(c2.data, uintptr(idx)*uintptr(c2.itemSize))),
-				
-				V3: (*T3)(unsafe.Add(c3.data, uintptr(idx)*uintptr(c3.itemSize))),
-				
-			}
-
-			if !yield(e, row) {
-				return
-			}
-		}
-	}
+            if !yield(e, row) {
+                return
+            }
+        }
+    }
 }
 
 
@@ -402,7 +386,6 @@ func (v *View4[T1, T2, T3, T4]) All() iter.Seq2[Entity, Row4[T1, T2, T3, T4]] {
 				continue
 			}
 
-			// HOISTING: Pobieramy kolumny raz na cały archetyp
 			
 			col1 := arch.columns[v.ids[0]]
 			ptr1 := col1.data
@@ -435,64 +418,60 @@ func (v *View4[T1, T2, T3, T4]) All() iter.Seq2[Entity, Row4[T1, T2, T3, T4]] {
 }
 
 func (v *View4[T1, T2, T3, T4]) Filtered(entities []Entity) iter.Seq2[Entity, Row4[T1, T2, T3, T4]] {
-	return func(yield func(Entity, Row4[T1, T2, T3, T4]) bool) {
-		var lastArch *archetype
-		
-		var c1 *column
-		
-		var c2 *column
-		
-		var c3 *column
-		
-		var c4 *column
-		
+    return func(yield func(Entity, Row4[T1, T2, T3, T4]) bool) {
+        var lastArch *archetype
+        
+        var c1 *column
+        
+        var c2 *column
+        
+        var c3 *column
+        
+        var c4 *column
+        
 
-		for _, e := range entities {
-			mask, ok := v.reg.entitiesRegistry.GetMask(e)
-			if !ok || !mask.Contains(v.mask) {
-				continue
-			}
+        for _, e := range entities {
+            rec, ok := v.reg.entitiesRegistry.GetRecord(e)
+            if !ok {
+                continue
+            }
 
-			arch := v.reg.archetypeRegistry.Get(mask)
-			if arch == nil {
-				continue
-			}
+            arch := rec.arch
+            if arch == nil || !arch.mask.Contains(v.mask) {
+                continue
+            }
 
-			if arch != lastArch {
-				
-				c1 = arch.columns[v.ids[0]]
-				
-				c2 = arch.columns[v.ids[1]]
-				
-				c3 = arch.columns[v.ids[2]]
-				
-				c4 = arch.columns[v.ids[3]]
-				
-				lastArch = arch
-			}
+            if arch != lastArch {
+                
+                c1 = arch.columns[v.ids[0]]
+                
+                c2 = arch.columns[v.ids[1]]
+                
+                c3 = arch.columns[v.ids[2]]
+                
+                c4 = arch.columns[v.ids[3]]
+                
+                lastArch = arch
+            }
 
-			idx, exists := arch.entityToIndex[e]
-			if !exists {
-				continue
-			}
+            idx := rec.index
+            row := Row4[T1, T2, T3, T4]{
+                
+                V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*c1.itemSize)),
+                
+                V2: (*T2)(unsafe.Add(c2.data, uintptr(idx)*c2.itemSize)),
+                
+                V3: (*T3)(unsafe.Add(c3.data, uintptr(idx)*c3.itemSize)),
+                
+                V4: (*T4)(unsafe.Add(c4.data, uintptr(idx)*c4.itemSize)),
+                
+            }
 
-			row := Row4[T1, T2, T3, T4]{
-				
-				V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*uintptr(c1.itemSize))),
-				
-				V2: (*T2)(unsafe.Add(c2.data, uintptr(idx)*uintptr(c2.itemSize))),
-				
-				V3: (*T3)(unsafe.Add(c3.data, uintptr(idx)*uintptr(c3.itemSize))),
-				
-				V4: (*T4)(unsafe.Add(c4.data, uintptr(idx)*uintptr(c4.itemSize))),
-				
-			}
-
-			if !yield(e, row) {
-				return
-			}
-		}
-	}
+            if !yield(e, row) {
+                return
+            }
+        }
+    }
 }
 
 
@@ -543,7 +522,6 @@ func (v *View5[T1, T2, T3, T4, T5]) All() iter.Seq2[Entity, Row5[T1, T2, T3, T4,
 				continue
 			}
 
-			// HOISTING: Pobieramy kolumny raz na cały archetyp
 			
 			col1 := arch.columns[v.ids[0]]
 			ptr1 := col1.data
@@ -581,70 +559,66 @@ func (v *View5[T1, T2, T3, T4, T5]) All() iter.Seq2[Entity, Row5[T1, T2, T3, T4,
 }
 
 func (v *View5[T1, T2, T3, T4, T5]) Filtered(entities []Entity) iter.Seq2[Entity, Row5[T1, T2, T3, T4, T5]] {
-	return func(yield func(Entity, Row5[T1, T2, T3, T4, T5]) bool) {
-		var lastArch *archetype
-		
-		var c1 *column
-		
-		var c2 *column
-		
-		var c3 *column
-		
-		var c4 *column
-		
-		var c5 *column
-		
+    return func(yield func(Entity, Row5[T1, T2, T3, T4, T5]) bool) {
+        var lastArch *archetype
+        
+        var c1 *column
+        
+        var c2 *column
+        
+        var c3 *column
+        
+        var c4 *column
+        
+        var c5 *column
+        
 
-		for _, e := range entities {
-			mask, ok := v.reg.entitiesRegistry.GetMask(e)
-			if !ok || !mask.Contains(v.mask) {
-				continue
-			}
+        for _, e := range entities {
+            rec, ok := v.reg.entitiesRegistry.GetRecord(e)
+            if !ok {
+                continue
+            }
 
-			arch := v.reg.archetypeRegistry.Get(mask)
-			if arch == nil {
-				continue
-			}
+            arch := rec.arch
+            if arch == nil || !arch.mask.Contains(v.mask) {
+                continue
+            }
 
-			if arch != lastArch {
-				
-				c1 = arch.columns[v.ids[0]]
-				
-				c2 = arch.columns[v.ids[1]]
-				
-				c3 = arch.columns[v.ids[2]]
-				
-				c4 = arch.columns[v.ids[3]]
-				
-				c5 = arch.columns[v.ids[4]]
-				
-				lastArch = arch
-			}
+            if arch != lastArch {
+                
+                c1 = arch.columns[v.ids[0]]
+                
+                c2 = arch.columns[v.ids[1]]
+                
+                c3 = arch.columns[v.ids[2]]
+                
+                c4 = arch.columns[v.ids[3]]
+                
+                c5 = arch.columns[v.ids[4]]
+                
+                lastArch = arch
+            }
 
-			idx, exists := arch.entityToIndex[e]
-			if !exists {
-				continue
-			}
+            idx := rec.index
+            row := Row5[T1, T2, T3, T4, T5]{
+                
+                V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*c1.itemSize)),
+                
+                V2: (*T2)(unsafe.Add(c2.data, uintptr(idx)*c2.itemSize)),
+                
+                V3: (*T3)(unsafe.Add(c3.data, uintptr(idx)*c3.itemSize)),
+                
+                V4: (*T4)(unsafe.Add(c4.data, uintptr(idx)*c4.itemSize)),
+                
+                V5: (*T5)(unsafe.Add(c5.data, uintptr(idx)*c5.itemSize)),
+                
+            }
 
-			row := Row5[T1, T2, T3, T4, T5]{
-				
-				V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*uintptr(c1.itemSize))),
-				
-				V2: (*T2)(unsafe.Add(c2.data, uintptr(idx)*uintptr(c2.itemSize))),
-				
-				V3: (*T3)(unsafe.Add(c3.data, uintptr(idx)*uintptr(c3.itemSize))),
-				
-				V4: (*T4)(unsafe.Add(c4.data, uintptr(idx)*uintptr(c4.itemSize))),
-				
-				V5: (*T5)(unsafe.Add(c5.data, uintptr(idx)*uintptr(c5.itemSize))),
-				
-			}
-
-			if !yield(e, row) {
-				return
-			}
-		}
-	}
+            if !yield(e, row) {
+                return
+            }
+        }
+    }
 }
 
 
@@ -696,7 +670,6 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq2[Entity, Row6[T1, T2, T3,
 				continue
 			}
 
-			// HOISTING: Pobieramy kolumny raz na cały archetyp
 			
 			col1 := arch.columns[v.ids[0]]
 			ptr1 := col1.data
@@ -739,75 +712,71 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq2[Entity, Row6[T1, T2, T3,
 }
 
 func (v *View6[T1, T2, T3, T4, T5, T6]) Filtered(entities []Entity) iter.Seq2[Entity, Row6[T1, T2, T3, T4, T5, T6]] {
-	return func(yield func(Entity, Row6[T1, T2, T3, T4, T5, T6]) bool) {
-		var lastArch *archetype
-		
-		var c1 *column
-		
-		var c2 *column
-		
-		var c3 *column
-		
-		var c4 *column
-		
-		var c5 *column
-		
-		var c6 *column
-		
+    return func(yield func(Entity, Row6[T1, T2, T3, T4, T5, T6]) bool) {
+        var lastArch *archetype
+        
+        var c1 *column
+        
+        var c2 *column
+        
+        var c3 *column
+        
+        var c4 *column
+        
+        var c5 *column
+        
+        var c6 *column
+        
 
-		for _, e := range entities {
-			mask, ok := v.reg.entitiesRegistry.GetMask(e)
-			if !ok || !mask.Contains(v.mask) {
-				continue
-			}
+        for _, e := range entities {
+            rec, ok := v.reg.entitiesRegistry.GetRecord(e)
+            if !ok {
+                continue
+            }
 
-			arch := v.reg.archetypeRegistry.Get(mask)
-			if arch == nil {
-				continue
-			}
+            arch := rec.arch
+            if arch == nil || !arch.mask.Contains(v.mask) {
+                continue
+            }
 
-			if arch != lastArch {
-				
-				c1 = arch.columns[v.ids[0]]
-				
-				c2 = arch.columns[v.ids[1]]
-				
-				c3 = arch.columns[v.ids[2]]
-				
-				c4 = arch.columns[v.ids[3]]
-				
-				c5 = arch.columns[v.ids[4]]
-				
-				c6 = arch.columns[v.ids[5]]
-				
-				lastArch = arch
-			}
+            if arch != lastArch {
+                
+                c1 = arch.columns[v.ids[0]]
+                
+                c2 = arch.columns[v.ids[1]]
+                
+                c3 = arch.columns[v.ids[2]]
+                
+                c4 = arch.columns[v.ids[3]]
+                
+                c5 = arch.columns[v.ids[4]]
+                
+                c6 = arch.columns[v.ids[5]]
+                
+                lastArch = arch
+            }
 
-			idx, exists := arch.entityToIndex[e]
-			if !exists {
-				continue
-			}
+            idx := rec.index
+            row := Row6[T1, T2, T3, T4, T5, T6]{
+                
+                V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*c1.itemSize)),
+                
+                V2: (*T2)(unsafe.Add(c2.data, uintptr(idx)*c2.itemSize)),
+                
+                V3: (*T3)(unsafe.Add(c3.data, uintptr(idx)*c3.itemSize)),
+                
+                V4: (*T4)(unsafe.Add(c4.data, uintptr(idx)*c4.itemSize)),
+                
+                V5: (*T5)(unsafe.Add(c5.data, uintptr(idx)*c5.itemSize)),
+                
+                V6: (*T6)(unsafe.Add(c6.data, uintptr(idx)*c6.itemSize)),
+                
+            }
 
-			row := Row6[T1, T2, T3, T4, T5, T6]{
-				
-				V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*uintptr(c1.itemSize))),
-				
-				V2: (*T2)(unsafe.Add(c2.data, uintptr(idx)*uintptr(c2.itemSize))),
-				
-				V3: (*T3)(unsafe.Add(c3.data, uintptr(idx)*uintptr(c3.itemSize))),
-				
-				V4: (*T4)(unsafe.Add(c4.data, uintptr(idx)*uintptr(c4.itemSize))),
-				
-				V5: (*T5)(unsafe.Add(c5.data, uintptr(idx)*uintptr(c5.itemSize))),
-				
-				V6: (*T6)(unsafe.Add(c6.data, uintptr(idx)*uintptr(c6.itemSize))),
-				
-			}
-
-			if !yield(e, row) {
-				return
-			}
-		}
-	}
+            if !yield(e, row) {
+                return
+            }
+        }
+    }
 }
 
