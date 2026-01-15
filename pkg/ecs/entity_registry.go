@@ -20,7 +20,7 @@ func newEntitiesRegistry() *entitiesRegistry {
 }
 
 func (m *entitiesRegistry) GetBackLink(e Entity) (*ArchRowBacklink, bool) {
-	index := IndexOf(e)
+	index := e.Index()
 
 	if int(index) >= len(m.entityBacklinks) {
 		return &ArchRowBacklink{}, false
@@ -36,7 +36,7 @@ func (m *entitiesRegistry) GetBackLink(e Entity) (*ArchRowBacklink, bool) {
 func (m *entitiesRegistry) create() Entity {
 	entity := m.entityPool.Next()
 
-	index := IndexOf(entity)
+	index := entity.Index()
 	for int(index) >= len(m.entityBacklinks) {
 		m.entityBacklinks = append(m.entityBacklinks, ArchRowBacklink{})
 	}
@@ -51,13 +51,13 @@ func (m *entitiesRegistry) destroy(e Entity) bool {
 	}
 
 	m.entityPool.Release(e)
-	index := IndexOf(e)
+	index := e.Index()
 	m.entityBacklinks[index] = ArchRowBacklink{}
 
 	return true
 }
 
 func (m *entitiesRegistry) SetBacklink(e Entity, arch *archetype, indexInArch int) {
-	index := IndexOf(e)
+	index := e.Index()
 	m.entityBacklinks[index] = ArchRowBacklink{arch: arch, index: indexInArch}
 }

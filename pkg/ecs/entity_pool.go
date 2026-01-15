@@ -25,17 +25,17 @@ func (p *EntityGenerationalPool) Next() Entity {
 	}
 
 	gen := p.generations[index]
-	return EntityFrom(gen, index)
+	return NewEntity(gen, index)
 }
 
 func (p *EntityGenerationalPool) Release(e Entity) uint32 {
-	index := IndexOf(e)
+	index := e.Index()
 	p.generations[index]++
 	p.freeIndicies = append(p.freeIndicies, index)
 	return index
 }
 
 func (p *EntityGenerationalPool) IsValid(e Entity) bool {
-	index, gen := IndexWithGenOf(e)
+	index, gen := e.Unpack()
 	return index < uint32(len(p.generations)) && p.generations[index] == gen
 }
