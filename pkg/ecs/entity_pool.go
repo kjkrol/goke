@@ -1,23 +1,23 @@
 package ecs
 
 type EntityGenerationalPool struct {
-	lastIndex    uint32
-	freeIndicies []uint32
-	generations  []uint32
+	lastIndex   uint32
+	freeIndices []uint32
+	generations []uint32
 }
 
 func NewEntityGenerator(initialCapacity int) *EntityGenerationalPool {
 	return &EntityGenerationalPool{
-		generations:  make([]uint32, 0, initialCapacity),
-		freeIndicies: make([]uint32, 0, 128),
+		generations: make([]uint32, 0, initialCapacity),
+		freeIndices: make([]uint32, 0, 128),
 	}
 }
 
 func (p *EntityGenerationalPool) Next() Entity {
 	var index uint32
-	if len(p.freeIndicies) > 0 {
-		index = p.freeIndicies[len(p.freeIndicies)-1]
-		p.freeIndicies = p.freeIndicies[:len(p.freeIndicies)-1]
+	if len(p.freeIndices) > 0 {
+		index = p.freeIndices[len(p.freeIndices)-1]
+		p.freeIndices = p.freeIndices[:len(p.freeIndices)-1]
 	} else {
 		index = p.lastIndex
 		p.lastIndex++
@@ -31,7 +31,7 @@ func (p *EntityGenerationalPool) Next() Entity {
 func (p *EntityGenerationalPool) Release(e Entity) uint32 {
 	index := e.Index()
 	p.generations[index]++
-	p.freeIndicies = append(p.freeIndicies, index)
+	p.freeIndices = append(p.freeIndices, index)
 	return index
 }
 
