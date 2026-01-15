@@ -1,40 +1,45 @@
 package ecs
 
 type entitiesRegistry struct {
-	gen     *entityGenerator
-	masks   []ArchetypeMask
-	records []entityRecord
+	entityPool *EntityGenerationalPool
+	masks      []ArchetypeMask
+	records    []ArchRowBacklink
+}
+
+type ArchRowBacklink struct {
+	arch  *archetype
+	index int
 }
 
 func newEntitiesRegistry() *entitiesRegistry {
 	const initialCapacity = 1024
 
 	return &entitiesRegistry{
-		gen:   newEntityGenerator(initialCapacity),
-		masks: make([]ArchetypeMask, 0, initialCapacity),
+		entityPool: NewEntityGenerator(initialCapacity),
+		masks:      make([]ArchetypeMask, 0, initialCapacity),
 	}
 }
 
-func (m *entitiesRegistry) GetRecord(e Entity) (*entityRecord, bool) {
-	id := uint32(e & IndexMask)
+func (m *entitiesRegistry) GetRecord(e Entity) (*ArchRowBacklink, bool) {
+	index, gen := IndexWithGenOf(e)
 
-	if int(id) >= len(m.records) {
-		return &entityRecord{}, false
+	if int(index) >= len(m.records) {
+		return &ArchRowBacklink{}, false
 	}
 
-	if m.gen.generations[id] != uint32(e>>GenerationShift) {
-		return &entityRecord{}, false
+	if m.entityPool.generations[index] != gen {
+		return &ArchRowBacklink{}, false
 	}
 
-	return &m.records[id], true
+	return &m.records[index], true
 }
 
 func (m *entitiesRegistry) create() Entity {
-	e := m.gen.next()
-	index := uint32(uint64(e) & IndexMask)
+	e := m.entityPool.Next()
 
+	index := IndexOf(e)
 	for int(index) >= len(m.masks) {
-		m.records = append(m.records, entityRecord{})
+		m.records = append(m.records, ArchRowBacklink{})
 		m.masks = append(m.masks, ArchetypeMask{})
 	}
 
@@ -43,27 +48,25 @@ func (m *entitiesRegistry) create() Entity {
 }
 
 func (m *entitiesRegistry) destroy(e Entity) bool {
-	if !m.isValid(e) {
+	if !m.entityPool.IsValid(e) {
 		return false
 	}
 
-	index := uint32(uint64(e) & IndexMask)
-
-	m.gen.release(e)
+	m.entityPool.Release(e)
+	index := IndexOf(e)
 	m.masks[index] = ArchetypeMask{}
 
 	return true
 }
 
 func (m *entitiesRegistry) GetMask(e Entity) (ArchetypeMask, bool) {
-	index := uint32(uint64(e) & IndexMask)
-	gen := uint32(uint64(e) >> GenerationShift)
+	index, gen := IndexWithGenOf(e)
 
 	if index >= uint32(len(m.masks)) {
 		return ArchetypeMask{}, false
 	}
 
-	if m.gen.generations[index] != gen {
+	if m.entityPool.generations[index] != gen {
 		return ArchetypeMask{}, false
 	}
 
@@ -71,10 +74,9 @@ func (m *entitiesRegistry) GetMask(e Entity) (ArchetypeMask, bool) {
 }
 
 func (m *entitiesRegistry) updateMask(e Entity, newMask ArchetypeMask) bool {
-	index := uint32(uint64(e) & IndexMask)
-	gen := uint32(uint64(e) >> GenerationShift)
+	index, gen := IndexWithGenOf(e)
 
-	if index >= uint32(len(m.masks)) || m.gen.generations[index] != gen {
+	if index >= uint32(len(m.masks)) || m.entityPool.generations[index] != gen {
 		return false
 	}
 
@@ -82,13 +84,7 @@ func (m *entitiesRegistry) updateMask(e Entity, newMask ArchetypeMask) bool {
 	return true
 }
 
-func (m *entitiesRegistry) setRecord(e Entity, arch *archetype, index int) {
-	id := uint32(e & IndexMask)
-	m.records[id] = entityRecord{arch: arch, index: index}
-}
-
-func (m *entitiesRegistry) isValid(e Entity) bool {
-	index := uint32(e & IndexMask)
-	gen := uint32(e >> GenerationShift)
-	return index < uint32(len(m.gen.generations)) && m.gen.generations[index] == gen
+func (m *entitiesRegistry) SetBacklink(e Entity, arch *archetype, indexInArch int) {
+	index := IndexOf(e)
+	m.records[index] = ArchRowBacklink{arch: arch, index: indexInArch}
 }

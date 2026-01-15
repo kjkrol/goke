@@ -61,7 +61,7 @@ func (r *archetypeRegistry) MoveEntity(reg *Registry, entity Entity, oldArch *ar
 	// Scenario A: initial component
 	if oldArch == nil {
 		newIdx := newArch.addEntity(entity, newCompID, newData)
-		reg.entitiesRegistry.setRecord(entity, newArch, newIdx)
+		reg.entitiesRegistry.SetBacklink(entity, newArch, newIdx)
 		return
 	}
 
@@ -83,10 +83,10 @@ func (r *archetypeRegistry) MoveEntity(reg *Registry, entity Entity, oldArch *ar
 	// Swap-and-Pop
 	swappedEntity := oldArch.removeEntity(oldIdx)
 	if swappedEntity != 0 {
-		reg.entitiesRegistry.setRecord(swappedEntity, oldArch, oldIdx)
+		reg.entitiesRegistry.SetBacklink(swappedEntity, oldArch, oldIdx)
 	}
 
-	reg.entitiesRegistry.setRecord(entity, newArch, newIdx)
+	reg.entitiesRegistry.SetBacklink(entity, newArch, newIdx)
 }
 
 func (r *archetypeRegistry) MoveEntityOnly(reg *Registry, entity Entity, oldArch *archetype, newArch *archetype) {
