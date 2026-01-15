@@ -22,17 +22,16 @@ func newRegistry() *Registry {
 }
 
 func (r *Registry) RemoveEntity(entity Entity) {
-
-	rec, ok := r.entitiesRegistry.GetRecord(entity)
+	backLink, ok := r.entitiesRegistry.GetBackLink(entity)
 	if !ok {
 		return
 	}
-	if rec.arch == nil {
+	if backLink.arch == nil {
 		return
 	}
 
-	rec.arch.removeEntity(rec.index)
-	rec = nil
+	backLink.arch.removeEntity(backLink.index)
+	backLink = nil
 	r.entitiesRegistry.destroy(entity)
 }
 
@@ -43,11 +42,11 @@ func assign[T any](reg *Registry, entity Entity, component T) {
 }
 
 func assignByID[T any](reg *Registry, entity Entity, compID ComponentID, component T) error {
-	rec, ok := reg.entitiesRegistry.GetRecord(entity)
+	backLink, ok := reg.entitiesRegistry.GetBackLink(entity)
 	if !ok {
 		return fmt.Errorf("Entity doesn't exist")
 	}
-	oldArch := rec.arch
+	oldArch := backLink.arch
 
 	var oldMask ArchetypeMask
 	if oldArch != nil {
@@ -57,12 +56,11 @@ func assignByID[T any](reg *Registry, entity Entity, compID ComponentID, compone
 	newMask := oldMask.Set(compID)
 	if oldMask == newMask {
 		col := oldArch.columns[compID]
-		col.setData(rec.index, unsafe.Pointer(&component))
+		col.setData(backLink.index, unsafe.Pointer(&component))
 		return nil
 	}
 	newArch := reg.archetypeRegistry.GetOrRegister(newMask)
 	reg.archetypeRegistry.MoveEntity(reg, entity, oldArch, newArch, compID, unsafe.Pointer(&component))
-	reg.entitiesRegistry.updateMask(entity, newMask)
 	return nil
 }
 
@@ -77,22 +75,22 @@ func unassign[T any](reg *Registry, entity Entity) {
 }
 
 func (r *Registry) unassignByID(entity Entity, compID ComponentID) {
-	mask, maskExists := r.entitiesRegistry.GetMask(entity)
-	if !maskExists || !mask.IsSet(compID) {
+	backLink, ok := r.entitiesRegistry.GetBackLink(entity)
+	if !ok {
 		return
 	}
 
+	oldArch := backLink.arch
+	mask := oldArch.mask
+
 	newMask := mask.Clear(compID)
-	oldArch := r.archetypeRegistry.Get(mask)
 	newArch := r.archetypeRegistry.GetOrRegister(newMask)
 
 	r.archetypeRegistry.MoveEntityOnly(r, entity, oldArch, newArch)
-
-	r.entitiesRegistry.updateMask(entity, newMask)
 }
 
 func getComponent[T any](reg *Registry, entity Entity) *T {
-	rec, ok := reg.entitiesRegistry.GetRecord(entity)
+	backLink, ok := reg.entitiesRegistry.GetBackLink(entity)
 	if !ok {
 		return nil
 	}
@@ -100,6 +98,6 @@ func getComponent[T any](reg *Registry, entity Entity) *T {
 	compType := reflect.TypeFor[T]()
 	compID, _ := reg.componentsRegistry.Get(compType)
 
-	col := rec.arch.columns[compID]
-	return (*T)(col.GetElement(rec.index))
+	col := backLink.arch.columns[compID]
+	return (*T)(col.GetElement(backLink.index))
 }

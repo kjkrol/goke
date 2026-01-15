@@ -66,7 +66,7 @@ func (r *archetypeRegistry) MoveEntity(reg *Registry, entity Entity, oldArch *ar
 	}
 
 	// Scenario B: migration between archetypes
-	oldIdx := reg.entitiesRegistry.records[entID].index
+	oldIdx := reg.entitiesRegistry.entityBacklinks[entID].index
 	newArch.ensureCapacity()
 	newIdx := newArch.registerEntity(entity)
 
@@ -90,11 +90,11 @@ func (r *archetypeRegistry) MoveEntity(reg *Registry, entity Entity, oldArch *ar
 }
 
 func (r *archetypeRegistry) MoveEntityOnly(reg *Registry, entity Entity, oldArch *archetype, newArch *archetype) {
-	rec, ok := reg.entitiesRegistry.GetRecord(entity)
+	backLink, ok := reg.entitiesRegistry.GetBackLink(entity)
 	if !ok {
 		return
 	}
-	oldIdx := rec.index
+	oldIdx := backLink.index
 
 	newArch.ensureCapacity()
 	newIdx := newArch.registerEntity(entity)
@@ -108,6 +108,6 @@ func (r *archetypeRegistry) MoveEntityOnly(reg *Registry, entity Entity, oldArch
 
 	oldArch.removeEntity(oldIdx)
 
-	rec.arch = newArch
-	rec.index = newIdx
+	backLink.arch = newArch
+	backLink.index = newIdx
 }

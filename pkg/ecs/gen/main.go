@@ -83,12 +83,12 @@ func (v *View{{$n}}[{{types $n}}]) Filtered(entities []Entity) iter.Seq2[Entity,
         {{end}}
 
         for _, e := range entities {
-            rec, ok := v.reg.entitiesRegistry.GetRecord(e)
+            backLink, ok := v.reg.entitiesRegistry.GetBackLink(e)
             if !ok {
                 continue
             }
 
-            arch := rec.arch
+            arch := backLink.arch
             if arch == nil || !arch.mask.Contains(v.mask) {
                 continue
             }
@@ -100,7 +100,7 @@ func (v *View{{$n}}[{{types $n}}]) Filtered(entities []Entity) iter.Seq2[Entity,
                 lastArch = arch
             }
 
-            idx := rec.index
+            idx := backLink.index
             row := Row{{$n}}[{{types $n}}]{
                 {{range $i := seq $n}}
                 V{{add $i 1}}: (*T{{add $i 1}})(unsafe.Add(c{{add $i 1}}.data, uintptr(idx)*c{{add $i 1}}.itemSize)),

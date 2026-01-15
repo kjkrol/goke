@@ -74,12 +74,12 @@ func (v *View1[T1]) Filtered(entities []Entity) iter.Seq2[Entity, Row1[T1]] {
         
 
         for _, e := range entities {
-            rec, ok := v.reg.entitiesRegistry.GetRecord(e)
+            backLink, ok := v.reg.entitiesRegistry.GetBackLink(e)
             if !ok {
                 continue
             }
 
-            arch := rec.arch
+            arch := backLink.arch
             if arch == nil || !arch.mask.Contains(v.mask) {
                 continue
             }
@@ -91,7 +91,7 @@ func (v *View1[T1]) Filtered(entities []Entity) iter.Seq2[Entity, Row1[T1]] {
                 lastArch = arch
             }
 
-            idx := rec.index
+            idx := backLink.index
             row := Row1[T1]{
                 
                 V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*c1.itemSize)),
@@ -181,12 +181,12 @@ func (v *View2[T1, T2]) Filtered(entities []Entity) iter.Seq2[Entity, Row2[T1, T
         
 
         for _, e := range entities {
-            rec, ok := v.reg.entitiesRegistry.GetRecord(e)
+            backLink, ok := v.reg.entitiesRegistry.GetBackLink(e)
             if !ok {
                 continue
             }
 
-            arch := rec.arch
+            arch := backLink.arch
             if arch == nil || !arch.mask.Contains(v.mask) {
                 continue
             }
@@ -200,7 +200,7 @@ func (v *View2[T1, T2]) Filtered(entities []Entity) iter.Seq2[Entity, Row2[T1, T
                 lastArch = arch
             }
 
-            idx := rec.index
+            idx := backLink.index
             row := Row2[T1, T2]{
                 
                 V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*c1.itemSize)),
@@ -300,12 +300,12 @@ func (v *View3[T1, T2, T3]) Filtered(entities []Entity) iter.Seq2[Entity, Row3[T
         
 
         for _, e := range entities {
-            rec, ok := v.reg.entitiesRegistry.GetRecord(e)
+            backLink, ok := v.reg.entitiesRegistry.GetBackLink(e)
             if !ok {
                 continue
             }
 
-            arch := rec.arch
+            arch := backLink.arch
             if arch == nil || !arch.mask.Contains(v.mask) {
                 continue
             }
@@ -321,7 +321,7 @@ func (v *View3[T1, T2, T3]) Filtered(entities []Entity) iter.Seq2[Entity, Row3[T
                 lastArch = arch
             }
 
-            idx := rec.index
+            idx := backLink.index
             row := Row3[T1, T2, T3]{
                 
                 V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*c1.itemSize)),
@@ -431,12 +431,12 @@ func (v *View4[T1, T2, T3, T4]) Filtered(entities []Entity) iter.Seq2[Entity, Ro
         
 
         for _, e := range entities {
-            rec, ok := v.reg.entitiesRegistry.GetRecord(e)
+            backLink, ok := v.reg.entitiesRegistry.GetBackLink(e)
             if !ok {
                 continue
             }
 
-            arch := rec.arch
+            arch := backLink.arch
             if arch == nil || !arch.mask.Contains(v.mask) {
                 continue
             }
@@ -454,7 +454,7 @@ func (v *View4[T1, T2, T3, T4]) Filtered(entities []Entity) iter.Seq2[Entity, Ro
                 lastArch = arch
             }
 
-            idx := rec.index
+            idx := backLink.index
             row := Row4[T1, T2, T3, T4]{
                 
                 V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*c1.itemSize)),
@@ -574,12 +574,12 @@ func (v *View5[T1, T2, T3, T4, T5]) Filtered(entities []Entity) iter.Seq2[Entity
         
 
         for _, e := range entities {
-            rec, ok := v.reg.entitiesRegistry.GetRecord(e)
+            backLink, ok := v.reg.entitiesRegistry.GetBackLink(e)
             if !ok {
                 continue
             }
 
-            arch := rec.arch
+            arch := backLink.arch
             if arch == nil || !arch.mask.Contains(v.mask) {
                 continue
             }
@@ -599,7 +599,7 @@ func (v *View5[T1, T2, T3, T4, T5]) Filtered(entities []Entity) iter.Seq2[Entity
                 lastArch = arch
             }
 
-            idx := rec.index
+            idx := backLink.index
             row := Row5[T1, T2, T3, T4, T5]{
                 
                 V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*c1.itemSize)),
@@ -729,12 +729,12 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Filtered(entities []Entity) iter.Seq2[En
         
 
         for _, e := range entities {
-            rec, ok := v.reg.entitiesRegistry.GetRecord(e)
+            backLink, ok := v.reg.entitiesRegistry.GetBackLink(e)
             if !ok {
                 continue
             }
 
-            arch := rec.arch
+            arch := backLink.arch
             if arch == nil || !arch.mask.Contains(v.mask) {
                 continue
             }
@@ -756,7 +756,7 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Filtered(entities []Entity) iter.Seq2[En
                 lastArch = arch
             }
 
-            idx := rec.index
+            idx := backLink.index
             row := Row6[T1, T2, T3, T4, T5, T6]{
                 
                 V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*c1.itemSize)),
