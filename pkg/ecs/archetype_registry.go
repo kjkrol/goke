@@ -7,15 +7,20 @@ import (
 
 const initArchetypesCapacity = 64
 
-type archetypeRegistry struct {
+type ArchetypeRegistry struct {
 	archetypeMap       map[ArchetypeMask]*Archetype
 	archetypes         []*Archetype
 	entityArchLinks    []EntityArchLink
-	componentsRegistry *componentsRegistry
+	componentsRegistry *ComponentsRegistry
 }
 
-func newArchetypeRegistry(componentsRegistry *componentsRegistry) *archetypeRegistry {
-	return &archetypeRegistry{
+type EntityArchLink struct {
+	arch        *Archetype
+	columnIndex int
+}
+
+func newArchetypeRegistry(componentsRegistry *ComponentsRegistry) *ArchetypeRegistry {
+	return &ArchetypeRegistry{
 		archetypeMap:       make(map[ArchetypeMask]*Archetype),
 		archetypes:         make([]*Archetype, 0, initArchetypesCapacity),
 		entityArchLinks:    make([]EntityArchLink, 0, initialCapacity),
@@ -23,18 +28,18 @@ func newArchetypeRegistry(componentsRegistry *componentsRegistry) *archetypeRegi
 	}
 }
 
-func (r *archetypeRegistry) Get(mask ArchetypeMask) *Archetype {
+func (r *ArchetypeRegistry) Get(mask ArchetypeMask) *Archetype {
 	if arch, ok := r.archetypeMap[mask]; ok {
 		return arch
 	}
 	return nil
 }
 
-func (r *archetypeRegistry) All() []*Archetype {
+func (r *ArchetypeRegistry) All() []*Archetype {
 	return r.archetypes
 }
 
-func (r *archetypeRegistry) Assign(entity Entity, compID ComponentID, data unsafe.Pointer) {
+func (r *ArchetypeRegistry) Assign(entity Entity, compID ComponentID, data unsafe.Pointer) {
 	index := entity.Index()
 	backLink := r.entityArchLinks[index]
 	oldArch := backLink.arch
@@ -58,7 +63,7 @@ func (r *archetypeRegistry) Assign(entity Entity, compID ComponentID, data unsaf
 	r.moveEntity(entity, backLink, newArch, compID, data)
 }
 
-func (r *archetypeRegistry) UnAssign(entity Entity, compID ComponentID) {
+func (r *ArchetypeRegistry) UnAssign(entity Entity, compID ComponentID) {
 	oldArch := r.entityArchLinks[entity.Index()].arch
 	oldMask := oldArch.mask
 	newMask := oldMask.Clear(compID)
@@ -66,7 +71,7 @@ func (r *archetypeRegistry) UnAssign(entity Entity, compID ComponentID) {
 	r.moveEntityOnly(entity, oldArch, newArch)
 }
 
-func (r *archetypeRegistry) AddEntity(entity Entity) {
+func (r *ArchetypeRegistry) AddEntity(entity Entity) {
 	index := entity.Index()
 	for int(index) >= len(r.entityArchLinks) {
 		r.entityArchLinks = append(r.entityArchLinks, EntityArchLink{})
@@ -74,7 +79,7 @@ func (r *archetypeRegistry) AddEntity(entity Entity) {
 	r.entityArchLinks[index] = EntityArchLink{}
 }
 
-func (r *archetypeRegistry) RemoveEntity(entity Entity) {
+func (r *ArchetypeRegistry) RemoveEntity(entity Entity) {
 	index := entity.Index()
 	entityArchIndex := r.entityArchLinks[index].columnIndex
 	r.entityArchLinks[entity].arch.RemoveEntity(entityArchIndex)
@@ -83,7 +88,7 @@ func (r *archetypeRegistry) RemoveEntity(entity Entity) {
 
 // --------------------------------------------------------------
 
-func (r *archetypeRegistry) getOrRegister(mask ArchetypeMask) *Archetype {
+func (r *ArchetypeRegistry) getOrRegister(mask ArchetypeMask) *Archetype {
 	if arch, ok := r.archetypeMap[mask]; ok {
 		return arch
 	}
@@ -108,7 +113,7 @@ func (r *archetypeRegistry) getOrRegister(mask ArchetypeMask) *Archetype {
 
 // --------------------------------------------------------------
 
-func (r *archetypeRegistry) moveEntity(entity Entity, backLink EntityArchLink, newArch *Archetype, compID ComponentID, newData unsafe.Pointer) {
+func (r *ArchetypeRegistry) moveEntity(entity Entity, backLink EntityArchLink, newArch *Archetype, compID ComponentID, newData unsafe.Pointer) {
 	oldArch := backLink.arch
 	oldColumnIndex := backLink.columnIndex
 
@@ -135,7 +140,7 @@ func (r *archetypeRegistry) moveEntity(entity Entity, backLink EntityArchLink, n
 	r.entityArchLinks[entity.Index()].columnIndex = newColumnIndex
 }
 
-func (r *archetypeRegistry) moveEntityOnly(entity Entity, oldArch *Archetype, newArch *Archetype) {
+func (r *ArchetypeRegistry) moveEntityOnly(entity Entity, oldArch *Archetype, newArch *Archetype) {
 	index := entity.Index()
 	oldColumnIndex := r.entityArchLinks[index].columnIndex
 

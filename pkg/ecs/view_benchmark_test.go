@@ -1,7 +1,9 @@
 package ecs
 
 import (
+	"reflect"
 	"testing"
+	"unsafe"
 )
 
 const entitiesNumber = 1000
@@ -12,27 +14,39 @@ type Acc struct{ X, Y float32 }
 type Mass struct{ M float32 }
 
 func setupBenchmark(_ *testing.B, count int) (*Registry, []Entity) {
-	reg := newRegistry()
+	reg := NewRegistry()
+	posTypeId := reg.RegisterComponentType(reflect.TypeFor[Pos]())
+	velTypeId := reg.RegisterComponentType(reflect.TypeFor[Vel]())
+	accTypeId := reg.RegisterComponentType(reflect.TypeFor[Acc]())
+	massTypeId := reg.RegisterComponentType(reflect.TypeFor[Mass]())
+
 	var entities []Entity
 	for range count {
 		e := reg.CreateEntity()
-		assign(reg, e, Pos{1, 1})
-		assign(reg, e, Vel{1, 1})
-		assign(reg, e, Acc{1, 1})
-		assign(reg, e, Mass{1})
+		reg.AssignByID(e, posTypeId, unsafe.Pointer(&Pos{1, 1}))
+		reg.AssignByID(e, velTypeId, unsafe.Pointer(&Vel{1, 1}))
+		reg.AssignByID(e, accTypeId, unsafe.Pointer(&Acc{1, 1}))
+		reg.AssignByID(e, massTypeId, unsafe.Pointer(&Mass{1}))
 		entities = append(entities, e)
 	}
 	return reg, entities
 }
 
-func query1All(v *View1[Pos]) {
+func view1All(v *View1[Pos]) {
 	for _, row := range v.All() {
 		pos := row.Values()
 		pos.X += pos.X
 	}
 }
 
-func query3All(v *View3[Pos, Vel, Acc]) {
+func view2All(v *View2[Pos, Vel]) {
+	for _, row := range v.All() {
+		pos, vel := row.Values()
+		pos.X += vel.X
+	}
+}
+
+func view3All(v *View3[Pos, Vel, Acc]) {
 	for _, row := range v.All() {
 		pos, vel, acc := row.Values()
 		vel.X += acc.X
@@ -40,7 +54,7 @@ func query3All(v *View3[Pos, Vel, Acc]) {
 	}
 }
 
-func query4All(v *View4[Pos, Vel, Acc, Mass]) {
+func view4All(v *View4[Pos, Vel, Acc, Mass]) {
 	for _, row := range v.All() {
 		pos, vel, acc, mass := row.Values()
 		acc.X += mass.M
@@ -63,7 +77,17 @@ func BenchmarkView1_All(b *testing.B) {
 
 	b.ResetTimer()
 	for b.Loop() {
-		query1All(view1)
+		view1All(view1)
+	}
+}
+
+func BenchmarkView2_All(b *testing.B) {
+	reg, _ := setupBenchmark(b, entitiesNumber)
+	view2 := NewView2[Pos, Vel](reg)
+
+	b.ResetTimer()
+	for b.Loop() {
+		view2All(view2)
 	}
 }
 
@@ -73,7 +97,7 @@ func BenchmarkView3_All(b *testing.B) {
 
 	b.ResetTimer()
 	for b.Loop() {
-		query3All(view3)
+		view3All(view3)
 	}
 }
 
@@ -83,7 +107,7 @@ func BenchmarkView4_All(b *testing.B) {
 
 	b.ResetTimer()
 	for b.Loop() {
-		query4All(view4)
+		view4All(view4)
 	}
 }
 

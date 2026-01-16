@@ -2,66 +2,90 @@
 package ecs
 
 import (
-	"iter"
-	"unsafe"
+    "iter"
+    "unsafe"
 )
 
 
 // -------------- View1 --------------
 
+type matchedArch1 struct {
+    arch *Archetype
+    ptr1  unsafe.Pointer
+    size1 uintptr
+}
+
 type View1[T1 any] struct {
-	viewBase
-	ids [1]ComponentID
+    viewBase
+    ids   [1]ComponentID
+    baked []matchedArch1
 }
 
 type Row1[T1 any] struct {
-	V1 *T1
+    V1 *T1
 }
 
 func (r Row1[T1]) Values() (*T1) {
-	return r.V1
+    return r.V1
+}
+
+func (v *View1[T1]) Reindex() {
+    v.viewBase.Reindex()
+    v.baked = v.baked[:0]
+
+    for _, arch := range v.matched {
+        col1 := arch.columns[v.ids[0]]
+
+        v.baked = append(v.baked, matchedArch1{
+            arch: arch,
+            ptr1:  col1.data,
+            size1: col1.itemSize,
+        })
+    }
 }
 
 func NewView1[T1 any](reg *Registry) *View1[T1] {
-	id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
-	ids := [1]ComponentID{ id1 }
-	
-	var mask ArchetypeMask
-	for _, id := range ids {
-		mask = mask.Set(id)
-	}
+    id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
+    ids := [1]ComponentID{ id1 }
+    
+    var mask ArchetypeMask
+    for _, id := range ids {
+        mask = mask.Set(id)
+    }
 
-	v := &View1[T1]{
-		viewBase: viewBase{
-			reg:  			 reg,
-			mask: 			 mask,
-			entityArchLinks: reg.archetypeRegistry.entityArchLinks,
-		},
-		ids: ids,
-	}
-	
-	v.Reindex() 
-	return v
+    v := &View1[T1]{
+        viewBase: viewBase{
+            reg:             reg,
+            mask:            mask,
+            entityArchLinks: reg.archetypeRegistry.entityArchLinks,
+        },
+        ids: ids,
+    }
+    
+    v.Reindex() 
+    return v
 }
 
 func (v *View1[T1]) All() iter.Seq2[Entity, Row1[T1]] {
-	return func(yield func(Entity, Row1[T1]) bool) {
-		for _, arch := range v.matched {
-			if arch.len == 0 {
-				continue
-			}
-			col1 := arch.columns[v.ids[0]]
-			ptr1 := col1.data
-			size1 := uintptr(col1.itemSize)
+    return func(yield func(Entity, Row1[T1]) bool) {
+        for i := range v.baked {
+            b := &v.baked[i]
+            n := b.arch.len
+            if n == 0 {
+                continue
+            }
+            ptr1 := b.ptr1
+            size1 := b.size1
+            entities := b.arch.entities
 
-			for i := 0; i < arch.len; i++ {
-				if !yield(arch.entities[i], Row1[T1]{ V1: (*T1)(ptr1) }) {
-					return
-				}
-				ptr1 = unsafe.Add(ptr1, size1)
-			}
-		}
-	}
+            for j := 0; j < n; j++ {
+                if !yield(entities[j], Row1[T1]{ V1: (*T1)(ptr1) }) {
+                    return
+                }
+                ptr1 = unsafe.Add(ptr1, size1)
+            }
+        }
+    }
 }
 
 func (v *View1[T1]) Filtered(entities []Entity) iter.Seq2[Entity, Row1[T1]] {
@@ -70,7 +94,7 @@ func (v *View1[T1]) Filtered(entities []Entity) iter.Seq2[Entity, Row1[T1]] {
         var c1 *column
 
         for _, e := range entities {
-			backLink := v.viewBase.entityArchLinks[e.Index()]
+            backLink := v.viewBase.entityArchLinks[e.Index()]
             arch := backLink.arch
             if arch == nil || !arch.mask.Contains(v.mask) {
                 continue
@@ -96,64 +120,92 @@ func (v *View1[T1]) Filtered(entities []Entity) iter.Seq2[Entity, Row1[T1]] {
 
 // -------------- View2 --------------
 
+type matchedArch2 struct {
+    arch *Archetype
+    ptr1  unsafe.Pointer
+    size1 uintptr
+    ptr2  unsafe.Pointer
+    size2 uintptr
+}
+
 type View2[T1, T2 any] struct {
-	viewBase
-	ids [2]ComponentID
+    viewBase
+    ids   [2]ComponentID
+    baked []matchedArch2
 }
 
 type Row2[T1, T2 any] struct {
-	V1 *T1; V2 *T2
+    V1 *T1; V2 *T2
 }
 
 func (r Row2[T1, T2]) Values() (*T1, *T2) {
-	return r.V1, r.V2
+    return r.V1, r.V2
+}
+
+func (v *View2[T1, T2]) Reindex() {
+    v.viewBase.Reindex()
+    v.baked = v.baked[:0]
+
+    for _, arch := range v.matched {
+        col1 := arch.columns[v.ids[0]]
+        col2 := arch.columns[v.ids[1]]
+
+        v.baked = append(v.baked, matchedArch2{
+            arch: arch,
+            ptr1:  col1.data,
+            size1: col1.itemSize,
+            ptr2:  col2.data,
+            size2: col2.itemSize,
+        })
+    }
 }
 
 func NewView2[T1, T2 any](reg *Registry) *View2[T1, T2] {
-	id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
+    id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
 	id2 := ensureComponentRegistered[T2](reg.componentsRegistry)
-	ids := [2]ComponentID{ id1, id2 }
-	
-	var mask ArchetypeMask
-	for _, id := range ids {
-		mask = mask.Set(id)
-	}
+    ids := [2]ComponentID{ id1, id2 }
+    
+    var mask ArchetypeMask
+    for _, id := range ids {
+        mask = mask.Set(id)
+    }
 
-	v := &View2[T1, T2]{
-		viewBase: viewBase{
-			reg:  			 reg,
-			mask: 			 mask,
-			entityArchLinks: reg.archetypeRegistry.entityArchLinks,
-		},
-		ids: ids,
-	}
-	
-	v.Reindex() 
-	return v
+    v := &View2[T1, T2]{
+        viewBase: viewBase{
+            reg:             reg,
+            mask:            mask,
+            entityArchLinks: reg.archetypeRegistry.entityArchLinks,
+        },
+        ids: ids,
+    }
+    
+    v.Reindex() 
+    return v
 }
 
 func (v *View2[T1, T2]) All() iter.Seq2[Entity, Row2[T1, T2]] {
-	return func(yield func(Entity, Row2[T1, T2]) bool) {
-		for _, arch := range v.matched {
-			if arch.len == 0 {
-				continue
-			}
-			col1 := arch.columns[v.ids[0]]
-			ptr1 := col1.data
-			size1 := uintptr(col1.itemSize)
-			col2 := arch.columns[v.ids[1]]
-			ptr2 := col2.data
-			size2 := uintptr(col2.itemSize)
+    return func(yield func(Entity, Row2[T1, T2]) bool) {
+        for i := range v.baked {
+            b := &v.baked[i]
+            n := b.arch.len
+            if n == 0 {
+                continue
+            }
+            ptr1 := b.ptr1
+            size1 := b.size1
+            ptr2 := b.ptr2
+            size2 := b.size2
+            entities := b.arch.entities
 
-			for i := 0; i < arch.len; i++ {
-				if !yield(arch.entities[i], Row2[T1, T2]{ V1: (*T1)(ptr1), V2: (*T2)(ptr2) }) {
-					return
-				}
-				ptr1 = unsafe.Add(ptr1, size1)
+            for j := 0; j < n; j++ {
+                if !yield(entities[j], Row2[T1, T2]{ V1: (*T1)(ptr1), V2: (*T2)(ptr2) }) {
+                    return
+                }
+                ptr1 = unsafe.Add(ptr1, size1)
 				ptr2 = unsafe.Add(ptr2, size2)
-			}
-		}
-	}
+            }
+        }
+    }
 }
 
 func (v *View2[T1, T2]) Filtered(entities []Entity) iter.Seq2[Entity, Row2[T1, T2]] {
@@ -163,7 +215,7 @@ func (v *View2[T1, T2]) Filtered(entities []Entity) iter.Seq2[Entity, Row2[T1, T
         var c2 *column
 
         for _, e := range entities {
-			backLink := v.viewBase.entityArchLinks[e.Index()]
+            backLink := v.viewBase.entityArchLinks[e.Index()]
             arch := backLink.arch
             if arch == nil || !arch.mask.Contains(v.mask) {
                 continue
@@ -191,69 +243,101 @@ func (v *View2[T1, T2]) Filtered(entities []Entity) iter.Seq2[Entity, Row2[T1, T
 
 // -------------- View3 --------------
 
+type matchedArch3 struct {
+    arch *Archetype
+    ptr1  unsafe.Pointer
+    size1 uintptr
+    ptr2  unsafe.Pointer
+    size2 uintptr
+    ptr3  unsafe.Pointer
+    size3 uintptr
+}
+
 type View3[T1, T2, T3 any] struct {
-	viewBase
-	ids [3]ComponentID
+    viewBase
+    ids   [3]ComponentID
+    baked []matchedArch3
 }
 
 type Row3[T1, T2, T3 any] struct {
-	V1 *T1; V2 *T2; V3 *T3
+    V1 *T1; V2 *T2; V3 *T3
 }
 
 func (r Row3[T1, T2, T3]) Values() (*T1, *T2, *T3) {
-	return r.V1, r.V2, r.V3
+    return r.V1, r.V2, r.V3
+}
+
+func (v *View3[T1, T2, T3]) Reindex() {
+    v.viewBase.Reindex()
+    v.baked = v.baked[:0]
+
+    for _, arch := range v.matched {
+        col1 := arch.columns[v.ids[0]]
+        col2 := arch.columns[v.ids[1]]
+        col3 := arch.columns[v.ids[2]]
+
+        v.baked = append(v.baked, matchedArch3{
+            arch: arch,
+            ptr1:  col1.data,
+            size1: col1.itemSize,
+            ptr2:  col2.data,
+            size2: col2.itemSize,
+            ptr3:  col3.data,
+            size3: col3.itemSize,
+        })
+    }
 }
 
 func NewView3[T1, T2, T3 any](reg *Registry) *View3[T1, T2, T3] {
-	id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
+    id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
 	id2 := ensureComponentRegistered[T2](reg.componentsRegistry)
 	id3 := ensureComponentRegistered[T3](reg.componentsRegistry)
-	ids := [3]ComponentID{ id1, id2, id3 }
-	
-	var mask ArchetypeMask
-	for _, id := range ids {
-		mask = mask.Set(id)
-	}
+    ids := [3]ComponentID{ id1, id2, id3 }
+    
+    var mask ArchetypeMask
+    for _, id := range ids {
+        mask = mask.Set(id)
+    }
 
-	v := &View3[T1, T2, T3]{
-		viewBase: viewBase{
-			reg:  			 reg,
-			mask: 			 mask,
-			entityArchLinks: reg.archetypeRegistry.entityArchLinks,
-		},
-		ids: ids,
-	}
-	
-	v.Reindex() 
-	return v
+    v := &View3[T1, T2, T3]{
+        viewBase: viewBase{
+            reg:             reg,
+            mask:            mask,
+            entityArchLinks: reg.archetypeRegistry.entityArchLinks,
+        },
+        ids: ids,
+    }
+    
+    v.Reindex() 
+    return v
 }
 
 func (v *View3[T1, T2, T3]) All() iter.Seq2[Entity, Row3[T1, T2, T3]] {
-	return func(yield func(Entity, Row3[T1, T2, T3]) bool) {
-		for _, arch := range v.matched {
-			if arch.len == 0 {
-				continue
-			}
-			col1 := arch.columns[v.ids[0]]
-			ptr1 := col1.data
-			size1 := uintptr(col1.itemSize)
-			col2 := arch.columns[v.ids[1]]
-			ptr2 := col2.data
-			size2 := uintptr(col2.itemSize)
-			col3 := arch.columns[v.ids[2]]
-			ptr3 := col3.data
-			size3 := uintptr(col3.itemSize)
+    return func(yield func(Entity, Row3[T1, T2, T3]) bool) {
+        for i := range v.baked {
+            b := &v.baked[i]
+            n := b.arch.len
+            if n == 0 {
+                continue
+            }
+            ptr1 := b.ptr1
+            size1 := b.size1
+            ptr2 := b.ptr2
+            size2 := b.size2
+            ptr3 := b.ptr3
+            size3 := b.size3
+            entities := b.arch.entities
 
-			for i := 0; i < arch.len; i++ {
-				if !yield(arch.entities[i], Row3[T1, T2, T3]{ V1: (*T1)(ptr1), V2: (*T2)(ptr2), V3: (*T3)(ptr3) }) {
-					return
-				}
-				ptr1 = unsafe.Add(ptr1, size1)
+            for j := 0; j < n; j++ {
+                if !yield(entities[j], Row3[T1, T2, T3]{ V1: (*T1)(ptr1), V2: (*T2)(ptr2), V3: (*T3)(ptr3) }) {
+                    return
+                }
+                ptr1 = unsafe.Add(ptr1, size1)
 				ptr2 = unsafe.Add(ptr2, size2)
 				ptr3 = unsafe.Add(ptr3, size3)
-			}
-		}
-	}
+            }
+        }
+    }
 }
 
 func (v *View3[T1, T2, T3]) Filtered(entities []Entity) iter.Seq2[Entity, Row3[T1, T2, T3]] {
@@ -264,7 +348,7 @@ func (v *View3[T1, T2, T3]) Filtered(entities []Entity) iter.Seq2[Entity, Row3[T
         var c3 *column
 
         for _, e := range entities {
-			backLink := v.viewBase.entityArchLinks[e.Index()]
+            backLink := v.viewBase.entityArchLinks[e.Index()]
             arch := backLink.arch
             if arch == nil || !arch.mask.Contains(v.mask) {
                 continue
@@ -294,74 +378,110 @@ func (v *View3[T1, T2, T3]) Filtered(entities []Entity) iter.Seq2[Entity, Row3[T
 
 // -------------- View4 --------------
 
+type matchedArch4 struct {
+    arch *Archetype
+    ptr1  unsafe.Pointer
+    size1 uintptr
+    ptr2  unsafe.Pointer
+    size2 uintptr
+    ptr3  unsafe.Pointer
+    size3 uintptr
+    ptr4  unsafe.Pointer
+    size4 uintptr
+}
+
 type View4[T1, T2, T3, T4 any] struct {
-	viewBase
-	ids [4]ComponentID
+    viewBase
+    ids   [4]ComponentID
+    baked []matchedArch4
 }
 
 type Row4[T1, T2, T3, T4 any] struct {
-	V1 *T1; V2 *T2; V3 *T3; V4 *T4
+    V1 *T1; V2 *T2; V3 *T3; V4 *T4
 }
 
 func (r Row4[T1, T2, T3, T4]) Values() (*T1, *T2, *T3, *T4) {
-	return r.V1, r.V2, r.V3, r.V4
+    return r.V1, r.V2, r.V3, r.V4
+}
+
+func (v *View4[T1, T2, T3, T4]) Reindex() {
+    v.viewBase.Reindex()
+    v.baked = v.baked[:0]
+
+    for _, arch := range v.matched {
+        col1 := arch.columns[v.ids[0]]
+        col2 := arch.columns[v.ids[1]]
+        col3 := arch.columns[v.ids[2]]
+        col4 := arch.columns[v.ids[3]]
+
+        v.baked = append(v.baked, matchedArch4{
+            arch: arch,
+            ptr1:  col1.data,
+            size1: col1.itemSize,
+            ptr2:  col2.data,
+            size2: col2.itemSize,
+            ptr3:  col3.data,
+            size3: col3.itemSize,
+            ptr4:  col4.data,
+            size4: col4.itemSize,
+        })
+    }
 }
 
 func NewView4[T1, T2, T3, T4 any](reg *Registry) *View4[T1, T2, T3, T4] {
-	id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
+    id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
 	id2 := ensureComponentRegistered[T2](reg.componentsRegistry)
 	id3 := ensureComponentRegistered[T3](reg.componentsRegistry)
 	id4 := ensureComponentRegistered[T4](reg.componentsRegistry)
-	ids := [4]ComponentID{ id1, id2, id3, id4 }
-	
-	var mask ArchetypeMask
-	for _, id := range ids {
-		mask = mask.Set(id)
-	}
+    ids := [4]ComponentID{ id1, id2, id3, id4 }
+    
+    var mask ArchetypeMask
+    for _, id := range ids {
+        mask = mask.Set(id)
+    }
 
-	v := &View4[T1, T2, T3, T4]{
-		viewBase: viewBase{
-			reg:  			 reg,
-			mask: 			 mask,
-			entityArchLinks: reg.archetypeRegistry.entityArchLinks,
-		},
-		ids: ids,
-	}
-	
-	v.Reindex() 
-	return v
+    v := &View4[T1, T2, T3, T4]{
+        viewBase: viewBase{
+            reg:             reg,
+            mask:            mask,
+            entityArchLinks: reg.archetypeRegistry.entityArchLinks,
+        },
+        ids: ids,
+    }
+    
+    v.Reindex() 
+    return v
 }
 
 func (v *View4[T1, T2, T3, T4]) All() iter.Seq2[Entity, Row4[T1, T2, T3, T4]] {
-	return func(yield func(Entity, Row4[T1, T2, T3, T4]) bool) {
-		for _, arch := range v.matched {
-			if arch.len == 0 {
-				continue
-			}
-			col1 := arch.columns[v.ids[0]]
-			ptr1 := col1.data
-			size1 := uintptr(col1.itemSize)
-			col2 := arch.columns[v.ids[1]]
-			ptr2 := col2.data
-			size2 := uintptr(col2.itemSize)
-			col3 := arch.columns[v.ids[2]]
-			ptr3 := col3.data
-			size3 := uintptr(col3.itemSize)
-			col4 := arch.columns[v.ids[3]]
-			ptr4 := col4.data
-			size4 := uintptr(col4.itemSize)
+    return func(yield func(Entity, Row4[T1, T2, T3, T4]) bool) {
+        for i := range v.baked {
+            b := &v.baked[i]
+            n := b.arch.len
+            if n == 0 {
+                continue
+            }
+            ptr1 := b.ptr1
+            size1 := b.size1
+            ptr2 := b.ptr2
+            size2 := b.size2
+            ptr3 := b.ptr3
+            size3 := b.size3
+            ptr4 := b.ptr4
+            size4 := b.size4
+            entities := b.arch.entities
 
-			for i := 0; i < arch.len; i++ {
-				if !yield(arch.entities[i], Row4[T1, T2, T3, T4]{ V1: (*T1)(ptr1), V2: (*T2)(ptr2), V3: (*T3)(ptr3), V4: (*T4)(ptr4) }) {
-					return
-				}
-				ptr1 = unsafe.Add(ptr1, size1)
+            for j := 0; j < n; j++ {
+                if !yield(entities[j], Row4[T1, T2, T3, T4]{ V1: (*T1)(ptr1), V2: (*T2)(ptr2), V3: (*T3)(ptr3), V4: (*T4)(ptr4) }) {
+                    return
+                }
+                ptr1 = unsafe.Add(ptr1, size1)
 				ptr2 = unsafe.Add(ptr2, size2)
 				ptr3 = unsafe.Add(ptr3, size3)
 				ptr4 = unsafe.Add(ptr4, size4)
-			}
-		}
-	}
+            }
+        }
+    }
 }
 
 func (v *View4[T1, T2, T3, T4]) Filtered(entities []Entity) iter.Seq2[Entity, Row4[T1, T2, T3, T4]] {
@@ -373,7 +493,7 @@ func (v *View4[T1, T2, T3, T4]) Filtered(entities []Entity) iter.Seq2[Entity, Ro
         var c4 *column
 
         for _, e := range entities {
-			backLink := v.viewBase.entityArchLinks[e.Index()]
+            backLink := v.viewBase.entityArchLinks[e.Index()]
             arch := backLink.arch
             if arch == nil || !arch.mask.Contains(v.mask) {
                 continue
@@ -405,79 +525,119 @@ func (v *View4[T1, T2, T3, T4]) Filtered(entities []Entity) iter.Seq2[Entity, Ro
 
 // -------------- View5 --------------
 
+type matchedArch5 struct {
+    arch *Archetype
+    ptr1  unsafe.Pointer
+    size1 uintptr
+    ptr2  unsafe.Pointer
+    size2 uintptr
+    ptr3  unsafe.Pointer
+    size3 uintptr
+    ptr4  unsafe.Pointer
+    size4 uintptr
+    ptr5  unsafe.Pointer
+    size5 uintptr
+}
+
 type View5[T1, T2, T3, T4, T5 any] struct {
-	viewBase
-	ids [5]ComponentID
+    viewBase
+    ids   [5]ComponentID
+    baked []matchedArch5
 }
 
 type Row5[T1, T2, T3, T4, T5 any] struct {
-	V1 *T1; V2 *T2; V3 *T3; V4 *T4; V5 *T5
+    V1 *T1; V2 *T2; V3 *T3; V4 *T4; V5 *T5
 }
 
 func (r Row5[T1, T2, T3, T4, T5]) Values() (*T1, *T2, *T3, *T4, *T5) {
-	return r.V1, r.V2, r.V3, r.V4, r.V5
+    return r.V1, r.V2, r.V3, r.V4, r.V5
+}
+
+func (v *View5[T1, T2, T3, T4, T5]) Reindex() {
+    v.viewBase.Reindex()
+    v.baked = v.baked[:0]
+
+    for _, arch := range v.matched {
+        col1 := arch.columns[v.ids[0]]
+        col2 := arch.columns[v.ids[1]]
+        col3 := arch.columns[v.ids[2]]
+        col4 := arch.columns[v.ids[3]]
+        col5 := arch.columns[v.ids[4]]
+
+        v.baked = append(v.baked, matchedArch5{
+            arch: arch,
+            ptr1:  col1.data,
+            size1: col1.itemSize,
+            ptr2:  col2.data,
+            size2: col2.itemSize,
+            ptr3:  col3.data,
+            size3: col3.itemSize,
+            ptr4:  col4.data,
+            size4: col4.itemSize,
+            ptr5:  col5.data,
+            size5: col5.itemSize,
+        })
+    }
 }
 
 func NewView5[T1, T2, T3, T4, T5 any](reg *Registry) *View5[T1, T2, T3, T4, T5] {
-	id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
+    id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
 	id2 := ensureComponentRegistered[T2](reg.componentsRegistry)
 	id3 := ensureComponentRegistered[T3](reg.componentsRegistry)
 	id4 := ensureComponentRegistered[T4](reg.componentsRegistry)
 	id5 := ensureComponentRegistered[T5](reg.componentsRegistry)
-	ids := [5]ComponentID{ id1, id2, id3, id4, id5 }
-	
-	var mask ArchetypeMask
-	for _, id := range ids {
-		mask = mask.Set(id)
-	}
+    ids := [5]ComponentID{ id1, id2, id3, id4, id5 }
+    
+    var mask ArchetypeMask
+    for _, id := range ids {
+        mask = mask.Set(id)
+    }
 
-	v := &View5[T1, T2, T3, T4, T5]{
-		viewBase: viewBase{
-			reg:  			 reg,
-			mask: 			 mask,
-			entityArchLinks: reg.archetypeRegistry.entityArchLinks,
-		},
-		ids: ids,
-	}
-	
-	v.Reindex() 
-	return v
+    v := &View5[T1, T2, T3, T4, T5]{
+        viewBase: viewBase{
+            reg:             reg,
+            mask:            mask,
+            entityArchLinks: reg.archetypeRegistry.entityArchLinks,
+        },
+        ids: ids,
+    }
+    
+    v.Reindex() 
+    return v
 }
 
 func (v *View5[T1, T2, T3, T4, T5]) All() iter.Seq2[Entity, Row5[T1, T2, T3, T4, T5]] {
-	return func(yield func(Entity, Row5[T1, T2, T3, T4, T5]) bool) {
-		for _, arch := range v.matched {
-			if arch.len == 0 {
-				continue
-			}
-			col1 := arch.columns[v.ids[0]]
-			ptr1 := col1.data
-			size1 := uintptr(col1.itemSize)
-			col2 := arch.columns[v.ids[1]]
-			ptr2 := col2.data
-			size2 := uintptr(col2.itemSize)
-			col3 := arch.columns[v.ids[2]]
-			ptr3 := col3.data
-			size3 := uintptr(col3.itemSize)
-			col4 := arch.columns[v.ids[3]]
-			ptr4 := col4.data
-			size4 := uintptr(col4.itemSize)
-			col5 := arch.columns[v.ids[4]]
-			ptr5 := col5.data
-			size5 := uintptr(col5.itemSize)
+    return func(yield func(Entity, Row5[T1, T2, T3, T4, T5]) bool) {
+        for i := range v.baked {
+            b := &v.baked[i]
+            n := b.arch.len
+            if n == 0 {
+                continue
+            }
+            ptr1 := b.ptr1
+            size1 := b.size1
+            ptr2 := b.ptr2
+            size2 := b.size2
+            ptr3 := b.ptr3
+            size3 := b.size3
+            ptr4 := b.ptr4
+            size4 := b.size4
+            ptr5 := b.ptr5
+            size5 := b.size5
+            entities := b.arch.entities
 
-			for i := 0; i < arch.len; i++ {
-				if !yield(arch.entities[i], Row5[T1, T2, T3, T4, T5]{ V1: (*T1)(ptr1), V2: (*T2)(ptr2), V3: (*T3)(ptr3), V4: (*T4)(ptr4), V5: (*T5)(ptr5) }) {
-					return
-				}
-				ptr1 = unsafe.Add(ptr1, size1)
+            for j := 0; j < n; j++ {
+                if !yield(entities[j], Row5[T1, T2, T3, T4, T5]{ V1: (*T1)(ptr1), V2: (*T2)(ptr2), V3: (*T3)(ptr3), V4: (*T4)(ptr4), V5: (*T5)(ptr5) }) {
+                    return
+                }
+                ptr1 = unsafe.Add(ptr1, size1)
 				ptr2 = unsafe.Add(ptr2, size2)
 				ptr3 = unsafe.Add(ptr3, size3)
 				ptr4 = unsafe.Add(ptr4, size4)
 				ptr5 = unsafe.Add(ptr5, size5)
-			}
-		}
-	}
+            }
+        }
+    }
 }
 
 func (v *View5[T1, T2, T3, T4, T5]) Filtered(entities []Entity) iter.Seq2[Entity, Row5[T1, T2, T3, T4, T5]] {
@@ -490,7 +650,7 @@ func (v *View5[T1, T2, T3, T4, T5]) Filtered(entities []Entity) iter.Seq2[Entity
         var c5 *column
 
         for _, e := range entities {
-			backLink := v.viewBase.entityArchLinks[e.Index()]
+            backLink := v.viewBase.entityArchLinks[e.Index()]
             arch := backLink.arch
             if arch == nil || !arch.mask.Contains(v.mask) {
                 continue
@@ -524,84 +684,128 @@ func (v *View5[T1, T2, T3, T4, T5]) Filtered(entities []Entity) iter.Seq2[Entity
 
 // -------------- View6 --------------
 
+type matchedArch6 struct {
+    arch *Archetype
+    ptr1  unsafe.Pointer
+    size1 uintptr
+    ptr2  unsafe.Pointer
+    size2 uintptr
+    ptr3  unsafe.Pointer
+    size3 uintptr
+    ptr4  unsafe.Pointer
+    size4 uintptr
+    ptr5  unsafe.Pointer
+    size5 uintptr
+    ptr6  unsafe.Pointer
+    size6 uintptr
+}
+
 type View6[T1, T2, T3, T4, T5, T6 any] struct {
-	viewBase
-	ids [6]ComponentID
+    viewBase
+    ids   [6]ComponentID
+    baked []matchedArch6
 }
 
 type Row6[T1, T2, T3, T4, T5, T6 any] struct {
-	V1 *T1; V2 *T2; V3 *T3; V4 *T4; V5 *T5; V6 *T6
+    V1 *T1; V2 *T2; V3 *T3; V4 *T4; V5 *T5; V6 *T6
 }
 
 func (r Row6[T1, T2, T3, T4, T5, T6]) Values() (*T1, *T2, *T3, *T4, *T5, *T6) {
-	return r.V1, r.V2, r.V3, r.V4, r.V5, r.V6
+    return r.V1, r.V2, r.V3, r.V4, r.V5, r.V6
+}
+
+func (v *View6[T1, T2, T3, T4, T5, T6]) Reindex() {
+    v.viewBase.Reindex()
+    v.baked = v.baked[:0]
+
+    for _, arch := range v.matched {
+        col1 := arch.columns[v.ids[0]]
+        col2 := arch.columns[v.ids[1]]
+        col3 := arch.columns[v.ids[2]]
+        col4 := arch.columns[v.ids[3]]
+        col5 := arch.columns[v.ids[4]]
+        col6 := arch.columns[v.ids[5]]
+
+        v.baked = append(v.baked, matchedArch6{
+            arch: arch,
+            ptr1:  col1.data,
+            size1: col1.itemSize,
+            ptr2:  col2.data,
+            size2: col2.itemSize,
+            ptr3:  col3.data,
+            size3: col3.itemSize,
+            ptr4:  col4.data,
+            size4: col4.itemSize,
+            ptr5:  col5.data,
+            size5: col5.itemSize,
+            ptr6:  col6.data,
+            size6: col6.itemSize,
+        })
+    }
 }
 
 func NewView6[T1, T2, T3, T4, T5, T6 any](reg *Registry) *View6[T1, T2, T3, T4, T5, T6] {
-	id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
+    id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
 	id2 := ensureComponentRegistered[T2](reg.componentsRegistry)
 	id3 := ensureComponentRegistered[T3](reg.componentsRegistry)
 	id4 := ensureComponentRegistered[T4](reg.componentsRegistry)
 	id5 := ensureComponentRegistered[T5](reg.componentsRegistry)
 	id6 := ensureComponentRegistered[T6](reg.componentsRegistry)
-	ids := [6]ComponentID{ id1, id2, id3, id4, id5, id6 }
-	
-	var mask ArchetypeMask
-	for _, id := range ids {
-		mask = mask.Set(id)
-	}
+    ids := [6]ComponentID{ id1, id2, id3, id4, id5, id6 }
+    
+    var mask ArchetypeMask
+    for _, id := range ids {
+        mask = mask.Set(id)
+    }
 
-	v := &View6[T1, T2, T3, T4, T5, T6]{
-		viewBase: viewBase{
-			reg:  			 reg,
-			mask: 			 mask,
-			entityArchLinks: reg.archetypeRegistry.entityArchLinks,
-		},
-		ids: ids,
-	}
-	
-	v.Reindex() 
-	return v
+    v := &View6[T1, T2, T3, T4, T5, T6]{
+        viewBase: viewBase{
+            reg:             reg,
+            mask:            mask,
+            entityArchLinks: reg.archetypeRegistry.entityArchLinks,
+        },
+        ids: ids,
+    }
+    
+    v.Reindex() 
+    return v
 }
 
 func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq2[Entity, Row6[T1, T2, T3, T4, T5, T6]] {
-	return func(yield func(Entity, Row6[T1, T2, T3, T4, T5, T6]) bool) {
-		for _, arch := range v.matched {
-			if arch.len == 0 {
-				continue
-			}
-			col1 := arch.columns[v.ids[0]]
-			ptr1 := col1.data
-			size1 := uintptr(col1.itemSize)
-			col2 := arch.columns[v.ids[1]]
-			ptr2 := col2.data
-			size2 := uintptr(col2.itemSize)
-			col3 := arch.columns[v.ids[2]]
-			ptr3 := col3.data
-			size3 := uintptr(col3.itemSize)
-			col4 := arch.columns[v.ids[3]]
-			ptr4 := col4.data
-			size4 := uintptr(col4.itemSize)
-			col5 := arch.columns[v.ids[4]]
-			ptr5 := col5.data
-			size5 := uintptr(col5.itemSize)
-			col6 := arch.columns[v.ids[5]]
-			ptr6 := col6.data
-			size6 := uintptr(col6.itemSize)
+    return func(yield func(Entity, Row6[T1, T2, T3, T4, T5, T6]) bool) {
+        for i := range v.baked {
+            b := &v.baked[i]
+            n := b.arch.len
+            if n == 0 {
+                continue
+            }
+            ptr1 := b.ptr1
+            size1 := b.size1
+            ptr2 := b.ptr2
+            size2 := b.size2
+            ptr3 := b.ptr3
+            size3 := b.size3
+            ptr4 := b.ptr4
+            size4 := b.size4
+            ptr5 := b.ptr5
+            size5 := b.size5
+            ptr6 := b.ptr6
+            size6 := b.size6
+            entities := b.arch.entities
 
-			for i := 0; i < arch.len; i++ {
-				if !yield(arch.entities[i], Row6[T1, T2, T3, T4, T5, T6]{ V1: (*T1)(ptr1), V2: (*T2)(ptr2), V3: (*T3)(ptr3), V4: (*T4)(ptr4), V5: (*T5)(ptr5), V6: (*T6)(ptr6) }) {
-					return
-				}
-				ptr1 = unsafe.Add(ptr1, size1)
+            for j := 0; j < n; j++ {
+                if !yield(entities[j], Row6[T1, T2, T3, T4, T5, T6]{ V1: (*T1)(ptr1), V2: (*T2)(ptr2), V3: (*T3)(ptr3), V4: (*T4)(ptr4), V5: (*T5)(ptr5), V6: (*T6)(ptr6) }) {
+                    return
+                }
+                ptr1 = unsafe.Add(ptr1, size1)
 				ptr2 = unsafe.Add(ptr2, size2)
 				ptr3 = unsafe.Add(ptr3, size3)
 				ptr4 = unsafe.Add(ptr4, size4)
 				ptr5 = unsafe.Add(ptr5, size5)
 				ptr6 = unsafe.Add(ptr6, size6)
-			}
-		}
-	}
+            }
+        }
+    }
 }
 
 func (v *View6[T1, T2, T3, T4, T5, T6]) Filtered(entities []Entity) iter.Seq2[Entity, Row6[T1, T2, T3, T4, T5, T6]] {
@@ -615,7 +819,7 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Filtered(entities []Entity) iter.Seq2[En
         var c6 *column
 
         for _, e := range entities {
-			backLink := v.viewBase.entityArchLinks[e.Index()]
+            backLink := v.viewBase.entityArchLinks[e.Index()]
             arch := backLink.arch
             if arch == nil || !arch.mask.Contains(v.mask) {
                 continue
