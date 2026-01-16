@@ -15,7 +15,7 @@ func setupBenchmark(_ *testing.B, count int) (*Registry, []Entity) {
 	reg := newRegistry()
 	var entities []Entity
 	for range count {
-		e := reg.entitiesRegistry.create()
+		e := reg.CreateEntity()
 		assign(reg, e, Pos{1, 1})
 		assign(reg, e, Vel{1, 1})
 		assign(reg, e, Acc{1, 1})

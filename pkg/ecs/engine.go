@@ -28,10 +28,6 @@ func NewEngine() *Engine {
 	}
 }
 
-func (e *Engine) CreateEntity() Entity {
-	return e.entitiesRegistry.create()
-}
-
 func (e *Engine) RegisterSystems(systems []System) {
 	e.scheduler.registerSystems(systems)
 }
@@ -56,6 +52,6 @@ func Unassign[T any](e *Engine, entity Entity) {
 	unassign[T](e.Registry, entity)
 }
 
-func GetComponent[T any](e *Engine, entity Entity) *T {
+func GetComponent[T any](e *Engine, entity Entity) (*T, error) {
 	return getComponent[T](e.Registry, entity)
 }

@@ -67,8 +67,8 @@ func TestECS_UseCase(t *testing.T) {
 			billingSystem.processedCount)
 	}
 
-	order := ecs.GetComponent[Order](engine, eA)
-	status := ecs.GetComponent[Status](engine, eA)
+	order, _ := ecs.GetComponent[Order](engine, eA)
+	status, _ := ecs.GetComponent[Status](engine, eA)
 
 	if order.Total != 90.0 {
 		t.Errorf("Discount has not been applied, Total: %v", order.Total)
@@ -80,7 +80,9 @@ func TestECS_UseCase(t *testing.T) {
 
 	engine.RemoveEntity(eA)
 
-	if ecs.GetComponent[Order](engine, eA) != nil {
+	_, err := ecs.GetComponent[Order](engine, eA)
+
+	if err == nil {
 		t.Error("Data of entity eA should have been removed from orders map")
 	}
 }

@@ -18,12 +18,12 @@ import (
 {{$n := .}}
 // -------------- View{{$n}} --------------
 
-type View{{$n}}[{{params $n}}] struct {
+type View{{$n}}[{{params $n}} any] struct {
 	viewBase
 	ids [{{$n}}]ComponentID
 }
 
-type Row{{$n}}[{{params $n}}] struct {
+type Row{{$n}}[{{params $n}} any] struct {
 	{{fields $n}}
 }
 
@@ -31,7 +31,7 @@ func (r Row{{$n}}[{{types $n}}]) Values() ({{params_ptrs $n}}) {
 	return {{row_returns $n}}
 }
 
-func NewView{{$n}}[{{params $n}}](reg *Registry) *View{{$n}}[{{types $n}}] {
+func NewView{{$n}}[{{params $n}} any](reg *Registry) *View{{$n}}[{{types $n}}] {
 	{{registration $n}}
 	ids := [{{$n}}]ComponentID{ {{idList $n}} }
 	
@@ -42,8 +42,9 @@ func NewView{{$n}}[{{params $n}}](reg *Registry) *View{{$n}}[{{types $n}}] {
 
 	v := &View{{$n}}[{{types $n}}]{
 		viewBase: viewBase{
-			reg:  reg,
-			mask: mask,
+			reg:  			 reg,
+			mask: 			 mask,
+			entityArchLinks: reg.archetypeRegistry.entityArchLinks,
 		},
 		ids: ids,
 	}
@@ -59,11 +60,11 @@ func (v *View{{$n}}[{{types $n}}]) All() iter.Seq2[Entity, Row{{$n}}[{{types $n}
 				continue
 			}
 
-			{{range $i := seq $n}}
+			{{- range $i := seq $n}}
 			col{{add $i 1}} := arch.columns[v.ids[{{$i}}]]
 			ptr{{add $i 1}} := col{{add $i 1}}.data
 			size{{add $i 1}} := uintptr(col{{add $i 1}}.itemSize)
-			{{end}}
+			{{- end}}
 
 			for i := 0; i < arch.len; i++ {
 				if !yield(arch.entities[i], Row{{$n}}[{{types $n}}]{ {{row_fields_all $n}} }) {
@@ -77,34 +78,30 @@ func (v *View{{$n}}[{{types $n}}]) All() iter.Seq2[Entity, Row{{$n}}[{{types $n}
 
 func (v *View{{$n}}[{{types $n}}]) Filtered(entities []Entity) iter.Seq2[Entity, Row{{$n}}[{{types $n}}]] {
     return func(yield func(Entity, Row{{$n}}[{{types $n}}]) bool) {
-        var lastArch *archetype
-        {{range $i := seq $n}}
+        var lastArch *Archetype
+        {{- range $i := seq $n}}
         var c{{add $i 1}} *column
-        {{end}}
+        {{- end}}
 
         for _, e := range entities {
-            backLink, ok := v.reg.entitiesRegistry.GetBackLink(e)
-            if !ok {
-                continue
-            }
-
+			backLink := v.viewBase.entityArchLinks[e.Index()]
             arch := backLink.arch
             if arch == nil || !arch.mask.Contains(v.mask) {
                 continue
             }
 
             if arch != lastArch {
-                {{range $i := seq $n}}
+                {{- range $i := seq $n}}
                 c{{add $i 1}} = arch.columns[v.ids[{{$i}}]]
-                {{end}}
+                {{- end}}
                 lastArch = arch
             }
 
-            idx := backLink.index
+            idx := backLink.columnIndex
             row := Row{{$n}}[{{types $n}}]{
-                {{range $i := seq $n}}
+                {{- range $i := seq $n}}
                 V{{add $i 1}}: (*T{{add $i 1}})(unsafe.Add(c{{add $i 1}}.data, uintptr(idx)*c{{add $i 1}}.itemSize)),
-                {{end}}
+                {{- end}}
             }
 
             if !yield(e, row) {
@@ -129,7 +126,7 @@ func main() {
 		"params": func(n int) string {
 			p := make([]string, n)
 			for i := 0; i < n; i++ {
-				p[i] = fmt.Sprintf("T%d any", i+1)
+				p[i] = fmt.Sprintf("T%d", i+1)
 			}
 			return strings.Join(p, ", ")
 		},

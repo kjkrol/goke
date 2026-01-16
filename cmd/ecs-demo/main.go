@@ -45,7 +45,7 @@ func main() {
 	billing := &BillingSystem{}
 	engine.RegisterSystems([]ecs.System{billing})
 
-	order := ecs.GetComponent[Order](engine, entity)
+	order, _ := ecs.GetComponent[Order](engine, entity)
 	fmt.Printf("Order id: %v value: %v\n", order.ID, order.Total)
 	engine.UpdateSystems(time.Duration(time.Second))
 	fmt.Printf("Order id: %v value with discount: %v\n", order.ID, order.Total)

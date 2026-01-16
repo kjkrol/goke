@@ -2,9 +2,10 @@
 package ecs
 
 type viewBase struct {
-	reg     *Registry
-	mask    ArchetypeMask
-	matched []*archetype
+	reg             *Registry
+	mask            ArchetypeMask
+	matched         []*Archetype
+	entityArchLinks []EntityArchLink
 }
 
 func (v *viewBase) Reindex() {
