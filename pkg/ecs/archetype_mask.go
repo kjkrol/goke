@@ -63,3 +63,7 @@ func (b ArchetypeMask) IsSet(bit ComponentID) bool {
 	}
 	return (b[word] & (1 << pos)) != 0
 }
+
+func (b ArchetypeMask) IsEmpty() bool {
+	return b[0] == 0 && b[1] == 0 && b[2] == 0 && b[3] == 0
+}

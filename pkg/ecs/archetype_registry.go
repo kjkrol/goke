@@ -14,11 +14,6 @@ type ArchetypeRegistry struct {
 	componentsRegistry *ComponentsRegistry
 }
 
-type EntityArchLink struct {
-	arch        *Archetype
-	columnIndex int
-}
-
 func newArchetypeRegistry(componentsRegistry *ComponentsRegistry) *ArchetypeRegistry {
 	return &ArchetypeRegistry{
 		archetypeMap:       make(map[ArchetypeMask]*Archetype),
@@ -39,38 +34,6 @@ func (r *ArchetypeRegistry) All() []*Archetype {
 	return r.archetypes
 }
 
-func (r *ArchetypeRegistry) Assign(entity Entity, compID ComponentID, data unsafe.Pointer) {
-	index := entity.Index()
-	backLink := r.entityArchLinks[index]
-	oldArch := backLink.arch
-
-	if oldArch == nil {
-		newMask := NewArchetypeMask(compID)
-		newArch := r.getOrRegister(newMask)
-		r.entityArchLinks[entity.Index()] = newArch.AddEntity(entity, compID, data)
-		return
-	}
-
-	var oldMask = oldArch.mask
-	newMask := oldMask.Set(compID)
-	if oldMask == newMask {
-		col := backLink.arch.columns[compID]
-		col.setData(backLink.columnIndex, data)
-		return
-	}
-
-	newArch := r.getOrRegister(newMask)
-	r.moveEntity(entity, backLink, newArch, compID, data)
-}
-
-func (r *ArchetypeRegistry) UnAssign(entity Entity, compID ComponentID) {
-	oldArch := r.entityArchLinks[entity.Index()].arch
-	oldMask := oldArch.mask
-	newMask := oldMask.Clear(compID)
-	newArch := r.getOrRegister(newMask)
-	r.moveEntityOnly(entity, oldArch, newArch)
-}
-
 func (r *ArchetypeRegistry) AddEntity(entity Entity) {
 	index := entity.Index()
 	for int(index) >= len(r.entityArchLinks) {
@@ -81,9 +44,65 @@ func (r *ArchetypeRegistry) AddEntity(entity Entity) {
 
 func (r *ArchetypeRegistry) RemoveEntity(entity Entity) {
 	index := entity.Index()
-	entityArchIndex := r.entityArchLinks[index].columnIndex
-	r.entityArchLinks[entity].arch.RemoveEntity(entityArchIndex)
-	r.entityArchLinks[entity] = EntityArchLink{}
+	link := r.entityArchLinks[index]
+	swappedEntity, swaped := link.arch.RemoveEntity(link.row)
+
+	// Swap-and-Pop
+	if swaped {
+		// RemoveEntity moved last item of Archetype.entites to oldLink.columnIndex, so we have to update entityArchLinks
+		r.entityArchLinks[swappedEntity.Index()].arch = link.arch
+		r.entityArchLinks[swappedEntity.Index()].row = link.row
+	}
+}
+
+func (r *ArchetypeRegistry) Assign(entity Entity, compID ComponentID, data unsafe.Pointer) {
+	index := entity.Index()
+	backLink := r.entityArchLinks[index]
+	oldArch := backLink.arch
+
+	// first time register
+	if oldArch == nil {
+		newMask := NewArchetypeMask(compID)
+		newArch := r.getOrRegister(newMask)
+		r.entityArchLinks[index] = newArch.AddEntity(entity, compID, data)
+		return
+	}
+
+	var oldMask = oldArch.mask
+	newMask := oldMask.Set(compID)
+
+	// override existing component
+	if oldMask == newMask {
+		col := backLink.arch.columns[compID]
+		col.setData(backLink.row, data)
+		return
+	}
+
+	// move to another archetype
+	newArch := r.getOrRegister(newMask)
+	newArchRow := r.moveEntity(entity, backLink, newArch)
+	newArch.columns[compID].setData(newArchRow, data)
+}
+
+func (r *ArchetypeRegistry) UnAssign(entity Entity, compID ComponentID) {
+	link := r.entityArchLinks[entity.Index()]
+	oldArch := link.arch
+	oldMask := oldArch.mask
+	newMask := oldMask.Clear(compID)
+
+	// nothing to unassign
+	if oldMask == newMask {
+		return
+	}
+
+	if newMask.IsEmpty() {
+		r.RemoveEntity(entity)
+		return
+	}
+
+	newArch := r.getOrRegister(newMask)
+	oldArch.columns[compID].zeroData(link.row)
+	r.moveEntity(entity, link, newArch)
 }
 
 // --------------------------------------------------------------
@@ -113,48 +132,23 @@ func (r *ArchetypeRegistry) getOrRegister(mask ArchetypeMask) *Archetype {
 
 // --------------------------------------------------------------
 
-func (r *ArchetypeRegistry) moveEntity(entity Entity, backLink EntityArchLink, newArch *Archetype, compID ComponentID, newData unsafe.Pointer) {
-	oldArch := backLink.arch
-	oldColumnIndex := backLink.columnIndex
-
-	newColumnIndex := newArch.registerEntity(entity)
-
-	for id, newCol := range newArch.columns {
-		if oldCol, exists := oldArch.columns[id]; exists {
-			newCol.setData(newColumnIndex, oldCol.GetElement(oldColumnIndex))
-		} else if id == compID {
-			newCol.setData(newColumnIndex, newData)
-		} else {
-			newCol.zeroData(newColumnIndex)
-		}
-	}
-
-	// Swap-and-Pop
-	swappedEntity, swaped := oldArch.RemoveEntity(oldColumnIndex)
-	if swaped {
-		r.entityArchLinks[swappedEntity.Index()].arch = oldArch
-		r.entityArchLinks[swappedEntity.Index()].columnIndex = oldColumnIndex
-	}
-
-	r.entityArchLinks[entity.Index()].arch = newArch
-	r.entityArchLinks[entity.Index()].columnIndex = newColumnIndex
-}
-
-func (r *ArchetypeRegistry) moveEntityOnly(entity Entity, oldArch *Archetype, newArch *Archetype) {
+func (r *ArchetypeRegistry) moveEntity(entity Entity, link EntityArchLink, newArch *Archetype) ArchRow {
 	index := entity.Index()
-	oldColumnIndex := r.entityArchLinks[index].columnIndex
+	oldArch := link.arch
+	oldArchRow := link.row
 
-	newColumnIndex := newArch.registerEntity(entity)
+	newArchRow := newArch.registerEntity(entity)
 
 	for id, newCol := range newArch.columns {
 		if oldCol, exists := oldArch.columns[id]; exists {
-			src := oldCol.GetElement(oldColumnIndex)
-			newCol.setData(newColumnIndex, src)
+			newCol.setData(newArchRow, oldCol.GetElement(oldArchRow))
 		}
 	}
 
-	oldArch.RemoveEntity(oldColumnIndex)
+	r.RemoveEntity(entity)
 
 	r.entityArchLinks[index].arch = newArch
-	r.entityArchLinks[index].columnIndex = newColumnIndex
+	r.entityArchLinks[index].row = newArchRow
+
+	return newArchRow
 }

@@ -66,7 +66,7 @@ func (r *Registry) GetComponent(entity Entity, compID ComponentID) (unsafe.Point
 		return nil, fmt.Errorf("Invalid Entity")
 	}
 
-	backLink := r.archetypeRegistry.entityArchLinks[entity.Index()]
-	col := backLink.arch.columns[compID]
-	return col.GetElement(backLink.columnIndex), nil
+	link := r.archetypeRegistry.entityArchLinks[entity.Index()]
+	col := link.arch.columns[compID]
+	return col.GetElement(link.row), nil
 }

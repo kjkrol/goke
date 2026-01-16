@@ -127,10 +127,10 @@ func (v *View{{$n}}[{{types $n}}]) Filtered(entities []Entity) iter.Seq2[Entity,
                 lastArch = arch
             }
 
-            idx := backLink.columnIndex
+            archRow := backLink.row
             row := Row{{$n}}[{{types $n}}]{
                 {{- range $i := seq $n}}
-                V{{add $i 1}}: (*T{{add $i 1}})(unsafe.Add(c{{add $i 1}}.data, uintptr(idx)*c{{add $i 1}}.itemSize)),
+                V{{add $i 1}}: (*T{{add $i 1}})(unsafe.Add(c{{add $i 1}}.data, uintptr(archRow)*c{{add $i 1}}.itemSize)),
                 {{- end}}
             }
 

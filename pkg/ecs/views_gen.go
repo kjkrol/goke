@@ -105,9 +105,9 @@ func (v *View1[T1]) Filtered(entities []Entity) iter.Seq2[Entity, Row1[T1]] {
                 lastArch = arch
             }
 
-            idx := backLink.columnIndex
+            archRow := backLink.row
             row := Row1[T1]{
-                V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*c1.itemSize)),
+                V1: (*T1)(unsafe.Add(c1.data, uintptr(archRow)*c1.itemSize)),
             }
 
             if !yield(e, row) {
@@ -227,10 +227,10 @@ func (v *View2[T1, T2]) Filtered(entities []Entity) iter.Seq2[Entity, Row2[T1, T
                 lastArch = arch
             }
 
-            idx := backLink.columnIndex
+            archRow := backLink.row
             row := Row2[T1, T2]{
-                V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*c1.itemSize)),
-                V2: (*T2)(unsafe.Add(c2.data, uintptr(idx)*c2.itemSize)),
+                V1: (*T1)(unsafe.Add(c1.data, uintptr(archRow)*c1.itemSize)),
+                V2: (*T2)(unsafe.Add(c2.data, uintptr(archRow)*c2.itemSize)),
             }
 
             if !yield(e, row) {
@@ -361,11 +361,11 @@ func (v *View3[T1, T2, T3]) Filtered(entities []Entity) iter.Seq2[Entity, Row3[T
                 lastArch = arch
             }
 
-            idx := backLink.columnIndex
+            archRow := backLink.row
             row := Row3[T1, T2, T3]{
-                V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*c1.itemSize)),
-                V2: (*T2)(unsafe.Add(c2.data, uintptr(idx)*c2.itemSize)),
-                V3: (*T3)(unsafe.Add(c3.data, uintptr(idx)*c3.itemSize)),
+                V1: (*T1)(unsafe.Add(c1.data, uintptr(archRow)*c1.itemSize)),
+                V2: (*T2)(unsafe.Add(c2.data, uintptr(archRow)*c2.itemSize)),
+                V3: (*T3)(unsafe.Add(c3.data, uintptr(archRow)*c3.itemSize)),
             }
 
             if !yield(e, row) {
@@ -507,12 +507,12 @@ func (v *View4[T1, T2, T3, T4]) Filtered(entities []Entity) iter.Seq2[Entity, Ro
                 lastArch = arch
             }
 
-            idx := backLink.columnIndex
+            archRow := backLink.row
             row := Row4[T1, T2, T3, T4]{
-                V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*c1.itemSize)),
-                V2: (*T2)(unsafe.Add(c2.data, uintptr(idx)*c2.itemSize)),
-                V3: (*T3)(unsafe.Add(c3.data, uintptr(idx)*c3.itemSize)),
-                V4: (*T4)(unsafe.Add(c4.data, uintptr(idx)*c4.itemSize)),
+                V1: (*T1)(unsafe.Add(c1.data, uintptr(archRow)*c1.itemSize)),
+                V2: (*T2)(unsafe.Add(c2.data, uintptr(archRow)*c2.itemSize)),
+                V3: (*T3)(unsafe.Add(c3.data, uintptr(archRow)*c3.itemSize)),
+                V4: (*T4)(unsafe.Add(c4.data, uintptr(archRow)*c4.itemSize)),
             }
 
             if !yield(e, row) {
@@ -665,13 +665,13 @@ func (v *View5[T1, T2, T3, T4, T5]) Filtered(entities []Entity) iter.Seq2[Entity
                 lastArch = arch
             }
 
-            idx := backLink.columnIndex
+            archRow := backLink.row
             row := Row5[T1, T2, T3, T4, T5]{
-                V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*c1.itemSize)),
-                V2: (*T2)(unsafe.Add(c2.data, uintptr(idx)*c2.itemSize)),
-                V3: (*T3)(unsafe.Add(c3.data, uintptr(idx)*c3.itemSize)),
-                V4: (*T4)(unsafe.Add(c4.data, uintptr(idx)*c4.itemSize)),
-                V5: (*T5)(unsafe.Add(c5.data, uintptr(idx)*c5.itemSize)),
+                V1: (*T1)(unsafe.Add(c1.data, uintptr(archRow)*c1.itemSize)),
+                V2: (*T2)(unsafe.Add(c2.data, uintptr(archRow)*c2.itemSize)),
+                V3: (*T3)(unsafe.Add(c3.data, uintptr(archRow)*c3.itemSize)),
+                V4: (*T4)(unsafe.Add(c4.data, uintptr(archRow)*c4.itemSize)),
+                V5: (*T5)(unsafe.Add(c5.data, uintptr(archRow)*c5.itemSize)),
             }
 
             if !yield(e, row) {
@@ -835,14 +835,14 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Filtered(entities []Entity) iter.Seq2[En
                 lastArch = arch
             }
 
-            idx := backLink.columnIndex
+            archRow := backLink.row
             row := Row6[T1, T2, T3, T4, T5, T6]{
-                V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*c1.itemSize)),
-                V2: (*T2)(unsafe.Add(c2.data, uintptr(idx)*c2.itemSize)),
-                V3: (*T3)(unsafe.Add(c3.data, uintptr(idx)*c3.itemSize)),
-                V4: (*T4)(unsafe.Add(c4.data, uintptr(idx)*c4.itemSize)),
-                V5: (*T5)(unsafe.Add(c5.data, uintptr(idx)*c5.itemSize)),
-                V6: (*T6)(unsafe.Add(c6.data, uintptr(idx)*c6.itemSize)),
+                V1: (*T1)(unsafe.Add(c1.data, uintptr(archRow)*c1.itemSize)),
+                V2: (*T2)(unsafe.Add(c2.data, uintptr(archRow)*c2.itemSize)),
+                V3: (*T3)(unsafe.Add(c3.data, uintptr(archRow)*c3.itemSize)),
+                V4: (*T4)(unsafe.Add(c4.data, uintptr(archRow)*c4.itemSize)),
+                V5: (*T5)(unsafe.Add(c5.data, uintptr(archRow)*c5.itemSize)),
+                V6: (*T6)(unsafe.Add(c6.data, uintptr(archRow)*c6.itemSize)),
             }
 
             if !yield(e, row) {

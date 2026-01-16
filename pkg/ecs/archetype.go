@@ -14,6 +14,13 @@ type Archetype struct {
 	cap      int
 }
 
+type ArchRow uint32
+
+type EntityArchLink struct {
+	arch *Archetype
+	row  ArchRow
+}
+
 func NewArchetype(mask ArchetypeMask) *Archetype {
 	return &Archetype{
 		mask:     mask,
@@ -25,50 +32,50 @@ func NewArchetype(mask ArchetypeMask) *Archetype {
 }
 
 func (a *Archetype) AddEntity(entity Entity, compID ComponentID, data unsafe.Pointer) EntityArchLink {
-	newIdx := a.registerEntity(entity)
+	row := a.registerEntity(entity)
 
 	for id, col := range a.columns {
 		if id == compID {
-			col.setData(newIdx, data)
+			col.setData(row, data)
 		} else {
-			col.zeroData(newIdx)
+			col.zeroData(row)
 		}
 	}
-	return EntityArchLink{arch: a, columnIndex: newIdx}
+	return EntityArchLink{arch: a, row: row}
 }
 
-func (a *Archetype) RemoveEntity(index int) (swapedEntity Entity, swaped bool) {
-	lastIdx := a.len - 1
-	entityToMove := a.entities[lastIdx]
+func (a *Archetype) RemoveEntity(row ArchRow) (swapedEntity Entity, swaped bool) {
+	lastRow := ArchRow(a.len - 1)
+	entityToMove := a.entities[lastRow]
 
 	// 1. Swap data in all columns
 	for _, col := range a.columns {
-		if index != lastIdx {
-			col.copyData(index, lastIdx)
+		if row != lastRow {
+			col.copyData(row, lastRow)
 		}
-		col.zeroData(lastIdx)
+		col.zeroData(lastRow)
 	}
 
 	// 2. Swap entity ID in the entities slice
-	a.entities[index] = entityToMove
-	a.entities[lastIdx] = 0
+	a.entities[row] = entityToMove
+	a.entities[lastRow] = 0
 	a.len--
 	// 3. Return the entity that was moved to the new position
 	// If we removed the last one, no entity was moved to 'index'
-	if index == lastIdx {
+	if row == lastRow {
 		return 0, false
 	}
 	return entityToMove, true
 }
 
-func (a *Archetype) registerEntity(entity Entity) int {
+func (a *Archetype) registerEntity(entity Entity) ArchRow {
 	a.ensureCapacity()
 	newIdx := a.len
 
 	a.entities[newIdx] = entity
 	a.len++
 
-	return newIdx
+	return ArchRow(newIdx)
 }
 
 func (a *Archetype) ensureCapacity() {
