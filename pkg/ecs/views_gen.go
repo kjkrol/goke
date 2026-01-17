@@ -93,7 +93,9 @@ func (t Tail5[T4, T5, T6, T7, T8]) Values() (*T4, *T5, *T6, *T7, *T8) {
 type matchedArch1[T1 any] struct {
 	arch     *Archetype
 	entities []Entity
-	slice1   []T1
+	count    int
+	ptr1     unsafe.Pointer
+	size1    uintptr
 }
 
 type View1[T1 any] struct {
@@ -112,10 +114,12 @@ func (v *View1[T1]) Reindex() {
 		mArch := matchedArch1[T1]{
 			arch:     arch,
 			entities: arch.entities[:arch.len],
+			count:    arch.len,
 		}
 
 		col1 := arch.columns[v.ids[0]]
-		mArch.slice1 = unsafe.Slice((*T1)(col1.data), arch.len)
+		mArch.ptr1 = col1.data
+		mArch.size1 = col1.itemSize
 
 		v.baked = append(v.baked, mArch)
 	}
@@ -148,17 +152,21 @@ func (v *View1[T1]) All() iter.Seq[Head1[T1]] {
 
 		for i := range v.baked {
 			b := &v.baked[i]
-			ents := b.entities
-			s1 := b.slice1
 
-			for j := 0; j < len(ents); j++ {
+			p1 := b.ptr1
+			s1 := b.size1
 
-				row.Entity = ents[j]
-				row.V1 = &s1[j]
+			for j := 0; j < b.count; j++ {
+
+				row.Entity = b.entities[j]
+				row.V1 = (*T1)(p1)
 				if !yield(row) {
 					return
 				}
 
+				// Przesunięcie wskaźników o rozmiar typu
+
+				p1 = unsafe.Add(p1, s1)
 			}
 		}
 	}
@@ -197,8 +205,11 @@ func (v *View1[T1]) Filtered(entities []Entity) iter.Seq[Head1[T1]] {
 type matchedArch2[T1, T2 any] struct {
 	arch     *Archetype
 	entities []Entity
-	slice1   []T1
-	slice2   []T2
+	count    int
+	ptr1     unsafe.Pointer
+	size1    uintptr
+	ptr2     unsafe.Pointer
+	size2    uintptr
 }
 
 type View2[T1, T2 any] struct {
@@ -217,13 +228,16 @@ func (v *View2[T1, T2]) Reindex() {
 		mArch := matchedArch2[T1, T2]{
 			arch:     arch,
 			entities: arch.entities[:arch.len],
+			count:    arch.len,
 		}
 
 		col1 := arch.columns[v.ids[0]]
-		mArch.slice1 = unsafe.Slice((*T1)(col1.data), arch.len)
+		mArch.ptr1 = col1.data
+		mArch.size1 = col1.itemSize
 
 		col2 := arch.columns[v.ids[1]]
-		mArch.slice2 = unsafe.Slice((*T2)(col2.data), arch.len)
+		mArch.ptr2 = col2.data
+		mArch.size2 = col2.itemSize
 
 		v.baked = append(v.baked, mArch)
 	}
@@ -257,19 +271,25 @@ func (v *View2[T1, T2]) All() iter.Seq[Head2[T1, T2]] {
 
 		for i := range v.baked {
 			b := &v.baked[i]
-			ents := b.entities
-			s1 := b.slice1
-			s2 := b.slice2
 
-			for j := 0; j < len(ents); j++ {
+			p1 := b.ptr1
+			s1 := b.size1
+			p2 := b.ptr2
+			s2 := b.size2
 
-				row.Entity = ents[j]
-				row.V1 = &s1[j]
-				row.V2 = &s2[j]
+			for j := 0; j < b.count; j++ {
+
+				row.Entity = b.entities[j]
+				row.V1 = (*T1)(p1)
+				row.V2 = (*T2)(p2)
 				if !yield(row) {
 					return
 				}
 
+				// Przesunięcie wskaźników o rozmiar typu
+
+				p1 = unsafe.Add(p1, s1)
+				p2 = unsafe.Add(p2, s2)
 			}
 		}
 	}
@@ -310,9 +330,13 @@ func (v *View2[T1, T2]) Filtered(entities []Entity) iter.Seq[Head2[T1, T2]] {
 type matchedArch3[T1, T2, T3 any] struct {
 	arch     *Archetype
 	entities []Entity
-	slice1   []T1
-	slice2   []T2
-	slice3   []T3
+	count    int
+	ptr1     unsafe.Pointer
+	size1    uintptr
+	ptr2     unsafe.Pointer
+	size2    uintptr
+	ptr3     unsafe.Pointer
+	size3    uintptr
 }
 
 type View3[T1, T2, T3 any] struct {
@@ -331,16 +355,20 @@ func (v *View3[T1, T2, T3]) Reindex() {
 		mArch := matchedArch3[T1, T2, T3]{
 			arch:     arch,
 			entities: arch.entities[:arch.len],
+			count:    arch.len,
 		}
 
 		col1 := arch.columns[v.ids[0]]
-		mArch.slice1 = unsafe.Slice((*T1)(col1.data), arch.len)
+		mArch.ptr1 = col1.data
+		mArch.size1 = col1.itemSize
 
 		col2 := arch.columns[v.ids[1]]
-		mArch.slice2 = unsafe.Slice((*T2)(col2.data), arch.len)
+		mArch.ptr2 = col2.data
+		mArch.size2 = col2.itemSize
 
 		col3 := arch.columns[v.ids[2]]
-		mArch.slice3 = unsafe.Slice((*T3)(col3.data), arch.len)
+		mArch.ptr3 = col3.data
+		mArch.size3 = col3.itemSize
 
 		v.baked = append(v.baked, mArch)
 	}
@@ -375,20 +403,29 @@ func (v *View3[T1, T2, T3]) All() iter.Seq[Head3[T1, T2, T3]] {
 
 		for i := range v.baked {
 			b := &v.baked[i]
-			ents := b.entities
-			s1 := b.slice1
-			s2 := b.slice2
-			s3 := b.slice3
 
-			for j := 0; j < len(ents); j++ {
-				row.Entity = ents[j]
-				row.V1 = &s1[j]
-				row.V2 = &s2[j]
-				row.V3 = &s3[j]
+			p1 := b.ptr1
+			s1 := b.size1
+			p2 := b.ptr2
+			s2 := b.size2
+			p3 := b.ptr3
+			s3 := b.size3
+
+			for j := 0; j < b.count; j++ {
+
+				row.Entity = b.entities[j]
+				row.V1 = (*T1)(p1)
+				row.V2 = (*T2)(p2)
+				row.V3 = (*T3)(p3)
 				if !yield(row) {
 					return
 				}
 
+				// Przesunięcie wskaźników o rozmiar typu
+
+				p1 = unsafe.Add(p1, s1)
+				p2 = unsafe.Add(p2, s2)
+				p3 = unsafe.Add(p3, s3)
 			}
 		}
 	}
@@ -431,10 +468,15 @@ func (v *View3[T1, T2, T3]) Filtered(entities []Entity) iter.Seq[Head3[T1, T2, T
 type matchedArch4[T1, T2, T3, T4 any] struct {
 	arch     *Archetype
 	entities []Entity
-	slice1   []T1
-	slice2   []T2
-	slice3   []T3
-	slice4   []T4
+	count    int
+	ptr1     unsafe.Pointer
+	size1    uintptr
+	ptr2     unsafe.Pointer
+	size2    uintptr
+	ptr3     unsafe.Pointer
+	size3    uintptr
+	ptr4     unsafe.Pointer
+	size4    uintptr
 }
 
 type View4[T1, T2, T3, T4 any] struct {
@@ -453,19 +495,24 @@ func (v *View4[T1, T2, T3, T4]) Reindex() {
 		mArch := matchedArch4[T1, T2, T3, T4]{
 			arch:     arch,
 			entities: arch.entities[:arch.len],
+			count:    arch.len,
 		}
 
 		col1 := arch.columns[v.ids[0]]
-		mArch.slice1 = unsafe.Slice((*T1)(col1.data), arch.len)
+		mArch.ptr1 = col1.data
+		mArch.size1 = col1.itemSize
 
 		col2 := arch.columns[v.ids[1]]
-		mArch.slice2 = unsafe.Slice((*T2)(col2.data), arch.len)
+		mArch.ptr2 = col2.data
+		mArch.size2 = col2.itemSize
 
 		col3 := arch.columns[v.ids[2]]
-		mArch.slice3 = unsafe.Slice((*T3)(col3.data), arch.len)
+		mArch.ptr3 = col3.data
+		mArch.size3 = col3.itemSize
 
 		col4 := arch.columns[v.ids[3]]
-		mArch.slice4 = unsafe.Slice((*T4)(col4.data), arch.len)
+		mArch.ptr4 = col4.data
+		mArch.size4 = col4.itemSize
 
 		v.baked = append(v.baked, mArch)
 	}
@@ -502,23 +549,33 @@ func (v *View4[T1, T2, T3, T4]) All() iter.Seq2[Head3[T1, T2, T3], Tail1[T4]] {
 
 		for i := range v.baked {
 			b := &v.baked[i]
-			ents := b.entities
-			s1 := b.slice1
-			s2 := b.slice2
-			s3 := b.slice3
-			s4 := b.slice4
 
-			for j := 0; j < len(ents); j++ {
+			p1 := b.ptr1
+			s1 := b.size1
+			p2 := b.ptr2
+			s2 := b.size2
+			p3 := b.ptr3
+			s3 := b.size3
+			p4 := b.ptr4
+			s4 := b.size4
 
-				head.Entity = ents[j]
-				head.V1 = &s1[j]
-				head.V2 = &s2[j]
-				head.V3 = &s3[j]
-				tail.V4 = &s4[j]
+			for j := 0; j < b.count; j++ {
+
+				head.Entity = b.entities[j]
+				head.V1 = (*T1)(p1)
+				head.V2 = (*T2)(p2)
+				head.V3 = (*T3)(p3)
+				tail.V4 = (*T4)(p4)
 				if !yield(head, tail) {
 					return
 				}
 
+				// Przesunięcie wskaźników o rozmiar typu
+
+				p1 = unsafe.Add(p1, s1)
+				p2 = unsafe.Add(p2, s2)
+				p3 = unsafe.Add(p3, s3)
+				p4 = unsafe.Add(p4, s4)
 			}
 		}
 	}
@@ -564,11 +621,17 @@ func (v *View4[T1, T2, T3, T4]) Filtered(entities []Entity) iter.Seq2[Head3[T1, 
 type matchedArch5[T1, T2, T3, T4, T5 any] struct {
 	arch     *Archetype
 	entities []Entity
-	slice1   []T1
-	slice2   []T2
-	slice3   []T3
-	slice4   []T4
-	slice5   []T5
+	count    int
+	ptr1     unsafe.Pointer
+	size1    uintptr
+	ptr2     unsafe.Pointer
+	size2    uintptr
+	ptr3     unsafe.Pointer
+	size3    uintptr
+	ptr4     unsafe.Pointer
+	size4    uintptr
+	ptr5     unsafe.Pointer
+	size5    uintptr
 }
 
 type View5[T1, T2, T3, T4, T5 any] struct {
@@ -587,22 +650,28 @@ func (v *View5[T1, T2, T3, T4, T5]) Reindex() {
 		mArch := matchedArch5[T1, T2, T3, T4, T5]{
 			arch:     arch,
 			entities: arch.entities[:arch.len],
+			count:    arch.len,
 		}
 
 		col1 := arch.columns[v.ids[0]]
-		mArch.slice1 = unsafe.Slice((*T1)(col1.data), arch.len)
+		mArch.ptr1 = col1.data
+		mArch.size1 = col1.itemSize
 
 		col2 := arch.columns[v.ids[1]]
-		mArch.slice2 = unsafe.Slice((*T2)(col2.data), arch.len)
+		mArch.ptr2 = col2.data
+		mArch.size2 = col2.itemSize
 
 		col3 := arch.columns[v.ids[2]]
-		mArch.slice3 = unsafe.Slice((*T3)(col3.data), arch.len)
+		mArch.ptr3 = col3.data
+		mArch.size3 = col3.itemSize
 
 		col4 := arch.columns[v.ids[3]]
-		mArch.slice4 = unsafe.Slice((*T4)(col4.data), arch.len)
+		mArch.ptr4 = col4.data
+		mArch.size4 = col4.itemSize
 
 		col5 := arch.columns[v.ids[4]]
-		mArch.slice5 = unsafe.Slice((*T5)(col5.data), arch.len)
+		mArch.ptr5 = col5.data
+		mArch.size5 = col5.itemSize
 
 		v.baked = append(v.baked, mArch)
 	}
@@ -640,25 +709,37 @@ func (v *View5[T1, T2, T3, T4, T5]) All() iter.Seq2[Head3[T1, T2, T3], Tail2[T4,
 
 		for i := range v.baked {
 			b := &v.baked[i]
-			ents := b.entities
-			s1 := b.slice1
-			s2 := b.slice2
-			s3 := b.slice3
-			s4 := b.slice4
-			s5 := b.slice5
 
-			for j := 0; j < len(ents); j++ {
+			p1 := b.ptr1
+			s1 := b.size1
+			p2 := b.ptr2
+			s2 := b.size2
+			p3 := b.ptr3
+			s3 := b.size3
+			p4 := b.ptr4
+			s4 := b.size4
+			p5 := b.ptr5
+			s5 := b.size5
 
-				head.Entity = ents[j]
-				head.V1 = &s1[j]
-				head.V2 = &s2[j]
-				head.V3 = &s3[j]
-				tail.V4 = &s4[j]
-				tail.V5 = &s5[j]
+			for j := 0; j < b.count; j++ {
+
+				head.Entity = b.entities[j]
+				head.V1 = (*T1)(p1)
+				head.V2 = (*T2)(p2)
+				head.V3 = (*T3)(p3)
+				tail.V4 = (*T4)(p4)
+				tail.V5 = (*T5)(p5)
 				if !yield(head, tail) {
 					return
 				}
 
+				// Przesunięcie wskaźników o rozmiar typu
+
+				p1 = unsafe.Add(p1, s1)
+				p2 = unsafe.Add(p2, s2)
+				p3 = unsafe.Add(p3, s3)
+				p4 = unsafe.Add(p4, s4)
+				p5 = unsafe.Add(p5, s5)
 			}
 		}
 	}
@@ -706,12 +787,19 @@ func (v *View5[T1, T2, T3, T4, T5]) Filtered(entities []Entity) iter.Seq2[Head3[
 type matchedArch6[T1, T2, T3, T4, T5, T6 any] struct {
 	arch     *Archetype
 	entities []Entity
-	slice1   []T1
-	slice2   []T2
-	slice3   []T3
-	slice4   []T4
-	slice5   []T5
-	slice6   []T6
+	count    int
+	ptr1     unsafe.Pointer
+	size1    uintptr
+	ptr2     unsafe.Pointer
+	size2    uintptr
+	ptr3     unsafe.Pointer
+	size3    uintptr
+	ptr4     unsafe.Pointer
+	size4    uintptr
+	ptr5     unsafe.Pointer
+	size5    uintptr
+	ptr6     unsafe.Pointer
+	size6    uintptr
 }
 
 type View6[T1, T2, T3, T4, T5, T6 any] struct {
@@ -730,25 +818,32 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Reindex() {
 		mArch := matchedArch6[T1, T2, T3, T4, T5, T6]{
 			arch:     arch,
 			entities: arch.entities[:arch.len],
+			count:    arch.len,
 		}
 
 		col1 := arch.columns[v.ids[0]]
-		mArch.slice1 = unsafe.Slice((*T1)(col1.data), arch.len)
+		mArch.ptr1 = col1.data
+		mArch.size1 = col1.itemSize
 
 		col2 := arch.columns[v.ids[1]]
-		mArch.slice2 = unsafe.Slice((*T2)(col2.data), arch.len)
+		mArch.ptr2 = col2.data
+		mArch.size2 = col2.itemSize
 
 		col3 := arch.columns[v.ids[2]]
-		mArch.slice3 = unsafe.Slice((*T3)(col3.data), arch.len)
+		mArch.ptr3 = col3.data
+		mArch.size3 = col3.itemSize
 
 		col4 := arch.columns[v.ids[3]]
-		mArch.slice4 = unsafe.Slice((*T4)(col4.data), arch.len)
+		mArch.ptr4 = col4.data
+		mArch.size4 = col4.itemSize
 
 		col5 := arch.columns[v.ids[4]]
-		mArch.slice5 = unsafe.Slice((*T5)(col5.data), arch.len)
+		mArch.ptr5 = col5.data
+		mArch.size5 = col5.itemSize
 
 		col6 := arch.columns[v.ids[5]]
-		mArch.slice6 = unsafe.Slice((*T6)(col6.data), arch.len)
+		mArch.ptr6 = col6.data
+		mArch.size6 = col6.itemSize
 
 		v.baked = append(v.baked, mArch)
 	}
@@ -787,27 +882,41 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq2[Head3[T1, T2, T3], Tail3
 
 		for i := range v.baked {
 			b := &v.baked[i]
-			ents := b.entities
-			s1 := b.slice1
-			s2 := b.slice2
-			s3 := b.slice3
-			s4 := b.slice4
-			s5 := b.slice5
-			s6 := b.slice6
 
-			for j := 0; j < len(ents); j++ {
+			p1 := b.ptr1
+			s1 := b.size1
+			p2 := b.ptr2
+			s2 := b.size2
+			p3 := b.ptr3
+			s3 := b.size3
+			p4 := b.ptr4
+			s4 := b.size4
+			p5 := b.ptr5
+			s5 := b.size5
+			p6 := b.ptr6
+			s6 := b.size6
 
-				head.Entity = ents[j]
-				head.V1 = &s1[j]
-				head.V2 = &s2[j]
-				head.V3 = &s3[j]
-				tail.V4 = &s4[j]
-				tail.V5 = &s5[j]
-				tail.V6 = &s6[j]
+			for j := 0; j < b.count; j++ {
+
+				head.Entity = b.entities[j]
+				head.V1 = (*T1)(p1)
+				head.V2 = (*T2)(p2)
+				head.V3 = (*T3)(p3)
+				tail.V4 = (*T4)(p4)
+				tail.V5 = (*T5)(p5)
+				tail.V6 = (*T6)(p6)
 				if !yield(head, tail) {
 					return
 				}
 
+				// Przesunięcie wskaźników o rozmiar typu
+
+				p1 = unsafe.Add(p1, s1)
+				p2 = unsafe.Add(p2, s2)
+				p3 = unsafe.Add(p3, s3)
+				p4 = unsafe.Add(p4, s4)
+				p5 = unsafe.Add(p5, s5)
+				p6 = unsafe.Add(p6, s6)
 			}
 		}
 	}
@@ -857,13 +966,21 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Filtered(entities []Entity) iter.Seq2[He
 type matchedArch7[T1, T2, T3, T4, T5, T6, T7 any] struct {
 	arch     *Archetype
 	entities []Entity
-	slice1   []T1
-	slice2   []T2
-	slice3   []T3
-	slice4   []T4
-	slice5   []T5
-	slice6   []T6
-	slice7   []T7
+	count    int
+	ptr1     unsafe.Pointer
+	size1    uintptr
+	ptr2     unsafe.Pointer
+	size2    uintptr
+	ptr3     unsafe.Pointer
+	size3    uintptr
+	ptr4     unsafe.Pointer
+	size4    uintptr
+	ptr5     unsafe.Pointer
+	size5    uintptr
+	ptr6     unsafe.Pointer
+	size6    uintptr
+	ptr7     unsafe.Pointer
+	size7    uintptr
 }
 
 type View7[T1, T2, T3, T4, T5, T6, T7 any] struct {
@@ -882,28 +999,36 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Reindex() {
 		mArch := matchedArch7[T1, T2, T3, T4, T5, T6, T7]{
 			arch:     arch,
 			entities: arch.entities[:arch.len],
+			count:    arch.len,
 		}
 
 		col1 := arch.columns[v.ids[0]]
-		mArch.slice1 = unsafe.Slice((*T1)(col1.data), arch.len)
+		mArch.ptr1 = col1.data
+		mArch.size1 = col1.itemSize
 
 		col2 := arch.columns[v.ids[1]]
-		mArch.slice2 = unsafe.Slice((*T2)(col2.data), arch.len)
+		mArch.ptr2 = col2.data
+		mArch.size2 = col2.itemSize
 
 		col3 := arch.columns[v.ids[2]]
-		mArch.slice3 = unsafe.Slice((*T3)(col3.data), arch.len)
+		mArch.ptr3 = col3.data
+		mArch.size3 = col3.itemSize
 
 		col4 := arch.columns[v.ids[3]]
-		mArch.slice4 = unsafe.Slice((*T4)(col4.data), arch.len)
+		mArch.ptr4 = col4.data
+		mArch.size4 = col4.itemSize
 
 		col5 := arch.columns[v.ids[4]]
-		mArch.slice5 = unsafe.Slice((*T5)(col5.data), arch.len)
+		mArch.ptr5 = col5.data
+		mArch.size5 = col5.itemSize
 
 		col6 := arch.columns[v.ids[5]]
-		mArch.slice6 = unsafe.Slice((*T6)(col6.data), arch.len)
+		mArch.ptr6 = col6.data
+		mArch.size6 = col6.itemSize
 
 		col7 := arch.columns[v.ids[6]]
-		mArch.slice7 = unsafe.Slice((*T7)(col7.data), arch.len)
+		mArch.ptr7 = col7.data
+		mArch.size7 = col7.itemSize
 
 		v.baked = append(v.baked, mArch)
 	}
@@ -943,29 +1068,45 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) All() iter.Seq2[Head3[T1, T2, T3], T
 
 		for i := range v.baked {
 			b := &v.baked[i]
-			ents := b.entities
-			s1 := b.slice1
-			s2 := b.slice2
-			s3 := b.slice3
-			s4 := b.slice4
-			s5 := b.slice5
-			s6 := b.slice6
-			s7 := b.slice7
 
-			for j := 0; j < len(ents); j++ {
+			p1 := b.ptr1
+			s1 := b.size1
+			p2 := b.ptr2
+			s2 := b.size2
+			p3 := b.ptr3
+			s3 := b.size3
+			p4 := b.ptr4
+			s4 := b.size4
+			p5 := b.ptr5
+			s5 := b.size5
+			p6 := b.ptr6
+			s6 := b.size6
+			p7 := b.ptr7
+			s7 := b.size7
 
-				head.Entity = ents[j]
-				head.V1 = &s1[j]
-				head.V2 = &s2[j]
-				head.V3 = &s3[j]
-				tail.V4 = &s4[j]
-				tail.V5 = &s5[j]
-				tail.V6 = &s6[j]
-				tail.V7 = &s7[j]
+			for j := 0; j < b.count; j++ {
+
+				head.Entity = b.entities[j]
+				head.V1 = (*T1)(p1)
+				head.V2 = (*T2)(p2)
+				head.V3 = (*T3)(p3)
+				tail.V4 = (*T4)(p4)
+				tail.V5 = (*T5)(p5)
+				tail.V6 = (*T6)(p6)
+				tail.V7 = (*T7)(p7)
 				if !yield(head, tail) {
 					return
 				}
 
+				// Przesunięcie wskaźników o rozmiar typu
+
+				p1 = unsafe.Add(p1, s1)
+				p2 = unsafe.Add(p2, s2)
+				p3 = unsafe.Add(p3, s3)
+				p4 = unsafe.Add(p4, s4)
+				p5 = unsafe.Add(p5, s5)
+				p6 = unsafe.Add(p6, s6)
+				p7 = unsafe.Add(p7, s7)
 			}
 		}
 	}
@@ -1017,14 +1158,23 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Filtered(entities []Entity) iter.Seq
 type matchedArch8[T1, T2, T3, T4, T5, T6, T7, T8 any] struct {
 	arch     *Archetype
 	entities []Entity
-	slice1   []T1
-	slice2   []T2
-	slice3   []T3
-	slice4   []T4
-	slice5   []T5
-	slice6   []T6
-	slice7   []T7
-	slice8   []T8
+	count    int
+	ptr1     unsafe.Pointer
+	size1    uintptr
+	ptr2     unsafe.Pointer
+	size2    uintptr
+	ptr3     unsafe.Pointer
+	size3    uintptr
+	ptr4     unsafe.Pointer
+	size4    uintptr
+	ptr5     unsafe.Pointer
+	size5    uintptr
+	ptr6     unsafe.Pointer
+	size6    uintptr
+	ptr7     unsafe.Pointer
+	size7    uintptr
+	ptr8     unsafe.Pointer
+	size8    uintptr
 }
 
 type View8[T1, T2, T3, T4, T5, T6, T7, T8 any] struct {
@@ -1043,31 +1193,40 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Reindex() {
 		mArch := matchedArch8[T1, T2, T3, T4, T5, T6, T7, T8]{
 			arch:     arch,
 			entities: arch.entities[:arch.len],
+			count:    arch.len,
 		}
 
 		col1 := arch.columns[v.ids[0]]
-		mArch.slice1 = unsafe.Slice((*T1)(col1.data), arch.len)
+		mArch.ptr1 = col1.data
+		mArch.size1 = col1.itemSize
 
 		col2 := arch.columns[v.ids[1]]
-		mArch.slice2 = unsafe.Slice((*T2)(col2.data), arch.len)
+		mArch.ptr2 = col2.data
+		mArch.size2 = col2.itemSize
 
 		col3 := arch.columns[v.ids[2]]
-		mArch.slice3 = unsafe.Slice((*T3)(col3.data), arch.len)
+		mArch.ptr3 = col3.data
+		mArch.size3 = col3.itemSize
 
 		col4 := arch.columns[v.ids[3]]
-		mArch.slice4 = unsafe.Slice((*T4)(col4.data), arch.len)
+		mArch.ptr4 = col4.data
+		mArch.size4 = col4.itemSize
 
 		col5 := arch.columns[v.ids[4]]
-		mArch.slice5 = unsafe.Slice((*T5)(col5.data), arch.len)
+		mArch.ptr5 = col5.data
+		mArch.size5 = col5.itemSize
 
 		col6 := arch.columns[v.ids[5]]
-		mArch.slice6 = unsafe.Slice((*T6)(col6.data), arch.len)
+		mArch.ptr6 = col6.data
+		mArch.size6 = col6.itemSize
 
 		col7 := arch.columns[v.ids[6]]
-		mArch.slice7 = unsafe.Slice((*T7)(col7.data), arch.len)
+		mArch.ptr7 = col7.data
+		mArch.size7 = col7.itemSize
 
 		col8 := arch.columns[v.ids[7]]
-		mArch.slice8 = unsafe.Slice((*T8)(col8.data), arch.len)
+		mArch.ptr8 = col8.data
+		mArch.size8 = col8.itemSize
 
 		v.baked = append(v.baked, mArch)
 	}
@@ -1108,31 +1267,49 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) All() iter.Seq2[Head3[T1, T2, T3
 
 		for i := range v.baked {
 			b := &v.baked[i]
-			ents := b.entities
-			s1 := b.slice1
-			s2 := b.slice2
-			s3 := b.slice3
-			s4 := b.slice4
-			s5 := b.slice5
-			s6 := b.slice6
-			s7 := b.slice7
-			s8 := b.slice8
 
-			for j := 0; j < len(ents); j++ {
+			p1 := b.ptr1
+			s1 := b.size1
+			p2 := b.ptr2
+			s2 := b.size2
+			p3 := b.ptr3
+			s3 := b.size3
+			p4 := b.ptr4
+			s4 := b.size4
+			p5 := b.ptr5
+			s5 := b.size5
+			p6 := b.ptr6
+			s6 := b.size6
+			p7 := b.ptr7
+			s7 := b.size7
+			p8 := b.ptr8
+			s8 := b.size8
 
-				head.Entity = ents[j]
-				head.V1 = &s1[j]
-				head.V2 = &s2[j]
-				head.V3 = &s3[j]
-				tail.V4 = &s4[j]
-				tail.V5 = &s5[j]
-				tail.V6 = &s6[j]
-				tail.V7 = &s7[j]
-				tail.V8 = &s8[j]
+			for j := 0; j < b.count; j++ {
+
+				head.Entity = b.entities[j]
+				head.V1 = (*T1)(p1)
+				head.V2 = (*T2)(p2)
+				head.V3 = (*T3)(p3)
+				tail.V4 = (*T4)(p4)
+				tail.V5 = (*T5)(p5)
+				tail.V6 = (*T6)(p6)
+				tail.V7 = (*T7)(p7)
+				tail.V8 = (*T8)(p8)
 				if !yield(head, tail) {
 					return
 				}
 
+				// Przesunięcie wskaźników o rozmiar typu
+
+				p1 = unsafe.Add(p1, s1)
+				p2 = unsafe.Add(p2, s2)
+				p3 = unsafe.Add(p3, s3)
+				p4 = unsafe.Add(p4, s4)
+				p5 = unsafe.Add(p5, s5)
+				p6 = unsafe.Add(p6, s6)
+				p7 = unsafe.Add(p7, s7)
+				p8 = unsafe.Add(p8, s8)
 			}
 		}
 	}

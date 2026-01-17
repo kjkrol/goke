@@ -46,8 +46,10 @@ func (t Tail{{sub $n 3}}[{{types_tail $n}}]) Values() ({{params_ptrs_tail $n}}) 
 type matchedArch{{$n}}[{{params $n}} any] struct {
     arch     *Archetype
     entities []Entity
+    count    int
     {{- range $i := seq $n}}
-    slice{{add $i 1}} []T{{add $i 1}}
+    ptr{{add $i 1}}  unsafe.Pointer
+    size{{add $i 1}} uintptr
     {{- end}}
 }
 
@@ -63,12 +65,14 @@ func (v *View{{$n}}[{{types $n}}]) Reindex() {
     for _, arch := range v.matched {
         if arch.len == 0 { continue }
         mArch := matchedArch{{$n}}[{{types $n}}]{
-            arch: arch,
+            arch:     arch,
             entities: arch.entities[:arch.len],
+            count:    arch.len,
         }
         {{range $i := seq $n}}
         col{{add $i 1}} := arch.columns[v.ids[{{$i}}]]
-        mArch.slice{{add $i 1}} = unsafe.Slice((*T{{add $i 1}})(col{{add $i 1}}.data), arch.len)
+        mArch.ptr{{add $i 1}}  = col{{add $i 1}}.data
+        mArch.size{{add $i 1}} = col{{add $i 1}}.itemSize
         {{end}}
         v.baked = append(v.baked, mArch)
     }
@@ -101,20 +105,27 @@ func (v *View{{$n}}[{{types $n}}]) All() {{if le $n 3}}iter.Seq[Head{{$n}}[{{typ
         
         for i := range v.baked {
             b := &v.baked[i]
-            ents := b.entities
-            {{range $i := seq $n}}s{{add $i 1}} := b.slice{{add $i 1}}; {{end}}
+            {{range $i := seq $n}}
+            p{{add $i 1}} := b.ptr{{add $i 1}}
+            s{{add $i 1}} := b.size{{add $i 1}}
+            {{- end}}
             
-            for j := 0; j < len(ents); j++ {
+            for j := 0; j < b.count; j++ {
                 {{if le $n 3}}
-                row.Entity = ents[j]
-                {{range $i := seq $n}};row.V{{add $i 1}} = &s{{add $i 1}}[j]{{end}}
+                row.Entity = b.entities[j]
+                {{range $i := seq $n}};row.V{{add $i 1}} = (*T{{add $i 1}})(p{{add $i 1}}){{end}}
                 if !yield(row) { return }
                 {{else}}
-                head.Entity = ents[j]
-                {{range $i := seq 3}};head.V{{add $i 1}} = &s{{add $i 1}}[j]{{end}}
-                {{range $i := seq (sub $n 3)}};tail.V{{add $i 4}} = &s{{add $i 4}}[j]{{end}}
+                head.Entity = b.entities[j]
+                {{range $i := seq 3}};head.V{{add $i 1}} = (*T{{add $i 1}})(p{{add $i 1}}){{end}}
+                {{range $i := seq (sub $n 3)}};tail.V{{add $i 4}} = (*T{{add $i 4}})(p{{add $i 4}}){{end}}
                 if !yield(head, tail) { return }
                 {{end}}
+
+                // Przesunięcie wskaźników o rozmiar typu
+                {{range $i := seq $n}}
+                p{{add $i 1}} = unsafe.Add(p{{add $i 1}}, s{{add $i 1}})
+                {{- end}}
             }
         }
     }
