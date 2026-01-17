@@ -1,27 +1,52 @@
 //go:generate go run ./gen/main.go
 package ecs
 
-type viewBase struct {
-	reg     *Registry
-	mask    ArchetypeMask
-	matched []*Archetype
+import "unsafe"
+
+const MaxComponents = 8
+
+type matchedArch struct {
+	arch     *Archetype
+	entities []Entity
+	count    int
+	ptrs     [MaxComponents]unsafe.Pointer
+	sizes    [MaxComponents]uintptr
 }
 
-func (v *viewBase) Reindex() {
+type View struct {
+	reg     *Registry
+	mask    ArchetypeMask
+	ids     []ComponentID
+	matched []*Archetype
+	baked   []matchedArch
+}
+
+func (v *View) Reindex() {
 	v.matched = v.matched[:0]
 	for _, arch := range v.reg.archetypeRegistry.All() {
 		if arch.mask.Contains(v.mask) {
 			v.matched = append(v.matched, arch)
 		}
 	}
-}
 
-func (v *viewBase) AddTag(id ComponentID) {
-	v.mask = v.mask.Set(id)
-	v.Reindex()
-}
+	v.baked = v.baked[:0]
+	numIds := len(v.ids)
+	for _, arch := range v.matched {
+		if arch.len == 0 {
+			continue
+		}
 
-func WithTag[T any](v *viewBase) {
-	id := ensureComponentRegistered[T](v.reg.componentsRegistry)
-	v.AddTag(id)
+		mArch := matchedArch{
+			arch:     arch,
+			entities: arch.entities[:arch.len],
+			count:    arch.len,
+		}
+
+		for i := 0; i < numIds; i++ {
+			col := arch.columns[v.ids[i]]
+			mArch.ptrs[i] = col.data
+			mArch.sizes[i] = col.itemSize
+		}
+		v.baked = append(v.baked, mArch)
+	}
 }

@@ -19,7 +19,7 @@ type (
 
 func main() {
 	filesGen := map[string]Generators{
-		"views_gen.go": {Init: genViewPartImports, Next: genViewPartN},
+		"views_gen.go": {Init: genViewPartImports, Next: genViewConstructorN},
 		"query_gen.go": {Init: genQueryPartImports, Next: genQueryPartN},
 	}
 	for fileName, generator := range filesGen {
@@ -39,37 +39,37 @@ func main() {
 	}
 }
 
-func genViewPartImports(f *os.File) {
-	fmt.Fprintln(f, "import (\n\t\"unsafe\"\n)")
-}
+func genViewPartImports(f *os.File) {}
 
-func genViewPartN(f *os.File, n int) {
-	allTypes := make([]string, n)
+func genViewConstructorN(f *os.File, n int) {
 	idNames := make([]string, n)
 	for i := 0; i < n; i++ {
-		allTypes[i] = fmt.Sprintf("T%d", i+1)
 		idNames[i] = fmt.Sprintf("id%d", i+1)
 	}
-	allTParams := strings.Join(allTypes, ", ")
 
-	fmt.Fprintf(f, "\n// -------------View%d-------------\n", n)
-	fmt.Fprintf(f, "type matchedArch%d struct {\n\tarch *Archetype; entities []Entity; count int; ptrs [%d]unsafe.Pointer; sizes [%d]uintptr\n}\n", n, n, n)
-	fmt.Fprintf(f, "type View%d[%s any] struct {\n\tviewBase; ids [%d]ComponentID; baked []matchedArch%d\n}\n", n, allTParams, n, n)
+	fmt.Fprintf(f, "\n// ------------- NewView%d -------------\n", n)
 
-	fmt.Fprintf(f, "\nfunc NewView%d[%s any](reg *Registry) *View%d[%s] {\n", n, allTParams, n, allTParams)
+	// Sygnatura używa typów generycznych tylko do rejestracji komponentów
+	tParams := ""
+	for i := 1; i <= n; i++ {
+		tParams += fmt.Sprintf("T%d", i)
+		if i < n {
+			tParams += ", "
+		}
+	}
+
+	fmt.Fprintf(f, "func NewView%d[%s any](reg *Registry) *View {\n", n, tParams)
+
 	for i := 1; i <= n; i++ {
 		fmt.Fprintf(f, "\tid%d := ensureComponentRegistered[T%d](reg.componentsRegistry)\n", i, i)
 	}
-	fmt.Fprintf(f, "\tids := [%d]ComponentID{%s}\n", n, strings.Join(idNames, ", "))
-	fmt.Fprintf(f, "\tvar mask ArchetypeMask\n\tfor _, id := range ids { mask = mask.Set(id) }\n")
-	fmt.Fprintf(f, "\tv := &View%d[%s]{viewBase: viewBase{reg: reg, mask: mask}, ids: ids}\n", n, allTParams)
-	fmt.Fprintln(f, "\tv.Reindex(); return v\n}")
 
-	fmt.Fprintf(f, "\nfunc (v *View%d[%s]) Reindex() {\n\tv.viewBase.Reindex(); v.baked = v.baked[:0]\n", n, allTParams)
-	fmt.Fprintf(f, "\tfor _, arch := range v.matched {\n\t\tif arch.len == 0 { continue }\n")
-	fmt.Fprintf(f, "\t\tmArch := matchedArch%d{arch: arch, entities: arch.entities[:arch.len], count: arch.len}\n", n)
-	fmt.Fprintf(f, "\t\tfor i := 0; i < %d; i++ { col := arch.columns[v.ids[i]]; mArch.ptrs[i] = col.data; mArch.sizes[i] = col.itemSize }\n", n)
-	fmt.Fprintln(f, "\t\tv.baked = append(v.baked, mArch)\n\t}\n}")
+	fmt.Fprintf(f, "\tids := []ComponentID{%s}\n", strings.Join(idNames, ", "))
+	fmt.Fprintf(f, "\tvar mask ArchetypeMask\n\tfor _, id := range ids { mask = mask.Set(id) }\n")
+
+	fmt.Fprintf(f, "\tv := &View{reg: reg, mask: mask, ids: ids}\n")
+	fmt.Fprintln(f, "\tv.Reindex()")
+	fmt.Fprintln(f, "\treturn v\n}")
 }
 
 func genQueryPartImports(f *os.File) {
@@ -82,9 +82,9 @@ func genQueryPartN(f *os.File, n int) {
 		allTypes[i] = fmt.Sprintf("T%d", i+1)
 	}
 
-	fmt.Fprintf(f, "\n// -------------Query%d-------------\n", n)
+	fmt.Fprintf(f, "\n// ------------- Query%d -------------\n", n)
 
-	// STANDARD (Entity + 3)
+	// STANDARD (Entity + max 3 pola)
 	hCount := n
 	if hCount > 3 {
 		hCount = 3
@@ -98,26 +98,23 @@ func genQueryPartN(f *os.File, n int) {
 	fmt.Fprintln(f, "}")
 
 	if n > hCount {
-		// Tutaj magia: rozbijamy Tail na dwie pod-struktury jeśli n=8 (3+5)
-		// żeby Tail nie miał więcej niż 4 pola.
-		tCount := n - hCount
-		t1Count := tCount
-		if t1Count > 4 {
-			t1Count = 4
-		}
-
 		tTParams := strings.Join(allTypes[hCount:], ", ")
 		fmt.Fprintf(f, "type Tail%d[%s any] struct {\n", n, tTParams)
-		for i := hCount + 1; i <= hCount+t1Count; i++ {
+		// Obsługa rozbicia dla n > 7 (np. View8) zgodnie z Twoją logiką
+		for i := hCount + 1; i <= n; i++ {
+			if i == 8 && n == 8 { // Specyficzny przypadek V8 dla View8
+				fmt.Fprintf(f, "\tV8 *T8\n")
+				break
+			}
+			if i > hCount+4 {
+				break
+			} // Max 4 pola w Tail (poza V8)
 			fmt.Fprintf(f, "\tV%d *T%d\n", i, i)
-		}
-		if tCount > 4 { // Przypadek View8: V1-V3 (Head), V4-V7 (Tail), V8 (Tail)
-			fmt.Fprintf(f, "\tV8 *T8\n")
 		}
 		fmt.Fprintln(f, "}")
 	}
 
-	// PURE (4 + 4)
+	// PURE (max 4 + 4)
 	phCount := n
 	if phCount > 4 {
 		phCount = 4
@@ -149,19 +146,20 @@ func genQueryPartN(f *os.File, n int) {
 		ptTParams = strings.Join(allTypes[phCount:], ", ")
 	}
 
+	// Wywołania generatorów funkcji korzystających z *View
 	genAll(f, n, allTParams, hTParams, tTParams, hCount)
 	genFilter(f, n, allTParams, hTParams, tTParams, hCount)
 	genPureAll(f, n, allTParams, phTParams, ptTParams, phCount)
 	genPureFilter(f, n, allTParams, phTParams, ptTParams, phCount)
 }
 
-// Implementacje (skrócone yieldy dla czytelności generatora)
 func genAll(f *os.File, n int, allT, hT, tT string, hC int) {
 	seq, yield := "iter.Seq", fmt.Sprintf("Head%d[%s]", n, hT)
 	if n > hC {
 		seq, yield = "iter.Seq2", fmt.Sprintf("Head%d[%s], Tail%d[%s]", n, hT, n, tT)
 	}
-	fmt.Fprintf(f, "\nfunc All%d[%s any](v *View%d[%s]) %s[%s] {\n\treturn func(yield func(%s) bool) {\n\t\tfor i := range v.baked {\n\t\t\tb := &v.baked[i]\n", n, allT, n, allT, seq, yield, yield)
+	// ZMIANA: v *View zamiast v *ViewN
+	fmt.Fprintf(f, "\nfunc All%d[%s any](v *View) %s[%s] {\n\treturn func(yield func(%s) bool) {\n\t\tfor i := range v.baked {\n\t\t\tb := &v.baked[i]\n", n, allT, seq, yield, yield)
 	for i := 1; i <= n; i++ {
 		fmt.Fprintf(f, "\t\t\tp%d, s%d := b.ptrs[%d], b.sizes[%d]\n", i, i, i-1, i-1)
 	}
@@ -191,7 +189,8 @@ func genFilter(f *os.File, n int, allT, hT, tT string, hC int) {
 	if n > hC {
 		seq, yield = "iter.Seq2", fmt.Sprintf("Head%d[%s], Tail%d[%s]", n, hT, n, tT)
 	}
-	fmt.Fprintf(f, "\nfunc Filter%d[%s any](v *View%d[%s], entities []Entity) %s[%s] {\n\tlinks := v.reg.archetypeRegistry.entityArchLinks\n\treturn func(yield func(%s) bool) {\n\t\tvar lastArch *Archetype; var cols [%d]*column\n\t\tfor _, e := range entities {\n\t\t\tlink := links[e.Index()]; arch := link.arch\n\t\t\tif arch == nil || !arch.mask.Contains(v.mask) { continue }\n\t\t\tif arch != lastArch { for i := 0; i < %d; i++ { cols[i] = arch.columns[v.ids[i]] }; lastArch = arch }\n\t\t\tidx := uintptr(link.row)\n", n, allT, n, allT, seq, yield, yield, n, n)
+	// ZMIANA: v *View zamiast v *ViewN
+	fmt.Fprintf(f, "\nfunc Filter%d[%s any](v *View, entities []Entity) %s[%s] {\n\tlinks := v.reg.archetypeRegistry.entityArchLinks\n\treturn func(yield func(%s) bool) {\n\t\tvar lastArch *Archetype; var cols [%d]*column\n\t\tfor _, e := range entities {\n\t\t\tlink := links[e.Index()]; arch := link.arch\n\t\t\tif arch == nil || !arch.mask.Contains(v.mask) { continue }\n\t\t\tif arch != lastArch { for i := 0; i < %d; i++ { cols[i] = arch.columns[v.ids[i]] }; lastArch = arch }\n\t\t\tidx := uintptr(link.row)\n", n, allT, seq, yield, yield, n, n)
 	hI := fmt.Sprintf("Head%d[%s]{Entity: e", n, hT)
 	for i := 1; i <= hC; i++ {
 		hI += fmt.Sprintf(", V%d: (*T%d)(unsafe.Add(cols[%d].data, idx*cols[%d].itemSize))", i, i, i-1, i-1)
@@ -209,12 +208,13 @@ func genFilter(f *os.File, n int, allT, hT, tT string, hC int) {
 	fmt.Fprintln(f, "\t\t}\n\t}\n}")
 }
 
+// genPureAll i genPureFilter analogicznie zmieniają v *ViewN na v *View
 func genPureAll(f *os.File, n int, allT, phT, ptT string, phC int) {
 	seq, yield := "iter.Seq", fmt.Sprintf("PHead%d[%s]", n, phT)
 	if n > phC {
 		seq, yield = "iter.Seq2", fmt.Sprintf("PHead%d[%s], PTail%d[%s]", n, phT, n, ptT)
 	}
-	fmt.Fprintf(f, "\nfunc PureAll%d[%s any](v *View%d[%s]) %s[%s] {\n\treturn func(yield func(%s) bool) {\n\t\tfor i := range v.baked {\n\t\t\tb := &v.baked[i]\n", n, allT, n, allT, seq, yield, yield)
+	fmt.Fprintf(f, "\nfunc PureAll%d[%s any](v *View) %s[%s] {\n\treturn func(yield func(%s) bool) {\n\t\tfor i := range v.baked {\n\t\t\tb := &v.baked[i]\n", n, allT, seq, yield, yield)
 	for i := 1; i <= n; i++ {
 		fmt.Fprintf(f, "\t\t\tp%d, s%d := b.ptrs[%d], b.sizes[%d]\n", i, i, i-1, i-1)
 	}
@@ -244,7 +244,7 @@ func genPureFilter(f *os.File, n int, allT, phT, ptT string, phC int) {
 	if n > phC {
 		seq, yield = "iter.Seq2", fmt.Sprintf("PHead%d[%s], PTail%d[%s]", n, phT, n, ptT)
 	}
-	fmt.Fprintf(f, "\nfunc PureFilter%d[%s any](v *View%d[%s], entities []Entity) %s[%s] {\n\tlinks := v.reg.archetypeRegistry.entityArchLinks\n\treturn func(yield func(%s) bool) {\n\t\tvar lastArch *Archetype; var cols [%d]*column\n\t\tfor _, e := range entities {\n\t\t\tlink := links[e.Index()]; arch := link.arch\n\t\t\tif arch == nil || !arch.mask.Contains(v.mask) { continue }\n\t\t\tif arch != lastArch { for i := 0; i < %d; i++ { cols[i] = arch.columns[v.ids[i]] }; lastArch = arch }\n\t\t\tidx := uintptr(link.row)\n", n, allT, n, allT, seq, yield, yield, n, n)
+	fmt.Fprintf(f, "\nfunc PureFilter%d[%s any](v *View, entities []Entity) %s[%s] {\n\tlinks := v.reg.archetypeRegistry.entityArchLinks\n\treturn func(yield func(%s) bool) {\n\t\tvar lastArch *Archetype; var cols [%d]*column\n\t\tfor _, e := range entities {\n\t\t\tlink := links[e.Index()]; arch := link.arch\n\t\t\tif arch == nil || !arch.mask.Contains(v.mask) { continue }\n\t\t\tif arch != lastArch { for i := 0; i < %d; i++ { cols[i] = arch.columns[v.ids[i]] }; lastArch = arch }\n\t\t\tidx := uintptr(link.row)\n", n, allT, seq, yield, yield, n, n)
 	hI := fmt.Sprintf("PHead%d[%s]{", n, phT)
 	for i := 1; i <= phC; i++ {
 		hI += fmt.Sprintf("V%d: (*T%d)(unsafe.Add(cols[%d].data, idx*cols[%d].itemSize))%s", i, i, i-1, i-1, ternary(i < phC, ", ", ""))

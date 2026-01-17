@@ -44,30 +44,30 @@ func setupBenchmark(_ *testing.B, count int) (*Registry, []Entity) {
 	return reg, entities
 }
 
-func view1All(v *View1[Pos]) {
-	for head := range All1(v) {
+func view1All(v *View) {
+	for head := range All1[Pos](v) {
 		pos := head.V1
 		pos.X += pos.X
 	}
 }
 
-func view2All(v *View2[Pos, Vel]) {
-	for head := range All2(v) {
+func view2All(v *View) {
+	for head := range All2[Pos, Vel](v) {
 		pos, vel := head.V1, head.V2
 		pos.X += vel.X
 	}
 }
 
-func view3All(v *View3[Pos, Vel, Acc]) {
-	for head := range All3(v) {
+func view3All(v *View) {
+	for head := range All3[Pos, Vel, Acc](v) {
 		pos, vel, acc := head.V1, head.V2, head.V3
 		vel.X += acc.X
 		pos.X += vel.X
 	}
 }
 
-func view4All(v *View4[Pos, Vel, Acc, Mass]) {
-	for head := range All4(v) {
+func view4All(v *View) {
+	for head := range All4[Pos, Vel, Acc, Mass](v) {
 		pos, vel, acc := head.V1, head.V2, head.V3
 		// acc.X += mass.M
 		vel.X += acc.X
@@ -75,40 +75,40 @@ func view4All(v *View4[Pos, Vel, Acc, Mass]) {
 	}
 }
 
-func view5All(v *View5[Pos, Vel, Acc, Mass, Spin]) {
-	for head := range All5(v) {
+func view5All(v *View) {
+	for head := range All5[Pos, Vel, Acc, Mass, Spin](v) {
 		pos, vel, acc := head.V1, head.V2, head.V3
 		vel.X += acc.X
 		pos.X += vel.X
 	}
 }
 
-func view6All(v *View6[Pos, Vel, Acc, Mass, Spin, Char]) {
-	for head := range All6(v) {
+func view6All(v *View) {
+	for head := range All6[Pos, Vel, Acc, Mass, Spin, Char](v) {
 		pos, vel, acc := head.V1, head.V2, head.V3
 		vel.X += acc.X
 		pos.X += vel.X
 	}
 }
 
-func view7All(v *View7[Pos, Vel, Acc, Mass, Spin, Char, Elec]) {
-	for head := range All7(v) {
+func view7All(v *View) {
+	for head := range All7[Pos, Vel, Acc, Mass, Spin, Char, Elec](v) {
 		pos, vel, acc := head.V1, head.V2, head.V3
 		vel.X += acc.X
 		pos.X += vel.X
 	}
 }
 
-func view8All(v *View8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn]) {
-	for head := range All8(v) {
+func view8All(v *View) {
+	for head := range All8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn](v) {
 		pos, vel, acc := head.V1, head.V2, head.V3
 		vel.X += acc.X
 		pos.X += vel.X
 	}
 }
 
-func view3Filter(v *View3[Pos, Vel, Acc], entities []Entity) {
-	for head := range Filter3(v, entities) {
+func view3Filter(v *View, entities []Entity) {
+	for head := range Filter3[Pos, Vel, Acc](v, entities) {
 		pos, vel, acc := head.V1, head.V2, head.V3
 		acc.X += vel.X
 		pos.X += vel.X
@@ -208,62 +208,62 @@ func BenchmarkView3_Filtered100(b *testing.B) {
 
 // --- Helpery Pure ---
 
-func view1PureAll(v *View1[Pos]) {
-	for head := range PureAll1(v) {
+func view1PureAll(v *View) {
+	for head := range PureAll1[Pos](v) {
 		pos := head.V1
 		pos.X += pos.X
 	}
 }
 
-func view2PureAll(v *View2[Pos, Vel]) {
-	for head := range PureAll2(v) {
+func view2PureAll(v *View) {
+	for head := range PureAll2[Pos, Vel](v) {
 		pos, vel := head.V1, head.V2
 		pos.X += vel.X
 	}
 }
 
-func view3PureAll(v *View3[Pos, Vel, Acc]) {
-	for head := range PureAll3(v) {
+func view3PureAll(v *View) {
+	for head := range PureAll3[Pos, Vel, Acc](v) {
 		pos, vel, acc := head.V1, head.V2, head.V3
 		vel.X += acc.X
 		pos.X += vel.X
 	}
 }
 
-func view4PureAll(v *View4[Pos, Vel, Acc, Mass]) {
-	for head := range PureAll4(v) {
+func view4PureAll(v *View) {
+	for head := range PureAll4[Pos, Vel, Acc, Mass](v) {
 		pos, vel, acc := head.V1, head.V2, head.V3
 		vel.X += acc.X
 		pos.X += vel.X
 	}
 }
 
-func view5PureAll(v *View5[Pos, Vel, Acc, Mass, Spin]) {
-	for head := range PureAll5(v) {
+func view5PureAll(v *View) {
+	for head := range PureAll5[Pos, Vel, Acc, Mass, Spin](v) {
 		pos, vel, acc := head.V1, head.V2, head.V3
 		vel.X += acc.X
 		pos.X += vel.X
 	}
 }
 
-func view6PureAll(v *View6[Pos, Vel, Acc, Mass, Spin, Char]) {
-	for head := range PureAll6(v) {
+func view6PureAll(v *View) {
+	for head := range PureAll6[Pos, Vel, Acc, Mass, Spin, Char](v) {
 		pos, vel, acc := head.V1, head.V2, head.V3
 		vel.X += acc.X
 		pos.X += vel.X
 	}
 }
 
-func view7PureAll(v *View7[Pos, Vel, Acc, Mass, Spin, Char, Elec]) {
-	for head := range PureAll7(v) {
+func view7PureAll(v *View) {
+	for head := range PureAll7[Pos, Vel, Acc, Mass, Spin, Char, Elec](v) {
 		pos, vel, acc := head.V1, head.V2, head.V3
 		vel.X += acc.X
 		pos.X += vel.X
 	}
 }
 
-func view8PureAll(v *View8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn]) {
-	for head := range PureAll8(v) {
+func view8PureAll(v *View) {
+	for head := range PureAll8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn](v) {
 		pos, vel, acc := head.V1, head.V2, head.V3
 		vel.X += acc.X
 		pos.X += vel.X
@@ -346,8 +346,8 @@ func BenchmarkView8_PureAll(b *testing.B) {
 
 // --- Benchmarki Pure Filtered ---
 
-func view3PureFilter(v *View3[Pos, Vel, Acc], entities []Entity) {
-	for head := range PureFilter3(v, entities) {
+func view3PureFilter(v *View, entities []Entity) {
+	for head := range PureFilter3[Pos, Vel, Acc](v, entities) {
 		pos, vel, acc := head.V1, head.V2, head.V3
 		acc.X += vel.X
 		pos.X += vel.X

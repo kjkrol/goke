@@ -25,7 +25,7 @@ type Discount struct {
 // system
 
 type BillingSystem struct {
-	view           *ecs.View3[Order, Status, Discount]
+	view           *ecs.View
 	processedCount int
 }
 
@@ -35,7 +35,7 @@ func (s *BillingSystem) Init(reg *ecs.Registry) {
 }
 
 func (s *BillingSystem) Update(reg *ecs.Registry, d time.Duration) {
-	for head := range ecs.All3(s.view) {
+	for head := range ecs.All3[Order, Status, Discount](s.view) {
 		s.processedCount++
 		ord, st, disc := head.V1, head.V2, head.V3
 		ord.Total = ord.Total * (1 - disc.Percentage/100)
