@@ -45,31 +45,30 @@ func setupBenchmark(_ *testing.B, count int) (*Registry, []Entity) {
 }
 
 func view1All(v *View1[Pos]) {
-	for head := range v.All() {
-		_, pos := head.Values()
+	for head := range All1(v) {
+		pos := head.V1
 		pos.X += pos.X
 	}
 }
 
 func view2All(v *View2[Pos, Vel]) {
-	for row := range v.All() {
-		_, pos, vel := row.Values()
+	for head := range All2(v) {
+		pos, vel := head.V1, head.V2
 		pos.X += vel.X
 	}
 }
 
 func view3All(v *View3[Pos, Vel, Acc]) {
-	for row := range v.All() {
-		_, pos, vel, acc := row.Values()
+	for head, tail := range All3(v) {
+		pos, vel, acc := head.V1, head.V2, tail.V3
 		vel.X += acc.X
 		pos.X += vel.X
 	}
 }
 
 func view4All(v *View4[Pos, Vel, Acc, Mass]) {
-	for head, tail := range v.All() {
-		_, pos, vel, acc := head.Values()
-		mass := tail.Values()
+	for head, tail := range All4(v) {
+		pos, vel, acc, mass := head.V1, head.V2, tail.V3, tail.V4
 		acc.X += mass.M
 		vel.X += acc.X
 		pos.X += vel.X
@@ -77,9 +76,8 @@ func view4All(v *View4[Pos, Vel, Acc, Mass]) {
 }
 
 func view5All(v *View5[Pos, Vel, Acc, Mass, Spin]) {
-	for head, tail := range v.All() {
-		_, pos, vel, acc := head.Values()
-		mass, _ := tail.Values()
+	for head, tail := range All5(v) {
+		pos, vel, acc, mass := head.V1, head.V2, tail.V3, tail.V4
 		acc.X += mass.M
 		vel.X += acc.X
 		pos.X += vel.X
@@ -87,9 +85,8 @@ func view5All(v *View5[Pos, Vel, Acc, Mass, Spin]) {
 }
 
 func view6All(v *View6[Pos, Vel, Acc, Mass, Spin, Char]) {
-	for head, tail := range v.All() {
-		_, pos, vel, acc := head.Values()
-		mass, _, _ := tail.Values()
+	for head, tail := range All6(v) {
+		pos, vel, acc, mass := head.V1, head.V2, head.V3, tail.V4
 		acc.X += mass.M
 		vel.X += acc.X
 		pos.X += vel.X
@@ -97,9 +94,8 @@ func view6All(v *View6[Pos, Vel, Acc, Mass, Spin, Char]) {
 }
 
 func view7All(v *View7[Pos, Vel, Acc, Mass, Spin, Char, Elec]) {
-	for head, tail := range v.All() {
-		_, pos, vel, acc := head.Values()
-		mass, _, _, _ := tail.Values()
+	for head, tail := range All7(v) {
+		pos, vel, acc, mass := head.V1, head.V2, head.V3, tail.V4
 		acc.X += mass.M
 		vel.X += acc.X
 		pos.X += vel.X
@@ -107,9 +103,8 @@ func view7All(v *View7[Pos, Vel, Acc, Mass, Spin, Char, Elec]) {
 }
 
 func view8All(v *View8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn]) {
-	for head, tail := range v.All() {
-		_, pos, vel, acc := head.Values()
-		mass, _, _, _, _ := tail.Values()
+	for head, tail := range All8(v) {
+		pos, vel, acc, mass := head.V1, head.V2, head.V3, tail.V4
 		acc.X += mass.M
 		vel.X += acc.X
 		pos.X += vel.X
@@ -117,8 +112,8 @@ func view8All(v *View8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn]) {
 }
 
 func queryFiltered(v *View3[Pos, Vel, Acc], entities []Entity) {
-	for head := range v.Filtered(entities) {
-		_, pos, vel, acc := head.Values()
+	for head, tail := range Filter3(v, entities) {
+		pos, vel, acc := head.V1, head.V2, tail.V3
 		acc.X += vel.X
 		pos.X += vel.X
 	}
