@@ -14,48 +14,63 @@ import (
     "iter"
     "unsafe"
 )
-{{range .Count}}
+
+// -------------- Row Structures --------------
+
+{{- range .Count}}
+{{$n := .}}
+{{- if le $n 3}}
+type Head{{$n}}[{{params $n}} any] struct {
+    Entity Entity
+    {{fields $n 1}}
+}
+
+func (h Head{{$n}}[{{types $n}}]) Values() (Entity, {{params_ptrs $n}}) {
+    return h.Entity, {{row_returns_prefix $n 1 "h"}}
+}
+{{- else}}
+type Tail{{sub $n 3}}[{{args_tail_names $n}} any] struct {
+    {{fields (sub $n 3) 4}}
+}
+
+func (t Tail{{sub $n 3}}[{{types_tail $n}}]) Values() ({{params_ptrs_tail $n}}) {
+    return {{row_returns_prefix (sub $n 3) 4 "t"}}
+}
+{{- end}}
+{{- end}}
+
+{{- range .Count}}
 {{$n := .}}
 // -------------- View{{$n}} --------------
 
-type matchedArch{{$n}} struct {
-    arch *Archetype
+type matchedArch{{$n}}[{{params $n}} any] struct {
+    arch     *Archetype
+    entities []Entity
     {{- range $i := seq $n}}
-    ptr{{add $i 1}}  unsafe.Pointer
-    size{{add $i 1}} uintptr
+    slice{{add $i 1}} []T{{add $i 1}}
     {{- end}}
 }
 
 type View{{$n}}[{{params $n}} any] struct {
     viewBase
     ids   [{{$n}}]ComponentID
-    baked []matchedArch{{$n}}
-}
-
-type Row{{$n}}[{{params $n}} any] struct {
-    {{fields $n}}
-}
-
-func (r Row{{$n}}[{{types $n}}]) Values() ({{params_ptrs $n}}) {
-    return {{row_returns $n}}
+    baked []matchedArch{{$n}}[{{types $n}}]
 }
 
 func (v *View{{$n}}[{{types $n}}]) Reindex() {
     v.viewBase.Reindex()
     v.baked = v.baked[:0]
-
     for _, arch := range v.matched {
-        {{- range $i := seq $n}}
-        col{{add $i 1}} := arch.columns[v.ids[{{$i}}]]
-        {{- end}}
-
-        v.baked = append(v.baked, matchedArch{{$n}}{
+        if arch.len == 0 { continue }
+        mArch := matchedArch{{$n}}[{{types $n}}]{
             arch: arch,
-            {{- range $i := seq $n}}
-            ptr{{add $i 1}}:  col{{add $i 1}}.data,
-            size{{add $i 1}}: col{{add $i 1}}.itemSize,
-            {{- end}}
-        })
+            entities: arch.entities[:arch.len],
+        }
+        {{range $i := seq $n}}
+        col{{add $i 1}} := arch.columns[v.ids[{{$i}}]]
+        mArch.slice{{add $i 1}} = unsafe.Slice((*T{{add $i 1}})(col{{add $i 1}}.data), arch.len)
+        {{end}}
+        v.baked = append(v.baked, mArch)
     }
 }
 
@@ -70,48 +85,45 @@ func NewView{{$n}}[{{params $n}} any](reg *Registry) *View{{$n}}[{{types $n}}] {
 
     v := &View{{$n}}[{{types $n}}]{
         viewBase: viewBase{
-            reg:             reg,
-            mask:            mask,
+            reg: reg,
+            mask: mask,
             entityArchLinks: reg.archetypeRegistry.entityArchLinks,
         },
         ids: ids,
     }
-    
     v.Reindex() 
     return v
 }
 
-func (v *View{{$n}}[{{types $n}}]) All() iter.Seq2[Entity, Row{{$n}}[{{types $n}}]] {
-    return func(yield func(Entity, Row{{$n}}[{{types $n}}]) bool) {
+func (v *View{{$n}}[{{types $n}}]) All() {{if le $n 3}}iter.Seq[Head{{$n}}[{{types $n}}]]{{else}}iter.Seq2[Head3[T1, T2, T3], Tail{{sub $n 3}}[{{types_tail $n}}]]{{end}} {
+    return func(yield {{if le $n 3}}func(Head{{$n}}[{{types $n}}]) bool{{else}}func(Head3[T1, T2, T3], Tail{{sub $n 3}}[{{types_tail $n}}]) bool{{end}}) {
+        {{if le $n 3}}var row Head{{$n}}[{{types $n}}]{{else}}var head Head3[T1, T2, T3]; var tail Tail{{sub $n 3}}[{{types_tail $n}}]{{end}}
+        
         for i := range v.baked {
             b := &v.baked[i]
-            n := b.arch.len
-            if n == 0 {
-                continue
-            }
-
-            {{- range $i := seq $n}}
-            ptr{{add $i 1}} := b.ptr{{add $i 1}}
-            size{{add $i 1}} := b.size{{add $i 1}}
-            {{- end}}
-            entities := b.arch.entities
-
-            for j := 0; j < n; j++ {
-                if !yield(entities[j], Row{{$n}}[{{types $n}}]{ {{row_fields_baked $n}} }) {
-                    return
-                }
-                {{advance $n}}
+            ents := b.entities
+            {{range $i := seq $n}}s{{add $i 1}} := b.slice{{add $i 1}}; {{end}}
+            
+            for j := 0; j < len(ents); j++ {
+                {{if le $n 3}}
+                row.Entity = ents[j]
+                {{range $i := seq $n}};row.V{{add $i 1}} = &s{{add $i 1}}[j]{{end}}
+                if !yield(row) { return }
+                {{else}}
+                head.Entity = ents[j]
+                {{range $i := seq 3}};head.V{{add $i 1}} = &s{{add $i 1}}[j]{{end}}
+                {{range $i := seq (sub $n 3)}};tail.V{{add $i 4}} = &s{{add $i 4}}[j]{{end}}
+                if !yield(head, tail) { return }
+                {{end}}
             }
         }
     }
 }
 
-func (v *View{{$n}}[{{types $n}}]) Filtered(entities []Entity) iter.Seq2[Entity, Row{{$n}}[{{types $n}}]] {
-    return func(yield func(Entity, Row{{$n}}[{{types $n}}]) bool) {
+func (v *View{{$n}}[{{types $n}}]) Filtered(entities []Entity) {{if le $n 3}}iter.Seq[Head{{$n}}[{{types $n}}]]{{else}}iter.Seq2[Head3[T1, T2, T3], Tail{{sub $n 3}}[{{types_tail $n}}]]{{end}} {
+    return func(yield {{if le $n 3}}func(Head{{$n}}[{{types $n}}]) bool{{else}}func(Head3[T1, T2, T3], Tail{{sub $n 3}}[{{types_tail $n}}]) bool{{end}}) {
         var lastArch *Archetype
-        {{- range $i := seq $n}}
-        var c{{add $i 1}} *column
-        {{- end}}
+        {{range $i := seq $n}}var c{{add $i 1}} *column; {{end}}
 
         for _, e := range entities {
             backLink := v.viewBase.entityArchLinks[e.Index()]
@@ -121,22 +133,19 @@ func (v *View{{$n}}[{{types $n}}]) Filtered(entities []Entity) iter.Seq2[Entity,
             }
 
             if arch != lastArch {
-                {{- range $i := seq $n}}
-                c{{add $i 1}} = arch.columns[v.ids[{{$i}}]]
-                {{- end}}
+                {{range $i := seq $n}}c{{add $i 1}} = arch.columns[v.ids[{{$i}}]]; {{end}}
                 lastArch = arch
             }
 
-            archRow := backLink.row
-            row := Row{{$n}}[{{types $n}}]{
-                {{- range $i := seq $n}}
-                V{{add $i 1}}: (*T{{add $i 1}})(unsafe.Add(c{{add $i 1}}.data, uintptr(archRow)*c{{add $i 1}}.itemSize)),
-                {{- end}}
-            }
-
-            if !yield(e, row) {
-                return
-            }
+            idx := backLink.row
+            {{if le $n 3}}
+            row := Head{{$n}}[{{types $n}}]{Entity: e, {{row_init_unsafe $n 1}} }
+            if !yield(row) { return }
+            {{else}}
+            head := Head3[T1, T2, T3]{Entity: e, {{row_init_unsafe 3 1}} }
+            tail := Tail{{sub $n 3}}[{{types_tail $n}}]{ {{row_init_unsafe (sub $n 3) 4}} }
+            if !yield(head, tail) { return }
+            {{end}}
         }
     }
 }
@@ -146,6 +155,7 @@ func (v *View{{$n}}[{{types $n}}]) Filtered(entities []Entity) iter.Seq2[Entity,
 func main() {
 	funcMap := template.FuncMap{
 		"add": func(a, b int) int { return a + b },
+		"sub": func(a, b int) int { return a - b },
 		"seq": func(n int) []int {
 			res := make([]int, n)
 			for i := 0; i < n; i++ {
@@ -160,12 +170,34 @@ func main() {
 			}
 			return strings.Join(p, ", ")
 		},
+		"args_tail_names": func(n int) string {
+			var p []string
+			for i := 4; i <= n; i++ {
+				p = append(p, fmt.Sprintf("T%d", i))
+			}
+			return strings.Join(p, ", ")
+		},
 		"types": func(n int) string {
 			p := make([]string, n)
 			for i := 0; i < n; i++ {
 				p[i] = fmt.Sprintf("T%d", i+1)
 			}
 			return strings.Join(p, ", ")
+		},
+		"types_tail": func(n int) string {
+			var p []string
+			for i := 4; i <= n; i++ {
+				p = append(p, fmt.Sprintf("T%d", i))
+			}
+			return strings.Join(p, ", ")
+		},
+		"fields": func(count, offset int) string {
+			f := make([]string, count)
+			for i := 0; i < count; i++ {
+				idx := i + offset
+				f[i] = fmt.Sprintf("V%d *T%d", idx, idx)
+			}
+			return strings.Join(f, "; ")
 		},
 		"params_ptrs": func(n int) string {
 			p := make([]string, n)
@@ -174,19 +206,36 @@ func main() {
 			}
 			return strings.Join(p, ", ")
 		},
-		"fields": func(n int) string {
-			f := make([]string, n)
-			for i := 0; i < n; i++ {
-				f[i] = fmt.Sprintf("V%d *T%d", i+1, i+1)
-			}
-			return strings.Join(f, "; ")
-		},
-		"row_returns": func(n int) string {
-			p := make([]string, n)
-			for i := 0; i < n; i++ {
-				p[i] = fmt.Sprintf("r.V%d", i+1)
+		"params_ptrs_tail": func(n int) string {
+			var p []string
+			for i := 4; i <= n; i++ {
+				p = append(p, fmt.Sprintf("*T%d", i))
 			}
 			return strings.Join(p, ", ")
+		},
+		"row_returns_prefix": func(count, offset int, prefix string) string {
+			var res []string
+			for i := 0; i < count; i++ {
+				idx := i + offset
+				res = append(res, fmt.Sprintf("%s.V%d", prefix, idx))
+			}
+			return strings.Join(res, ", ")
+		},
+		"row_init": func(count, offset int) string {
+			var res []string
+			for i := 0; i < count; i++ {
+				idx := i + offset
+				res = append(res, fmt.Sprintf("V%d: &s%d[j]", idx, idx))
+			}
+			return strings.Join(res, ", ")
+		},
+		"row_init_unsafe": func(count, offset int) string {
+			var res []string
+			for i := 0; i < count; i++ {
+				idx := i + offset
+				res = append(res, fmt.Sprintf("V%d: (*T%d)(unsafe.Add(c%d.data, uintptr(idx)*c%d.itemSize))", idx, idx, idx, idx))
+			}
+			return strings.Join(res, ", ")
 		},
 		"registration": func(n int) string {
 			var lines []string
@@ -202,20 +251,6 @@ func main() {
 			}
 			return strings.Join(ids, ", ")
 		},
-		"row_fields_baked": func(n int) string {
-			var res []string
-			for i := 0; i < n; i++ {
-				res = append(res, fmt.Sprintf("V%d: (*T%d)(ptr%d)", i+1, i+1, i+1))
-			}
-			return strings.Join(res, ", ")
-		},
-		"advance": func(n int) string {
-			var res []string
-			for i := 0; i < n; i++ {
-				res = append(res, fmt.Sprintf("ptr%d = unsafe.Add(ptr%d, size%d)", i+1, i+1, i+1))
-			}
-			return strings.Join(res, "\n\t\t\t\t")
-		},
 	}
 
 	tmpl := template.Must(template.New("ecs").Funcs(funcMap).Parse(viewTemplate))
@@ -225,5 +260,5 @@ func main() {
 	}
 	defer f.Close()
 
-	tmpl.Execute(f, struct{ Count []int }{Count: []int{1, 2, 3, 4, 5, 6}})
+	tmpl.Execute(f, struct{ Count []int }{Count: []int{1, 2, 3, 4, 5, 6, 7, 8}})
 }
