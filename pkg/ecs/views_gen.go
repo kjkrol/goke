@@ -2,1238 +2,684 @@
 package ecs
 
 import (
-	"iter"
-	"unsafe"
+    "iter"
+    "unsafe"
 )
 
 // -------------- Row Structures --------------
 
-type Head1[T1 any] struct {
-	Entity Entity
-	V1     *T1
+
+type Head1[U1 any] struct {
+    Entity Entity
+    V1 *U1
 }
 
-func (h Head1[T1]) Values() (Entity, *T1) {
-	return h.Entity, h.V1
-}
 
-type Head2[T1, T2 any] struct {
-	Entity Entity
-	V1     *T1
-	V2     *T2
-}
-
-func (h Head2[T1, T2]) Values() (Entity, *T1, *T2) {
-	return h.Entity, h.V1, h.V2
-}
-
-type Head3[T1, T2, T3 any] struct {
-	Entity Entity
-	V1     *T1
-	V2     *T2
-	V3     *T3
-}
-
-func (h Head3[T1, T2, T3]) Values() (Entity, *T1, *T2, *T3) {
-	return h.Entity, h.V1, h.V2, h.V3
-}
-
-type Tail1[T4 any] struct {
-	V4 *T4
-}
-
-func (t Tail1[T4]) Values() *T4 {
-	return t.V4
-}
-
-type Tail2[T4, T5 any] struct {
-	V4 *T4
-	V5 *T5
-}
-
-func (t Tail2[T4, T5]) Values() (*T4, *T5) {
-	return t.V4, t.V5
-}
-
-type Tail3[T4, T5, T6 any] struct {
-	V4 *T4
-	V5 *T5
-	V6 *T6
-}
-
-func (t Tail3[T4, T5, T6]) Values() (*T4, *T5, *T6) {
-	return t.V4, t.V5, t.V6
-}
-
-type Tail4[T4, T5, T6, T7 any] struct {
-	V4 *T4
-	V5 *T5
-	V6 *T6
-	V7 *T7
-}
-
-func (t Tail4[T4, T5, T6, T7]) Values() (*T4, *T5, *T6, *T7) {
-	return t.V4, t.V5, t.V6, t.V7
-}
-
-type Tail5[T4, T5, T6, T7, T8 any] struct {
-	V4 *T4
-	V5 *T5
-	V6 *T6
-	V7 *T7
-	V8 *T8
-}
-
-func (t Tail5[T4, T5, T6, T7, T8]) Values() (*T4, *T5, *T6, *T7, *T8) {
-	return t.V4, t.V5, t.V6, t.V7, t.V8
-}
 
 // -------------- View1 --------------
 
 type matchedArch1[T1 any] struct {
-	arch     *Archetype
-	entities []Entity
-	count    int
-	ptr1     unsafe.Pointer
-	size1    uintptr
+    arch     *Archetype
+    entities []Entity
+    count    int
+    ptr1  unsafe.Pointer; size1 uintptr;
 }
 
 type View1[T1 any] struct {
-	viewBase
-	ids   [1]ComponentID
-	baked []matchedArch1[T1]
+    viewBase
+    ids      [1]ComponentID
+    baked    []matchedArch1[T1]
+    bakedIdx map[*Archetype]*matchedArch1[T1]
 }
 
 func (v *View1[T1]) Reindex() {
-	v.viewBase.Reindex()
-	v.baked = v.baked[:0]
-	for _, arch := range v.matched {
-		if arch.len == 0 {
-			continue
-		}
-		mArch := matchedArch1[T1]{
-			arch:     arch,
-			entities: arch.entities[:arch.len],
-			count:    arch.len,
-		}
-
-		col1 := arch.columns[v.ids[0]]
-		mArch.ptr1 = col1.data
-		mArch.size1 = col1.itemSize
-
-		v.baked = append(v.baked, mArch)
-	}
+    v.viewBase.Reindex()
+    v.baked = v.baked[:0]
+    v.bakedIdx = make(map[*Archetype]*matchedArch1[T1])
+    for _, arch := range v.matched {
+        if arch.len == 0 { continue }
+        mArch := matchedArch1[T1]{arch: arch, entities: arch.entities[:arch.len], count: arch.len}
+        col1 := arch.columns[v.ids[0]]; mArch.ptr1 = col1.data; mArch.size1 = col1.itemSize;
+        v.baked = append(v.baked, mArch)
+        v.bakedIdx[arch] = &v.baked[len(v.baked)-1]
+    }
 }
 
 func NewView1[T1 any](reg *Registry) *View1[T1] {
-	id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
-	ids := [1]ComponentID{id1}
-
-	var mask ArchetypeMask
-	for _, id := range ids {
-		mask = mask.Set(id)
-	}
-
-	v := &View1[T1]{
-		viewBase: viewBase{
-			reg:             reg,
-			mask:            mask,
-			entityArchLinks: reg.archetypeRegistry.entityArchLinks,
-		},
-		ids: ids,
-	}
-	v.Reindex()
-	return v
+    id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
+    ids := [1]ComponentID{ id1 }
+    var mask ArchetypeMask
+    for _, id := range ids { mask = mask.Set(id) }
+    v := &View1[T1]{
+        viewBase: viewBase{reg: reg, mask: mask, entityArchLinks: reg.archetypeRegistry.entityArchLinks},
+        ids: ids,
+    }
+    v.Reindex() 
+    return v
 }
 
 func (v *View1[T1]) All() iter.Seq[Head1[T1]] {
-	return func(yield func(Head1[T1]) bool) {
-		var row Head1[T1]
-
-		for i := range v.baked {
-			b := &v.baked[i]
-
-			p1 := b.ptr1
-			s1 := b.size1
-
-			for j := 0; j < b.count; j++ {
-
-				row.Entity = b.entities[j]
-				row.V1 = (*T1)(p1)
-				if !yield(row) {
-					return
-				}
-
-				// Przesunięcie wskaźników o rozmiar typu
-
-				p1 = unsafe.Add(p1, s1)
-			}
-		}
-	}
+    return func(yield func(Head1[T1]) bool) {
+        var h Head1[T1]
+        for i := range v.baked {
+            b := &v.baked[i]
+            p1 := b.ptr1; s1 := b.size1;
+            for j := 0; j < b.count; j++ {
+                h.Entity = b.entities[j]
+                h.V1 = (*T1)(p1);
+                
+                if !yield(h) { return }
+                p1 = unsafe.Add(p1, s1);
+            }
+        }
+    }
 }
 
 func (v *View1[T1]) Filtered(entities []Entity) iter.Seq[Head1[T1]] {
-	return func(yield func(Head1[T1]) bool) {
-		var lastArch *Archetype
-		var c1 *column
-
-		for _, e := range entities {
-			backLink := v.viewBase.entityArchLinks[e.Index()]
-			arch := backLink.arch
-			if arch == nil || !arch.mask.Contains(v.mask) {
-				continue
-			}
-
-			if arch != lastArch {
-				c1 = arch.columns[v.ids[0]]
-				lastArch = arch
-			}
-
-			idx := backLink.row
-
-			row := Head1[T1]{Entity: e, V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*c1.itemSize))}
-			if !yield(row) {
-				return
-			}
-
-		}
-	}
+    return func(yield func(Head1[T1]) bool) {
+        var h Head1[T1]
+        for _, e := range entities {
+            backLink := v.viewBase.entityArchLinks[e.Index()]
+            arch := backLink.arch
+            if arch == nil || !arch.mask.Contains(v.mask) { continue }
+            b, ok := v.bakedIdx[arch]
+            if !ok { continue }
+            idx := uintptr(backLink.row)
+            h.Entity = e
+            h.V1 = (*T1)(unsafe.Add(b.ptr1, idx * b.size1));
+            
+            if !yield(h) { return }
+        }
+    }
 }
+
+type Head2[U1 any, U2 any] struct {
+    Entity Entity
+    V1 *U1; V2 *U2
+}
+
+
 
 // -------------- View2 --------------
 
-type matchedArch2[T1, T2 any] struct {
-	arch     *Archetype
-	entities []Entity
-	count    int
-	ptr1     unsafe.Pointer
-	size1    uintptr
-	ptr2     unsafe.Pointer
-	size2    uintptr
+type matchedArch2[T1 any, T2 any] struct {
+    arch     *Archetype
+    entities []Entity
+    count    int
+    ptr1  unsafe.Pointer; size1 uintptr;ptr2  unsafe.Pointer; size2 uintptr;
 }
 
-type View2[T1, T2 any] struct {
-	viewBase
-	ids   [2]ComponentID
-	baked []matchedArch2[T1, T2]
+type View2[T1 any, T2 any] struct {
+    viewBase
+    ids      [2]ComponentID
+    baked    []matchedArch2[T1, T2]
+    bakedIdx map[*Archetype]*matchedArch2[T1, T2]
 }
 
 func (v *View2[T1, T2]) Reindex() {
-	v.viewBase.Reindex()
-	v.baked = v.baked[:0]
-	for _, arch := range v.matched {
-		if arch.len == 0 {
-			continue
-		}
-		mArch := matchedArch2[T1, T2]{
-			arch:     arch,
-			entities: arch.entities[:arch.len],
-			count:    arch.len,
-		}
-
-		col1 := arch.columns[v.ids[0]]
-		mArch.ptr1 = col1.data
-		mArch.size1 = col1.itemSize
-
-		col2 := arch.columns[v.ids[1]]
-		mArch.ptr2 = col2.data
-		mArch.size2 = col2.itemSize
-
-		v.baked = append(v.baked, mArch)
-	}
+    v.viewBase.Reindex()
+    v.baked = v.baked[:0]
+    v.bakedIdx = make(map[*Archetype]*matchedArch2[T1, T2])
+    for _, arch := range v.matched {
+        if arch.len == 0 { continue }
+        mArch := matchedArch2[T1, T2]{arch: arch, entities: arch.entities[:arch.len], count: arch.len}
+        col1 := arch.columns[v.ids[0]]; mArch.ptr1 = col1.data; mArch.size1 = col1.itemSize;col2 := arch.columns[v.ids[1]]; mArch.ptr2 = col2.data; mArch.size2 = col2.itemSize;
+        v.baked = append(v.baked, mArch)
+        v.bakedIdx[arch] = &v.baked[len(v.baked)-1]
+    }
 }
 
-func NewView2[T1, T2 any](reg *Registry) *View2[T1, T2] {
-	id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
+func NewView2[T1 any, T2 any](reg *Registry) *View2[T1, T2] {
+    id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
 	id2 := ensureComponentRegistered[T2](reg.componentsRegistry)
-	ids := [2]ComponentID{id1, id2}
-
-	var mask ArchetypeMask
-	for _, id := range ids {
-		mask = mask.Set(id)
-	}
-
-	v := &View2[T1, T2]{
-		viewBase: viewBase{
-			reg:             reg,
-			mask:            mask,
-			entityArchLinks: reg.archetypeRegistry.entityArchLinks,
-		},
-		ids: ids,
-	}
-	v.Reindex()
-	return v
+    ids := [2]ComponentID{ id1, id2 }
+    var mask ArchetypeMask
+    for _, id := range ids { mask = mask.Set(id) }
+    v := &View2[T1, T2]{
+        viewBase: viewBase{reg: reg, mask: mask, entityArchLinks: reg.archetypeRegistry.entityArchLinks},
+        ids: ids,
+    }
+    v.Reindex() 
+    return v
 }
 
 func (v *View2[T1, T2]) All() iter.Seq[Head2[T1, T2]] {
-	return func(yield func(Head2[T1, T2]) bool) {
-		var row Head2[T1, T2]
-
-		for i := range v.baked {
-			b := &v.baked[i]
-
-			p1 := b.ptr1
-			s1 := b.size1
-			p2 := b.ptr2
-			s2 := b.size2
-
-			for j := 0; j < b.count; j++ {
-
-				row.Entity = b.entities[j]
-				row.V1 = (*T1)(p1)
-				row.V2 = (*T2)(p2)
-				if !yield(row) {
-					return
-				}
-
-				// Przesunięcie wskaźników o rozmiar typu
-
-				p1 = unsafe.Add(p1, s1)
-				p2 = unsafe.Add(p2, s2)
-			}
-		}
-	}
+    return func(yield func(Head2[T1, T2]) bool) {
+        var h Head2[T1, T2]
+        for i := range v.baked {
+            b := &v.baked[i]
+            p1 := b.ptr1; s1 := b.size1;p2 := b.ptr2; s2 := b.size2;
+            for j := 0; j < b.count; j++ {
+                h.Entity = b.entities[j]
+                h.V1 = (*T1)(p1);h.V2 = (*T2)(p2);
+                
+                if !yield(h) { return }
+                p1 = unsafe.Add(p1, s1);p2 = unsafe.Add(p2, s2);
+            }
+        }
+    }
 }
 
 func (v *View2[T1, T2]) Filtered(entities []Entity) iter.Seq[Head2[T1, T2]] {
-	return func(yield func(Head2[T1, T2]) bool) {
-		var lastArch *Archetype
-		var c1 *column
-		var c2 *column
-
-		for _, e := range entities {
-			backLink := v.viewBase.entityArchLinks[e.Index()]
-			arch := backLink.arch
-			if arch == nil || !arch.mask.Contains(v.mask) {
-				continue
-			}
-
-			if arch != lastArch {
-				c1 = arch.columns[v.ids[0]]
-				c2 = arch.columns[v.ids[1]]
-				lastArch = arch
-			}
-
-			idx := backLink.row
-
-			row := Head2[T1, T2]{Entity: e, V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*c1.itemSize)), V2: (*T2)(unsafe.Add(c2.data, uintptr(idx)*c2.itemSize))}
-			if !yield(row) {
-				return
-			}
-
-		}
-	}
+    return func(yield func(Head2[T1, T2]) bool) {
+        var h Head2[T1, T2]
+        for _, e := range entities {
+            backLink := v.viewBase.entityArchLinks[e.Index()]
+            arch := backLink.arch
+            if arch == nil || !arch.mask.Contains(v.mask) { continue }
+            b, ok := v.bakedIdx[arch]
+            if !ok { continue }
+            idx := uintptr(backLink.row)
+            h.Entity = e
+            h.V1 = (*T1)(unsafe.Add(b.ptr1, idx * b.size1));h.V2 = (*T2)(unsafe.Add(b.ptr2, idx * b.size2));
+            
+            if !yield(h) { return }
+        }
+    }
 }
+
+type Head3[U1 any, U2 any] struct {
+    Entity Entity
+    V1 *U1; V2 *U2
+}
+
+
+type Tail3[W1 any] struct {
+    V3 *W1
+}
+
 
 // -------------- View3 --------------
 
-type matchedArch3[T1, T2, T3 any] struct {
-	arch     *Archetype
-	entities []Entity
-	count    int
-	ptr1     unsafe.Pointer
-	size1    uintptr
-	ptr2     unsafe.Pointer
-	size2    uintptr
-	ptr3     unsafe.Pointer
-	size3    uintptr
+type matchedArch3[T1 any, T2 any, T3 any] struct {
+    arch     *Archetype
+    entities []Entity
+    count    int
+    ptr1  unsafe.Pointer; size1 uintptr;ptr2  unsafe.Pointer; size2 uintptr;ptr3  unsafe.Pointer; size3 uintptr;
 }
 
-type View3[T1, T2, T3 any] struct {
-	viewBase
-	ids   [3]ComponentID
-	baked []matchedArch3[T1, T2, T3]
+type View3[T1 any, T2 any, T3 any] struct {
+    viewBase
+    ids      [3]ComponentID
+    baked    []matchedArch3[T1, T2, T3]
+    bakedIdx map[*Archetype]*matchedArch3[T1, T2, T3]
 }
 
 func (v *View3[T1, T2, T3]) Reindex() {
-	v.viewBase.Reindex()
-	v.baked = v.baked[:0]
-	for _, arch := range v.matched {
-		if arch.len == 0 {
-			continue
-		}
-		mArch := matchedArch3[T1, T2, T3]{
-			arch:     arch,
-			entities: arch.entities[:arch.len],
-			count:    arch.len,
-		}
-
-		col1 := arch.columns[v.ids[0]]
-		mArch.ptr1 = col1.data
-		mArch.size1 = col1.itemSize
-
-		col2 := arch.columns[v.ids[1]]
-		mArch.ptr2 = col2.data
-		mArch.size2 = col2.itemSize
-
-		col3 := arch.columns[v.ids[2]]
-		mArch.ptr3 = col3.data
-		mArch.size3 = col3.itemSize
-
-		v.baked = append(v.baked, mArch)
-	}
+    v.viewBase.Reindex()
+    v.baked = v.baked[:0]
+    v.bakedIdx = make(map[*Archetype]*matchedArch3[T1, T2, T3])
+    for _, arch := range v.matched {
+        if arch.len == 0 { continue }
+        mArch := matchedArch3[T1, T2, T3]{arch: arch, entities: arch.entities[:arch.len], count: arch.len}
+        col1 := arch.columns[v.ids[0]]; mArch.ptr1 = col1.data; mArch.size1 = col1.itemSize;col2 := arch.columns[v.ids[1]]; mArch.ptr2 = col2.data; mArch.size2 = col2.itemSize;col3 := arch.columns[v.ids[2]]; mArch.ptr3 = col3.data; mArch.size3 = col3.itemSize;
+        v.baked = append(v.baked, mArch)
+        v.bakedIdx[arch] = &v.baked[len(v.baked)-1]
+    }
 }
 
-func NewView3[T1, T2, T3 any](reg *Registry) *View3[T1, T2, T3] {
-	id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
+func NewView3[T1 any, T2 any, T3 any](reg *Registry) *View3[T1, T2, T3] {
+    id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
 	id2 := ensureComponentRegistered[T2](reg.componentsRegistry)
 	id3 := ensureComponentRegistered[T3](reg.componentsRegistry)
-	ids := [3]ComponentID{id1, id2, id3}
-
-	var mask ArchetypeMask
-	for _, id := range ids {
-		mask = mask.Set(id)
-	}
-
-	v := &View3[T1, T2, T3]{
-		viewBase: viewBase{
-			reg:             reg,
-			mask:            mask,
-			entityArchLinks: reg.archetypeRegistry.entityArchLinks,
-		},
-		ids: ids,
-	}
-	v.Reindex()
-	return v
+    ids := [3]ComponentID{ id1, id2, id3 }
+    var mask ArchetypeMask
+    for _, id := range ids { mask = mask.Set(id) }
+    v := &View3[T1, T2, T3]{
+        viewBase: viewBase{reg: reg, mask: mask, entityArchLinks: reg.archetypeRegistry.entityArchLinks},
+        ids: ids,
+    }
+    v.Reindex() 
+    return v
 }
 
-func (v *View3[T1, T2, T3]) All() iter.Seq[Head3[T1, T2, T3]] {
-	return func(yield func(Head3[T1, T2, T3]) bool) {
-		var row Head3[T1, T2, T3]
-
-		for i := range v.baked {
-			b := &v.baked[i]
-
-			p1 := b.ptr1
-			s1 := b.size1
-			p2 := b.ptr2
-			s2 := b.size2
-			p3 := b.ptr3
-			s3 := b.size3
-
-			for j := 0; j < b.count; j++ {
-
-				row.Entity = b.entities[j]
-				row.V1 = (*T1)(p1)
-				row.V2 = (*T2)(p2)
-				row.V3 = (*T3)(p3)
-				if !yield(row) {
-					return
-				}
-
-				// Przesunięcie wskaźników o rozmiar typu
-
-				p1 = unsafe.Add(p1, s1)
-				p2 = unsafe.Add(p2, s2)
-				p3 = unsafe.Add(p3, s3)
-			}
-		}
-	}
+func (v *View3[T1, T2, T3]) All() iter.Seq2[Head3[T1, T2], Tail3[T3]] {
+    return func(yield func(Head3[T1, T2], Tail3[T3]) bool) {
+        var h Head3[T1, T2]; var t Tail3[T3]
+        for i := range v.baked {
+            b := &v.baked[i]
+            p1 := b.ptr1; s1 := b.size1;p2 := b.ptr2; s2 := b.size2;p3 := b.ptr3; s3 := b.size3;
+            for j := 0; j < b.count; j++ {
+                h.Entity = b.entities[j]
+                h.V1 = (*T1)(p1);h.V2 = (*T2)(p2);
+                t.V3 = (*T3)(p3);
+                if !yield(h, t) { return }
+                p1 = unsafe.Add(p1, s1);p2 = unsafe.Add(p2, s2);p3 = unsafe.Add(p3, s3);
+            }
+        }
+    }
 }
 
-func (v *View3[T1, T2, T3]) Filtered(entities []Entity) iter.Seq[Head3[T1, T2, T3]] {
-	return func(yield func(Head3[T1, T2, T3]) bool) {
-		var lastArch *Archetype
-		var c1 *column
-		var c2 *column
-		var c3 *column
-
-		for _, e := range entities {
-			backLink := v.viewBase.entityArchLinks[e.Index()]
-			arch := backLink.arch
-			if arch == nil || !arch.mask.Contains(v.mask) {
-				continue
-			}
-
-			if arch != lastArch {
-				c1 = arch.columns[v.ids[0]]
-				c2 = arch.columns[v.ids[1]]
-				c3 = arch.columns[v.ids[2]]
-				lastArch = arch
-			}
-
-			idx := backLink.row
-
-			row := Head3[T1, T2, T3]{Entity: e, V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*c1.itemSize)), V2: (*T2)(unsafe.Add(c2.data, uintptr(idx)*c2.itemSize)), V3: (*T3)(unsafe.Add(c3.data, uintptr(idx)*c3.itemSize))}
-			if !yield(row) {
-				return
-			}
-
-		}
-	}
+func (v *View3[T1, T2, T3]) Filtered(entities []Entity) iter.Seq2[Head3[T1, T2], Tail3[T3]] {
+    return func(yield func(Head3[T1, T2], Tail3[T3]) bool) {
+        var h Head3[T1, T2]; var t Tail3[T3]
+        for _, e := range entities {
+            backLink := v.viewBase.entityArchLinks[e.Index()]
+            arch := backLink.arch
+            if arch == nil || !arch.mask.Contains(v.mask) { continue }
+            b, ok := v.bakedIdx[arch]
+            if !ok { continue }
+            idx := uintptr(backLink.row)
+            h.Entity = e
+            h.V1 = (*T1)(unsafe.Add(b.ptr1, idx * b.size1));h.V2 = (*T2)(unsafe.Add(b.ptr2, idx * b.size2));
+            t.V3 = (*T3)(unsafe.Add(b.ptr3, idx * b.size3));
+            if !yield(h, t) { return }
+        }
+    }
 }
+
+type Head4[U1 any, U2 any] struct {
+    Entity Entity
+    V1 *U1; V2 *U2
+}
+
+
+type Tail4[W1 any, W2 any] struct {
+    V3 *W1; V4 *W2
+}
+
 
 // -------------- View4 --------------
 
-type matchedArch4[T1, T2, T3, T4 any] struct {
-	arch     *Archetype
-	entities []Entity
-	count    int
-	ptr1     unsafe.Pointer
-	size1    uintptr
-	ptr2     unsafe.Pointer
-	size2    uintptr
-	ptr3     unsafe.Pointer
-	size3    uintptr
-	ptr4     unsafe.Pointer
-	size4    uintptr
+type matchedArch4[T1 any, T2 any, T3 any, T4 any] struct {
+    arch     *Archetype
+    entities []Entity
+    count    int
+    ptr1  unsafe.Pointer; size1 uintptr;ptr2  unsafe.Pointer; size2 uintptr;ptr3  unsafe.Pointer; size3 uintptr;ptr4  unsafe.Pointer; size4 uintptr;
 }
 
-type View4[T1, T2, T3, T4 any] struct {
-	viewBase
-	ids   [4]ComponentID
-	baked []matchedArch4[T1, T2, T3, T4]
+type View4[T1 any, T2 any, T3 any, T4 any] struct {
+    viewBase
+    ids      [4]ComponentID
+    baked    []matchedArch4[T1, T2, T3, T4]
+    bakedIdx map[*Archetype]*matchedArch4[T1, T2, T3, T4]
 }
 
 func (v *View4[T1, T2, T3, T4]) Reindex() {
-	v.viewBase.Reindex()
-	v.baked = v.baked[:0]
-	for _, arch := range v.matched {
-		if arch.len == 0 {
-			continue
-		}
-		mArch := matchedArch4[T1, T2, T3, T4]{
-			arch:     arch,
-			entities: arch.entities[:arch.len],
-			count:    arch.len,
-		}
-
-		col1 := arch.columns[v.ids[0]]
-		mArch.ptr1 = col1.data
-		mArch.size1 = col1.itemSize
-
-		col2 := arch.columns[v.ids[1]]
-		mArch.ptr2 = col2.data
-		mArch.size2 = col2.itemSize
-
-		col3 := arch.columns[v.ids[2]]
-		mArch.ptr3 = col3.data
-		mArch.size3 = col3.itemSize
-
-		col4 := arch.columns[v.ids[3]]
-		mArch.ptr4 = col4.data
-		mArch.size4 = col4.itemSize
-
-		v.baked = append(v.baked, mArch)
-	}
+    v.viewBase.Reindex()
+    v.baked = v.baked[:0]
+    v.bakedIdx = make(map[*Archetype]*matchedArch4[T1, T2, T3, T4])
+    for _, arch := range v.matched {
+        if arch.len == 0 { continue }
+        mArch := matchedArch4[T1, T2, T3, T4]{arch: arch, entities: arch.entities[:arch.len], count: arch.len}
+        col1 := arch.columns[v.ids[0]]; mArch.ptr1 = col1.data; mArch.size1 = col1.itemSize;col2 := arch.columns[v.ids[1]]; mArch.ptr2 = col2.data; mArch.size2 = col2.itemSize;col3 := arch.columns[v.ids[2]]; mArch.ptr3 = col3.data; mArch.size3 = col3.itemSize;col4 := arch.columns[v.ids[3]]; mArch.ptr4 = col4.data; mArch.size4 = col4.itemSize;
+        v.baked = append(v.baked, mArch)
+        v.bakedIdx[arch] = &v.baked[len(v.baked)-1]
+    }
 }
 
-func NewView4[T1, T2, T3, T4 any](reg *Registry) *View4[T1, T2, T3, T4] {
-	id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
+func NewView4[T1 any, T2 any, T3 any, T4 any](reg *Registry) *View4[T1, T2, T3, T4] {
+    id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
 	id2 := ensureComponentRegistered[T2](reg.componentsRegistry)
 	id3 := ensureComponentRegistered[T3](reg.componentsRegistry)
 	id4 := ensureComponentRegistered[T4](reg.componentsRegistry)
-	ids := [4]ComponentID{id1, id2, id3, id4}
-
-	var mask ArchetypeMask
-	for _, id := range ids {
-		mask = mask.Set(id)
-	}
-
-	v := &View4[T1, T2, T3, T4]{
-		viewBase: viewBase{
-			reg:             reg,
-			mask:            mask,
-			entityArchLinks: reg.archetypeRegistry.entityArchLinks,
-		},
-		ids: ids,
-	}
-	v.Reindex()
-	return v
+    ids := [4]ComponentID{ id1, id2, id3, id4 }
+    var mask ArchetypeMask
+    for _, id := range ids { mask = mask.Set(id) }
+    v := &View4[T1, T2, T3, T4]{
+        viewBase: viewBase{reg: reg, mask: mask, entityArchLinks: reg.archetypeRegistry.entityArchLinks},
+        ids: ids,
+    }
+    v.Reindex() 
+    return v
 }
 
-func (v *View4[T1, T2, T3, T4]) All() iter.Seq2[Head3[T1, T2, T3], Tail1[T4]] {
-	return func(yield func(Head3[T1, T2, T3], Tail1[T4]) bool) {
-		var head Head3[T1, T2, T3]
-		var tail Tail1[T4]
-
-		for i := range v.baked {
-			b := &v.baked[i]
-
-			p1 := b.ptr1
-			s1 := b.size1
-			p2 := b.ptr2
-			s2 := b.size2
-			p3 := b.ptr3
-			s3 := b.size3
-			p4 := b.ptr4
-			s4 := b.size4
-
-			for j := 0; j < b.count; j++ {
-
-				head.Entity = b.entities[j]
-				head.V1 = (*T1)(p1)
-				head.V2 = (*T2)(p2)
-				head.V3 = (*T3)(p3)
-				tail.V4 = (*T4)(p4)
-				if !yield(head, tail) {
-					return
-				}
-
-				// Przesunięcie wskaźników o rozmiar typu
-
-				p1 = unsafe.Add(p1, s1)
-				p2 = unsafe.Add(p2, s2)
-				p3 = unsafe.Add(p3, s3)
-				p4 = unsafe.Add(p4, s4)
-			}
-		}
-	}
+func (v *View4[T1, T2, T3, T4]) All() iter.Seq2[Head4[T1, T2], Tail4[T3, T4]] {
+    return func(yield func(Head4[T1, T2], Tail4[T3, T4]) bool) {
+        var h Head4[T1, T2]; var t Tail4[T3, T4]
+        for i := range v.baked {
+            b := &v.baked[i]
+            p1 := b.ptr1; s1 := b.size1;p2 := b.ptr2; s2 := b.size2;p3 := b.ptr3; s3 := b.size3;p4 := b.ptr4; s4 := b.size4;
+            for j := 0; j < b.count; j++ {
+                h.Entity = b.entities[j]
+                h.V1 = (*T1)(p1);h.V2 = (*T2)(p2);
+                t.V3 = (*T3)(p3);t.V4 = (*T4)(p4);
+                if !yield(h, t) { return }
+                p1 = unsafe.Add(p1, s1);p2 = unsafe.Add(p2, s2);p3 = unsafe.Add(p3, s3);p4 = unsafe.Add(p4, s4);
+            }
+        }
+    }
 }
 
-func (v *View4[T1, T2, T3, T4]) Filtered(entities []Entity) iter.Seq2[Head3[T1, T2, T3], Tail1[T4]] {
-	return func(yield func(Head3[T1, T2, T3], Tail1[T4]) bool) {
-		var lastArch *Archetype
-		var c1 *column
-		var c2 *column
-		var c3 *column
-		var c4 *column
-
-		for _, e := range entities {
-			backLink := v.viewBase.entityArchLinks[e.Index()]
-			arch := backLink.arch
-			if arch == nil || !arch.mask.Contains(v.mask) {
-				continue
-			}
-
-			if arch != lastArch {
-				c1 = arch.columns[v.ids[0]]
-				c2 = arch.columns[v.ids[1]]
-				c3 = arch.columns[v.ids[2]]
-				c4 = arch.columns[v.ids[3]]
-				lastArch = arch
-			}
-
-			idx := backLink.row
-
-			head := Head3[T1, T2, T3]{Entity: e, V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*c1.itemSize)), V2: (*T2)(unsafe.Add(c2.data, uintptr(idx)*c2.itemSize)), V3: (*T3)(unsafe.Add(c3.data, uintptr(idx)*c3.itemSize))}
-			tail := Tail1[T4]{V4: (*T4)(unsafe.Add(c4.data, uintptr(idx)*c4.itemSize))}
-			if !yield(head, tail) {
-				return
-			}
-
-		}
-	}
+func (v *View4[T1, T2, T3, T4]) Filtered(entities []Entity) iter.Seq2[Head4[T1, T2], Tail4[T3, T4]] {
+    return func(yield func(Head4[T1, T2], Tail4[T3, T4]) bool) {
+        var h Head4[T1, T2]; var t Tail4[T3, T4]
+        for _, e := range entities {
+            backLink := v.viewBase.entityArchLinks[e.Index()]
+            arch := backLink.arch
+            if arch == nil || !arch.mask.Contains(v.mask) { continue }
+            b, ok := v.bakedIdx[arch]
+            if !ok { continue }
+            idx := uintptr(backLink.row)
+            h.Entity = e
+            h.V1 = (*T1)(unsafe.Add(b.ptr1, idx * b.size1));h.V2 = (*T2)(unsafe.Add(b.ptr2, idx * b.size2));
+            t.V3 = (*T3)(unsafe.Add(b.ptr3, idx * b.size3));t.V4 = (*T4)(unsafe.Add(b.ptr4, idx * b.size4));
+            if !yield(h, t) { return }
+        }
+    }
 }
+
+type Head5[U1 any, U2 any] struct {
+    Entity Entity
+    V1 *U1; V2 *U2
+}
+
+
+type Tail5[W1 any, W2 any, W3 any] struct {
+    V3 *W1; V4 *W2; V5 *W3
+}
+
 
 // -------------- View5 --------------
 
-type matchedArch5[T1, T2, T3, T4, T5 any] struct {
-	arch     *Archetype
-	entities []Entity
-	count    int
-	ptr1     unsafe.Pointer
-	size1    uintptr
-	ptr2     unsafe.Pointer
-	size2    uintptr
-	ptr3     unsafe.Pointer
-	size3    uintptr
-	ptr4     unsafe.Pointer
-	size4    uintptr
-	ptr5     unsafe.Pointer
-	size5    uintptr
+type matchedArch5[T1 any, T2 any, T3 any, T4 any, T5 any] struct {
+    arch     *Archetype
+    entities []Entity
+    count    int
+    ptr1  unsafe.Pointer; size1 uintptr;ptr2  unsafe.Pointer; size2 uintptr;ptr3  unsafe.Pointer; size3 uintptr;ptr4  unsafe.Pointer; size4 uintptr;ptr5  unsafe.Pointer; size5 uintptr;
 }
 
-type View5[T1, T2, T3, T4, T5 any] struct {
-	viewBase
-	ids   [5]ComponentID
-	baked []matchedArch5[T1, T2, T3, T4, T5]
+type View5[T1 any, T2 any, T3 any, T4 any, T5 any] struct {
+    viewBase
+    ids      [5]ComponentID
+    baked    []matchedArch5[T1, T2, T3, T4, T5]
+    bakedIdx map[*Archetype]*matchedArch5[T1, T2, T3, T4, T5]
 }
 
 func (v *View5[T1, T2, T3, T4, T5]) Reindex() {
-	v.viewBase.Reindex()
-	v.baked = v.baked[:0]
-	for _, arch := range v.matched {
-		if arch.len == 0 {
-			continue
-		}
-		mArch := matchedArch5[T1, T2, T3, T4, T5]{
-			arch:     arch,
-			entities: arch.entities[:arch.len],
-			count:    arch.len,
-		}
-
-		col1 := arch.columns[v.ids[0]]
-		mArch.ptr1 = col1.data
-		mArch.size1 = col1.itemSize
-
-		col2 := arch.columns[v.ids[1]]
-		mArch.ptr2 = col2.data
-		mArch.size2 = col2.itemSize
-
-		col3 := arch.columns[v.ids[2]]
-		mArch.ptr3 = col3.data
-		mArch.size3 = col3.itemSize
-
-		col4 := arch.columns[v.ids[3]]
-		mArch.ptr4 = col4.data
-		mArch.size4 = col4.itemSize
-
-		col5 := arch.columns[v.ids[4]]
-		mArch.ptr5 = col5.data
-		mArch.size5 = col5.itemSize
-
-		v.baked = append(v.baked, mArch)
-	}
+    v.viewBase.Reindex()
+    v.baked = v.baked[:0]
+    v.bakedIdx = make(map[*Archetype]*matchedArch5[T1, T2, T3, T4, T5])
+    for _, arch := range v.matched {
+        if arch.len == 0 { continue }
+        mArch := matchedArch5[T1, T2, T3, T4, T5]{arch: arch, entities: arch.entities[:arch.len], count: arch.len}
+        col1 := arch.columns[v.ids[0]]; mArch.ptr1 = col1.data; mArch.size1 = col1.itemSize;col2 := arch.columns[v.ids[1]]; mArch.ptr2 = col2.data; mArch.size2 = col2.itemSize;col3 := arch.columns[v.ids[2]]; mArch.ptr3 = col3.data; mArch.size3 = col3.itemSize;col4 := arch.columns[v.ids[3]]; mArch.ptr4 = col4.data; mArch.size4 = col4.itemSize;col5 := arch.columns[v.ids[4]]; mArch.ptr5 = col5.data; mArch.size5 = col5.itemSize;
+        v.baked = append(v.baked, mArch)
+        v.bakedIdx[arch] = &v.baked[len(v.baked)-1]
+    }
 }
 
-func NewView5[T1, T2, T3, T4, T5 any](reg *Registry) *View5[T1, T2, T3, T4, T5] {
-	id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
+func NewView5[T1 any, T2 any, T3 any, T4 any, T5 any](reg *Registry) *View5[T1, T2, T3, T4, T5] {
+    id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
 	id2 := ensureComponentRegistered[T2](reg.componentsRegistry)
 	id3 := ensureComponentRegistered[T3](reg.componentsRegistry)
 	id4 := ensureComponentRegistered[T4](reg.componentsRegistry)
 	id5 := ensureComponentRegistered[T5](reg.componentsRegistry)
-	ids := [5]ComponentID{id1, id2, id3, id4, id5}
-
-	var mask ArchetypeMask
-	for _, id := range ids {
-		mask = mask.Set(id)
-	}
-
-	v := &View5[T1, T2, T3, T4, T5]{
-		viewBase: viewBase{
-			reg:             reg,
-			mask:            mask,
-			entityArchLinks: reg.archetypeRegistry.entityArchLinks,
-		},
-		ids: ids,
-	}
-	v.Reindex()
-	return v
+    ids := [5]ComponentID{ id1, id2, id3, id4, id5 }
+    var mask ArchetypeMask
+    for _, id := range ids { mask = mask.Set(id) }
+    v := &View5[T1, T2, T3, T4, T5]{
+        viewBase: viewBase{reg: reg, mask: mask, entityArchLinks: reg.archetypeRegistry.entityArchLinks},
+        ids: ids,
+    }
+    v.Reindex() 
+    return v
 }
 
-func (v *View5[T1, T2, T3, T4, T5]) All() iter.Seq2[Head3[T1, T2, T3], Tail2[T4, T5]] {
-	return func(yield func(Head3[T1, T2, T3], Tail2[T4, T5]) bool) {
-		var head Head3[T1, T2, T3]
-		var tail Tail2[T4, T5]
-
-		for i := range v.baked {
-			b := &v.baked[i]
-
-			p1 := b.ptr1
-			s1 := b.size1
-			p2 := b.ptr2
-			s2 := b.size2
-			p3 := b.ptr3
-			s3 := b.size3
-			p4 := b.ptr4
-			s4 := b.size4
-			p5 := b.ptr5
-			s5 := b.size5
-
-			for j := 0; j < b.count; j++ {
-
-				head.Entity = b.entities[j]
-				head.V1 = (*T1)(p1)
-				head.V2 = (*T2)(p2)
-				head.V3 = (*T3)(p3)
-				tail.V4 = (*T4)(p4)
-				tail.V5 = (*T5)(p5)
-				if !yield(head, tail) {
-					return
-				}
-
-				// Przesunięcie wskaźników o rozmiar typu
-
-				p1 = unsafe.Add(p1, s1)
-				p2 = unsafe.Add(p2, s2)
-				p3 = unsafe.Add(p3, s3)
-				p4 = unsafe.Add(p4, s4)
-				p5 = unsafe.Add(p5, s5)
-			}
-		}
-	}
+func (v *View5[T1, T2, T3, T4, T5]) All() iter.Seq2[Head5[T1, T2], Tail5[T3, T4, T5]] {
+    return func(yield func(Head5[T1, T2], Tail5[T3, T4, T5]) bool) {
+        var h Head5[T1, T2]; var t Tail5[T3, T4, T5]
+        for i := range v.baked {
+            b := &v.baked[i]
+            p1 := b.ptr1; s1 := b.size1;p2 := b.ptr2; s2 := b.size2;p3 := b.ptr3; s3 := b.size3;p4 := b.ptr4; s4 := b.size4;p5 := b.ptr5; s5 := b.size5;
+            for j := 0; j < b.count; j++ {
+                h.Entity = b.entities[j]
+                h.V1 = (*T1)(p1);h.V2 = (*T2)(p2);
+                t.V3 = (*T3)(p3);t.V4 = (*T4)(p4);t.V5 = (*T5)(p5);
+                if !yield(h, t) { return }
+                p1 = unsafe.Add(p1, s1);p2 = unsafe.Add(p2, s2);p3 = unsafe.Add(p3, s3);p4 = unsafe.Add(p4, s4);p5 = unsafe.Add(p5, s5);
+            }
+        }
+    }
 }
 
-func (v *View5[T1, T2, T3, T4, T5]) Filtered(entities []Entity) iter.Seq2[Head3[T1, T2, T3], Tail2[T4, T5]] {
-	return func(yield func(Head3[T1, T2, T3], Tail2[T4, T5]) bool) {
-		var lastArch *Archetype
-		var c1 *column
-		var c2 *column
-		var c3 *column
-		var c4 *column
-		var c5 *column
-
-		for _, e := range entities {
-			backLink := v.viewBase.entityArchLinks[e.Index()]
-			arch := backLink.arch
-			if arch == nil || !arch.mask.Contains(v.mask) {
-				continue
-			}
-
-			if arch != lastArch {
-				c1 = arch.columns[v.ids[0]]
-				c2 = arch.columns[v.ids[1]]
-				c3 = arch.columns[v.ids[2]]
-				c4 = arch.columns[v.ids[3]]
-				c5 = arch.columns[v.ids[4]]
-				lastArch = arch
-			}
-
-			idx := backLink.row
-
-			head := Head3[T1, T2, T3]{Entity: e, V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*c1.itemSize)), V2: (*T2)(unsafe.Add(c2.data, uintptr(idx)*c2.itemSize)), V3: (*T3)(unsafe.Add(c3.data, uintptr(idx)*c3.itemSize))}
-			tail := Tail2[T4, T5]{V4: (*T4)(unsafe.Add(c4.data, uintptr(idx)*c4.itemSize)), V5: (*T5)(unsafe.Add(c5.data, uintptr(idx)*c5.itemSize))}
-			if !yield(head, tail) {
-				return
-			}
-
-		}
-	}
+func (v *View5[T1, T2, T3, T4, T5]) Filtered(entities []Entity) iter.Seq2[Head5[T1, T2], Tail5[T3, T4, T5]] {
+    return func(yield func(Head5[T1, T2], Tail5[T3, T4, T5]) bool) {
+        var h Head5[T1, T2]; var t Tail5[T3, T4, T5]
+        for _, e := range entities {
+            backLink := v.viewBase.entityArchLinks[e.Index()]
+            arch := backLink.arch
+            if arch == nil || !arch.mask.Contains(v.mask) { continue }
+            b, ok := v.bakedIdx[arch]
+            if !ok { continue }
+            idx := uintptr(backLink.row)
+            h.Entity = e
+            h.V1 = (*T1)(unsafe.Add(b.ptr1, idx * b.size1));h.V2 = (*T2)(unsafe.Add(b.ptr2, idx * b.size2));
+            t.V3 = (*T3)(unsafe.Add(b.ptr3, idx * b.size3));t.V4 = (*T4)(unsafe.Add(b.ptr4, idx * b.size4));t.V5 = (*T5)(unsafe.Add(b.ptr5, idx * b.size5));
+            if !yield(h, t) { return }
+        }
+    }
 }
+
+type Head6[U1 any, U2 any] struct {
+    Entity Entity
+    V1 *U1; V2 *U2
+}
+
+
+type Tail6[W1 any, W2 any, W3 any, W4 any] struct {
+    V3 *W1; V4 *W2; V5 *W3; V6 *W4
+}
+
 
 // -------------- View6 --------------
 
-type matchedArch6[T1, T2, T3, T4, T5, T6 any] struct {
-	arch     *Archetype
-	entities []Entity
-	count    int
-	ptr1     unsafe.Pointer
-	size1    uintptr
-	ptr2     unsafe.Pointer
-	size2    uintptr
-	ptr3     unsafe.Pointer
-	size3    uintptr
-	ptr4     unsafe.Pointer
-	size4    uintptr
-	ptr5     unsafe.Pointer
-	size5    uintptr
-	ptr6     unsafe.Pointer
-	size6    uintptr
+type matchedArch6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any] struct {
+    arch     *Archetype
+    entities []Entity
+    count    int
+    ptr1  unsafe.Pointer; size1 uintptr;ptr2  unsafe.Pointer; size2 uintptr;ptr3  unsafe.Pointer; size3 uintptr;ptr4  unsafe.Pointer; size4 uintptr;ptr5  unsafe.Pointer; size5 uintptr;ptr6  unsafe.Pointer; size6 uintptr;
 }
 
-type View6[T1, T2, T3, T4, T5, T6 any] struct {
-	viewBase
-	ids   [6]ComponentID
-	baked []matchedArch6[T1, T2, T3, T4, T5, T6]
+type View6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any] struct {
+    viewBase
+    ids      [6]ComponentID
+    baked    []matchedArch6[T1, T2, T3, T4, T5, T6]
+    bakedIdx map[*Archetype]*matchedArch6[T1, T2, T3, T4, T5, T6]
 }
 
 func (v *View6[T1, T2, T3, T4, T5, T6]) Reindex() {
-	v.viewBase.Reindex()
-	v.baked = v.baked[:0]
-	for _, arch := range v.matched {
-		if arch.len == 0 {
-			continue
-		}
-		mArch := matchedArch6[T1, T2, T3, T4, T5, T6]{
-			arch:     arch,
-			entities: arch.entities[:arch.len],
-			count:    arch.len,
-		}
-
-		col1 := arch.columns[v.ids[0]]
-		mArch.ptr1 = col1.data
-		mArch.size1 = col1.itemSize
-
-		col2 := arch.columns[v.ids[1]]
-		mArch.ptr2 = col2.data
-		mArch.size2 = col2.itemSize
-
-		col3 := arch.columns[v.ids[2]]
-		mArch.ptr3 = col3.data
-		mArch.size3 = col3.itemSize
-
-		col4 := arch.columns[v.ids[3]]
-		mArch.ptr4 = col4.data
-		mArch.size4 = col4.itemSize
-
-		col5 := arch.columns[v.ids[4]]
-		mArch.ptr5 = col5.data
-		mArch.size5 = col5.itemSize
-
-		col6 := arch.columns[v.ids[5]]
-		mArch.ptr6 = col6.data
-		mArch.size6 = col6.itemSize
-
-		v.baked = append(v.baked, mArch)
-	}
+    v.viewBase.Reindex()
+    v.baked = v.baked[:0]
+    v.bakedIdx = make(map[*Archetype]*matchedArch6[T1, T2, T3, T4, T5, T6])
+    for _, arch := range v.matched {
+        if arch.len == 0 { continue }
+        mArch := matchedArch6[T1, T2, T3, T4, T5, T6]{arch: arch, entities: arch.entities[:arch.len], count: arch.len}
+        col1 := arch.columns[v.ids[0]]; mArch.ptr1 = col1.data; mArch.size1 = col1.itemSize;col2 := arch.columns[v.ids[1]]; mArch.ptr2 = col2.data; mArch.size2 = col2.itemSize;col3 := arch.columns[v.ids[2]]; mArch.ptr3 = col3.data; mArch.size3 = col3.itemSize;col4 := arch.columns[v.ids[3]]; mArch.ptr4 = col4.data; mArch.size4 = col4.itemSize;col5 := arch.columns[v.ids[4]]; mArch.ptr5 = col5.data; mArch.size5 = col5.itemSize;col6 := arch.columns[v.ids[5]]; mArch.ptr6 = col6.data; mArch.size6 = col6.itemSize;
+        v.baked = append(v.baked, mArch)
+        v.bakedIdx[arch] = &v.baked[len(v.baked)-1]
+    }
 }
 
-func NewView6[T1, T2, T3, T4, T5, T6 any](reg *Registry) *View6[T1, T2, T3, T4, T5, T6] {
-	id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
+func NewView6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any](reg *Registry) *View6[T1, T2, T3, T4, T5, T6] {
+    id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
 	id2 := ensureComponentRegistered[T2](reg.componentsRegistry)
 	id3 := ensureComponentRegistered[T3](reg.componentsRegistry)
 	id4 := ensureComponentRegistered[T4](reg.componentsRegistry)
 	id5 := ensureComponentRegistered[T5](reg.componentsRegistry)
 	id6 := ensureComponentRegistered[T6](reg.componentsRegistry)
-	ids := [6]ComponentID{id1, id2, id3, id4, id5, id6}
-
-	var mask ArchetypeMask
-	for _, id := range ids {
-		mask = mask.Set(id)
-	}
-
-	v := &View6[T1, T2, T3, T4, T5, T6]{
-		viewBase: viewBase{
-			reg:             reg,
-			mask:            mask,
-			entityArchLinks: reg.archetypeRegistry.entityArchLinks,
-		},
-		ids: ids,
-	}
-	v.Reindex()
-	return v
+    ids := [6]ComponentID{ id1, id2, id3, id4, id5, id6 }
+    var mask ArchetypeMask
+    for _, id := range ids { mask = mask.Set(id) }
+    v := &View6[T1, T2, T3, T4, T5, T6]{
+        viewBase: viewBase{reg: reg, mask: mask, entityArchLinks: reg.archetypeRegistry.entityArchLinks},
+        ids: ids,
+    }
+    v.Reindex() 
+    return v
 }
 
-func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq2[Head3[T1, T2, T3], Tail3[T4, T5, T6]] {
-	return func(yield func(Head3[T1, T2, T3], Tail3[T4, T5, T6]) bool) {
-		var head Head3[T1, T2, T3]
-		var tail Tail3[T4, T5, T6]
-
-		for i := range v.baked {
-			b := &v.baked[i]
-
-			p1 := b.ptr1
-			s1 := b.size1
-			p2 := b.ptr2
-			s2 := b.size2
-			p3 := b.ptr3
-			s3 := b.size3
-			p4 := b.ptr4
-			s4 := b.size4
-			p5 := b.ptr5
-			s5 := b.size5
-			p6 := b.ptr6
-			s6 := b.size6
-
-			for j := 0; j < b.count; j++ {
-
-				head.Entity = b.entities[j]
-				head.V1 = (*T1)(p1)
-				head.V2 = (*T2)(p2)
-				head.V3 = (*T3)(p3)
-				tail.V4 = (*T4)(p4)
-				tail.V5 = (*T5)(p5)
-				tail.V6 = (*T6)(p6)
-				if !yield(head, tail) {
-					return
-				}
-
-				// Przesunięcie wskaźników o rozmiar typu
-
-				p1 = unsafe.Add(p1, s1)
-				p2 = unsafe.Add(p2, s2)
-				p3 = unsafe.Add(p3, s3)
-				p4 = unsafe.Add(p4, s4)
-				p5 = unsafe.Add(p5, s5)
-				p6 = unsafe.Add(p6, s6)
-			}
-		}
-	}
+func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq2[Head6[T1, T2], Tail6[T3, T4, T5, T6]] {
+    return func(yield func(Head6[T1, T2], Tail6[T3, T4, T5, T6]) bool) {
+        var h Head6[T1, T2]; var t Tail6[T3, T4, T5, T6]
+        for i := range v.baked {
+            b := &v.baked[i]
+            p1 := b.ptr1; s1 := b.size1;p2 := b.ptr2; s2 := b.size2;p3 := b.ptr3; s3 := b.size3;p4 := b.ptr4; s4 := b.size4;p5 := b.ptr5; s5 := b.size5;p6 := b.ptr6; s6 := b.size6;
+            for j := 0; j < b.count; j++ {
+                h.Entity = b.entities[j]
+                h.V1 = (*T1)(p1);h.V2 = (*T2)(p2);
+                t.V3 = (*T3)(p3);t.V4 = (*T4)(p4);t.V5 = (*T5)(p5);t.V6 = (*T6)(p6);
+                if !yield(h, t) { return }
+                p1 = unsafe.Add(p1, s1);p2 = unsafe.Add(p2, s2);p3 = unsafe.Add(p3, s3);p4 = unsafe.Add(p4, s4);p5 = unsafe.Add(p5, s5);p6 = unsafe.Add(p6, s6);
+            }
+        }
+    }
 }
 
-func (v *View6[T1, T2, T3, T4, T5, T6]) Filtered(entities []Entity) iter.Seq2[Head3[T1, T2, T3], Tail3[T4, T5, T6]] {
-	return func(yield func(Head3[T1, T2, T3], Tail3[T4, T5, T6]) bool) {
-		var lastArch *Archetype
-		var c1 *column
-		var c2 *column
-		var c3 *column
-		var c4 *column
-		var c5 *column
-		var c6 *column
-
-		for _, e := range entities {
-			backLink := v.viewBase.entityArchLinks[e.Index()]
-			arch := backLink.arch
-			if arch == nil || !arch.mask.Contains(v.mask) {
-				continue
-			}
-
-			if arch != lastArch {
-				c1 = arch.columns[v.ids[0]]
-				c2 = arch.columns[v.ids[1]]
-				c3 = arch.columns[v.ids[2]]
-				c4 = arch.columns[v.ids[3]]
-				c5 = arch.columns[v.ids[4]]
-				c6 = arch.columns[v.ids[5]]
-				lastArch = arch
-			}
-
-			idx := backLink.row
-
-			head := Head3[T1, T2, T3]{Entity: e, V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*c1.itemSize)), V2: (*T2)(unsafe.Add(c2.data, uintptr(idx)*c2.itemSize)), V3: (*T3)(unsafe.Add(c3.data, uintptr(idx)*c3.itemSize))}
-			tail := Tail3[T4, T5, T6]{V4: (*T4)(unsafe.Add(c4.data, uintptr(idx)*c4.itemSize)), V5: (*T5)(unsafe.Add(c5.data, uintptr(idx)*c5.itemSize)), V6: (*T6)(unsafe.Add(c6.data, uintptr(idx)*c6.itemSize))}
-			if !yield(head, tail) {
-				return
-			}
-
-		}
-	}
+func (v *View6[T1, T2, T3, T4, T5, T6]) Filtered(entities []Entity) iter.Seq2[Head6[T1, T2], Tail6[T3, T4, T5, T6]] {
+    return func(yield func(Head6[T1, T2], Tail6[T3, T4, T5, T6]) bool) {
+        var h Head6[T1, T2]; var t Tail6[T3, T4, T5, T6]
+        for _, e := range entities {
+            backLink := v.viewBase.entityArchLinks[e.Index()]
+            arch := backLink.arch
+            if arch == nil || !arch.mask.Contains(v.mask) { continue }
+            b, ok := v.bakedIdx[arch]
+            if !ok { continue }
+            idx := uintptr(backLink.row)
+            h.Entity = e
+            h.V1 = (*T1)(unsafe.Add(b.ptr1, idx * b.size1));h.V2 = (*T2)(unsafe.Add(b.ptr2, idx * b.size2));
+            t.V3 = (*T3)(unsafe.Add(b.ptr3, idx * b.size3));t.V4 = (*T4)(unsafe.Add(b.ptr4, idx * b.size4));t.V5 = (*T5)(unsafe.Add(b.ptr5, idx * b.size5));t.V6 = (*T6)(unsafe.Add(b.ptr6, idx * b.size6));
+            if !yield(h, t) { return }
+        }
+    }
 }
+
+type Head7[U1 any, U2 any, U3 any] struct {
+    Entity Entity
+    V1 *U1; V2 *U2; V7 *U3
+}
+
+
+type Tail7[W1 any, W2 any, W3 any, W4 any] struct {
+    V3 *W1; V4 *W2; V5 *W3; V6 *W4
+}
+
 
 // -------------- View7 --------------
 
-type matchedArch7[T1, T2, T3, T4, T5, T6, T7 any] struct {
-	arch     *Archetype
-	entities []Entity
-	count    int
-	ptr1     unsafe.Pointer
-	size1    uintptr
-	ptr2     unsafe.Pointer
-	size2    uintptr
-	ptr3     unsafe.Pointer
-	size3    uintptr
-	ptr4     unsafe.Pointer
-	size4    uintptr
-	ptr5     unsafe.Pointer
-	size5    uintptr
-	ptr6     unsafe.Pointer
-	size6    uintptr
-	ptr7     unsafe.Pointer
-	size7    uintptr
+type matchedArch7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any] struct {
+    arch     *Archetype
+    entities []Entity
+    count    int
+    ptr1  unsafe.Pointer; size1 uintptr;ptr2  unsafe.Pointer; size2 uintptr;ptr3  unsafe.Pointer; size3 uintptr;ptr4  unsafe.Pointer; size4 uintptr;ptr5  unsafe.Pointer; size5 uintptr;ptr6  unsafe.Pointer; size6 uintptr;ptr7  unsafe.Pointer; size7 uintptr;
 }
 
-type View7[T1, T2, T3, T4, T5, T6, T7 any] struct {
-	viewBase
-	ids   [7]ComponentID
-	baked []matchedArch7[T1, T2, T3, T4, T5, T6, T7]
+type View7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any] struct {
+    viewBase
+    ids      [7]ComponentID
+    baked    []matchedArch7[T1, T2, T3, T4, T5, T6, T7]
+    bakedIdx map[*Archetype]*matchedArch7[T1, T2, T3, T4, T5, T6, T7]
 }
 
 func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Reindex() {
-	v.viewBase.Reindex()
-	v.baked = v.baked[:0]
-	for _, arch := range v.matched {
-		if arch.len == 0 {
-			continue
-		}
-		mArch := matchedArch7[T1, T2, T3, T4, T5, T6, T7]{
-			arch:     arch,
-			entities: arch.entities[:arch.len],
-			count:    arch.len,
-		}
-
-		col1 := arch.columns[v.ids[0]]
-		mArch.ptr1 = col1.data
-		mArch.size1 = col1.itemSize
-
-		col2 := arch.columns[v.ids[1]]
-		mArch.ptr2 = col2.data
-		mArch.size2 = col2.itemSize
-
-		col3 := arch.columns[v.ids[2]]
-		mArch.ptr3 = col3.data
-		mArch.size3 = col3.itemSize
-
-		col4 := arch.columns[v.ids[3]]
-		mArch.ptr4 = col4.data
-		mArch.size4 = col4.itemSize
-
-		col5 := arch.columns[v.ids[4]]
-		mArch.ptr5 = col5.data
-		mArch.size5 = col5.itemSize
-
-		col6 := arch.columns[v.ids[5]]
-		mArch.ptr6 = col6.data
-		mArch.size6 = col6.itemSize
-
-		col7 := arch.columns[v.ids[6]]
-		mArch.ptr7 = col7.data
-		mArch.size7 = col7.itemSize
-
-		v.baked = append(v.baked, mArch)
-	}
+    v.viewBase.Reindex()
+    v.baked = v.baked[:0]
+    v.bakedIdx = make(map[*Archetype]*matchedArch7[T1, T2, T3, T4, T5, T6, T7])
+    for _, arch := range v.matched {
+        if arch.len == 0 { continue }
+        mArch := matchedArch7[T1, T2, T3, T4, T5, T6, T7]{arch: arch, entities: arch.entities[:arch.len], count: arch.len}
+        col1 := arch.columns[v.ids[0]]; mArch.ptr1 = col1.data; mArch.size1 = col1.itemSize;col2 := arch.columns[v.ids[1]]; mArch.ptr2 = col2.data; mArch.size2 = col2.itemSize;col3 := arch.columns[v.ids[2]]; mArch.ptr3 = col3.data; mArch.size3 = col3.itemSize;col4 := arch.columns[v.ids[3]]; mArch.ptr4 = col4.data; mArch.size4 = col4.itemSize;col5 := arch.columns[v.ids[4]]; mArch.ptr5 = col5.data; mArch.size5 = col5.itemSize;col6 := arch.columns[v.ids[5]]; mArch.ptr6 = col6.data; mArch.size6 = col6.itemSize;col7 := arch.columns[v.ids[6]]; mArch.ptr7 = col7.data; mArch.size7 = col7.itemSize;
+        v.baked = append(v.baked, mArch)
+        v.bakedIdx[arch] = &v.baked[len(v.baked)-1]
+    }
 }
 
-func NewView7[T1, T2, T3, T4, T5, T6, T7 any](reg *Registry) *View7[T1, T2, T3, T4, T5, T6, T7] {
-	id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
+func NewView7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any](reg *Registry) *View7[T1, T2, T3, T4, T5, T6, T7] {
+    id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
 	id2 := ensureComponentRegistered[T2](reg.componentsRegistry)
 	id3 := ensureComponentRegistered[T3](reg.componentsRegistry)
 	id4 := ensureComponentRegistered[T4](reg.componentsRegistry)
 	id5 := ensureComponentRegistered[T5](reg.componentsRegistry)
 	id6 := ensureComponentRegistered[T6](reg.componentsRegistry)
 	id7 := ensureComponentRegistered[T7](reg.componentsRegistry)
-	ids := [7]ComponentID{id1, id2, id3, id4, id5, id6, id7}
-
-	var mask ArchetypeMask
-	for _, id := range ids {
-		mask = mask.Set(id)
-	}
-
-	v := &View7[T1, T2, T3, T4, T5, T6, T7]{
-		viewBase: viewBase{
-			reg:             reg,
-			mask:            mask,
-			entityArchLinks: reg.archetypeRegistry.entityArchLinks,
-		},
-		ids: ids,
-	}
-	v.Reindex()
-	return v
+    ids := [7]ComponentID{ id1, id2, id3, id4, id5, id6, id7 }
+    var mask ArchetypeMask
+    for _, id := range ids { mask = mask.Set(id) }
+    v := &View7[T1, T2, T3, T4, T5, T6, T7]{
+        viewBase: viewBase{reg: reg, mask: mask, entityArchLinks: reg.archetypeRegistry.entityArchLinks},
+        ids: ids,
+    }
+    v.Reindex() 
+    return v
 }
 
-func (v *View7[T1, T2, T3, T4, T5, T6, T7]) All() iter.Seq2[Head3[T1, T2, T3], Tail4[T4, T5, T6, T7]] {
-	return func(yield func(Head3[T1, T2, T3], Tail4[T4, T5, T6, T7]) bool) {
-		var head Head3[T1, T2, T3]
-		var tail Tail4[T4, T5, T6, T7]
-
-		for i := range v.baked {
-			b := &v.baked[i]
-
-			p1 := b.ptr1
-			s1 := b.size1
-			p2 := b.ptr2
-			s2 := b.size2
-			p3 := b.ptr3
-			s3 := b.size3
-			p4 := b.ptr4
-			s4 := b.size4
-			p5 := b.ptr5
-			s5 := b.size5
-			p6 := b.ptr6
-			s6 := b.size6
-			p7 := b.ptr7
-			s7 := b.size7
-
-			for j := 0; j < b.count; j++ {
-
-				head.Entity = b.entities[j]
-				head.V1 = (*T1)(p1)
-				head.V2 = (*T2)(p2)
-				head.V3 = (*T3)(p3)
-				tail.V4 = (*T4)(p4)
-				tail.V5 = (*T5)(p5)
-				tail.V6 = (*T6)(p6)
-				tail.V7 = (*T7)(p7)
-				if !yield(head, tail) {
-					return
-				}
-
-				// Przesunięcie wskaźników o rozmiar typu
-
-				p1 = unsafe.Add(p1, s1)
-				p2 = unsafe.Add(p2, s2)
-				p3 = unsafe.Add(p3, s3)
-				p4 = unsafe.Add(p4, s4)
-				p5 = unsafe.Add(p5, s5)
-				p6 = unsafe.Add(p6, s6)
-				p7 = unsafe.Add(p7, s7)
-			}
-		}
-	}
+func (v *View7[T1, T2, T3, T4, T5, T6, T7]) All() iter.Seq2[Head7[T1, T2, T7], Tail7[T3, T4, T5, T6]] {
+    return func(yield func(Head7[T1, T2, T7], Tail7[T3, T4, T5, T6]) bool) {
+        var h Head7[T1, T2, T7]; var t Tail7[T3, T4, T5, T6]
+        for i := range v.baked {
+            b := &v.baked[i]
+            p1 := b.ptr1; s1 := b.size1;p2 := b.ptr2; s2 := b.size2;p3 := b.ptr3; s3 := b.size3;p4 := b.ptr4; s4 := b.size4;p5 := b.ptr5; s5 := b.size5;p6 := b.ptr6; s6 := b.size6;p7 := b.ptr7; s7 := b.size7;
+            for j := 0; j < b.count; j++ {
+                h.Entity = b.entities[j]
+                h.V1 = (*T1)(p1);h.V2 = (*T2)(p2);h.V7 = (*T7)(p7);
+                t.V3 = (*T3)(p3);t.V4 = (*T4)(p4);t.V5 = (*T5)(p5);t.V6 = (*T6)(p6);
+                if !yield(h, t) { return }
+                p1 = unsafe.Add(p1, s1);p2 = unsafe.Add(p2, s2);p3 = unsafe.Add(p3, s3);p4 = unsafe.Add(p4, s4);p5 = unsafe.Add(p5, s5);p6 = unsafe.Add(p6, s6);p7 = unsafe.Add(p7, s7);
+            }
+        }
+    }
 }
 
-func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Filtered(entities []Entity) iter.Seq2[Head3[T1, T2, T3], Tail4[T4, T5, T6, T7]] {
-	return func(yield func(Head3[T1, T2, T3], Tail4[T4, T5, T6, T7]) bool) {
-		var lastArch *Archetype
-		var c1 *column
-		var c2 *column
-		var c3 *column
-		var c4 *column
-		var c5 *column
-		var c6 *column
-		var c7 *column
-
-		for _, e := range entities {
-			backLink := v.viewBase.entityArchLinks[e.Index()]
-			arch := backLink.arch
-			if arch == nil || !arch.mask.Contains(v.mask) {
-				continue
-			}
-
-			if arch != lastArch {
-				c1 = arch.columns[v.ids[0]]
-				c2 = arch.columns[v.ids[1]]
-				c3 = arch.columns[v.ids[2]]
-				c4 = arch.columns[v.ids[3]]
-				c5 = arch.columns[v.ids[4]]
-				c6 = arch.columns[v.ids[5]]
-				c7 = arch.columns[v.ids[6]]
-				lastArch = arch
-			}
-
-			idx := backLink.row
-
-			head := Head3[T1, T2, T3]{Entity: e, V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*c1.itemSize)), V2: (*T2)(unsafe.Add(c2.data, uintptr(idx)*c2.itemSize)), V3: (*T3)(unsafe.Add(c3.data, uintptr(idx)*c3.itemSize))}
-			tail := Tail4[T4, T5, T6, T7]{V4: (*T4)(unsafe.Add(c4.data, uintptr(idx)*c4.itemSize)), V5: (*T5)(unsafe.Add(c5.data, uintptr(idx)*c5.itemSize)), V6: (*T6)(unsafe.Add(c6.data, uintptr(idx)*c6.itemSize)), V7: (*T7)(unsafe.Add(c7.data, uintptr(idx)*c7.itemSize))}
-			if !yield(head, tail) {
-				return
-			}
-
-		}
-	}
+func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Filtered(entities []Entity) iter.Seq2[Head7[T1, T2, T7], Tail7[T3, T4, T5, T6]] {
+    return func(yield func(Head7[T1, T2, T7], Tail7[T3, T4, T5, T6]) bool) {
+        var h Head7[T1, T2, T7]; var t Tail7[T3, T4, T5, T6]
+        for _, e := range entities {
+            backLink := v.viewBase.entityArchLinks[e.Index()]
+            arch := backLink.arch
+            if arch == nil || !arch.mask.Contains(v.mask) { continue }
+            b, ok := v.bakedIdx[arch]
+            if !ok { continue }
+            idx := uintptr(backLink.row)
+            h.Entity = e
+            h.V1 = (*T1)(unsafe.Add(b.ptr1, idx * b.size1));h.V2 = (*T2)(unsafe.Add(b.ptr2, idx * b.size2));h.V7 = (*T7)(unsafe.Add(b.ptr7, idx * b.size7));
+            t.V3 = (*T3)(unsafe.Add(b.ptr3, idx * b.size3));t.V4 = (*T4)(unsafe.Add(b.ptr4, idx * b.size4));t.V5 = (*T5)(unsafe.Add(b.ptr5, idx * b.size5));t.V6 = (*T6)(unsafe.Add(b.ptr6, idx * b.size6));
+            if !yield(h, t) { return }
+        }
+    }
 }
+
+type Head8[U1 any, U2 any] struct {
+    Entity Entity
+    V1 *U1; V2 *U2
+}
+
+
+type Tail8[W1 any, W2 any, W3 any, W4 any, W5 any, W6 any] struct {
+    V3 *W1; V4 *W2; V5 *W3; V6 *W4; V7 *W5; V8 *W6
+}
+
 
 // -------------- View8 --------------
 
-type matchedArch8[T1, T2, T3, T4, T5, T6, T7, T8 any] struct {
-	arch     *Archetype
-	entities []Entity
-	count    int
-	ptr1     unsafe.Pointer
-	size1    uintptr
-	ptr2     unsafe.Pointer
-	size2    uintptr
-	ptr3     unsafe.Pointer
-	size3    uintptr
-	ptr4     unsafe.Pointer
-	size4    uintptr
-	ptr5     unsafe.Pointer
-	size5    uintptr
-	ptr6     unsafe.Pointer
-	size6    uintptr
-	ptr7     unsafe.Pointer
-	size7    uintptr
-	ptr8     unsafe.Pointer
-	size8    uintptr
+type matchedArch8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any] struct {
+    arch     *Archetype
+    entities []Entity
+    count    int
+    ptr1  unsafe.Pointer; size1 uintptr;ptr2  unsafe.Pointer; size2 uintptr;ptr3  unsafe.Pointer; size3 uintptr;ptr4  unsafe.Pointer; size4 uintptr;ptr5  unsafe.Pointer; size5 uintptr;ptr6  unsafe.Pointer; size6 uintptr;ptr7  unsafe.Pointer; size7 uintptr;ptr8  unsafe.Pointer; size8 uintptr;
 }
 
-type View8[T1, T2, T3, T4, T5, T6, T7, T8 any] struct {
-	viewBase
-	ids   [8]ComponentID
-	baked []matchedArch8[T1, T2, T3, T4, T5, T6, T7, T8]
+type View8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any] struct {
+    viewBase
+    ids      [8]ComponentID
+    baked    []matchedArch8[T1, T2, T3, T4, T5, T6, T7, T8]
+    bakedIdx map[*Archetype]*matchedArch8[T1, T2, T3, T4, T5, T6, T7, T8]
 }
 
 func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Reindex() {
-	v.viewBase.Reindex()
-	v.baked = v.baked[:0]
-	for _, arch := range v.matched {
-		if arch.len == 0 {
-			continue
-		}
-		mArch := matchedArch8[T1, T2, T3, T4, T5, T6, T7, T8]{
-			arch:     arch,
-			entities: arch.entities[:arch.len],
-			count:    arch.len,
-		}
-
-		col1 := arch.columns[v.ids[0]]
-		mArch.ptr1 = col1.data
-		mArch.size1 = col1.itemSize
-
-		col2 := arch.columns[v.ids[1]]
-		mArch.ptr2 = col2.data
-		mArch.size2 = col2.itemSize
-
-		col3 := arch.columns[v.ids[2]]
-		mArch.ptr3 = col3.data
-		mArch.size3 = col3.itemSize
-
-		col4 := arch.columns[v.ids[3]]
-		mArch.ptr4 = col4.data
-		mArch.size4 = col4.itemSize
-
-		col5 := arch.columns[v.ids[4]]
-		mArch.ptr5 = col5.data
-		mArch.size5 = col5.itemSize
-
-		col6 := arch.columns[v.ids[5]]
-		mArch.ptr6 = col6.data
-		mArch.size6 = col6.itemSize
-
-		col7 := arch.columns[v.ids[6]]
-		mArch.ptr7 = col7.data
-		mArch.size7 = col7.itemSize
-
-		col8 := arch.columns[v.ids[7]]
-		mArch.ptr8 = col8.data
-		mArch.size8 = col8.itemSize
-
-		v.baked = append(v.baked, mArch)
-	}
+    v.viewBase.Reindex()
+    v.baked = v.baked[:0]
+    v.bakedIdx = make(map[*Archetype]*matchedArch8[T1, T2, T3, T4, T5, T6, T7, T8])
+    for _, arch := range v.matched {
+        if arch.len == 0 { continue }
+        mArch := matchedArch8[T1, T2, T3, T4, T5, T6, T7, T8]{arch: arch, entities: arch.entities[:arch.len], count: arch.len}
+        col1 := arch.columns[v.ids[0]]; mArch.ptr1 = col1.data; mArch.size1 = col1.itemSize;col2 := arch.columns[v.ids[1]]; mArch.ptr2 = col2.data; mArch.size2 = col2.itemSize;col3 := arch.columns[v.ids[2]]; mArch.ptr3 = col3.data; mArch.size3 = col3.itemSize;col4 := arch.columns[v.ids[3]]; mArch.ptr4 = col4.data; mArch.size4 = col4.itemSize;col5 := arch.columns[v.ids[4]]; mArch.ptr5 = col5.data; mArch.size5 = col5.itemSize;col6 := arch.columns[v.ids[5]]; mArch.ptr6 = col6.data; mArch.size6 = col6.itemSize;col7 := arch.columns[v.ids[6]]; mArch.ptr7 = col7.data; mArch.size7 = col7.itemSize;col8 := arch.columns[v.ids[7]]; mArch.ptr8 = col8.data; mArch.size8 = col8.itemSize;
+        v.baked = append(v.baked, mArch)
+        v.bakedIdx[arch] = &v.baked[len(v.baked)-1]
+    }
 }
 
-func NewView8[T1, T2, T3, T4, T5, T6, T7, T8 any](reg *Registry) *View8[T1, T2, T3, T4, T5, T6, T7, T8] {
-	id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
+func NewView8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any](reg *Registry) *View8[T1, T2, T3, T4, T5, T6, T7, T8] {
+    id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
 	id2 := ensureComponentRegistered[T2](reg.componentsRegistry)
 	id3 := ensureComponentRegistered[T3](reg.componentsRegistry)
 	id4 := ensureComponentRegistered[T4](reg.componentsRegistry)
@@ -1241,119 +687,48 @@ func NewView8[T1, T2, T3, T4, T5, T6, T7, T8 any](reg *Registry) *View8[T1, T2, 
 	id6 := ensureComponentRegistered[T6](reg.componentsRegistry)
 	id7 := ensureComponentRegistered[T7](reg.componentsRegistry)
 	id8 := ensureComponentRegistered[T8](reg.componentsRegistry)
-	ids := [8]ComponentID{id1, id2, id3, id4, id5, id6, id7, id8}
-
-	var mask ArchetypeMask
-	for _, id := range ids {
-		mask = mask.Set(id)
-	}
-
-	v := &View8[T1, T2, T3, T4, T5, T6, T7, T8]{
-		viewBase: viewBase{
-			reg:             reg,
-			mask:            mask,
-			entityArchLinks: reg.archetypeRegistry.entityArchLinks,
-		},
-		ids: ids,
-	}
-	v.Reindex()
-	return v
+    ids := [8]ComponentID{ id1, id2, id3, id4, id5, id6, id7, id8 }
+    var mask ArchetypeMask
+    for _, id := range ids { mask = mask.Set(id) }
+    v := &View8[T1, T2, T3, T4, T5, T6, T7, T8]{
+        viewBase: viewBase{reg: reg, mask: mask, entityArchLinks: reg.archetypeRegistry.entityArchLinks},
+        ids: ids,
+    }
+    v.Reindex() 
+    return v
 }
 
-func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) All() iter.Seq2[Head3[T1, T2, T3], Tail5[T4, T5, T6, T7, T8]] {
-	return func(yield func(Head3[T1, T2, T3], Tail5[T4, T5, T6, T7, T8]) bool) {
-		var head Head3[T1, T2, T3]
-		var tail Tail5[T4, T5, T6, T7, T8]
-
-		for i := range v.baked {
-			b := &v.baked[i]
-
-			p1 := b.ptr1
-			s1 := b.size1
-			p2 := b.ptr2
-			s2 := b.size2
-			p3 := b.ptr3
-			s3 := b.size3
-			p4 := b.ptr4
-			s4 := b.size4
-			p5 := b.ptr5
-			s5 := b.size5
-			p6 := b.ptr6
-			s6 := b.size6
-			p7 := b.ptr7
-			s7 := b.size7
-			p8 := b.ptr8
-			s8 := b.size8
-
-			for j := 0; j < b.count; j++ {
-
-				head.Entity = b.entities[j]
-				head.V1 = (*T1)(p1)
-				head.V2 = (*T2)(p2)
-				head.V3 = (*T3)(p3)
-				tail.V4 = (*T4)(p4)
-				tail.V5 = (*T5)(p5)
-				tail.V6 = (*T6)(p6)
-				tail.V7 = (*T7)(p7)
-				tail.V8 = (*T8)(p8)
-				if !yield(head, tail) {
-					return
-				}
-
-				// Przesunięcie wskaźników o rozmiar typu
-
-				p1 = unsafe.Add(p1, s1)
-				p2 = unsafe.Add(p2, s2)
-				p3 = unsafe.Add(p3, s3)
-				p4 = unsafe.Add(p4, s4)
-				p5 = unsafe.Add(p5, s5)
-				p6 = unsafe.Add(p6, s6)
-				p7 = unsafe.Add(p7, s7)
-				p8 = unsafe.Add(p8, s8)
-			}
-		}
-	}
+func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) All() iter.Seq2[Head8[T1, T2], Tail8[T3, T4, T5, T6, T7, T8]] {
+    return func(yield func(Head8[T1, T2], Tail8[T3, T4, T5, T6, T7, T8]) bool) {
+        var h Head8[T1, T2]; var t Tail8[T3, T4, T5, T6, T7, T8]
+        for i := range v.baked {
+            b := &v.baked[i]
+            p1 := b.ptr1; s1 := b.size1;p2 := b.ptr2; s2 := b.size2;p3 := b.ptr3; s3 := b.size3;p4 := b.ptr4; s4 := b.size4;p5 := b.ptr5; s5 := b.size5;p6 := b.ptr6; s6 := b.size6;p7 := b.ptr7; s7 := b.size7;p8 := b.ptr8; s8 := b.size8;
+            for j := 0; j < b.count; j++ {
+                h.Entity = b.entities[j]
+                h.V1 = (*T1)(p1);h.V2 = (*T2)(p2);
+                t.V3 = (*T3)(p3);t.V4 = (*T4)(p4);t.V5 = (*T5)(p5);t.V6 = (*T6)(p6);t.V7 = (*T7)(p7);t.V8 = (*T8)(p8);
+                if !yield(h, t) { return }
+                p1 = unsafe.Add(p1, s1);p2 = unsafe.Add(p2, s2);p3 = unsafe.Add(p3, s3);p4 = unsafe.Add(p4, s4);p5 = unsafe.Add(p5, s5);p6 = unsafe.Add(p6, s6);p7 = unsafe.Add(p7, s7);p8 = unsafe.Add(p8, s8);
+            }
+        }
+    }
 }
 
-func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Filtered(entities []Entity) iter.Seq2[Head3[T1, T2, T3], Tail5[T4, T5, T6, T7, T8]] {
-	return func(yield func(Head3[T1, T2, T3], Tail5[T4, T5, T6, T7, T8]) bool) {
-		var lastArch *Archetype
-		var c1 *column
-		var c2 *column
-		var c3 *column
-		var c4 *column
-		var c5 *column
-		var c6 *column
-		var c7 *column
-		var c8 *column
-
-		for _, e := range entities {
-			backLink := v.viewBase.entityArchLinks[e.Index()]
-			arch := backLink.arch
-			if arch == nil || !arch.mask.Contains(v.mask) {
-				continue
-			}
-
-			if arch != lastArch {
-				c1 = arch.columns[v.ids[0]]
-				c2 = arch.columns[v.ids[1]]
-				c3 = arch.columns[v.ids[2]]
-				c4 = arch.columns[v.ids[3]]
-				c5 = arch.columns[v.ids[4]]
-				c6 = arch.columns[v.ids[5]]
-				c7 = arch.columns[v.ids[6]]
-				c8 = arch.columns[v.ids[7]]
-				lastArch = arch
-			}
-
-			idx := backLink.row
-
-			head := Head3[T1, T2, T3]{Entity: e, V1: (*T1)(unsafe.Add(c1.data, uintptr(idx)*c1.itemSize)), V2: (*T2)(unsafe.Add(c2.data, uintptr(idx)*c2.itemSize)), V3: (*T3)(unsafe.Add(c3.data, uintptr(idx)*c3.itemSize))}
-			tail := Tail5[T4, T5, T6, T7, T8]{V4: (*T4)(unsafe.Add(c4.data, uintptr(idx)*c4.itemSize)), V5: (*T5)(unsafe.Add(c5.data, uintptr(idx)*c5.itemSize)), V6: (*T6)(unsafe.Add(c6.data, uintptr(idx)*c6.itemSize)), V7: (*T7)(unsafe.Add(c7.data, uintptr(idx)*c7.itemSize)), V8: (*T8)(unsafe.Add(c8.data, uintptr(idx)*c8.itemSize))}
-			if !yield(head, tail) {
-				return
-			}
-
-		}
-	}
+func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Filtered(entities []Entity) iter.Seq2[Head8[T1, T2], Tail8[T3, T4, T5, T6, T7, T8]] {
+    return func(yield func(Head8[T1, T2], Tail8[T3, T4, T5, T6, T7, T8]) bool) {
+        var h Head8[T1, T2]; var t Tail8[T3, T4, T5, T6, T7, T8]
+        for _, e := range entities {
+            backLink := v.viewBase.entityArchLinks[e.Index()]
+            arch := backLink.arch
+            if arch == nil || !arch.mask.Contains(v.mask) { continue }
+            b, ok := v.bakedIdx[arch]
+            if !ok { continue }
+            idx := uintptr(backLink.row)
+            h.Entity = e
+            h.V1 = (*T1)(unsafe.Add(b.ptr1, idx * b.size1));h.V2 = (*T2)(unsafe.Add(b.ptr2, idx * b.size2));
+            t.V3 = (*T3)(unsafe.Add(b.ptr3, idx * b.size3));t.V4 = (*T4)(unsafe.Add(b.ptr4, idx * b.size4));t.V5 = (*T5)(unsafe.Add(b.ptr5, idx * b.size5));t.V6 = (*T6)(unsafe.Add(b.ptr6, idx * b.size6));t.V7 = (*T7)(unsafe.Add(b.ptr7, idx * b.size7));t.V8 = (*T8)(unsafe.Add(b.ptr8, idx * b.size8));
+            if !yield(h, t) { return }
+        }
+    }
 }

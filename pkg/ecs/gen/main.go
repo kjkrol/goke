@@ -17,156 +17,99 @@ import (
 
 // -------------- Row Structures --------------
 
-{{- range .Count}}
-{{$n := .}}
-{{- if le $n 3}}
-type Head{{$n}}[{{params $n}} any] struct {
+{{range .Count}}{{$n := .}}
+type Head{{$n}}[{{headParams $n}}] struct {
     Entity Entity
-    {{fields $n 1}}
+    {{headFields $n}}
 }
 
-func (h Head{{$n}}[{{types $n}}]) Values() (Entity, {{params_ptrs $n}}) {
-    return h.Entity, {{row_returns_prefix $n 1 "h"}}
+{{if gt (tailCount $n) 0}}
+type Tail{{$n}}[{{tailParams $n}}] struct {
+    {{tailFields $n}}
 }
-{{- else}}
-type Tail{{sub $n 3}}[{{args_tail_names $n}} any] struct {
-    {{fields (sub $n 3) 4}}
-}
+{{end}}
 
-func (t Tail{{sub $n 3}}[{{types_tail $n}}]) Values() ({{params_ptrs_tail $n}}) {
-    return {{row_returns_prefix (sub $n 3) 4 "t"}}
-}
-{{- end}}
-{{- end}}
-
-{{- range .Count}}
-{{$n := .}}
 // -------------- View{{$n}} --------------
 
-type matchedArch{{$n}}[{{params $n}} any] struct {
+type matchedArch{{$n}}[{{allParams $n}}] struct {
     arch     *Archetype
     entities []Entity
     count    int
-    {{- range $i := seq $n}}
-    ptr{{add $i 1}}  unsafe.Pointer
-    size{{add $i 1}} uintptr
-    {{- end}}
+    {{range $i := seq $n}}ptr{{add $i 1}}  unsafe.Pointer; size{{add $i 1}} uintptr;{{end}}
 }
 
-type View{{$n}}[{{params $n}} any] struct {
+type View{{$n}}[{{allParams $n}}] struct {
     viewBase
-    ids   [{{$n}}]ComponentID
-    baked []matchedArch{{$n}}[{{types $n}}]
+    ids      [{{$n}}]ComponentID
+    baked    []matchedArch{{$n}}[{{allTypes $n}}]
+    bakedIdx map[*Archetype]*matchedArch{{$n}}[{{allTypes $n}}]
 }
 
-func (v *View{{$n}}[{{types $n}}]) Reindex() {
+func (v *View{{$n}}[{{allTypes $n}}]) Reindex() {
     v.viewBase.Reindex()
     v.baked = v.baked[:0]
+    v.bakedIdx = make(map[*Archetype]*matchedArch{{$n}}[{{allTypes $n}}])
     for _, arch := range v.matched {
         if arch.len == 0 { continue }
-        mArch := matchedArch{{$n}}[{{types $n}}]{
-            arch:     arch,
-            entities: arch.entities[:arch.len],
-            count:    arch.len,
-        }
-        {{range $i := seq $n}}
-        col{{add $i 1}} := arch.columns[v.ids[{{$i}}]]
-        mArch.ptr{{add $i 1}}  = col{{add $i 1}}.data
-        mArch.size{{add $i 1}} = col{{add $i 1}}.itemSize
-        {{end}}
+        mArch := matchedArch{{$n}}[{{allTypes $n}}]{arch: arch, entities: arch.entities[:arch.len], count: arch.len}
+        {{range $i := seq $n}}col{{add $i 1}} := arch.columns[v.ids[{{$i}}]]; mArch.ptr{{add $i 1}} = col{{add $i 1}}.data; mArch.size{{add $i 1}} = col{{add $i 1}}.itemSize;{{end}}
         v.baked = append(v.baked, mArch)
+        v.bakedIdx[arch] = &v.baked[len(v.baked)-1]
     }
 }
 
-func NewView{{$n}}[{{params $n}} any](reg *Registry) *View{{$n}}[{{types $n}}] {
+func NewView{{$n}}[{{allParams $n}}](reg *Registry) *View{{$n}}[{{allTypes $n}}] {
     {{registration $n}}
     ids := [{{$n}}]ComponentID{ {{idList $n}} }
-    
     var mask ArchetypeMask
-    for _, id := range ids {
-        mask = mask.Set(id)
-    }
-
-    v := &View{{$n}}[{{types $n}}]{
-        viewBase: viewBase{
-            reg: reg,
-            mask: mask,
-            entityArchLinks: reg.archetypeRegistry.entityArchLinks,
-        },
+    for _, id := range ids { mask = mask.Set(id) }
+    v := &View{{$n}}[{{allTypes $n}}]{
+        viewBase: viewBase{reg: reg, mask: mask, entityArchLinks: reg.archetypeRegistry.entityArchLinks},
         ids: ids,
     }
     v.Reindex() 
     return v
 }
 
-func (v *View{{$n}}[{{types $n}}]) All() {{if le $n 3}}iter.Seq[Head{{$n}}[{{types $n}}]]{{else}}iter.Seq2[Head3[T1, T2, T3], Tail{{sub $n 3}}[{{types_tail $n}}]]{{end}} {
-    return func(yield {{if le $n 3}}func(Head{{$n}}[{{types $n}}]) bool{{else}}func(Head3[T1, T2, T3], Tail{{sub $n 3}}[{{types_tail $n}}]) bool{{end}}) {
-        {{if le $n 3}}var row Head{{$n}}[{{types $n}}]{{else}}var head Head3[T1, T2, T3]; var tail Tail{{sub $n 3}}[{{types_tail $n}}]{{end}}
-        
+func (v *View{{$n}}[{{allTypes $n}}]) All() {{if le $n 2}}iter.Seq[Head{{$n}}[{{headTypesCall $n}}]]{{else}}iter.Seq2[Head{{$n}}[{{headTypesCall $n}}], Tail{{$n}}[{{tailTypesCall $n}}]]{{end}} {
+    return func(yield {{if le $n 2}}func(Head{{$n}}[{{headTypesCall $n}}]) bool{{else}}func(Head{{$n}}[{{headTypesCall $n}}], Tail{{$n}}[{{tailTypesCall $n}}]) bool{{end}}) {
+        {{if le $n 2}}var h Head{{$n}}[{{headTypesCall $n}}]{{else}}var h Head{{$n}}[{{headTypesCall $n}}]; var t Tail{{$n}}[{{tailTypesCall $n}}]{{end}}
         for i := range v.baked {
             b := &v.baked[i]
-            {{range $i := seq $n}}
-            p{{add $i 1}} := b.ptr{{add $i 1}}
-            s{{add $i 1}} := b.size{{add $i 1}}
-            {{- end}}
-            
+            {{range $i := seq $n}}p{{add $i 1}} := b.ptr{{add $i 1}}; s{{add $i 1}} := b.size{{add $i 1}};{{end}}
             for j := 0; j < b.count; j++ {
-                {{if le $n 3}}
-                row.Entity = b.entities[j]
-                {{range $i := seq $n}};row.V{{add $i 1}} = (*T{{add $i 1}})(p{{add $i 1}}){{end}}
-                if !yield(row) { return }
-                {{else}}
-                head.Entity = b.entities[j]
-                {{range $i := seq 3}};head.V{{add $i 1}} = (*T{{add $i 1}})(p{{add $i 1}}){{end}}
-                {{range $i := seq (sub $n 3)}};tail.V{{add $i 4}} = (*T{{add $i 4}})(p{{add $i 4}}){{end}}
-                if !yield(head, tail) { return }
-                {{end}}
-
-                // Przesunięcie wskaźników o rozmiar typu
-                {{range $i := seq $n}}
-                p{{add $i 1}} = unsafe.Add(p{{add $i 1}}, s{{add $i 1}})
-                {{- end}}
+                h.Entity = b.entities[j]
+                {{range $idx := headIndices $n}}h.V{{$idx}} = (*T{{$idx}})(p{{$idx}});{{end}}
+                {{if gt (tailCount $n) 0}}{{range $idx := tailIndices $n}}t.V{{$idx}} = (*T{{$idx}})(p{{$idx}});{{end}}{{end}}
+                {{if le $n 2}}if !yield(h) { return }{{else}}if !yield(h, t) { return }{{end}}
+                {{range $i := seq $n}}p{{add $i 1}} = unsafe.Add(p{{add $i 1}}, s{{add $i 1}});{{end}}
             }
         }
     }
 }
 
-func (v *View{{$n}}[{{types $n}}]) Filtered(entities []Entity) {{if le $n 3}}iter.Seq[Head{{$n}}[{{types $n}}]]{{else}}iter.Seq2[Head3[T1, T2, T3], Tail{{sub $n 3}}[{{types_tail $n}}]]{{end}} {
-    return func(yield {{if le $n 3}}func(Head{{$n}}[{{types $n}}]) bool{{else}}func(Head3[T1, T2, T3], Tail{{sub $n 3}}[{{types_tail $n}}]) bool{{end}}) {
-        var lastArch *Archetype
-        {{range $i := seq $n}}var c{{add $i 1}} *column; {{end}}
-
+func (v *View{{$n}}[{{allTypes $n}}]) Filtered(entities []Entity) {{if le $n 2}}iter.Seq[Head{{$n}}[{{headTypesCall $n}}]]{{else}}iter.Seq2[Head{{$n}}[{{headTypesCall $n}}], Tail{{$n}}[{{tailTypesCall $n}}]]{{end}} {
+    return func(yield {{if le $n 2}}func(Head{{$n}}[{{headTypesCall $n}}]) bool{{else}}func(Head{{$n}}[{{headTypesCall $n}}], Tail{{$n}}[{{tailTypesCall $n}}]) bool{{end}}) {
+        {{if le $n 2}}var h Head{{$n}}[{{headTypesCall $n}}]{{else}}var h Head{{$n}}[{{headTypesCall $n}}]; var t Tail{{$n}}[{{tailTypesCall $n}}]{{end}}
         for _, e := range entities {
             backLink := v.viewBase.entityArchLinks[e.Index()]
             arch := backLink.arch
-            if arch == nil || !arch.mask.Contains(v.mask) {
-                continue
-            }
-
-            if arch != lastArch {
-                {{range $i := seq $n}}c{{add $i 1}} = arch.columns[v.ids[{{$i}}]]; {{end}}
-                lastArch = arch
-            }
-
-            idx := backLink.row
-            {{if le $n 3}}
-            row := Head{{$n}}[{{types $n}}]{Entity: e, {{row_init_unsafe $n 1}} }
-            if !yield(row) { return }
-            {{else}}
-            head := Head3[T1, T2, T3]{Entity: e, {{row_init_unsafe 3 1}} }
-            tail := Tail{{sub $n 3}}[{{types_tail $n}}]{ {{row_init_unsafe (sub $n 3) 4}} }
-            if !yield(head, tail) { return }
-            {{end}}
+            if arch == nil || !arch.mask.Contains(v.mask) { continue }
+            b, ok := v.bakedIdx[arch]
+            if !ok { continue }
+            idx := uintptr(backLink.row)
+            h.Entity = e
+            {{range $idx := headIndices $n}}h.V{{$idx}} = (*T{{$idx}})(unsafe.Add(b.ptr{{$idx}}, idx * b.size{{$idx}}));{{end}}
+            {{if gt (tailCount $n) 0}}{{range $idx := tailIndices $n}}t.V{{$idx}} = (*T{{$idx}})(unsafe.Add(b.ptr{{$idx}}, idx * b.size{{$idx}}));{{end}}{{end}}
+            {{if le $n 2}}if !yield(h) { return }{{else}}if !yield(h, t) { return }{{end}}
         }
     }
 }
-{{end}}
-`
+{{end}}`
 
 func main() {
-	funcMap := template.FuncMap{
+	fMap := template.FuncMap{
 		"add": func(a, b int) int { return a + b },
-		"sub": func(a, b int) int { return a - b },
 		"seq": func(n int) []int {
 			res := make([]int, n)
 			for i := 0; i < n; i++ {
@@ -174,102 +117,131 @@ func main() {
 			}
 			return res
 		},
-		"params": func(n int) string {
-			p := make([]string, n)
-			for i := 0; i < n; i++ {
-				p[i] = fmt.Sprintf("T%d", i+1)
-			}
-			return strings.Join(p, ", ")
-		},
-		"args_tail_names": func(n int) string {
-			var p []string
-			for i := 4; i <= n; i++ {
-				p = append(p, fmt.Sprintf("T%d", i))
-			}
-			return strings.Join(p, ", ")
-		},
-		"types": func(n int) string {
-			p := make([]string, n)
-			for i := 0; i < n; i++ {
-				p[i] = fmt.Sprintf("T%d", i+1)
-			}
-			return strings.Join(p, ", ")
-		},
-		"types_tail": func(n int) string {
-			var p []string
-			for i := 4; i <= n; i++ {
-				p = append(p, fmt.Sprintf("T%d", i))
-			}
-			return strings.Join(p, ", ")
-		},
-		"fields": func(count, offset int) string {
-			f := make([]string, count)
-			for i := 0; i < count; i++ {
-				idx := i + offset
-				f[i] = fmt.Sprintf("V%d *T%d", idx, idx)
-			}
-			return strings.Join(f, "; ")
-		},
-		"params_ptrs": func(n int) string {
-			p := make([]string, n)
-			for i := 0; i < n; i++ {
-				p[i] = fmt.Sprintf("*T%d", i+1)
-			}
-			return strings.Join(p, ", ")
-		},
-		"params_ptrs_tail": func(n int) string {
-			var p []string
-			for i := 4; i <= n; i++ {
-				p = append(p, fmt.Sprintf("*T%d", i))
-			}
-			return strings.Join(p, ", ")
-		},
-		"row_returns_prefix": func(count, offset int, prefix string) string {
+		"allParams": func(n int) string {
 			var res []string
-			for i := 0; i < count; i++ {
-				idx := i + offset
-				res = append(res, fmt.Sprintf("%s.V%d", prefix, idx))
+			for i := 1; i <= n; i++ {
+				res = append(res, fmt.Sprintf("T%d any", i))
 			}
 			return strings.Join(res, ", ")
 		},
-		"row_init": func(count, offset int) string {
+		"allTypes": func(n int) string {
 			var res []string
-			for i := 0; i < count; i++ {
-				idx := i + offset
-				res = append(res, fmt.Sprintf("V%d: &s%d[j]", idx, idx))
+			for i := 1; i <= n; i++ {
+				res = append(res, fmt.Sprintf("T%d", i))
 			}
 			return strings.Join(res, ", ")
 		},
-		"row_init_unsafe": func(count, offset int) string {
+		"headParams": func(n int) string {
 			var res []string
-			for i := 0; i < count; i++ {
-				idx := i + offset
-				res = append(res, fmt.Sprintf("V%d: (*T%d)(unsafe.Add(c%d.data, uintptr(idx)*c%d.itemSize))", idx, idx, idx, idx))
+			count := 2
+			if n <= 2 {
+				count = n
+			}
+			if n == 7 {
+				count = 3
+			}
+			for i := 1; i <= count; i++ {
+				res = append(res, fmt.Sprintf("U%d any", i))
 			}
 			return strings.Join(res, ", ")
+		},
+		"tailParams": func(n int) string {
+			var res []string
+			indices := getTailIndices(n)
+			for i := 1; i <= len(indices); i++ {
+				res = append(res, fmt.Sprintf("W%d any", i))
+			}
+			return strings.Join(res, ", ")
+		},
+		"headFields": func(n int) string {
+			var res []string
+			indices := getHeadIndices(n)
+			for i, idx := range indices {
+				res = append(res, fmt.Sprintf("V%d *U%d", idx, i+1))
+			}
+			return strings.Join(res, "; ")
+		},
+		"tailFields": func(n int) string {
+			var res []string
+			indices := getTailIndices(n)
+			for i, idx := range indices {
+				res = append(res, fmt.Sprintf("V%d *W%d", idx, i+1))
+			}
+			return strings.Join(res, "; ")
+		},
+		"headTypesCall": func(n int) string {
+			var res []string
+			indices := getHeadIndices(n)
+			for _, idx := range indices {
+				res = append(res, fmt.Sprintf("T%d", idx))
+			}
+			return strings.Join(res, ", ")
+		},
+		"tailTypesCall": func(n int) string {
+			var res []string
+			indices := getTailIndices(n)
+			for _, idx := range indices {
+				res = append(res, fmt.Sprintf("T%d", idx))
+			}
+			return strings.Join(res, ", ")
+		},
+		"headIndices": getHeadIndices,
+		"tailIndices": getTailIndices,
+		"tailCount": func(n int) int {
+			return len(getTailIndices(n))
 		},
 		"registration": func(n int) string {
-			var lines []string
+			var res []string
 			for i := 1; i <= n; i++ {
-				lines = append(lines, fmt.Sprintf("id%d := ensureComponentRegistered[T%d](reg.componentsRegistry)", i, i))
+				res = append(res, fmt.Sprintf("id%d := ensureComponentRegistered[T%d](reg.componentsRegistry)", i, i))
 			}
-			return strings.Join(lines, "\n\t")
+			return strings.Join(res, "\n\t")
 		},
 		"idList": func(n int) string {
-			var ids []string
+			var res []string
 			for i := 1; i <= n; i++ {
-				ids = append(ids, fmt.Sprintf("id%d", i))
+				res = append(res, fmt.Sprintf("id%d", i))
 			}
-			return strings.Join(ids, ", ")
+			return strings.Join(res, ", ")
 		},
 	}
 
-	tmpl := template.Must(template.New("ecs").Funcs(funcMap).Parse(viewTemplate))
-	f, err := os.Create("views_gen.go")
-	if err != nil {
-		panic(err)
-	}
+	tmpl := template.Must(template.New("ecs").Funcs(fMap).Parse(viewTemplate))
+	f, _ := os.Create("views_gen.go")
 	defer f.Close()
-
 	tmpl.Execute(f, struct{ Count []int }{Count: []int{1, 2, 3, 4, 5, 6, 7, 8}})
+}
+
+func getHeadIndices(n int) []int {
+	if n <= 2 {
+		res := make([]int, n)
+		for i := 0; i < n; i++ {
+			res[i] = i + 1
+		}
+		return res
+	}
+	if n == 7 {
+		return []int{1, 2, 7}
+	}
+	return []int{1, 2}
+}
+
+func getTailIndices(n int) []int {
+	if n <= 2 {
+		return nil
+	}
+	if n >= 3 && n <= 5 {
+		res := make([]int, n-2)
+		for i := 0; i < n-2; i++ {
+			res[i] = i + 3
+		}
+		return res
+	}
+	if n == 6 || n == 7 {
+		return []int{3, 4, 5, 6}
+	}
+	if n == 8 {
+		return []int{3, 4, 5, 6, 7, 8}
+	}
+	return nil
 }
