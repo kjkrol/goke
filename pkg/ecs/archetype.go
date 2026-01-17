@@ -6,7 +6,7 @@ import (
 
 const initCapacity = 1024
 
-type archetype struct {
+type Archetype struct {
 	mask     ArchetypeMask
 	entities []Entity
 	columns  map[ComponentID]*column
@@ -14,8 +14,15 @@ type archetype struct {
 	cap      int
 }
 
-func newArchetype(mask ArchetypeMask) *archetype {
-	return &archetype{
+type ArchRow uint32
+
+type EntityArchLink struct {
+	arch *Archetype
+	row  ArchRow
+}
+
+func NewArchetype(mask ArchetypeMask) *Archetype {
+	return &Archetype{
 		mask:     mask,
 		entities: make([]Entity, initCapacity),
 		columns:  make(map[ComponentID]*column),
@@ -24,21 +31,54 @@ func newArchetype(mask ArchetypeMask) *archetype {
 	}
 }
 
-func (a *archetype) addEntity(entity Entity, compID ComponentID, data unsafe.Pointer) int {
-	a.ensureCapacity()
-	newIdx := a.registerEntity(entity)
+func (a *Archetype) AddEntity(entity Entity, compID ComponentID, data unsafe.Pointer) EntityArchLink {
+	row := a.registerEntity(entity)
 
 	for id, col := range a.columns {
 		if id == compID {
-			col.setData(newIdx, data)
+			col.setData(row, data)
 		} else {
-			col.zeroData(newIdx)
+			col.zeroData(row)
 		}
 	}
-	return newIdx
+	return EntityArchLink{arch: a, row: row}
 }
 
-func (a *archetype) ensureCapacity() {
+func (a *Archetype) RemoveEntity(row ArchRow) (swapedEntity Entity, swaped bool) {
+	lastRow := ArchRow(a.len - 1)
+	entityToMove := a.entities[lastRow]
+
+	// 1. Swap data in all columns
+	for _, col := range a.columns {
+		if row != lastRow {
+			col.copyData(row, lastRow)
+		}
+		col.zeroData(lastRow)
+	}
+
+	// 2. Swap entity ID in the entities slice
+	a.entities[row] = entityToMove
+	a.entities[lastRow] = 0
+	a.len--
+	// 3. Return the entity that was moved to the new position
+	// If we removed the last one, no entity was moved to 'index'
+	if row == lastRow {
+		return 0, false
+	}
+	return entityToMove, true
+}
+
+func (a *Archetype) registerEntity(entity Entity) ArchRow {
+	a.ensureCapacity()
+	newIdx := a.len
+
+	a.entities[newIdx] = entity
+	a.len++
+
+	return ArchRow(newIdx)
+}
+
+func (a *Archetype) ensureCapacity() {
 	if a.len < a.cap {
 		return
 	}
@@ -57,36 +97,4 @@ func (a *archetype) ensureCapacity() {
 	}
 
 	a.cap = newCap
-}
-
-func (a *archetype) removeEntity(index int) Entity {
-	lastIdx := a.len - 1
-	lastEntity := a.entities[lastIdx]
-
-	for _, col := range a.columns {
-		if index != lastIdx {
-			col.copyData(index, lastIdx)
-		}
-		col.zeroData(lastIdx)
-	}
-
-	if index != lastIdx {
-		a.entities[index] = lastEntity
-		a.entities[lastIdx] = 0
-		a.len--
-		return lastEntity
-	}
-
-	a.entities[lastIdx] = 0
-	a.len--
-	return 0
-}
-
-func (a *archetype) registerEntity(entity Entity) int {
-	newIdx := a.len
-
-	a.entities[newIdx] = entity
-	a.len++
-
-	return newIdx
 }

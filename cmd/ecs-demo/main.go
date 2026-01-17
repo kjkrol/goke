@@ -25,8 +25,8 @@ func (s *BillingSystem) Init(reg *ecs.Registry) {
 }
 
 func (s *BillingSystem) Update(reg *ecs.Registry, d time.Duration) {
-	for _, row := range s.view.All() {
-		ord, st, disc := row.Values()
+	for head, tail := range ecs.All3(s.view) {
+		ord, st, disc := head.V1, head.V2, tail.V3
 		ord.Total = ord.Total * (1 - disc.Percentage/100)
 		st.Processed = true
 	}
@@ -45,7 +45,7 @@ func main() {
 	billing := &BillingSystem{}
 	engine.RegisterSystems([]ecs.System{billing})
 
-	order := ecs.GetComponent[Order](engine, entity)
+	order, _ := ecs.GetComponent[Order](engine, entity)
 	fmt.Printf("Order id: %v value: %v\n", order.ID, order.Total)
 	engine.UpdateSystems(time.Duration(time.Second))
 	fmt.Printf("Order id: %v value with discount: %v\n", order.ID, order.Total)

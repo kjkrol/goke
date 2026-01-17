@@ -6,98 +6,67 @@ import (
 	"unsafe"
 )
 
+const initialCapacity = 1024
+
 type Registry struct {
-	entitiesRegistry   *entitiesRegistry
-	componentsRegistry *componentsRegistry
-	archetypeRegistry  *archetypeRegistry
+	entityPool         *EntityGenerationalPool
+	componentsRegistry *ComponentsRegistry
+	archetypeRegistry  *ArchetypeRegistry
 }
 
-func newRegistry() *Registry {
+func NewRegistry() *Registry {
 	componentsRegistry := newComponentsRegistry()
 	return &Registry{
-		entitiesRegistry:   newEntitiesRegistry(),
+		entityPool:         NewEntityGenerator(initialCapacity),
 		componentsRegistry: componentsRegistry,
 		archetypeRegistry:  newArchetypeRegistry(componentsRegistry),
 	}
 }
 
-func (r *Registry) RemoveEntity(entity Entity) {
-	backLink, ok := r.entitiesRegistry.GetBackLink(entity)
-	if !ok {
-		return
-	}
-	if backLink.arch == nil {
-		return
-	}
-
-	backLink.arch.removeEntity(backLink.index)
-	backLink = nil
-	r.entitiesRegistry.destroy(entity)
+func (r *Registry) CreateEntity() Entity {
+	entity := r.entityPool.Next()
+	r.archetypeRegistry.AddEntity(entity)
+	return entity
 }
 
-func assign[T any](reg *Registry, entity Entity, component T) {
-	componentType := reflect.TypeFor[T]()
-	compID := reg.componentsRegistry.GetOrRegister(componentType)
-	assignByID(reg, entity, compID, component)
+func (r *Registry) RemoveEntity(entity Entity) bool {
+	if !r.entityPool.IsValid(entity) {
+		return false
+	}
+
+	r.archetypeRegistry.RemoveEntity(entity)
+	r.entityPool.Release(entity)
+	return true
 }
 
-func assignByID[T any](reg *Registry, entity Entity, compID ComponentID, component T) error {
-	backLink, ok := reg.entitiesRegistry.GetBackLink(entity)
-	if !ok {
-		return fmt.Errorf("Entity doesn't exist")
-	}
-	oldArch := backLink.arch
-
-	var oldMask ArchetypeMask
-	if oldArch != nil {
-		oldMask = oldArch.mask
+func (r *Registry) AssignByID(entity Entity, compID ComponentID, data unsafe.Pointer) error {
+	if !r.entityPool.IsValid(entity) {
+		return fmt.Errorf("Invalid Entity")
 	}
 
-	newMask := oldMask.Set(compID)
-	if oldMask == newMask {
-		col := oldArch.columns[compID]
-		col.setData(backLink.index, unsafe.Pointer(&component))
-		return nil
-	}
-	newArch := reg.archetypeRegistry.GetOrRegister(newMask)
-	reg.archetypeRegistry.MoveEntity(reg, entity, oldArch, newArch, compID, unsafe.Pointer(&component))
+	r.archetypeRegistry.Assign(entity, compID, data)
 	return nil
 }
 
-func unassign[T any](reg *Registry, entity Entity) {
-	componentType := reflect.TypeFor[T]()
-	id, ok := reg.componentsRegistry.Get(componentType)
-	if !ok {
-		return
+func (r *Registry) UnassignByID(entity Entity, compID ComponentID) error {
+	if !r.entityPool.IsValid(entity) {
+		return fmt.Errorf("Invalid Entity")
 	}
 
-	reg.unassignByID(entity, id)
+	r.archetypeRegistry.UnAssign(entity, compID)
+	return nil
 }
 
-func (r *Registry) unassignByID(entity Entity, compID ComponentID) {
-	backLink, ok := r.entitiesRegistry.GetBackLink(entity)
-	if !ok {
-		return
-	}
-
-	oldArch := backLink.arch
-	mask := oldArch.mask
-
-	newMask := mask.Clear(compID)
-	newArch := r.archetypeRegistry.GetOrRegister(newMask)
-
-	r.archetypeRegistry.MoveEntityOnly(r, entity, oldArch, newArch)
+func (r *Registry) RegisterComponentType(componentType reflect.Type) ComponentID {
+	return r.componentsRegistry.GetOrRegister(componentType)
 }
 
-func getComponent[T any](reg *Registry, entity Entity) *T {
-	backLink, ok := reg.entitiesRegistry.GetBackLink(entity)
-	if !ok {
-		return nil
+func (r *Registry) GetComponent(entity Entity, compID ComponentID) (unsafe.Pointer, error) {
+	if !r.entityPool.IsValid(entity) {
+		return nil, fmt.Errorf("Invalid Entity")
 	}
 
-	compType := reflect.TypeFor[T]()
-	compID, _ := reg.componentsRegistry.Get(compType)
-
-	col := backLink.arch.columns[compID]
-	return (*T)(col.GetElement(backLink.index))
+	link := r.archetypeRegistry.entityArchLinks[entity.Index()]
+	col := link.arch.columns[compID]
+	return col.GetElement(link.row), nil
 }

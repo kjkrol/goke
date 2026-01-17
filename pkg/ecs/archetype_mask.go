@@ -7,6 +7,14 @@ const MaskSize = 4
 // ArchetypeMask Should handle 4 * 64 types of components
 type ArchetypeMask [MaskSize]uint64
 
+func NewArchetypeMask(componentIDs ...ComponentID) ArchetypeMask {
+	var mask ArchetypeMask
+	for _, id := range componentIDs {
+		mask = mask.Set(id)
+	}
+	return mask
+}
+
 func (b ArchetypeMask) Set(bit ComponentID) ArchetypeMask {
 	word, pos := bit/64, bit%64
 	if word < MaskSize {
@@ -54,4 +62,8 @@ func (b ArchetypeMask) IsSet(bit ComponentID) bool {
 		return false
 	}
 	return (b[word] & (1 << pos)) != 0
+}
+
+func (b ArchetypeMask) IsEmpty() bool {
+	return b[0] == 0 && b[1] == 0 && b[2] == 0 && b[3] == 0
 }

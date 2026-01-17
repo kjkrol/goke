@@ -7,14 +7,15 @@ import (
 
 type column struct {
 	data     unsafe.Pointer
+	rawSlice reflect.Value
 	dataType reflect.Type
 	len      int
 	cap      int
 	itemSize uintptr
 }
 
-func (c *column) GetElement(index int) unsafe.Pointer {
-	return unsafe.Add(c.data, uintptr(index)*c.itemSize)
+func (c *column) GetElement(row ArchRow) unsafe.Pointer {
+	return unsafe.Add(c.data, uintptr(row)*c.itemSize)
 }
 
 func (c *column) growTo(newCap int) {
@@ -26,27 +27,27 @@ func (c *column) growTo(newCap int) {
 	}
 
 	c.data = newPtr
+	c.rawSlice = newSlice // prevent GC from garbage collecting
 	c.cap = newCap
 }
 
-func (c *column) zeroData(index int) {
-	ptr := c.GetElement(index)
+func (c *column) zeroData(row ArchRow) {
+	ptr := c.GetElement(row)
 	zeroMemory(ptr, c.itemSize)
 
-	if index >= c.len {
-		c.len = index + 1
+	if int(row) >= c.len {
+		c.len = int(row + 1)
 	}
 }
 
-func (c *column) copyData(dstIdx, srcIdx int) {
+func (c *column) copyData(dstIdx, srcIdx ArchRow) {
 	src := c.GetElement(srcIdx)
 	dst := c.GetElement(dstIdx)
 	copyMemory(dst, src, c.itemSize)
 }
 
-func (c *column) setData(rowIdx int, src unsafe.Pointer) {
-	dest := unsafe.Add(c.data, uintptr(rowIdx)*c.itemSize)
-
+func (c *column) setData(row ArchRow, src unsafe.Pointer) {
+	dest := unsafe.Add(c.data, uintptr(row)*c.itemSize)
 	memmove(dest, src, c.itemSize)
 }
 
