@@ -8,7 +8,6 @@ const MaxComponents = 8
 type matchedArch struct {
 	arch     *Archetype
 	entities []Entity
-	count    int
 	ptrs     [MaxComponents]unsafe.Pointer
 	sizes    [MaxComponents]uintptr
 }
@@ -39,7 +38,6 @@ func (v *View) Reindex() {
 		mArch := matchedArch{
 			arch:     arch,
 			entities: arch.entities[:arch.len],
-			count:    arch.len,
 		}
 
 		for i := 0; i < numIds; i++ {

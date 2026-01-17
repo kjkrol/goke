@@ -163,7 +163,7 @@ func genAll(f *os.File, n int, allT, hT, tT string, hC int) {
 	for i := 1; i <= n; i++ {
 		fmt.Fprintf(f, "\t\t\tp%d, s%d := b.ptrs[%d], b.sizes[%d]\n", i, i, i-1, i-1)
 	}
-	fmt.Fprintln(f, "\t\t\tfor j := 0; j < b.count; j++ {")
+	fmt.Fprintln(f, "\t\t\tfor j := 0; j < b.arch.len; j++ {")
 	hI := fmt.Sprintf("Head%d[%s]{Entity: b.entities[j]", n, hT)
 	for i := 1; i <= hC; i++ {
 		hI += fmt.Sprintf(", V%d: (*T%d)(p%d)", i, i, i)
@@ -218,7 +218,7 @@ func genPureAll(f *os.File, n int, allT, phT, ptT string, phC int) {
 	for i := 1; i <= n; i++ {
 		fmt.Fprintf(f, "\t\t\tp%d, s%d := b.ptrs[%d], b.sizes[%d]\n", i, i, i-1, i-1)
 	}
-	fmt.Fprintln(f, "\t\t\tfor j := 0; j < b.count; j++ {")
+	fmt.Fprintln(f, "\t\t\tfor j := 0; j < b.arch.len; j++ {")
 	hI := fmt.Sprintf("PHead%d[%s]{", n, phT)
 	for i := 1; i <= phC; i++ {
 		hI += fmt.Sprintf("V%d: (*T%d)(p%d)%s", i, i, i, ternary(i < phC, ", ", ""))

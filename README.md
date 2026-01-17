@@ -47,7 +47,7 @@ type Vel struct{ X, Y float32 }
 type Acc struct{ X, Y float32 }
 
 type MovementSystem struct {
-    view *ecs.View3[Pos, Vel, Acc]
+    view *ecs.View
 }
 
 func (s *MovementSystem) Init(reg *ecs.Registry) {
@@ -57,8 +57,8 @@ func (s *MovementSystem) Init(reg *ecs.Registry) {
 
 func (s *MovementSystem) Update(reg *ecs.Registry, d time.Duration) {
     // Ultra-fast iteration over contiguous memory blocks
-    for _, row := range s.view.All() {
-        pos, vel, acc := row.Values() // Zero-allocation destructuring
+    for _, row := range ecs.All3[Pos, Vel, Acc](s.view) {
+        pos, vel, acc := row
         
         vel.X += acc.X
         vel.Y += acc.Y
