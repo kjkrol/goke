@@ -4,9 +4,13 @@ import (
 	"iter"
 	"unsafe"
 )
+
 // -------------Query1-------------
 type Head1[T1 any] struct {
 	Entity Entity
+	V1 *T1
+}
+type PHead1[T1 any] struct {
 	V1 *T1
 }
 
@@ -24,10 +28,11 @@ func All1[T1 any](v *View1[T1]) iter.Seq[Head1[T1]] {
 }
 
 func Filter1[T1 any](v *View1[T1], entities []Entity) iter.Seq[Head1[T1]] {
+	links := v.reg.archetypeRegistry.entityArchLinks
 	return func(yield func(Head1[T1]) bool) {
 		var lastArch *Archetype; var cols [1]*column
 		for _, e := range entities {
-			link := v.entityArchLinks[e.Index()]; arch := link.arch
+			link := links[e.Index()]; arch := link.arch
 			if arch == nil || !arch.mask.Contains(v.mask) { continue }
 			if arch != lastArch { for i := 0; i < 1; i++ { cols[i] = arch.columns[v.ids[i]] }; lastArch = arch }
 			idx := uintptr(link.row)
@@ -35,9 +40,41 @@ func Filter1[T1 any](v *View1[T1], entities []Entity) iter.Seq[Head1[T1]] {
 		}
 	}
 }
+
+func PureAll1[T1 any](v *View1[T1]) iter.Seq[PHead1[T1]] {
+	return func(yield func(PHead1[T1]) bool) {
+		for i := range v.baked {
+			b := &v.baked[i]
+			p1, s1 := b.ptrs[0], b.sizes[0]
+			for j := 0; j < b.count; j++ {
+				if !yield(PHead1[T1]{V1: (*T1)(p1)}) { return }
+				p1 = unsafe.Add(p1, s1)
+			}
+		}
+	}
+}
+
+func PureFilter1[T1 any](v *View1[T1], entities []Entity) iter.Seq[PHead1[T1]] {
+	links := v.reg.archetypeRegistry.entityArchLinks
+	return func(yield func(PHead1[T1]) bool) {
+		var lastArch *Archetype; var cols [1]*column
+		for _, e := range entities {
+			link := links[e.Index()]; arch := link.arch
+			if arch == nil || !arch.mask.Contains(v.mask) { continue }
+			if arch != lastArch { for i := 0; i < 1; i++ { cols[i] = arch.columns[v.ids[i]] }; lastArch = arch }
+			idx := uintptr(link.row)
+			if !yield(PHead1[T1]{V1: (*T1)(unsafe.Add(cols[0].data, idx*cols[0].itemSize))}) { return }
+		}
+	}
+}
+
 // -------------Query2-------------
 type Head2[T1, T2 any] struct {
 	Entity Entity
+	V1 *T1
+	V2 *T2
+}
+type PHead2[T1, T2 any] struct {
 	V1 *T1
 	V2 *T2
 }
@@ -58,10 +95,11 @@ func All2[T1, T2 any](v *View2[T1, T2]) iter.Seq[Head2[T1, T2]] {
 }
 
 func Filter2[T1, T2 any](v *View2[T1, T2], entities []Entity) iter.Seq[Head2[T1, T2]] {
+	links := v.reg.archetypeRegistry.entityArchLinks
 	return func(yield func(Head2[T1, T2]) bool) {
 		var lastArch *Archetype; var cols [2]*column
 		for _, e := range entities {
-			link := v.entityArchLinks[e.Index()]; arch := link.arch
+			link := links[e.Index()]; arch := link.arch
 			if arch == nil || !arch.mask.Contains(v.mask) { continue }
 			if arch != lastArch { for i := 0; i < 2; i++ { cols[i] = arch.columns[v.ids[i]] }; lastArch = arch }
 			idx := uintptr(link.row)
@@ -69,25 +107,58 @@ func Filter2[T1, T2 any](v *View2[T1, T2], entities []Entity) iter.Seq[Head2[T1,
 		}
 	}
 }
+
+func PureAll2[T1, T2 any](v *View2[T1, T2]) iter.Seq[PHead2[T1, T2]] {
+	return func(yield func(PHead2[T1, T2]) bool) {
+		for i := range v.baked {
+			b := &v.baked[i]
+			p1, s1 := b.ptrs[0], b.sizes[0]
+			p2, s2 := b.ptrs[1], b.sizes[1]
+			for j := 0; j < b.count; j++ {
+				if !yield(PHead2[T1, T2]{V1: (*T1)(p1), V2: (*T2)(p2)}) { return }
+				p1 = unsafe.Add(p1, s1)
+				p2 = unsafe.Add(p2, s2)
+			}
+		}
+	}
+}
+
+func PureFilter2[T1, T2 any](v *View2[T1, T2], entities []Entity) iter.Seq[PHead2[T1, T2]] {
+	links := v.reg.archetypeRegistry.entityArchLinks
+	return func(yield func(PHead2[T1, T2]) bool) {
+		var lastArch *Archetype; var cols [2]*column
+		for _, e := range entities {
+			link := links[e.Index()]; arch := link.arch
+			if arch == nil || !arch.mask.Contains(v.mask) { continue }
+			if arch != lastArch { for i := 0; i < 2; i++ { cols[i] = arch.columns[v.ids[i]] }; lastArch = arch }
+			idx := uintptr(link.row)
+			if !yield(PHead2[T1, T2]{V1: (*T1)(unsafe.Add(cols[0].data, idx*cols[0].itemSize)), V2: (*T2)(unsafe.Add(cols[1].data, idx*cols[1].itemSize))}) { return }
+		}
+	}
+}
+
 // -------------Query3-------------
-type Head3[T1, T2 any] struct {
+type Head3[T1, T2, T3 any] struct {
 	Entity Entity
 	V1 *T1
 	V2 *T2
+	V3 *T3
 }
-type Tail3[T3 any] struct {
+type PHead3[T1, T2, T3 any] struct {
+	V1 *T1
+	V2 *T2
 	V3 *T3
 }
 
-func All3[T1, T2, T3 any](v *View3[T1, T2, T3]) iter.Seq2[Head3[T1, T2], Tail3[T3]] {
-	return func(yield func(Head3[T1, T2], Tail3[T3]) bool) {
+func All3[T1, T2, T3 any](v *View3[T1, T2, T3]) iter.Seq[Head3[T1, T2, T3]] {
+	return func(yield func(Head3[T1, T2, T3]) bool) {
 		for i := range v.baked {
 			b := &v.baked[i]
 			p1, s1 := b.ptrs[0], b.sizes[0]
 			p2, s2 := b.ptrs[1], b.sizes[1]
 			p3, s3 := b.ptrs[2], b.sizes[2]
 			for j := 0; j < b.count; j++ {
-				if !yield(Head3[T1, T2]{Entity: b.entities[j], V1: (*T1)(p1), V2: (*T2)(p2)}, Tail3[T3]{V3: (*T3)(p3)}) { return }
+				if !yield(Head3[T1, T2, T3]{Entity: b.entities[j], V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3)}) { return }
 				p1 = unsafe.Add(p1, s1)
 				p2 = unsafe.Add(p2, s2)
 				p3 = unsafe.Add(p3, s3)
@@ -96,31 +167,70 @@ func All3[T1, T2, T3 any](v *View3[T1, T2, T3]) iter.Seq2[Head3[T1, T2], Tail3[T
 	}
 }
 
-func Filter3[T1, T2, T3 any](v *View3[T1, T2, T3], entities []Entity) iter.Seq2[Head3[T1, T2], Tail3[T3]] {
-	return func(yield func(Head3[T1, T2], Tail3[T3]) bool) {
+func Filter3[T1, T2, T3 any](v *View3[T1, T2, T3], entities []Entity) iter.Seq[Head3[T1, T2, T3]] {
+	links := v.reg.archetypeRegistry.entityArchLinks
+	return func(yield func(Head3[T1, T2, T3]) bool) {
 		var lastArch *Archetype; var cols [3]*column
 		for _, e := range entities {
-			link := v.entityArchLinks[e.Index()]; arch := link.arch
+			link := links[e.Index()]; arch := link.arch
 			if arch == nil || !arch.mask.Contains(v.mask) { continue }
 			if arch != lastArch { for i := 0; i < 3; i++ { cols[i] = arch.columns[v.ids[i]] }; lastArch = arch }
 			idx := uintptr(link.row)
-			if !yield(Head3[T1, T2]{Entity: e, V1: (*T1)(unsafe.Add(cols[0].data, idx*cols[0].itemSize)), V2: (*T2)(unsafe.Add(cols[1].data, idx*cols[1].itemSize))}, Tail3[T3]{V3: (*T3)(unsafe.Add(cols[2].data, idx*cols[2].itemSize))}) { return }
+			if !yield(Head3[T1, T2, T3]{Entity: e, V1: (*T1)(unsafe.Add(cols[0].data, idx*cols[0].itemSize)), V2: (*T2)(unsafe.Add(cols[1].data, idx*cols[1].itemSize)), V3: (*T3)(unsafe.Add(cols[2].data, idx*cols[2].itemSize))}) { return }
 		}
 	}
 }
+
+func PureAll3[T1, T2, T3 any](v *View3[T1, T2, T3]) iter.Seq[PHead3[T1, T2, T3]] {
+	return func(yield func(PHead3[T1, T2, T3]) bool) {
+		for i := range v.baked {
+			b := &v.baked[i]
+			p1, s1 := b.ptrs[0], b.sizes[0]
+			p2, s2 := b.ptrs[1], b.sizes[1]
+			p3, s3 := b.ptrs[2], b.sizes[2]
+			for j := 0; j < b.count; j++ {
+				if !yield(PHead3[T1, T2, T3]{V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3)}) { return }
+				p1 = unsafe.Add(p1, s1)
+				p2 = unsafe.Add(p2, s2)
+				p3 = unsafe.Add(p3, s3)
+			}
+		}
+	}
+}
+
+func PureFilter3[T1, T2, T3 any](v *View3[T1, T2, T3], entities []Entity) iter.Seq[PHead3[T1, T2, T3]] {
+	links := v.reg.archetypeRegistry.entityArchLinks
+	return func(yield func(PHead3[T1, T2, T3]) bool) {
+		var lastArch *Archetype; var cols [3]*column
+		for _, e := range entities {
+			link := links[e.Index()]; arch := link.arch
+			if arch == nil || !arch.mask.Contains(v.mask) { continue }
+			if arch != lastArch { for i := 0; i < 3; i++ { cols[i] = arch.columns[v.ids[i]] }; lastArch = arch }
+			idx := uintptr(link.row)
+			if !yield(PHead3[T1, T2, T3]{V1: (*T1)(unsafe.Add(cols[0].data, idx*cols[0].itemSize)), V2: (*T2)(unsafe.Add(cols[1].data, idx*cols[1].itemSize)), V3: (*T3)(unsafe.Add(cols[2].data, idx*cols[2].itemSize))}) { return }
+		}
+	}
+}
+
 // -------------Query4-------------
-type Head4[T1, T2 any] struct {
+type Head4[T1, T2, T3 any] struct {
 	Entity Entity
 	V1 *T1
 	V2 *T2
+	V3 *T3
 }
-type Tail4[T3, T4 any] struct {
+type Tail4[T4 any] struct {
+	V4 *T4
+}
+type PHead4[T1, T2, T3, T4 any] struct {
+	V1 *T1
+	V2 *T2
 	V3 *T3
 	V4 *T4
 }
 
-func All4[T1, T2, T3, T4 any](v *View4[T1, T2, T3, T4]) iter.Seq2[Head4[T1, T2], Tail4[T3, T4]] {
-	return func(yield func(Head4[T1, T2], Tail4[T3, T4]) bool) {
+func All4[T1, T2, T3, T4 any](v *View4[T1, T2, T3, T4]) iter.Seq2[Head4[T1, T2, T3], Tail4[T4]] {
+	return func(yield func(Head4[T1, T2, T3], Tail4[T4]) bool) {
 		for i := range v.baked {
 			b := &v.baked[i]
 			p1, s1 := b.ptrs[0], b.sizes[0]
@@ -128,7 +238,7 @@ func All4[T1, T2, T3, T4 any](v *View4[T1, T2, T3, T4]) iter.Seq2[Head4[T1, T2],
 			p3, s3 := b.ptrs[2], b.sizes[2]
 			p4, s4 := b.ptrs[3], b.sizes[3]
 			for j := 0; j < b.count; j++ {
-				if !yield(Head4[T1, T2]{Entity: b.entities[j], V1: (*T1)(p1), V2: (*T2)(p2)}, Tail4[T3, T4]{V3: (*T3)(p3), V4: (*T4)(p4)}) { return }
+				if !yield(Head4[T1, T2, T3]{Entity: b.entities[j], V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3)}, Tail4[T4]{V4: (*T4)(p4)}) { return }
 				p1 = unsafe.Add(p1, s1)
 				p2 = unsafe.Add(p2, s2)
 				p3 = unsafe.Add(p3, s3)
@@ -138,32 +248,76 @@ func All4[T1, T2, T3, T4 any](v *View4[T1, T2, T3, T4]) iter.Seq2[Head4[T1, T2],
 	}
 }
 
-func Filter4[T1, T2, T3, T4 any](v *View4[T1, T2, T3, T4], entities []Entity) iter.Seq2[Head4[T1, T2], Tail4[T3, T4]] {
-	return func(yield func(Head4[T1, T2], Tail4[T3, T4]) bool) {
+func Filter4[T1, T2, T3, T4 any](v *View4[T1, T2, T3, T4], entities []Entity) iter.Seq2[Head4[T1, T2, T3], Tail4[T4]] {
+	links := v.reg.archetypeRegistry.entityArchLinks
+	return func(yield func(Head4[T1, T2, T3], Tail4[T4]) bool) {
 		var lastArch *Archetype; var cols [4]*column
 		for _, e := range entities {
-			link := v.entityArchLinks[e.Index()]; arch := link.arch
+			link := links[e.Index()]; arch := link.arch
 			if arch == nil || !arch.mask.Contains(v.mask) { continue }
 			if arch != lastArch { for i := 0; i < 4; i++ { cols[i] = arch.columns[v.ids[i]] }; lastArch = arch }
 			idx := uintptr(link.row)
-			if !yield(Head4[T1, T2]{Entity: e, V1: (*T1)(unsafe.Add(cols[0].data, idx*cols[0].itemSize)), V2: (*T2)(unsafe.Add(cols[1].data, idx*cols[1].itemSize))}, Tail4[T3, T4]{V3: (*T3)(unsafe.Add(cols[2].data, idx*cols[2].itemSize)), V4: (*T4)(unsafe.Add(cols[3].data, idx*cols[3].itemSize))}) { return }
+			if !yield(Head4[T1, T2, T3]{Entity: e, V1: (*T1)(unsafe.Add(cols[0].data, idx*cols[0].itemSize)), V2: (*T2)(unsafe.Add(cols[1].data, idx*cols[1].itemSize)), V3: (*T3)(unsafe.Add(cols[2].data, idx*cols[2].itemSize))}, Tail4[T4]{V4: (*T4)(unsafe.Add(cols[3].data, idx*cols[3].itemSize))}) { return }
 		}
 	}
 }
+
+func PureAll4[T1, T2, T3, T4 any](v *View4[T1, T2, T3, T4]) iter.Seq[PHead4[T1, T2, T3, T4]] {
+	return func(yield func(PHead4[T1, T2, T3, T4]) bool) {
+		for i := range v.baked {
+			b := &v.baked[i]
+			p1, s1 := b.ptrs[0], b.sizes[0]
+			p2, s2 := b.ptrs[1], b.sizes[1]
+			p3, s3 := b.ptrs[2], b.sizes[2]
+			p4, s4 := b.ptrs[3], b.sizes[3]
+			for j := 0; j < b.count; j++ {
+				if !yield(PHead4[T1, T2, T3, T4]{V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3), V4: (*T4)(p4)}) { return }
+				p1 = unsafe.Add(p1, s1)
+				p2 = unsafe.Add(p2, s2)
+				p3 = unsafe.Add(p3, s3)
+				p4 = unsafe.Add(p4, s4)
+			}
+		}
+	}
+}
+
+func PureFilter4[T1, T2, T3, T4 any](v *View4[T1, T2, T3, T4], entities []Entity) iter.Seq[PHead4[T1, T2, T3, T4]] {
+	links := v.reg.archetypeRegistry.entityArchLinks
+	return func(yield func(PHead4[T1, T2, T3, T4]) bool) {
+		var lastArch *Archetype; var cols [4]*column
+		for _, e := range entities {
+			link := links[e.Index()]; arch := link.arch
+			if arch == nil || !arch.mask.Contains(v.mask) { continue }
+			if arch != lastArch { for i := 0; i < 4; i++ { cols[i] = arch.columns[v.ids[i]] }; lastArch = arch }
+			idx := uintptr(link.row)
+			if !yield(PHead4[T1, T2, T3, T4]{V1: (*T1)(unsafe.Add(cols[0].data, idx*cols[0].itemSize)), V2: (*T2)(unsafe.Add(cols[1].data, idx*cols[1].itemSize)), V3: (*T3)(unsafe.Add(cols[2].data, idx*cols[2].itemSize)), V4: (*T4)(unsafe.Add(cols[3].data, idx*cols[3].itemSize))}) { return }
+		}
+	}
+}
+
 // -------------Query5-------------
-type Head5[T1, T2 any] struct {
+type Head5[T1, T2, T3 any] struct {
 	Entity Entity
 	V1 *T1
 	V2 *T2
-}
-type Tail5[T3, T4, T5 any] struct {
 	V3 *T3
+}
+type Tail5[T4, T5 any] struct {
 	V4 *T4
 	V5 *T5
 }
+type PHead5[T1, T2, T3, T4 any] struct {
+	V1 *T1
+	V2 *T2
+	V3 *T3
+	V4 *T4
+}
+type PTail5[T5 any] struct {
+	V5 *T5
+}
 
-func All5[T1, T2, T3, T4, T5 any](v *View5[T1, T2, T3, T4, T5]) iter.Seq2[Head5[T1, T2], Tail5[T3, T4, T5]] {
-	return func(yield func(Head5[T1, T2], Tail5[T3, T4, T5]) bool) {
+func All5[T1, T2, T3, T4, T5 any](v *View5[T1, T2, T3, T4, T5]) iter.Seq2[Head5[T1, T2, T3], Tail5[T4, T5]] {
+	return func(yield func(Head5[T1, T2, T3], Tail5[T4, T5]) bool) {
 		for i := range v.baked {
 			b := &v.baked[i]
 			p1, s1 := b.ptrs[0], b.sizes[0]
@@ -172,7 +326,7 @@ func All5[T1, T2, T3, T4, T5 any](v *View5[T1, T2, T3, T4, T5]) iter.Seq2[Head5[
 			p4, s4 := b.ptrs[3], b.sizes[3]
 			p5, s5 := b.ptrs[4], b.sizes[4]
 			for j := 0; j < b.count; j++ {
-				if !yield(Head5[T1, T2]{Entity: b.entities[j], V1: (*T1)(p1), V2: (*T2)(p2)}, Tail5[T3, T4, T5]{V3: (*T3)(p3), V4: (*T4)(p4), V5: (*T5)(p5)}) { return }
+				if !yield(Head5[T1, T2, T3]{Entity: b.entities[j], V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3)}, Tail5[T4, T5]{V4: (*T4)(p4), V5: (*T5)(p5)}) { return }
 				p1 = unsafe.Add(p1, s1)
 				p2 = unsafe.Add(p2, s2)
 				p3 = unsafe.Add(p3, s3)
@@ -183,18 +337,55 @@ func All5[T1, T2, T3, T4, T5 any](v *View5[T1, T2, T3, T4, T5]) iter.Seq2[Head5[
 	}
 }
 
-func Filter5[T1, T2, T3, T4, T5 any](v *View5[T1, T2, T3, T4, T5], entities []Entity) iter.Seq2[Head5[T1, T2], Tail5[T3, T4, T5]] {
-	return func(yield func(Head5[T1, T2], Tail5[T3, T4, T5]) bool) {
+func Filter5[T1, T2, T3, T4, T5 any](v *View5[T1, T2, T3, T4, T5], entities []Entity) iter.Seq2[Head5[T1, T2, T3], Tail5[T4, T5]] {
+	links := v.reg.archetypeRegistry.entityArchLinks
+	return func(yield func(Head5[T1, T2, T3], Tail5[T4, T5]) bool) {
 		var lastArch *Archetype; var cols [5]*column
 		for _, e := range entities {
-			link := v.entityArchLinks[e.Index()]; arch := link.arch
+			link := links[e.Index()]; arch := link.arch
 			if arch == nil || !arch.mask.Contains(v.mask) { continue }
 			if arch != lastArch { for i := 0; i < 5; i++ { cols[i] = arch.columns[v.ids[i]] }; lastArch = arch }
 			idx := uintptr(link.row)
-			if !yield(Head5[T1, T2]{Entity: e, V1: (*T1)(unsafe.Add(cols[0].data, idx*cols[0].itemSize)), V2: (*T2)(unsafe.Add(cols[1].data, idx*cols[1].itemSize))}, Tail5[T3, T4, T5]{V3: (*T3)(unsafe.Add(cols[2].data, idx*cols[2].itemSize)), V4: (*T4)(unsafe.Add(cols[3].data, idx*cols[3].itemSize)), V5: (*T5)(unsafe.Add(cols[4].data, idx*cols[4].itemSize))}) { return }
+			if !yield(Head5[T1, T2, T3]{Entity: e, V1: (*T1)(unsafe.Add(cols[0].data, idx*cols[0].itemSize)), V2: (*T2)(unsafe.Add(cols[1].data, idx*cols[1].itemSize)), V3: (*T3)(unsafe.Add(cols[2].data, idx*cols[2].itemSize))}, Tail5[T4, T5]{V4: (*T4)(unsafe.Add(cols[3].data, idx*cols[3].itemSize)), V5: (*T5)(unsafe.Add(cols[4].data, idx*cols[4].itemSize))}) { return }
 		}
 	}
 }
+
+func PureAll5[T1, T2, T3, T4, T5 any](v *View5[T1, T2, T3, T4, T5]) iter.Seq2[PHead5[T1, T2, T3, T4], PTail5[T5]] {
+	return func(yield func(PHead5[T1, T2, T3, T4], PTail5[T5]) bool) {
+		for i := range v.baked {
+			b := &v.baked[i]
+			p1, s1 := b.ptrs[0], b.sizes[0]
+			p2, s2 := b.ptrs[1], b.sizes[1]
+			p3, s3 := b.ptrs[2], b.sizes[2]
+			p4, s4 := b.ptrs[3], b.sizes[3]
+			p5, s5 := b.ptrs[4], b.sizes[4]
+			for j := 0; j < b.count; j++ {
+				if !yield(PHead5[T1, T2, T3, T4]{V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3), V4: (*T4)(p4)}, PTail5[T5]{V5: (*T5)(p5)}) { return }
+				p1 = unsafe.Add(p1, s1)
+				p2 = unsafe.Add(p2, s2)
+				p3 = unsafe.Add(p3, s3)
+				p4 = unsafe.Add(p4, s4)
+				p5 = unsafe.Add(p5, s5)
+			}
+		}
+	}
+}
+
+func PureFilter5[T1, T2, T3, T4, T5 any](v *View5[T1, T2, T3, T4, T5], entities []Entity) iter.Seq2[PHead5[T1, T2, T3, T4], PTail5[T5]] {
+	links := v.reg.archetypeRegistry.entityArchLinks
+	return func(yield func(PHead5[T1, T2, T3, T4], PTail5[T5]) bool) {
+		var lastArch *Archetype; var cols [5]*column
+		for _, e := range entities {
+			link := links[e.Index()]; arch := link.arch
+			if arch == nil || !arch.mask.Contains(v.mask) { continue }
+			if arch != lastArch { for i := 0; i < 5; i++ { cols[i] = arch.columns[v.ids[i]] }; lastArch = arch }
+			idx := uintptr(link.row)
+			if !yield(PHead5[T1, T2, T3, T4]{V1: (*T1)(unsafe.Add(cols[0].data, idx*cols[0].itemSize)), V2: (*T2)(unsafe.Add(cols[1].data, idx*cols[1].itemSize)), V3: (*T3)(unsafe.Add(cols[2].data, idx*cols[2].itemSize)), V4: (*T4)(unsafe.Add(cols[3].data, idx*cols[3].itemSize))}, PTail5[T5]{V5: (*T5)(unsafe.Add(cols[4].data, idx*cols[4].itemSize))}) { return }
+		}
+	}
+}
+
 // -------------Query6-------------
 type Head6[T1, T2, T3 any] struct {
 	Entity Entity
@@ -204,6 +395,16 @@ type Head6[T1, T2, T3 any] struct {
 }
 type Tail6[T4, T5, T6 any] struct {
 	V4 *T4
+	V5 *T5
+	V6 *T6
+}
+type PHead6[T1, T2, T3, T4 any] struct {
+	V1 *T1
+	V2 *T2
+	V3 *T3
+	V4 *T4
+}
+type PTail6[T5, T6 any] struct {
 	V5 *T5
 	V6 *T6
 }
@@ -232,10 +433,11 @@ func All6[T1, T2, T3, T4, T5, T6 any](v *View6[T1, T2, T3, T4, T5, T6]) iter.Seq
 }
 
 func Filter6[T1, T2, T3, T4, T5, T6 any](v *View6[T1, T2, T3, T4, T5, T6], entities []Entity) iter.Seq2[Head6[T1, T2, T3], Tail6[T4, T5, T6]] {
+	links := v.reg.archetypeRegistry.entityArchLinks
 	return func(yield func(Head6[T1, T2, T3], Tail6[T4, T5, T6]) bool) {
 		var lastArch *Archetype; var cols [6]*column
 		for _, e := range entities {
-			link := v.entityArchLinks[e.Index()]; arch := link.arch
+			link := links[e.Index()]; arch := link.arch
 			if arch == nil || !arch.mask.Contains(v.mask) { continue }
 			if arch != lastArch { for i := 0; i < 6; i++ { cols[i] = arch.columns[v.ids[i]] }; lastArch = arch }
 			idx := uintptr(link.row)
@@ -243,6 +445,44 @@ func Filter6[T1, T2, T3, T4, T5, T6 any](v *View6[T1, T2, T3, T4, T5, T6], entit
 		}
 	}
 }
+
+func PureAll6[T1, T2, T3, T4, T5, T6 any](v *View6[T1, T2, T3, T4, T5, T6]) iter.Seq2[PHead6[T1, T2, T3, T4], PTail6[T5, T6]] {
+	return func(yield func(PHead6[T1, T2, T3, T4], PTail6[T5, T6]) bool) {
+		for i := range v.baked {
+			b := &v.baked[i]
+			p1, s1 := b.ptrs[0], b.sizes[0]
+			p2, s2 := b.ptrs[1], b.sizes[1]
+			p3, s3 := b.ptrs[2], b.sizes[2]
+			p4, s4 := b.ptrs[3], b.sizes[3]
+			p5, s5 := b.ptrs[4], b.sizes[4]
+			p6, s6 := b.ptrs[5], b.sizes[5]
+			for j := 0; j < b.count; j++ {
+				if !yield(PHead6[T1, T2, T3, T4]{V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3), V4: (*T4)(p4)}, PTail6[T5, T6]{V5: (*T5)(p5), V6: (*T6)(p6)}) { return }
+				p1 = unsafe.Add(p1, s1)
+				p2 = unsafe.Add(p2, s2)
+				p3 = unsafe.Add(p3, s3)
+				p4 = unsafe.Add(p4, s4)
+				p5 = unsafe.Add(p5, s5)
+				p6 = unsafe.Add(p6, s6)
+			}
+		}
+	}
+}
+
+func PureFilter6[T1, T2, T3, T4, T5, T6 any](v *View6[T1, T2, T3, T4, T5, T6], entities []Entity) iter.Seq2[PHead6[T1, T2, T3, T4], PTail6[T5, T6]] {
+	links := v.reg.archetypeRegistry.entityArchLinks
+	return func(yield func(PHead6[T1, T2, T3, T4], PTail6[T5, T6]) bool) {
+		var lastArch *Archetype; var cols [6]*column
+		for _, e := range entities {
+			link := links[e.Index()]; arch := link.arch
+			if arch == nil || !arch.mask.Contains(v.mask) { continue }
+			if arch != lastArch { for i := 0; i < 6; i++ { cols[i] = arch.columns[v.ids[i]] }; lastArch = arch }
+			idx := uintptr(link.row)
+			if !yield(PHead6[T1, T2, T3, T4]{V1: (*T1)(unsafe.Add(cols[0].data, idx*cols[0].itemSize)), V2: (*T2)(unsafe.Add(cols[1].data, idx*cols[1].itemSize)), V3: (*T3)(unsafe.Add(cols[2].data, idx*cols[2].itemSize)), V4: (*T4)(unsafe.Add(cols[3].data, idx*cols[3].itemSize))}, PTail6[T5, T6]{V5: (*T5)(unsafe.Add(cols[4].data, idx*cols[4].itemSize)), V6: (*T6)(unsafe.Add(cols[5].data, idx*cols[5].itemSize))}) { return }
+		}
+	}
+}
+
 // -------------Query7-------------
 type Head7[T1, T2, T3 any] struct {
 	Entity Entity
@@ -252,6 +492,17 @@ type Head7[T1, T2, T3 any] struct {
 }
 type Tail7[T4, T5, T6, T7 any] struct {
 	V4 *T4
+	V5 *T5
+	V6 *T6
+	V7 *T7
+}
+type PHead7[T1, T2, T3, T4 any] struct {
+	V1 *T1
+	V2 *T2
+	V3 *T3
+	V4 *T4
+}
+type PTail7[T5, T6, T7 any] struct {
 	V5 *T5
 	V6 *T6
 	V7 *T7
@@ -283,10 +534,11 @@ func All7[T1, T2, T3, T4, T5, T6, T7 any](v *View7[T1, T2, T3, T4, T5, T6, T7]) 
 }
 
 func Filter7[T1, T2, T3, T4, T5, T6, T7 any](v *View7[T1, T2, T3, T4, T5, T6, T7], entities []Entity) iter.Seq2[Head7[T1, T2, T3], Tail7[T4, T5, T6, T7]] {
+	links := v.reg.archetypeRegistry.entityArchLinks
 	return func(yield func(Head7[T1, T2, T3], Tail7[T4, T5, T6, T7]) bool) {
 		var lastArch *Archetype; var cols [7]*column
 		for _, e := range entities {
-			link := v.entityArchLinks[e.Index()]; arch := link.arch
+			link := links[e.Index()]; arch := link.arch
 			if arch == nil || !arch.mask.Contains(v.mask) { continue }
 			if arch != lastArch { for i := 0; i < 7; i++ { cols[i] = arch.columns[v.ids[i]] }; lastArch = arch }
 			idx := uintptr(link.row)
@@ -294,6 +546,46 @@ func Filter7[T1, T2, T3, T4, T5, T6, T7 any](v *View7[T1, T2, T3, T4, T5, T6, T7
 		}
 	}
 }
+
+func PureAll7[T1, T2, T3, T4, T5, T6, T7 any](v *View7[T1, T2, T3, T4, T5, T6, T7]) iter.Seq2[PHead7[T1, T2, T3, T4], PTail7[T5, T6, T7]] {
+	return func(yield func(PHead7[T1, T2, T3, T4], PTail7[T5, T6, T7]) bool) {
+		for i := range v.baked {
+			b := &v.baked[i]
+			p1, s1 := b.ptrs[0], b.sizes[0]
+			p2, s2 := b.ptrs[1], b.sizes[1]
+			p3, s3 := b.ptrs[2], b.sizes[2]
+			p4, s4 := b.ptrs[3], b.sizes[3]
+			p5, s5 := b.ptrs[4], b.sizes[4]
+			p6, s6 := b.ptrs[5], b.sizes[5]
+			p7, s7 := b.ptrs[6], b.sizes[6]
+			for j := 0; j < b.count; j++ {
+				if !yield(PHead7[T1, T2, T3, T4]{V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3), V4: (*T4)(p4)}, PTail7[T5, T6, T7]{V5: (*T5)(p5), V6: (*T6)(p6), V7: (*T7)(p7)}) { return }
+				p1 = unsafe.Add(p1, s1)
+				p2 = unsafe.Add(p2, s2)
+				p3 = unsafe.Add(p3, s3)
+				p4 = unsafe.Add(p4, s4)
+				p5 = unsafe.Add(p5, s5)
+				p6 = unsafe.Add(p6, s6)
+				p7 = unsafe.Add(p7, s7)
+			}
+		}
+	}
+}
+
+func PureFilter7[T1, T2, T3, T4, T5, T6, T7 any](v *View7[T1, T2, T3, T4, T5, T6, T7], entities []Entity) iter.Seq2[PHead7[T1, T2, T3, T4], PTail7[T5, T6, T7]] {
+	links := v.reg.archetypeRegistry.entityArchLinks
+	return func(yield func(PHead7[T1, T2, T3, T4], PTail7[T5, T6, T7]) bool) {
+		var lastArch *Archetype; var cols [7]*column
+		for _, e := range entities {
+			link := links[e.Index()]; arch := link.arch
+			if arch == nil || !arch.mask.Contains(v.mask) { continue }
+			if arch != lastArch { for i := 0; i < 7; i++ { cols[i] = arch.columns[v.ids[i]] }; lastArch = arch }
+			idx := uintptr(link.row)
+			if !yield(PHead7[T1, T2, T3, T4]{V1: (*T1)(unsafe.Add(cols[0].data, idx*cols[0].itemSize)), V2: (*T2)(unsafe.Add(cols[1].data, idx*cols[1].itemSize)), V3: (*T3)(unsafe.Add(cols[2].data, idx*cols[2].itemSize)), V4: (*T4)(unsafe.Add(cols[3].data, idx*cols[3].itemSize))}, PTail7[T5, T6, T7]{V5: (*T5)(unsafe.Add(cols[4].data, idx*cols[4].itemSize)), V6: (*T6)(unsafe.Add(cols[5].data, idx*cols[5].itemSize)), V7: (*T7)(unsafe.Add(cols[6].data, idx*cols[6].itemSize))}) { return }
+		}
+	}
+}
+
 // -------------Query8-------------
 type Head8[T1, T2, T3 any] struct {
 	Entity Entity
@@ -303,6 +595,18 @@ type Head8[T1, T2, T3 any] struct {
 }
 type Tail8[T4, T5, T6, T7, T8 any] struct {
 	V4 *T4
+	V5 *T5
+	V6 *T6
+	V7 *T7
+	V8 *T8
+}
+type PHead8[T1, T2, T3, T4 any] struct {
+	V1 *T1
+	V2 *T2
+	V3 *T3
+	V4 *T4
+}
+type PTail8[T5, T6, T7, T8 any] struct {
 	V5 *T5
 	V6 *T6
 	V7 *T7
@@ -337,14 +641,56 @@ func All8[T1, T2, T3, T4, T5, T6, T7, T8 any](v *View8[T1, T2, T3, T4, T5, T6, T
 }
 
 func Filter8[T1, T2, T3, T4, T5, T6, T7, T8 any](v *View8[T1, T2, T3, T4, T5, T6, T7, T8], entities []Entity) iter.Seq2[Head8[T1, T2, T3], Tail8[T4, T5, T6, T7, T8]] {
+	links := v.reg.archetypeRegistry.entityArchLinks
 	return func(yield func(Head8[T1, T2, T3], Tail8[T4, T5, T6, T7, T8]) bool) {
 		var lastArch *Archetype; var cols [8]*column
 		for _, e := range entities {
-			link := v.entityArchLinks[e.Index()]; arch := link.arch
+			link := links[e.Index()]; arch := link.arch
 			if arch == nil || !arch.mask.Contains(v.mask) { continue }
 			if arch != lastArch { for i := 0; i < 8; i++ { cols[i] = arch.columns[v.ids[i]] }; lastArch = arch }
 			idx := uintptr(link.row)
 			if !yield(Head8[T1, T2, T3]{Entity: e, V1: (*T1)(unsafe.Add(cols[0].data, idx*cols[0].itemSize)), V2: (*T2)(unsafe.Add(cols[1].data, idx*cols[1].itemSize)), V3: (*T3)(unsafe.Add(cols[2].data, idx*cols[2].itemSize))}, Tail8[T4, T5, T6, T7, T8]{V4: (*T4)(unsafe.Add(cols[3].data, idx*cols[3].itemSize)), V5: (*T5)(unsafe.Add(cols[4].data, idx*cols[4].itemSize)), V6: (*T6)(unsafe.Add(cols[5].data, idx*cols[5].itemSize)), V7: (*T7)(unsafe.Add(cols[6].data, idx*cols[6].itemSize)), V8: (*T8)(unsafe.Add(cols[7].data, idx*cols[7].itemSize))}) { return }
+		}
+	}
+}
+
+func PureAll8[T1, T2, T3, T4, T5, T6, T7, T8 any](v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) iter.Seq2[PHead8[T1, T2, T3, T4], PTail8[T5, T6, T7, T8]] {
+	return func(yield func(PHead8[T1, T2, T3, T4], PTail8[T5, T6, T7, T8]) bool) {
+		for i := range v.baked {
+			b := &v.baked[i]
+			p1, s1 := b.ptrs[0], b.sizes[0]
+			p2, s2 := b.ptrs[1], b.sizes[1]
+			p3, s3 := b.ptrs[2], b.sizes[2]
+			p4, s4 := b.ptrs[3], b.sizes[3]
+			p5, s5 := b.ptrs[4], b.sizes[4]
+			p6, s6 := b.ptrs[5], b.sizes[5]
+			p7, s7 := b.ptrs[6], b.sizes[6]
+			p8, s8 := b.ptrs[7], b.sizes[7]
+			for j := 0; j < b.count; j++ {
+				if !yield(PHead8[T1, T2, T3, T4]{V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3), V4: (*T4)(p4)}, PTail8[T5, T6, T7, T8]{V5: (*T5)(p5), V6: (*T6)(p6), V7: (*T7)(p7), V8: (*T8)(p8)}) { return }
+				p1 = unsafe.Add(p1, s1)
+				p2 = unsafe.Add(p2, s2)
+				p3 = unsafe.Add(p3, s3)
+				p4 = unsafe.Add(p4, s4)
+				p5 = unsafe.Add(p5, s5)
+				p6 = unsafe.Add(p6, s6)
+				p7 = unsafe.Add(p7, s7)
+				p8 = unsafe.Add(p8, s8)
+			}
+		}
+	}
+}
+
+func PureFilter8[T1, T2, T3, T4, T5, T6, T7, T8 any](v *View8[T1, T2, T3, T4, T5, T6, T7, T8], entities []Entity) iter.Seq2[PHead8[T1, T2, T3, T4], PTail8[T5, T6, T7, T8]] {
+	links := v.reg.archetypeRegistry.entityArchLinks
+	return func(yield func(PHead8[T1, T2, T3, T4], PTail8[T5, T6, T7, T8]) bool) {
+		var lastArch *Archetype; var cols [8]*column
+		for _, e := range entities {
+			link := links[e.Index()]; arch := link.arch
+			if arch == nil || !arch.mask.Contains(v.mask) { continue }
+			if arch != lastArch { for i := 0; i < 8; i++ { cols[i] = arch.columns[v.ids[i]] }; lastArch = arch }
+			idx := uintptr(link.row)
+			if !yield(PHead8[T1, T2, T3, T4]{V1: (*T1)(unsafe.Add(cols[0].data, idx*cols[0].itemSize)), V2: (*T2)(unsafe.Add(cols[1].data, idx*cols[1].itemSize)), V3: (*T3)(unsafe.Add(cols[2].data, idx*cols[2].itemSize)), V4: (*T4)(unsafe.Add(cols[3].data, idx*cols[3].itemSize))}, PTail8[T5, T6, T7, T8]{V5: (*T5)(unsafe.Add(cols[4].data, idx*cols[4].itemSize)), V6: (*T6)(unsafe.Add(cols[5].data, idx*cols[5].itemSize)), V7: (*T7)(unsafe.Add(cols[6].data, idx*cols[6].itemSize)), V8: (*T8)(unsafe.Add(cols[7].data, idx*cols[7].itemSize))}) { return }
 		}
 	}
 }

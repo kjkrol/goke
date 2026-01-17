@@ -3,6 +3,7 @@ package ecs
 import (
 	"unsafe"
 )
+
 // -------------View1-------------
 type matchedArch1 struct {
 	arch *Archetype; entities []Entity; count int; ptrs [1]unsafe.Pointer; sizes [1]uintptr
@@ -16,10 +17,7 @@ func NewView1[T1 any](reg *Registry) *View1[T1] {
 	ids := [1]ComponentID{id1}
 	var mask ArchetypeMask
 	for _, id := range ids { mask = mask.Set(id) }
-	v := &View1[T1]{
-		viewBase: viewBase{reg: reg, mask: mask, entityArchLinks: reg.archetypeRegistry.entityArchLinks},
-		ids: ids,
-	}
+	v := &View1[T1]{viewBase: viewBase{reg: reg, mask: mask}, ids: ids}
 	v.Reindex(); return v
 }
 
@@ -32,6 +30,7 @@ func (v *View1[T1]) Reindex() {
 		v.baked = append(v.baked, mArch)
 	}
 }
+
 // -------------View2-------------
 type matchedArch2 struct {
 	arch *Archetype; entities []Entity; count int; ptrs [2]unsafe.Pointer; sizes [2]uintptr
@@ -46,10 +45,7 @@ func NewView2[T1, T2 any](reg *Registry) *View2[T1, T2] {
 	ids := [2]ComponentID{id1, id2}
 	var mask ArchetypeMask
 	for _, id := range ids { mask = mask.Set(id) }
-	v := &View2[T1, T2]{
-		viewBase: viewBase{reg: reg, mask: mask, entityArchLinks: reg.archetypeRegistry.entityArchLinks},
-		ids: ids,
-	}
+	v := &View2[T1, T2]{viewBase: viewBase{reg: reg, mask: mask}, ids: ids}
 	v.Reindex(); return v
 }
 
@@ -62,6 +58,7 @@ func (v *View2[T1, T2]) Reindex() {
 		v.baked = append(v.baked, mArch)
 	}
 }
+
 // -------------View3-------------
 type matchedArch3 struct {
 	arch *Archetype; entities []Entity; count int; ptrs [3]unsafe.Pointer; sizes [3]uintptr
@@ -77,10 +74,7 @@ func NewView3[T1, T2, T3 any](reg *Registry) *View3[T1, T2, T3] {
 	ids := [3]ComponentID{id1, id2, id3}
 	var mask ArchetypeMask
 	for _, id := range ids { mask = mask.Set(id) }
-	v := &View3[T1, T2, T3]{
-		viewBase: viewBase{reg: reg, mask: mask, entityArchLinks: reg.archetypeRegistry.entityArchLinks},
-		ids: ids,
-	}
+	v := &View3[T1, T2, T3]{viewBase: viewBase{reg: reg, mask: mask}, ids: ids}
 	v.Reindex(); return v
 }
 
@@ -93,6 +87,7 @@ func (v *View3[T1, T2, T3]) Reindex() {
 		v.baked = append(v.baked, mArch)
 	}
 }
+
 // -------------View4-------------
 type matchedArch4 struct {
 	arch *Archetype; entities []Entity; count int; ptrs [4]unsafe.Pointer; sizes [4]uintptr
@@ -109,10 +104,7 @@ func NewView4[T1, T2, T3, T4 any](reg *Registry) *View4[T1, T2, T3, T4] {
 	ids := [4]ComponentID{id1, id2, id3, id4}
 	var mask ArchetypeMask
 	for _, id := range ids { mask = mask.Set(id) }
-	v := &View4[T1, T2, T3, T4]{
-		viewBase: viewBase{reg: reg, mask: mask, entityArchLinks: reg.archetypeRegistry.entityArchLinks},
-		ids: ids,
-	}
+	v := &View4[T1, T2, T3, T4]{viewBase: viewBase{reg: reg, mask: mask}, ids: ids}
 	v.Reindex(); return v
 }
 
@@ -125,6 +117,7 @@ func (v *View4[T1, T2, T3, T4]) Reindex() {
 		v.baked = append(v.baked, mArch)
 	}
 }
+
 // -------------View5-------------
 type matchedArch5 struct {
 	arch *Archetype; entities []Entity; count int; ptrs [5]unsafe.Pointer; sizes [5]uintptr
@@ -142,10 +135,7 @@ func NewView5[T1, T2, T3, T4, T5 any](reg *Registry) *View5[T1, T2, T3, T4, T5] 
 	ids := [5]ComponentID{id1, id2, id3, id4, id5}
 	var mask ArchetypeMask
 	for _, id := range ids { mask = mask.Set(id) }
-	v := &View5[T1, T2, T3, T4, T5]{
-		viewBase: viewBase{reg: reg, mask: mask, entityArchLinks: reg.archetypeRegistry.entityArchLinks},
-		ids: ids,
-	}
+	v := &View5[T1, T2, T3, T4, T5]{viewBase: viewBase{reg: reg, mask: mask}, ids: ids}
 	v.Reindex(); return v
 }
 
@@ -158,6 +148,7 @@ func (v *View5[T1, T2, T3, T4, T5]) Reindex() {
 		v.baked = append(v.baked, mArch)
 	}
 }
+
 // -------------View6-------------
 type matchedArch6 struct {
 	arch *Archetype; entities []Entity; count int; ptrs [6]unsafe.Pointer; sizes [6]uintptr
@@ -176,10 +167,7 @@ func NewView6[T1, T2, T3, T4, T5, T6 any](reg *Registry) *View6[T1, T2, T3, T4, 
 	ids := [6]ComponentID{id1, id2, id3, id4, id5, id6}
 	var mask ArchetypeMask
 	for _, id := range ids { mask = mask.Set(id) }
-	v := &View6[T1, T2, T3, T4, T5, T6]{
-		viewBase: viewBase{reg: reg, mask: mask, entityArchLinks: reg.archetypeRegistry.entityArchLinks},
-		ids: ids,
-	}
+	v := &View6[T1, T2, T3, T4, T5, T6]{viewBase: viewBase{reg: reg, mask: mask}, ids: ids}
 	v.Reindex(); return v
 }
 
@@ -192,6 +180,7 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Reindex() {
 		v.baked = append(v.baked, mArch)
 	}
 }
+
 // -------------View7-------------
 type matchedArch7 struct {
 	arch *Archetype; entities []Entity; count int; ptrs [7]unsafe.Pointer; sizes [7]uintptr
@@ -211,10 +200,7 @@ func NewView7[T1, T2, T3, T4, T5, T6, T7 any](reg *Registry) *View7[T1, T2, T3, 
 	ids := [7]ComponentID{id1, id2, id3, id4, id5, id6, id7}
 	var mask ArchetypeMask
 	for _, id := range ids { mask = mask.Set(id) }
-	v := &View7[T1, T2, T3, T4, T5, T6, T7]{
-		viewBase: viewBase{reg: reg, mask: mask, entityArchLinks: reg.archetypeRegistry.entityArchLinks},
-		ids: ids,
-	}
+	v := &View7[T1, T2, T3, T4, T5, T6, T7]{viewBase: viewBase{reg: reg, mask: mask}, ids: ids}
 	v.Reindex(); return v
 }
 
@@ -227,6 +213,7 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Reindex() {
 		v.baked = append(v.baked, mArch)
 	}
 }
+
 // -------------View8-------------
 type matchedArch8 struct {
 	arch *Archetype; entities []Entity; count int; ptrs [8]unsafe.Pointer; sizes [8]uintptr
@@ -247,10 +234,7 @@ func NewView8[T1, T2, T3, T4, T5, T6, T7, T8 any](reg *Registry) *View8[T1, T2, 
 	ids := [8]ComponentID{id1, id2, id3, id4, id5, id6, id7, id8}
 	var mask ArchetypeMask
 	for _, id := range ids { mask = mask.Set(id) }
-	v := &View8[T1, T2, T3, T4, T5, T6, T7, T8]{
-		viewBase: viewBase{reg: reg, mask: mask, entityArchLinks: reg.archetypeRegistry.entityArchLinks},
-		ids: ids,
-	}
+	v := &View8[T1, T2, T3, T4, T5, T6, T7, T8]{viewBase: viewBase{reg: reg, mask: mask}, ids: ids}
 	v.Reindex(); return v
 }
 

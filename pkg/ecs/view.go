@@ -2,10 +2,9 @@
 package ecs
 
 type viewBase struct {
-	reg             *Registry
-	mask            ArchetypeMask
-	matched         []*Archetype
-	entityArchLinks []EntityArchLink
+	reg     *Registry
+	mask    ArchetypeMask
+	matched []*Archetype
 }
 
 func (v *viewBase) Reindex() {
@@ -15,4 +14,14 @@ func (v *viewBase) Reindex() {
 			v.matched = append(v.matched, arch)
 		}
 	}
+}
+
+func (v *viewBase) AddTag(id ComponentID) {
+	v.mask = v.mask.Set(id)
+	v.Reindex()
+}
+
+func WithTag[T any](v *viewBase) {
+	id := ensureComponentRegistered[T](v.reg.componentsRegistry)
+	v.AddTag(id)
 }

@@ -35,9 +35,9 @@ func (s *BillingSystem) Init(reg *ecs.Registry) {
 }
 
 func (s *BillingSystem) Update(reg *ecs.Registry, d time.Duration) {
-	for head, tail := range ecs.All3(s.view) {
+	for head := range ecs.All3(s.view) {
 		s.processedCount++
-		ord, st, disc := head.V1, head.V2, tail.V3
+		ord, st, disc := head.V1, head.V2, head.V3
 		ord.Total = ord.Total * (1 - disc.Percentage/100)
 		st.Processed = true
 	}
