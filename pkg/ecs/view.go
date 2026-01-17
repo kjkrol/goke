@@ -1,22 +1,18 @@
 //go:generate go run ./gen/main.go
 package ecs
 
-import "unsafe"
-
 const MaxComponents = 8
 
 type matchedArch struct {
-	arch     *Archetype
-	entities []Entity
-	count    int
-	ptrs     [MaxComponents]unsafe.Pointer
-	sizes    [MaxComponents]uintptr
+	entities *[]Entity
+	columns  [MaxComponents]*column
+	len      *int
 }
 
 type View struct {
 	reg     *Registry
 	mask    ArchetypeMask
-	ids     []ComponentID
+	compIDs []ComponentID
 	matched []*Archetype
 	baked   []matchedArch
 }
@@ -30,22 +26,20 @@ func (v *View) Reindex() {
 	}
 
 	v.baked = v.baked[:0]
-	numIds := len(v.ids)
+	compIDsLen := len(v.compIDs)
 	for _, arch := range v.matched {
 		if arch.len == 0 {
 			continue
 		}
 
 		mArch := matchedArch{
-			arch:     arch,
-			entities: arch.entities[:arch.len],
-			count:    arch.len,
+			entities: &arch.entities,
+			len:      &arch.len,
 		}
 
-		for i := 0; i < numIds; i++ {
-			col := arch.columns[v.ids[i]]
-			mArch.ptrs[i] = col.data
-			mArch.sizes[i] = col.itemSize
+		for i := range compIDsLen {
+			col := arch.columns[v.compIDs[i]]
+			mArch.columns[i] = col
 		}
 		v.baked = append(v.baked, mArch)
 	}

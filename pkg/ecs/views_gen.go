@@ -4,10 +4,10 @@ package ecs
 // ------------- NewView1 -------------
 func NewView1[T1 any](reg *Registry) *View {
 	id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
-	ids := []ComponentID{id1}
+	compIDs := []ComponentID{id1}
 	var mask ArchetypeMask
-	for _, id := range ids { mask = mask.Set(id) }
-	v := &View{reg: reg, mask: mask, ids: ids}
+	for _, id := range compIDs { mask = mask.Set(id) }
+	v := &View{reg: reg, mask: mask, compIDs: compIDs}
 	v.Reindex()
 	return v
 }
@@ -16,10 +16,10 @@ func NewView1[T1 any](reg *Registry) *View {
 func NewView2[T1, T2 any](reg *Registry) *View {
 	id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
 	id2 := ensureComponentRegistered[T2](reg.componentsRegistry)
-	ids := []ComponentID{id1, id2}
+	compIDs := []ComponentID{id1, id2}
 	var mask ArchetypeMask
-	for _, id := range ids { mask = mask.Set(id) }
-	v := &View{reg: reg, mask: mask, ids: ids}
+	for _, id := range compIDs { mask = mask.Set(id) }
+	v := &View{reg: reg, mask: mask, compIDs: compIDs}
 	v.Reindex()
 	return v
 }
@@ -29,10 +29,10 @@ func NewView3[T1, T2, T3 any](reg *Registry) *View {
 	id1 := ensureComponentRegistered[T1](reg.componentsRegistry)
 	id2 := ensureComponentRegistered[T2](reg.componentsRegistry)
 	id3 := ensureComponentRegistered[T3](reg.componentsRegistry)
-	ids := []ComponentID{id1, id2, id3}
+	compIDs := []ComponentID{id1, id2, id3}
 	var mask ArchetypeMask
-	for _, id := range ids { mask = mask.Set(id) }
-	v := &View{reg: reg, mask: mask, ids: ids}
+	for _, id := range compIDs { mask = mask.Set(id) }
+	v := &View{reg: reg, mask: mask, compIDs: compIDs}
 	v.Reindex()
 	return v
 }
@@ -43,10 +43,10 @@ func NewView4[T1, T2, T3, T4 any](reg *Registry) *View {
 	id2 := ensureComponentRegistered[T2](reg.componentsRegistry)
 	id3 := ensureComponentRegistered[T3](reg.componentsRegistry)
 	id4 := ensureComponentRegistered[T4](reg.componentsRegistry)
-	ids := []ComponentID{id1, id2, id3, id4}
+	compIDs := []ComponentID{id1, id2, id3, id4}
 	var mask ArchetypeMask
-	for _, id := range ids { mask = mask.Set(id) }
-	v := &View{reg: reg, mask: mask, ids: ids}
+	for _, id := range compIDs { mask = mask.Set(id) }
+	v := &View{reg: reg, mask: mask, compIDs: compIDs}
 	v.Reindex()
 	return v
 }
@@ -58,10 +58,10 @@ func NewView5[T1, T2, T3, T4, T5 any](reg *Registry) *View {
 	id3 := ensureComponentRegistered[T3](reg.componentsRegistry)
 	id4 := ensureComponentRegistered[T4](reg.componentsRegistry)
 	id5 := ensureComponentRegistered[T5](reg.componentsRegistry)
-	ids := []ComponentID{id1, id2, id3, id4, id5}
+	compIDs := []ComponentID{id1, id2, id3, id4, id5}
 	var mask ArchetypeMask
-	for _, id := range ids { mask = mask.Set(id) }
-	v := &View{reg: reg, mask: mask, ids: ids}
+	for _, id := range compIDs { mask = mask.Set(id) }
+	v := &View{reg: reg, mask: mask, compIDs: compIDs}
 	v.Reindex()
 	return v
 }
@@ -74,10 +74,10 @@ func NewView6[T1, T2, T3, T4, T5, T6 any](reg *Registry) *View {
 	id4 := ensureComponentRegistered[T4](reg.componentsRegistry)
 	id5 := ensureComponentRegistered[T5](reg.componentsRegistry)
 	id6 := ensureComponentRegistered[T6](reg.componentsRegistry)
-	ids := []ComponentID{id1, id2, id3, id4, id5, id6}
+	compIDs := []ComponentID{id1, id2, id3, id4, id5, id6}
 	var mask ArchetypeMask
-	for _, id := range ids { mask = mask.Set(id) }
-	v := &View{reg: reg, mask: mask, ids: ids}
+	for _, id := range compIDs { mask = mask.Set(id) }
+	v := &View{reg: reg, mask: mask, compIDs: compIDs}
 	v.Reindex()
 	return v
 }
@@ -91,10 +91,10 @@ func NewView7[T1, T2, T3, T4, T5, T6, T7 any](reg *Registry) *View {
 	id5 := ensureComponentRegistered[T5](reg.componentsRegistry)
 	id6 := ensureComponentRegistered[T6](reg.componentsRegistry)
 	id7 := ensureComponentRegistered[T7](reg.componentsRegistry)
-	ids := []ComponentID{id1, id2, id3, id4, id5, id6, id7}
+	compIDs := []ComponentID{id1, id2, id3, id4, id5, id6, id7}
 	var mask ArchetypeMask
-	for _, id := range ids { mask = mask.Set(id) }
-	v := &View{reg: reg, mask: mask, ids: ids}
+	for _, id := range compIDs { mask = mask.Set(id) }
+	v := &View{reg: reg, mask: mask, compIDs: compIDs}
 	v.Reindex()
 	return v
 }
@@ -109,10 +109,10 @@ func NewView8[T1, T2, T3, T4, T5, T6, T7, T8 any](reg *Registry) *View {
 	id6 := ensureComponentRegistered[T6](reg.componentsRegistry)
 	id7 := ensureComponentRegistered[T7](reg.componentsRegistry)
 	id8 := ensureComponentRegistered[T8](reg.componentsRegistry)
-	ids := []ComponentID{id1, id2, id3, id4, id5, id6, id7, id8}
+	compIDs := []ComponentID{id1, id2, id3, id4, id5, id6, id7, id8}
 	var mask ArchetypeMask
-	for _, id := range ids { mask = mask.Set(id) }
-	v := &View{reg: reg, mask: mask, ids: ids}
+	for _, id := range compIDs { mask = mask.Set(id) }
+	v := &View{reg: reg, mask: mask, compIDs: compIDs}
 	v.Reindex()
 	return v
 }

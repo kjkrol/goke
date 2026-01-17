@@ -44,7 +44,7 @@ func (a *Archetype) AddEntity(entity Entity, compID ComponentID, data unsafe.Poi
 	return EntityArchLink{arch: a, row: row}
 }
 
-func (a *Archetype) RemoveEntity(row ArchRow) (swapedEntity Entity, swaped bool) {
+func (a *Archetype) SwapRemoveEntity(row ArchRow) (swapedEntity Entity, swaped bool) {
 	lastRow := ArchRow(a.len - 1)
 	entityToMove := a.entities[lastRow]
 

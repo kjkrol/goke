@@ -45,7 +45,7 @@ func (r *ArchetypeRegistry) AddEntity(entity Entity) {
 func (r *ArchetypeRegistry) RemoveEntity(entity Entity) {
 	index := entity.Index()
 	link := r.entityArchLinks[index]
-	swappedEntity, swaped := link.arch.RemoveEntity(link.row)
+	swappedEntity, swaped := link.arch.SwapRemoveEntity(link.row)
 
 	// Swap-and-Pop
 	if swaped {
