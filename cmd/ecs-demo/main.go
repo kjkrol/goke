@@ -16,16 +16,16 @@ type (
 	Discount struct{ Percentage float64 }
 
 	BillingSystem struct {
-		view *ecs.View
+		query *ecs.Query3[Order, Status, Discount]
 	}
 )
 
 func (s *BillingSystem) Init(reg *ecs.Registry) {
-	s.view = ecs.NewView3[Order, Status, Discount](reg)
+	s.query = ecs.NewQuery3[Order, Status, Discount](reg)
 }
 
 func (s *BillingSystem) Update(reg *ecs.Registry, d time.Duration) {
-	for head := range ecs.All3[Order, Status, Discount](s.view) {
+	for head := range s.query.All3() {
 		ord, st, disc := head.V1, head.V2, head.V3
 		ord.Total = ord.Total * (1 - disc.Percentage/100)
 		st.Processed = true
