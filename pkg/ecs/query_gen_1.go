@@ -11,8 +11,7 @@ type Query1[T1 any] struct {
 
 func NewQuery1[T1 any](reg *Registry) *Query1[T1] {
 	viewBuilder := NewViewBuilder(reg)
-	id1 := ensureComponentRegistered[T1](viewBuilder.reg.componentsRegistry)
-	viewBuilder.OnType(id1)
+	OnCompType[T1](viewBuilder)
 	return &Query1[T1]{View: viewBuilder.Build()}
 }
 

@@ -11,14 +11,10 @@ type Query4[T1, T2, T3, T4 any] struct {
 
 func NewQuery4[T1, T2, T3, T4 any](reg *Registry) *Query4[T1, T2, T3, T4] {
 	viewBuilder := NewViewBuilder(reg)
-	id1 := ensureComponentRegistered[T1](viewBuilder.reg.componentsRegistry)
-	viewBuilder.OnType(id1)
-	id2 := ensureComponentRegistered[T2](viewBuilder.reg.componentsRegistry)
-	viewBuilder.OnType(id2)
-	id3 := ensureComponentRegistered[T3](viewBuilder.reg.componentsRegistry)
-	viewBuilder.OnType(id3)
-	id4 := ensureComponentRegistered[T4](viewBuilder.reg.componentsRegistry)
-	viewBuilder.OnType(id4)
+	OnCompType[T1](viewBuilder)
+	OnCompType[T2](viewBuilder)
+	OnCompType[T3](viewBuilder)
+	OnCompType[T4](viewBuilder)
 	return &Query4[T1, T2, T3, T4]{View: viewBuilder.Build()}
 }
 

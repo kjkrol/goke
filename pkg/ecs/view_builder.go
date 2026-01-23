@@ -12,6 +12,11 @@ func NewViewBuilder(reg *Registry) *ViewBuilder {
 	}
 }
 
+func OnCompType[T any](b *ViewBuilder) {
+	id := ensureComponentRegistered[T](b.reg.componentsRegistry)
+	b.OnType(id)
+}
+
 func (b *ViewBuilder) OnType(id ComponentID) *ViewBuilder {
 	b.compIDs = append(b.compIDs, id)
 	return b

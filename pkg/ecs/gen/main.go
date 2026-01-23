@@ -11,10 +11,6 @@ const MaxComponents = 8
 type Fn func(*os.File, int)
 
 func main() {
-	// 1. Generowanie starego views_gen.go (opcjonalne, jeśli nadal tego używasz)
-	genViewsFile()
-
-	// 2. Generowanie osobnych plików query_gen_N.go
 	for i := 1; i <= MaxComponents; i++ {
 		fileName := fmt.Sprintf("query_gen_%d.go", i)
 		file, err := os.Create(fileName)
@@ -26,21 +22,12 @@ func main() {
 		fmt.Fprintln(file, "package ecs")
 		fmt.Fprintln(file, "import (\n\t\"iter\"\n\t\"unsafe\"\n)")
 
-		// Generuje całą zawartość dla danego N
 		genQueryFileContent(file, i)
 
 		file.Close()
 	}
 }
 
-// Opcjonalne: Stary generator widoków (skrócony dla przejrzystości)
-func genViewsFile() {
-	f, _ := os.Create("views_gen.go")
-	defer f.Close()
-	fmt.Fprintln(f, "package ecs\n// ... (tu stara logika NewViewN, jeśli potrzebna)")
-}
-
-// Główna funkcja generująca zawartość pliku query_gen_N.go
 func genQueryFileContent(f *os.File, n int) {
 	allTypes := make([]string, n)
 	for i := 0; i < n; i++ {
@@ -48,17 +35,15 @@ func genQueryFileContent(f *os.File, n int) {
 	}
 	allTParams := strings.Join(allTypes, ", ")
 
-	// 1. Struct QueryN i Konstruktor NewQueryN
 	genQueryStructAndConstructor(f, n, allTParams)
 
-	// 2. Struktury Head/Tail (logika podobna do poprzedniej, dostosowana do N)
 	hCount, phCount := n, n
 	if hCount > 3 {
 		hCount = 3
 	}
 	if phCount > 4 {
 		phCount = 4
-	} // PURE ma limit 4
+	}
 
 	hTParams := strings.Join(allTypes[:hCount], ", ")
 	tTParams := ""
@@ -74,7 +59,6 @@ func genQueryFileContent(f *os.File, n int) {
 
 	genHeadTailStructs(f, n, allTypes, hCount, phCount)
 
-	// 3. Metody (All, Filter, PureAll, PureFilter)
 	genAll(f, n, allTParams, hTParams, tTParams, hCount)
 	genFilter(f, n, allTParams, hTParams, tTParams, hCount)
 	genPureAll(f, n, allTParams, phTParams, ptTParams, phCount)
@@ -89,10 +73,9 @@ func genQueryStructAndConstructor(f *os.File, n int, tParams string) {
 	fmt.Fprintf(f, "\nfunc NewQuery%d[%s any](reg *Registry) *Query%d[%s] {\n", n, tParams, n, tParams)
 	fmt.Fprintln(f, "\tviewBuilder := NewViewBuilder(reg)")
 
-	// Rejestracja komponentów w pętli
+	// Register components
 	for i := 1; i <= n; i++ {
-		fmt.Fprintf(f, "\tid%d := ensureComponentRegistered[T%d](viewBuilder.reg.componentsRegistry)\n", i, i)
-		fmt.Fprintf(f, "\tviewBuilder.OnType(id%d)\n", i)
+		fmt.Fprintf(f, "\tOnCompType[T%d](viewBuilder)\n", i)
 	}
 
 	fmt.Fprintf(f, "\treturn &Query%d[%s]{View: viewBuilder.Build()}\n}\n", n, tParams)
@@ -115,7 +98,7 @@ func genHeadTailStructs(f *os.File, n int, allTypes []string, hCount, phCount in
 			if i == 8 && n == 8 {
 				fmt.Fprintf(f, "\tV8 *T8\n")
 				break
-			} // Twój fix dla V8
+			}
 			if i > hCount+4 {
 				break
 			}
@@ -143,15 +126,12 @@ func genHeadTailStructs(f *os.File, n int, allTypes []string, hCount, phCount in
 	}
 }
 
-// --- Generator Metod (Zmieniony na Receiver q *QueryN) ---
-
 func genAll(f *os.File, n int, allT, hT, tT string, hC int) {
 	seq, yield := "iter.Seq", fmt.Sprintf("Head%d[%s]", n, hT)
 	if n > hC {
 		seq, yield = "iter.Seq2", fmt.Sprintf("Head%d[%s], Tail%d[%s]", n, hT, n, tT)
 	}
 
-	// ZMIANA: Receiver (q *QueryN[...]) zamiast (v *View)
 	fmt.Fprintf(f, "\nfunc (q *Query%d[%s]) All%d() %s[%s] {\n", n, allT, n, seq, yield)
 	fmt.Fprintf(f, "\treturn func(yield func(%s) bool) {\n", yield)
 	fmt.Fprintf(f, "\t\tfor i := range q.baked {\n\t\t\tb := &q.baked[i]\n") // q.baked
@@ -161,7 +141,6 @@ func genAll(f *os.File, n int, allT, hT, tT string, hC int) {
 	}
 	fmt.Fprintln(f, "\t\t\tfor j := 0; j < *b.len; j++ {")
 
-	// Konstrukcja obiektu Head/Tail
 	hI := fmt.Sprintf("Head%d[%s]{Entity: (*b.entities)[j]", n, hT)
 	for i := 1; i <= hC; i++ {
 		hI += fmt.Sprintf(", V%d: (*T%d)(p%d)", i, i, i)

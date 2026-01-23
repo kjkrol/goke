@@ -11,12 +11,9 @@ type Query3[T1, T2, T3 any] struct {
 
 func NewQuery3[T1, T2, T3 any](reg *Registry) *Query3[T1, T2, T3] {
 	viewBuilder := NewViewBuilder(reg)
-	id1 := ensureComponentRegistered[T1](viewBuilder.reg.componentsRegistry)
-	viewBuilder.OnType(id1)
-	id2 := ensureComponentRegistered[T2](viewBuilder.reg.componentsRegistry)
-	viewBuilder.OnType(id2)
-	id3 := ensureComponentRegistered[T3](viewBuilder.reg.componentsRegistry)
-	viewBuilder.OnType(id3)
+	OnCompType[T1](viewBuilder)
+	OnCompType[T2](viewBuilder)
+	OnCompType[T3](viewBuilder)
 	return &Query3[T1, T2, T3]{View: viewBuilder.Build()}
 }
 

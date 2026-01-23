@@ -11,20 +11,13 @@ type Query7[T1, T2, T3, T4, T5, T6, T7 any] struct {
 
 func NewQuery7[T1, T2, T3, T4, T5, T6, T7 any](reg *Registry) *Query7[T1, T2, T3, T4, T5, T6, T7] {
 	viewBuilder := NewViewBuilder(reg)
-	id1 := ensureComponentRegistered[T1](viewBuilder.reg.componentsRegistry)
-	viewBuilder.OnType(id1)
-	id2 := ensureComponentRegistered[T2](viewBuilder.reg.componentsRegistry)
-	viewBuilder.OnType(id2)
-	id3 := ensureComponentRegistered[T3](viewBuilder.reg.componentsRegistry)
-	viewBuilder.OnType(id3)
-	id4 := ensureComponentRegistered[T4](viewBuilder.reg.componentsRegistry)
-	viewBuilder.OnType(id4)
-	id5 := ensureComponentRegistered[T5](viewBuilder.reg.componentsRegistry)
-	viewBuilder.OnType(id5)
-	id6 := ensureComponentRegistered[T6](viewBuilder.reg.componentsRegistry)
-	viewBuilder.OnType(id6)
-	id7 := ensureComponentRegistered[T7](viewBuilder.reg.componentsRegistry)
-	viewBuilder.OnType(id7)
+	OnCompType[T1](viewBuilder)
+	OnCompType[T2](viewBuilder)
+	OnCompType[T3](viewBuilder)
+	OnCompType[T4](viewBuilder)
+	OnCompType[T5](viewBuilder)
+	OnCompType[T6](viewBuilder)
+	OnCompType[T7](viewBuilder)
 	return &Query7[T1, T2, T3, T4, T5, T6, T7]{View: viewBuilder.Build()}
 }
 

@@ -7,7 +7,7 @@ import (
 
 type column struct {
 	data     unsafe.Pointer
-	rawSlice reflect.Value
+	rawSlice reflect.Value // prevent GC from garbage collecting
 	dataType reflect.Type
 	len      int
 	cap      int
@@ -27,7 +27,7 @@ func (c *column) growTo(newCap int) {
 	}
 
 	c.data = newPtr
-	c.rawSlice = newSlice // prevent GC from garbage collecting
+	c.rawSlice = newSlice
 	c.cap = newCap
 }
 
@@ -51,16 +51,13 @@ func (c *column) setData(row ArchRow, src unsafe.Pointer) {
 	memmove(dest, src, c.itemSize)
 }
 
-//go:linkname memmove runtime.memmove
-func memmove(to, from unsafe.Pointer, n uintptr)
-
 func copyMemory(dst, src unsafe.Pointer, size uintptr) {
 	copy(unsafe.Slice((*byte)(dst), size), unsafe.Slice((*byte)(src), size))
 }
 
 func zeroMemory(ptr unsafe.Pointer, size uintptr) {
-	s := unsafe.Slice((*byte)(ptr), size)
-	for i := range s {
-		s[i] = 0
-	}
+	clear(unsafe.Slice((*byte)(ptr), size))
 }
+
+//go:linkname memmove runtime.memmove
+func memmove(to, from unsafe.Pointer, n uintptr)

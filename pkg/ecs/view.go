@@ -1,4 +1,3 @@
-//go:generate go run ./gen/main.go
 package ecs
 
 const MaxComponents = 8
