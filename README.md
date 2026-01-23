@@ -47,18 +47,18 @@ type Vel struct{ X, Y float32 }
 type Acc struct{ X, Y float32 }
 
 type MovementSystem struct {
-    view *ecs.View
+    query *ecs.Query3[Pos, Vel, Acc]
 }
 
 func (s *MovementSystem) Init(reg *ecs.Registry) {
     // View automatically finds matching archetypes and caches data pointers
-    s.view = ecs.NewView3[Pos, Vel, Acc](reg)
+    s.query = ecs.NewQuery3[Pos, Vel, Acc](reg)
 }
 
 func (s *MovementSystem) Update(reg *ecs.Registry, d time.Duration) {
     // Ultra-fast iteration over contiguous memory blocks
-    for _, row := range ecs.All3[Pos, Vel, Acc](s.view) {
-        pos, vel, acc := row
+    for head := range s.query.All3() {
+        pos, vel, acc := head.V1, head.V2, head.V3
         
         vel.X += acc.X
         vel.Y += acc.Y
