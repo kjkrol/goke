@@ -9,7 +9,7 @@ type Query6[T1, T2, T3, T4, T5, T6 any] struct {
 	*View
 }
 
-func NewQuery6[T1, T2, T3, T4, T5, T6 any](reg *Registry) *Query6[T1, T2, T3, T4, T5, T6] {
+func NewQuery6[T1, T2, T3, T4, T5, T6 any](reg *Registry, options ...QueryOption) *Query6[T1, T2, T3, T4, T5, T6] {
 	viewBuilder := NewViewBuilder(reg)
 	OnCompType[T1](viewBuilder)
 	OnCompType[T2](viewBuilder)
@@ -17,6 +17,9 @@ func NewQuery6[T1, T2, T3, T4, T5, T6 any](reg *Registry) *Query6[T1, T2, T3, T4
 	OnCompType[T4](viewBuilder)
 	OnCompType[T5](viewBuilder)
 	OnCompType[T6](viewBuilder)
+	for _, opt := range options {
+		opt(viewBuilder)
+	}
 	return &Query6[T1, T2, T3, T4, T5, T6]{View: viewBuilder.Build()}
 }
 

@@ -9,10 +9,13 @@ type Query2[T1, T2 any] struct {
 	*View
 }
 
-func NewQuery2[T1, T2 any](reg *Registry) *Query2[T1, T2] {
+func NewQuery2[T1, T2 any](reg *Registry, options ...QueryOption) *Query2[T1, T2] {
 	viewBuilder := NewViewBuilder(reg)
 	OnCompType[T1](viewBuilder)
 	OnCompType[T2](viewBuilder)
+	for _, opt := range options {
+		opt(viewBuilder)
+	}
 	return &Query2[T1, T2]{View: viewBuilder.Build()}
 }
 

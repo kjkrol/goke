@@ -9,7 +9,7 @@ type Query8[T1, T2, T3, T4, T5, T6, T7, T8 any] struct {
 	*View
 }
 
-func NewQuery8[T1, T2, T3, T4, T5, T6, T7, T8 any](reg *Registry) *Query8[T1, T2, T3, T4, T5, T6, T7, T8] {
+func NewQuery8[T1, T2, T3, T4, T5, T6, T7, T8 any](reg *Registry, options ...QueryOption) *Query8[T1, T2, T3, T4, T5, T6, T7, T8] {
 	viewBuilder := NewViewBuilder(reg)
 	OnCompType[T1](viewBuilder)
 	OnCompType[T2](viewBuilder)
@@ -19,6 +19,9 @@ func NewQuery8[T1, T2, T3, T4, T5, T6, T7, T8 any](reg *Registry) *Query8[T1, T2
 	OnCompType[T6](viewBuilder)
 	OnCompType[T7](viewBuilder)
 	OnCompType[T8](viewBuilder)
+	for _, opt := range options {
+		opt(viewBuilder)
+	}
 	return &Query8[T1, T2, T3, T4, T5, T6, T7, T8]{View: viewBuilder.Build()}
 }
 

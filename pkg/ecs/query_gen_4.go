@@ -9,12 +9,15 @@ type Query4[T1, T2, T3, T4 any] struct {
 	*View
 }
 
-func NewQuery4[T1, T2, T3, T4 any](reg *Registry) *Query4[T1, T2, T3, T4] {
+func NewQuery4[T1, T2, T3, T4 any](reg *Registry, options ...QueryOption) *Query4[T1, T2, T3, T4] {
 	viewBuilder := NewViewBuilder(reg)
 	OnCompType[T1](viewBuilder)
 	OnCompType[T2](viewBuilder)
 	OnCompType[T3](viewBuilder)
 	OnCompType[T4](viewBuilder)
+	for _, opt := range options {
+		opt(viewBuilder)
+	}
 	return &Query4[T1, T2, T3, T4]{View: viewBuilder.Build()}
 }
 

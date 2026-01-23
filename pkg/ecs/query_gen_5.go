@@ -9,13 +9,16 @@ type Query5[T1, T2, T3, T4, T5 any] struct {
 	*View
 }
 
-func NewQuery5[T1, T2, T3, T4, T5 any](reg *Registry) *Query5[T1, T2, T3, T4, T5] {
+func NewQuery5[T1, T2, T3, T4, T5 any](reg *Registry, options ...QueryOption) *Query5[T1, T2, T3, T4, T5] {
 	viewBuilder := NewViewBuilder(reg)
 	OnCompType[T1](viewBuilder)
 	OnCompType[T2](viewBuilder)
 	OnCompType[T3](viewBuilder)
 	OnCompType[T4](viewBuilder)
 	OnCompType[T5](viewBuilder)
+	for _, opt := range options {
+		opt(viewBuilder)
+	}
 	return &Query5[T1, T2, T3, T4, T5]{View: viewBuilder.Build()}
 }
 

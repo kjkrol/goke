@@ -101,6 +101,24 @@ func BenchmarkView3_All(b *testing.B) {
 	}
 }
 
+func BenchmarkView3WithTag_All(b *testing.B) {
+	reg, _ := setupBenchmark(b, entitiesNumber)
+
+	query := NewQuery3[Pos, Vel, Acc](reg, WithTag[Mass]())
+
+	fn := func() {
+		for head := range query.All3() {
+			p, v, a := head.V1, head.V2, head.V3
+			p.X += v.X + a.X
+		}
+	}
+
+	b.ResetTimer()
+	for b.Loop() {
+		fn()
+	}
+}
+
 func BenchmarkView4_All(b *testing.B) {
 	reg, _ := setupBenchmark(b, entitiesNumber)
 	query4 := NewQuery4[Pos, Vel, Acc, Mass](reg)
