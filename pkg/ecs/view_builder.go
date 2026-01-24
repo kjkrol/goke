@@ -14,13 +14,13 @@ func NewViewBuilder(reg *Registry) *ViewBuilder {
 }
 
 func OnCompType[T any](b *ViewBuilder) {
-	id := ensureComponentRegistered[T](b.reg.componentsRegistry)
-	b.OnType(id)
+	compInfo := ensureComponentRegistered[T](b.reg.componentsRegistry)
+	b.OnType(compInfo.ID)
 }
 
 func OnTagType[T any](b *ViewBuilder) {
-	id := ensureComponentRegistered[T](b.reg.componentsRegistry)
-	b.OnTag(id)
+	compInfo := ensureComponentRegistered[T](b.reg.componentsRegistry)
+	b.OnTag(compInfo.ID)
 }
 
 func (b *ViewBuilder) OnType(id ComponentID) *ViewBuilder {
@@ -49,5 +49,6 @@ func (b *ViewBuilder) Build() *View {
 		compIDs: b.compIDs,
 	}
 	v.Reindex()
+	v.reg.viewRegistry.Register(v)
 	return v
 }

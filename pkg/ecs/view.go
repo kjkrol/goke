@@ -25,21 +25,18 @@ func (v *View) Reindex() {
 	}
 
 	v.baked = v.baked[:0]
-	compIDsLen := len(v.compIDs)
 	for _, arch := range v.matched {
-		if arch.len == 0 {
-			continue
-		}
-
-		mArch := matchedArch{
-			entities: &arch.entities,
-			len:      &arch.len,
-		}
-
-		for i := range compIDsLen {
-			col := arch.columns[v.compIDs[i]]
-			mArch.columns[i] = col
-		}
-		v.baked = append(v.baked, mArch)
+		v.AddArchetype(arch)
 	}
+}
+
+func (v *View) AddArchetype(arch *Archetype) {
+	mArch := matchedArch{
+		entities: &arch.entities,
+		len:      &arch.len,
+	}
+	for i, id := range v.compIDs {
+		mArch.columns[i] = arch.columns[id]
+	}
+	v.baked = append(v.baked, mArch)
 }

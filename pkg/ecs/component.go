@@ -13,31 +13,31 @@ type ComponentInfo struct {
 }
 
 type ComponentsRegistry struct {
-	typeToInfo map[reflect.Type]*ComponentInfo
-	idToInfo   map[ComponentID]*ComponentInfo
+	typeToInfo map[reflect.Type]ComponentInfo
+	idToInfo   map[ComponentID]ComponentInfo
 }
 
 func newComponentsRegistry() *ComponentsRegistry {
 	return &ComponentsRegistry{
-		typeToInfo: make(map[reflect.Type]*ComponentInfo),
-		idToInfo:   make(map[ComponentID]*ComponentInfo),
+		typeToInfo: make(map[reflect.Type]ComponentInfo),
+		idToInfo:   make(map[ComponentID]ComponentInfo),
 	}
 }
 
-func (r *ComponentsRegistry) Get(t reflect.Type) (ComponentID, bool) {
+func (r *ComponentsRegistry) Get(t reflect.Type) (ComponentInfo, bool) {
 	if info, ok := r.typeToInfo[t]; ok {
-		return info.ID, true
+		return info, true
 	}
-	return 0, false
+	return ComponentInfo{}, false
 }
 
-func (r *ComponentsRegistry) GetOrRegister(t reflect.Type) ComponentID {
+func (r *ComponentsRegistry) GetOrRegister(t reflect.Type) ComponentInfo {
 	if info, ok := r.typeToInfo[t]; ok {
-		return info.ID
+		return info
 	}
 
 	id := ComponentID(len(r.typeToInfo))
-	info := &ComponentInfo{
+	info := ComponentInfo{
 		ID:   id,
 		Size: t.Size(),
 		Type: t,
@@ -45,10 +45,10 @@ func (r *ComponentsRegistry) GetOrRegister(t reflect.Type) ComponentID {
 
 	r.typeToInfo[t] = info
 	r.idToInfo[id] = info
-	return id
+	return info
 }
 
-func ensureComponentRegistered[T any](m *ComponentsRegistry) ComponentID {
+func ensureComponentRegistered[T any](m *ComponentsRegistry) ComponentInfo {
 	componentType := reflect.TypeFor[T]()
 	return m.GetOrRegister(componentType)
 }

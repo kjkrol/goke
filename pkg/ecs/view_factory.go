@@ -4,8 +4,8 @@ type ViewOption func(*ViewBuilder)
 
 func OnType[T any]() ViewOption {
 	return func(b *ViewBuilder) {
-		id := ensureComponentRegistered[T](b.reg.componentsRegistry)
-		b.OnType(id)
+		compInfo := ensureComponentRegistered[T](b.reg.componentsRegistry)
+		b.OnType(compInfo.ID)
 	}
 }
 

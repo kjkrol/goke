@@ -34,7 +34,7 @@ func (s *BillingSystem) Init(reg *ecs.Registry) {
 	s.processedCount = 0
 }
 
-func (s *BillingSystem) Update(reg *ecs.Registry, d time.Duration) {
+func (s *BillingSystem) Update(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuffer, d time.Duration) {
 	for head := range s.query.All3() {
 		s.processedCount++
 		ord, st, disc := head.V1, head.V2, head.V3
@@ -42,6 +42,8 @@ func (s *BillingSystem) Update(reg *ecs.Registry, d time.Duration) {
 		st.Processed = true
 	}
 }
+
+func (s *BillingSystem) ShouldSync() bool { return false }
 
 var _ ecs.System = (*BillingSystem)(nil)
 

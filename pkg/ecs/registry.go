@@ -7,19 +7,27 @@ import (
 )
 
 const initialCapacity = 1024
+const viewRegistryInitCap = 1024
 
 type Registry struct {
 	entityPool         *EntityGenerationalPool
 	componentsRegistry *ComponentsRegistry
+	viewRegistry       *ViewRegistry
 	archetypeRegistry  *ArchetypeRegistry
 }
 
+var _ ReadOnlyRegistry = (*Registry)(nil)
+
 func NewRegistry() *Registry {
 	componentsRegistry := newComponentsRegistry()
+	viewRegistry := NewViewRegistry(viewRegistryInitCap)
+	archetypeRegistry := newArchetypeRegistry(componentsRegistry, viewRegistry)
+	NewViewRegistry(viewRegistryInitCap)
 	return &Registry{
 		entityPool:         NewEntityGenerator(initialCapacity),
 		componentsRegistry: componentsRegistry,
-		archetypeRegistry:  newArchetypeRegistry(componentsRegistry),
+		viewRegistry:       viewRegistry,
+		archetypeRegistry:  archetypeRegistry,
 	}
 }
 
@@ -57,7 +65,7 @@ func (r *Registry) UnassignByID(entity Entity, compID ComponentID) error {
 	return nil
 }
 
-func (r *Registry) RegisterComponentType(componentType reflect.Type) ComponentID {
+func (r *Registry) RegisterComponentType(componentType reflect.Type) ComponentInfo {
 	return r.componentsRegistry.GetOrRegister(componentType)
 }
 

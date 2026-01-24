@@ -24,13 +24,15 @@ func (s *BillingSystem) Init(reg *ecs.Registry) {
 	s.query = ecs.NewQuery3[Order, Status, Discount](reg)
 }
 
-func (s *BillingSystem) Update(reg *ecs.Registry, d time.Duration) {
+func (s *BillingSystem) Update(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuffer, d time.Duration) {
 	for head := range s.query.All3() {
 		ord, st, disc := head.V1, head.V2, head.V3
 		ord.Total = ord.Total * (1 - disc.Percentage/100)
 		st.Processed = true
 	}
 }
+
+func (s *BillingSystem) ShouldSync() bool { return false }
 
 var _ ecs.System = (*BillingSystem)(nil)
 

@@ -12,14 +12,19 @@ type ArchetypeRegistry struct {
 	archetypes         []*Archetype
 	entityArchLinks    []EntityArchLink
 	componentsRegistry *ComponentsRegistry
+	viewRegistry       *ViewRegistry
 }
 
-func newArchetypeRegistry(componentsRegistry *ComponentsRegistry) *ArchetypeRegistry {
+func newArchetypeRegistry(
+	componentsRegistry *ComponentsRegistry,
+	viewRegistry *ViewRegistry,
+) *ArchetypeRegistry {
 	return &ArchetypeRegistry{
 		archetypeMap:       make(map[ArchetypeMask]*Archetype),
 		archetypes:         make([]*Archetype, 0, initArchetypesCapacity),
 		entityArchLinks:    make([]EntityArchLink, 0, initialCapacity),
 		componentsRegistry: componentsRegistry,
+		viewRegistry:       viewRegistry,
 	}
 }
 
@@ -127,6 +132,7 @@ func (r *ArchetypeRegistry) getOrRegister(mask ArchetypeMask) *Archetype {
 
 	r.archetypeMap[mask] = arch
 	r.archetypes = append(r.archetypes, arch)
+	r.viewRegistry.OnArchetypeCreated(arch)
 	return arch
 }
 

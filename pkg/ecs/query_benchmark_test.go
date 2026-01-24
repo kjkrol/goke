@@ -19,26 +19,26 @@ type Magn struct{ V float64 }
 
 func setupBenchmark(_ *testing.B, count int) (*Registry, []Entity) {
 	reg := NewRegistry()
-	posTypeId := reg.RegisterComponentType(reflect.TypeFor[Pos]())
-	velTypeId := reg.RegisterComponentType(reflect.TypeFor[Vel]())
-	accTypeId := reg.RegisterComponentType(reflect.TypeFor[Acc]())
-	massTypeId := reg.RegisterComponentType(reflect.TypeFor[Mass]())
-	spinTypeId := reg.RegisterComponentType(reflect.TypeFor[Spin]())
-	charTypeId := reg.RegisterComponentType(reflect.TypeFor[Char]())
-	elecTypeId := reg.RegisterComponentType(reflect.TypeFor[Elec]())
-	magnTypeId := reg.RegisterComponentType(reflect.TypeFor[Magn]())
+	posTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Pos]())
+	velTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Vel]())
+	accTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Acc]())
+	massTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Mass]())
+	spinTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Spin]())
+	charTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Char]())
+	elecTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Elec]())
+	magnTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Magn]())
 
 	var entities []Entity
 	for range count {
 		e := reg.CreateEntity()
-		reg.AssignByID(e, posTypeId, unsafe.Pointer(&Pos{1, 1}))
-		reg.AssignByID(e, velTypeId, unsafe.Pointer(&Vel{1, 1}))
-		reg.AssignByID(e, accTypeId, unsafe.Pointer(&Acc{1, 1}))
-		reg.AssignByID(e, massTypeId, unsafe.Pointer(&Mass{}))
-		reg.AssignByID(e, spinTypeId, unsafe.Pointer(&Spin{}))
-		reg.AssignByID(e, charTypeId, unsafe.Pointer(&Char{}))
-		reg.AssignByID(e, elecTypeId, unsafe.Pointer(&Elec{1}))
-		reg.AssignByID(e, magnTypeId, unsafe.Pointer(&Magn{1}))
+		reg.AssignByID(e, posTypeInfo.ID, unsafe.Pointer(&Pos{1, 1}))
+		reg.AssignByID(e, velTypeInfo.ID, unsafe.Pointer(&Vel{1, 1}))
+		reg.AssignByID(e, accTypeInfo.ID, unsafe.Pointer(&Acc{1, 1}))
+		reg.AssignByID(e, massTypeInfo.ID, unsafe.Pointer(&Mass{}))
+		reg.AssignByID(e, spinTypeInfo.ID, unsafe.Pointer(&Spin{}))
+		reg.AssignByID(e, charTypeInfo.ID, unsafe.Pointer(&Char{}))
+		reg.AssignByID(e, elecTypeInfo.ID, unsafe.Pointer(&Elec{1}))
+		reg.AssignByID(e, magnTypeInfo.ID, unsafe.Pointer(&Magn{1}))
 		entities = append(entities, e)
 	}
 	return reg, entities
