@@ -55,7 +55,11 @@ func (s *MovementSystem) Init(reg *ecs.Registry) {
     s.query = ecs.NewQuery3[Pos, Vel, Acc](reg)
 }
 
-func (s *MovementSystem) Update(reg *ecs.Registry, d time.Duration) {
+func (s *MovementSystem) Update(
+    reg ecs.ReadOnlyRegistry,
+    cb *ecs.SystemCommandBuffer,
+    d time.Duration,
+) {
     // Ultra-fast iteration over contiguous memory blocks
     for head := range s.query.All3() {
         pos, vel, acc := head.V1, head.V2, head.V3
@@ -66,6 +70,8 @@ func (s *MovementSystem) Update(reg *ecs.Registry, d time.Duration) {
         pos.Y += vel.Y
     }
 }
+
+func (s *MovementSystem) ShouldSync() bool { return false }
 
 func main() {
     engine := ecs.NewEngine()
