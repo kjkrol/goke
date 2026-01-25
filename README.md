@@ -81,7 +81,13 @@ func main() {
     ecs.Assign(engine, e, Vel{X: 1, Y: 1})
     ecs.Assign(engine, e, Acc{X: 0.1, Y: 0.1})
 
-    engine.RegisterSystems([]ecs.System{&MovementSystem{}})
+    movementSystem := &MovementSystem{}
+    engine.RegisterSystem(movementSystem)
+    
+    engine.SetExecutionPlan(func(ctx ecs.ExecutionContext, d time.Duration) {
+		ctx.RunSystem(movementSystem, d)
+		ctx.Sync()
+	})
     
     // Run the system update loop
     engine.UpdateSystems(time.Millisecond * 16)

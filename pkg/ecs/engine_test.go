@@ -43,8 +43,6 @@ func (s *BillingSystem) Update(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBu
 	}
 }
 
-func (s *BillingSystem) ShouldSync() bool { return false }
-
 var _ ecs.System = (*BillingSystem)(nil)
 
 func TestECS_UseCase(t *testing.T) {
@@ -59,9 +57,13 @@ func TestECS_UseCase(t *testing.T) {
 	ecs.Assign(engine, eB, Order{ID: "ORD-002", Total: 50.0})
 	ecs.Assign(engine, eB, Status{Processed: false})
 
-	billingSystem := BillingSystem{}
-	engine.RegisterSystems([]ecs.System{&billingSystem})
+	billingSystem := &BillingSystem{}
+	engine.RegisterSystem(billingSystem)
 
+	engine.SetExecutionPlan(func(ctx ecs.ExecutionContext, d time.Duration) {
+		ctx.RunSystem(billingSystem, d)
+		ctx.Sync()
+	})
 	engine.UpdateSystems(time.Duration(time.Second))
 
 	if billingSystem.processedCount != 1 {

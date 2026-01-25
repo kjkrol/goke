@@ -5,8 +5,6 @@ import (
 	"unsafe"
 )
 
-const initArchetypesCapacity = 64
-
 type ArchetypeRegistry struct {
 	archetypeMap       map[ArchetypeMask]*Archetype
 	archetypes         []*Archetype
@@ -21,8 +19,8 @@ func newArchetypeRegistry(
 ) *ArchetypeRegistry {
 	return &ArchetypeRegistry{
 		archetypeMap:       make(map[ArchetypeMask]*Archetype),
-		archetypes:         make([]*Archetype, 0, initArchetypesCapacity),
-		entityArchLinks:    make([]EntityArchLink, 0, initialCapacity),
+		archetypes:         make([]*Archetype, 0, archetypesInitCap),
+		entityArchLinks:    make([]EntityArchLink, 0, entityPoolInitCap),
 		componentsRegistry: componentsRegistry,
 		viewRegistry:       viewRegistry,
 	}

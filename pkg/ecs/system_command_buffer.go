@@ -11,6 +11,7 @@ const (
 	cmdAssignComponent commandType = iota
 	cmdRemoveComponent
 	cmdRemoveEntity
+	cmdCreateEntity
 )
 
 type systemCommand struct {
@@ -25,10 +26,11 @@ type systemCommand struct {
 const pageSize = 4096
 
 type SystemCommandBuffer struct {
-	commands []systemCommand
-	pages    [][]byte
-	pageIdx  int
-	offset   int
+	commands      []systemCommand
+	pages         [][]byte
+	pageIdx       int
+	offset        int
+	nextVirtualID uint32
 }
 
 func NewSystemCommandBuffer() *SystemCommandBuffer {
@@ -68,6 +70,17 @@ func (cb *SystemCommandBuffer) RemoveComponent(e Entity, compID ComponentID) {
 	})
 }
 
+func (cb *SystemCommandBuffer) CreateEntity() Entity {
+	vEntity := NewVirtualEntity(cb.nextVirtualID)
+	cb.nextVirtualID++
+
+	cb.commands = append(cb.commands, systemCommand{
+		cType:  cmdCreateEntity,
+		entity: vEntity,
+	})
+	return vEntity
+}
+
 func (cb *SystemCommandBuffer) RemoveEntity(e Entity) {
 	cb.commands = append(cb.commands, systemCommand{
 		cType:  cmdRemoveEntity,
@@ -79,6 +92,7 @@ func (cb *SystemCommandBuffer) reset() {
 	cb.commands = cb.commands[:0]
 	cb.pageIdx = 0
 	cb.offset = 0
+	cb.nextVirtualID = 0
 }
 
 // reserveSpace ensures there is enough contiguous memory in the pages

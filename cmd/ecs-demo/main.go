@@ -18,6 +18,9 @@ type (
 	BillingSystem struct {
 		query *ecs.Query3[Order, Status, Discount]
 	}
+	DemoExecutionPlan struct {
+		billingSystem BillingSystem
+	}
 )
 
 func (s *BillingSystem) Init(reg *ecs.Registry) {
@@ -45,7 +48,11 @@ func main() {
 	ecs.Assign(engine, entity, Discount{Percentage: 20.0})
 
 	billing := &BillingSystem{}
-	engine.RegisterSystems([]ecs.System{billing})
+	engine.RegisterSystem(billing)
+	engine.SetExecutionPlan(func(ctx ecs.ExecutionContext, d time.Duration) {
+		ctx.RunSystem(billing, d)
+		ctx.Sync()
+	})
 
 	order, _ := ecs.GetComponent[Order](engine, entity)
 	fmt.Printf("Order id: %v value: %v\n", order.ID, order.Total)

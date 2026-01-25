@@ -17,7 +17,8 @@ type (
 		UnassignByID(Entity, ComponentID) error
 		GetComponent(Entity, ComponentID) (unsafe.Pointer, error)
 
-		RegisterSystems([]System)
+		RegisterSystem(System)
+		SetExecutionPlan(ExecutionPlan)
 		UpdateSystems(time.Duration)
 	}
 	Engine struct {
@@ -32,16 +33,20 @@ func NewEngine() *Engine {
 	reg := NewRegistry()
 	return &Engine{
 		Registry:  reg,
-		scheduler: newScheduler(reg),
+		scheduler: NewScheduler(reg),
 	}
 }
 
-func (e *Engine) RegisterSystems(systems []System) {
-	e.scheduler.registerSystems(systems)
+func (e *Engine) RegisterSystem(system System) {
+	e.scheduler.RegisterSystem(system)
+}
+
+func (e *Engine) SetExecutionPlan(plan ExecutionPlan) {
+	e.scheduler.SetExecutionPlan(plan)
 }
 
 func (e *Engine) UpdateSystems(duration time.Duration) {
-	e.scheduler.updateSystems(duration)
+	e.scheduler.UpdateSystems(duration)
 }
 
 func RegisterComponent[T any](eng *Engine) ComponentInfo {

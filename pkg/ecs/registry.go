@@ -6,8 +6,9 @@ import (
 	"unsafe"
 )
 
-const initialCapacity = 1024
+const entityPoolInitCap = 1024
 const viewRegistryInitCap = 1024
+const archetypesInitCap = 64
 
 type Registry struct {
 	entityPool         *EntityGenerationalPool
@@ -20,11 +21,10 @@ var _ ReadOnlyRegistry = (*Registry)(nil)
 
 func NewRegistry() *Registry {
 	componentsRegistry := newComponentsRegistry()
-	viewRegistry := NewViewRegistry(viewRegistryInitCap)
+	viewRegistry := NewViewRegistry()
 	archetypeRegistry := newArchetypeRegistry(componentsRegistry, viewRegistry)
-	NewViewRegistry(viewRegistryInitCap)
 	return &Registry{
-		entityPool:         NewEntityGenerator(initialCapacity),
+		entityPool:         NewEntityGenerator(entityPoolInitCap),
 		componentsRegistry: componentsRegistry,
 		viewRegistry:       viewRegistry,
 		archetypeRegistry:  archetypeRegistry,

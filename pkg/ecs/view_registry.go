@@ -4,8 +4,8 @@ type ViewRegistry struct {
 	views []*View
 }
 
-func NewViewRegistry(initCapacity int) *ViewRegistry {
-	return &ViewRegistry{views: make([]*View, 0, initCapacity)}
+func NewViewRegistry() *ViewRegistry {
+	return &ViewRegistry{views: make([]*View, 0, viewRegistryInitCap)}
 }
 
 func (vr *ViewRegistry) Register(v *View) {

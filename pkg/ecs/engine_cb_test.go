@@ -20,7 +20,6 @@ var logInfo ecs.ComponentInfo
 
 type WorkerSystem struct {
 	query *ecs.Query1[Task]
-	sync  bool
 }
 
 func (s *WorkerSystem) Init(reg *ecs.Registry) {
@@ -33,8 +32,6 @@ func (s *WorkerSystem) Update(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuf
 		cb.AssignComponent(head.Entity, logInfo, unsafe.Pointer(&msg))
 	}
 }
-
-func (s *WorkerSystem) ShouldSync() bool { return s.sync }
 
 type LoggerSystem struct {
 	query *ecs.Query1[Log]
@@ -51,8 +48,6 @@ func (s *LoggerSystem) Update(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuf
 	}
 }
 
-func (s *LoggerSystem) ShouldSync() bool { return false }
-
 // --- TEST ---
 
 func TestECS_SystemInteractions(t *testing.T) {
@@ -61,41 +56,56 @@ func TestECS_SystemInteractions(t *testing.T) {
 		logInfo = e.RegisterComponentType(reflect.TypeFor[Log]())
 	}
 
-	t.Run("Isolation: Logger should not see changes from Worker without Sync", func(t *testing.T) {
+	t.Run("Isolation: Logger should not see changes from Worker without Sync between them", func(t *testing.T) {
 		engine := ecs.NewEngine()
 		setupComponents(engine)
 
 		e := engine.CreateEntity()
 		ecs.Assign(engine, e, Task{Completed: false})
 
-		worker := &WorkerSystem{sync: false}
+		worker := &WorkerSystem{}
 		logger := &LoggerSystem{}
 
-		engine.RegisterSystems([]ecs.System{worker, logger})
+		engine.RegisterSystem(worker)
+		engine.RegisterSystem(logger)
+
+		engine.SetExecutionPlan(func(s ecs.ExecutionContext, d time.Duration) {
+			s.RunSystem(worker, d)
+			s.RunSystem(logger, d)
+			s.Sync()
+		})
 
 		engine.UpdateSystems(time.Millisecond)
 
 		if logger.Found {
-			t.Error("LoggerSystem found Log that should have been deferred!")
+			t.Error("LoggerSystem found Log that should have been deferred until the end of the plan")
 		}
 	})
 
-	t.Run("Synchronization: Logger should see changes from Worker due to ShouldSync", func(t *testing.T) {
+	t.Run("Synchronization: Logger should see changes from Worker due to explicit Sync in Plan", func(t *testing.T) {
 		engine := ecs.NewEngine()
 		setupComponents(engine)
 
 		e := engine.CreateEntity()
 		ecs.Assign(engine, e, Task{Completed: false})
 
-		worker := &WorkerSystem{sync: true}
+		worker := &WorkerSystem{}
 		logger := &LoggerSystem{}
 
-		engine.RegisterSystems([]ecs.System{worker, logger})
+		engine.RegisterSystem(worker)
+		engine.RegisterSystem(logger)
+
+		engine.SetExecutionPlan(func(s ecs.ExecutionContext, d time.Duration) {
+			s.RunSystem(worker, d)
+			s.Sync() // Force synchronization between systems
+			s.RunSystem(logger, d)
+			s.Sync()
+		})
 
 		engine.UpdateSystems(time.Millisecond)
 
 		if !logger.Found {
-			t.Error("LoggerSystem should have found Log due to forced synchronization")
+			t.Error("LoggerSystem should have found Log due to explicit Sync call in the ExecutionPlan")
 		}
 	})
 }
