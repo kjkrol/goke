@@ -42,11 +42,12 @@ func NewSystemCommandBuffer() *SystemCommandBuffer {
 func (cb *SystemCommandBuffer) AssignComponent(e Entity, info ComponentInfo, data unsafe.Pointer) {
 	size := int(info.Size)
 
-	// 1. Get stable memory address
-	dest := cb.reserveSpace(size)
+	var dest unsafe.Pointer
 
-	// 2. Copy the data
 	if size > 0 && data != nil {
+		// 1. Get stable memory address
+		dest = cb.reserveSpace(size)
+		// 2. Copy the data
 		copy(unsafe.Slice((*byte)(dest), size), unsafe.Slice((*byte)(data), size))
 	}
 
@@ -64,7 +65,6 @@ func (cb *SystemCommandBuffer) RemoveComponent(e Entity, compID ComponentID) {
 		cType:  cmdRemoveComponent,
 		entity: e,
 		compID: compID,
-		// dataPtr zostaje nil, bo nie kopiujemy danych
 	})
 }
 
@@ -72,7 +72,6 @@ func (cb *SystemCommandBuffer) RemoveEntity(e Entity) {
 	cb.commands = append(cb.commands, systemCommand{
 		cType:  cmdRemoveEntity,
 		entity: e,
-		// compID and dataPtr are not needed for this operation
 	})
 }
 
