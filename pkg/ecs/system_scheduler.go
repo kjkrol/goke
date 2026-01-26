@@ -6,12 +6,12 @@ import (
 )
 
 type ExecutionContext interface {
-	RunSystem(sys System, d time.Duration)
-	RunParallel(d time.Duration, systems ...System)
+	RunSystem(System, time.Duration)
+	RunParallel(time.Duration, ...System)
 	Sync()
 }
 
-type ExecutionPlan func(s ExecutionContext, d time.Duration)
+type ExecutionPlan func(ExecutionContext, time.Duration)
 
 type SystemScheduler struct {
 	register *Registry
@@ -40,7 +40,7 @@ func (s *SystemScheduler) RegisterSystem(sys System) {
 	s.buffers[sys] = NewSystemCommandBuffer()
 }
 
-func (s *SystemScheduler) UpdateSystems(duration time.Duration) {
+func (s *SystemScheduler) Run(duration time.Duration) {
 	if s.plan == nil {
 		panic("ECS Error: ExecutionPlan is not defined! Use SetPlan() before starting the loop.")
 	}
@@ -96,9 +96,9 @@ func (s *SystemScheduler) applyBufferCommands(cb *SystemCommandBuffer) {
 
 		switch cmd.cType {
 		case cmdAssignComponent:
-			s.register.AssignByID(target, cmd.compID, cmd.dataPtr)
+			s.register.AssignByID(target, cmd.compInfo, cmd.dataPtr)
 		case cmdRemoveComponent:
-			s.register.UnassignByID(target, cmd.compID)
+			s.register.UnassignByID(target, cmd.compInfo)
 		case cmdRemoveEntity:
 			s.register.RemoveEntity(cmd.entity)
 		case cmdCreateEntity:

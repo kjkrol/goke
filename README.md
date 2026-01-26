@@ -90,7 +90,7 @@ func main() {
 	})
     
     // Run the system update loop
-    engine.UpdateSystems(time.Millisecond * 16)
+    engine.Run(time.Millisecond * 16)
 }
 ```
 

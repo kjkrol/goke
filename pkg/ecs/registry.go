@@ -20,9 +20,9 @@ type Registry struct {
 var _ ReadOnlyRegistry = (*Registry)(nil)
 
 func NewRegistry() *Registry {
-	componentsRegistry := newComponentsRegistry()
+	componentsRegistry := NewComponentsRegistry()
 	viewRegistry := NewViewRegistry()
-	archetypeRegistry := newArchetypeRegistry(componentsRegistry, viewRegistry)
+	archetypeRegistry := NewArchetypeRegistry(componentsRegistry, viewRegistry)
 	return &Registry{
 		entityPool:         NewEntityGenerator(entityPoolInitCap),
 		componentsRegistry: componentsRegistry,
@@ -47,21 +47,21 @@ func (r *Registry) RemoveEntity(entity Entity) bool {
 	return true
 }
 
-func (r *Registry) AssignByID(entity Entity, compID ComponentID, data unsafe.Pointer) error {
+func (r *Registry) AssignByID(entity Entity, compInfo ComponentInfo, data unsafe.Pointer) error {
 	if !r.entityPool.IsValid(entity) {
 		return fmt.Errorf("Invalid Entity")
 	}
 
-	r.archetypeRegistry.Assign(entity, compID, data)
+	r.archetypeRegistry.Assign(entity, compInfo, data)
 	return nil
 }
 
-func (r *Registry) UnassignByID(entity Entity, compID ComponentID) error {
+func (r *Registry) UnassignByID(entity Entity, compInfo ComponentInfo) error {
 	if !r.entityPool.IsValid(entity) {
 		return fmt.Errorf("Invalid Entity")
 	}
 
-	r.archetypeRegistry.UnAssign(entity, compID)
+	r.archetypeRegistry.UnAssign(entity, compInfo)
 	return nil
 }
 

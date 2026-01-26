@@ -7,7 +7,7 @@ import (
 
 // 1. Registration and Type Mapping
 func TestComponentsRegistry_RegistrationAndMapping(t *testing.T) {
-	registry := newComponentsRegistry()
+	registry := NewComponentsRegistry()
 
 	// Case: First registration
 	// Checking if a new type is correctly registered with ID 0, correct size and type.
@@ -41,7 +41,7 @@ func TestComponentsRegistry_RegistrationAndMapping(t *testing.T) {
 	// Case: Multiple types
 	// Registering several different structures and ensuring each receives a unique, incremental ID.
 	t.Run("Multiple types", func(t *testing.T) {
-		registry := newComponentsRegistry() // Fresh registry for clean IDs
+		registry := NewComponentsRegistry() // Fresh registry for clean IDs
 
 		id0 := registry.GetOrRegister(reflect.TypeFor[position]()).ID
 		id1 := registry.GetOrRegister(reflect.TypeFor[velocity]()).ID
@@ -55,7 +55,7 @@ func TestComponentsRegistry_RegistrationAndMapping(t *testing.T) {
 
 // 2. Information Lookup
 func TestComponentsRegistry_Lookup(t *testing.T) {
-	registry := newComponentsRegistry()
+	registry := NewComponentsRegistry()
 	posType := reflect.TypeFor[position]()
 	info := registry.GetOrRegister(posType)
 
@@ -96,7 +96,7 @@ func TestComponentsRegistry_Lookup(t *testing.T) {
 
 // 3. Generic Helper
 func TestComponentsRegistry_GenericHelper(t *testing.T) {
-	registry := newComponentsRegistry()
+	registry := NewComponentsRegistry()
 
 	// Case: ensureComponentRegistered
 	// Testing if the generic call ensureComponentRegistered[T](reg) works identically to manual reflection.
@@ -113,7 +113,7 @@ func TestComponentsRegistry_GenericHelper(t *testing.T) {
 
 // 4. Metadata Consistency
 func TestComponentsRegistry_MetadataConsistency(t *testing.T) {
-	registry := newComponentsRegistry()
+	registry := NewComponentsRegistry()
 
 	// Case: Size correctness
 	// Verifying that Size in ComponentInfo actually corresponds to the structure size.
@@ -148,7 +148,7 @@ func TestComponentsRegistry_MetadataConsistency(t *testing.T) {
 
 // 5. Edge Cases
 func TestComponentsRegistry_EdgeCases(t *testing.T) {
-	registry := newComponentsRegistry()
+	registry := NewComponentsRegistry()
 
 	// Case: Empty structures
 	// Checking how the registry handles struct{} (should register with size 0).

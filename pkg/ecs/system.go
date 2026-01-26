@@ -13,3 +13,15 @@ type System interface {
 	Init(*Registry)
 	Update(ReadOnlyRegistry, *SystemCommandBuffer, time.Duration)
 }
+
+type SystemFunc func(reg ReadOnlyRegistry, cb *SystemCommandBuffer, d time.Duration)
+
+type functionalSystem struct {
+	updateFn SystemFunc
+}
+
+func (f *functionalSystem) Init(reg *Registry) {}
+
+func (f *functionalSystem) Update(reg ReadOnlyRegistry, cb *SystemCommandBuffer, d time.Duration) {
+	f.updateFn(reg, cb, d)
+}

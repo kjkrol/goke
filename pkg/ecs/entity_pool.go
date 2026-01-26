@@ -36,6 +36,9 @@ func (p *EntityGenerationalPool) Release(e Entity) uint32 {
 }
 
 func (p *EntityGenerationalPool) IsValid(e Entity) bool {
+	if e.IsVirtual() {
+		return false
+	}
 	index, gen := e.Unpack()
 	return index < uint32(len(p.generations)) && p.generations[index] == gen
 }

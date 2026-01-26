@@ -56,6 +56,6 @@ func main() {
 
 	order, _ := ecs.GetComponent[Order](engine, entity)
 	fmt.Printf("Order id: %v value: %v\n", order.ID, order.Total)
-	engine.UpdateSystems(time.Duration(time.Second))
+	engine.Run(time.Duration(time.Second))
 	fmt.Printf("Order id: %v value with discount: %v\n", order.ID, order.Total)
 }

@@ -13,13 +13,14 @@ type (
 		RemoveEntity(entity Entity) bool
 
 		RegisterComponentType(reflect.Type) ComponentInfo
-		AssignByID(Entity, ComponentID, unsafe.Pointer) error
-		UnassignByID(Entity, ComponentID) error
+		AssignByID(Entity, ComponentInfo, unsafe.Pointer) error
+		UnassignByID(Entity, ComponentInfo) error
 		GetComponent(Entity, ComponentID) (unsafe.Pointer, error)
 
 		RegisterSystem(System)
+		RegisterSystemFunc(SystemFunc) System
 		SetExecutionPlan(ExecutionPlan)
-		UpdateSystems(time.Duration)
+		Run(time.Duration)
 	}
 	Engine struct {
 		*Registry
@@ -41,12 +42,18 @@ func (e *Engine) RegisterSystem(system System) {
 	e.scheduler.RegisterSystem(system)
 }
 
+func (e *Engine) RegisterSystemFunc(fn SystemFunc) System {
+	wrapper := &functionalSystem{updateFn: fn}
+	e.scheduler.RegisterSystem(wrapper)
+	return wrapper
+}
+
 func (e *Engine) SetExecutionPlan(plan ExecutionPlan) {
 	e.scheduler.SetExecutionPlan(plan)
 }
 
-func (e *Engine) UpdateSystems(duration time.Duration) {
-	e.scheduler.UpdateSystems(duration)
+func (e *Engine) Run(duration time.Duration) {
+	e.scheduler.Run(duration)
 }
 
 func RegisterComponent[T any](eng *Engine) ComponentInfo {
@@ -56,12 +63,12 @@ func RegisterComponent[T any](eng *Engine) ComponentInfo {
 func Assign[T any](eng *Engine, entity Entity, component T) error {
 	compInfo := ensureComponentRegistered[T](eng.componentsRegistry)
 	data := unsafe.Pointer(&component)
-	return eng.AssignByID(entity, compInfo.ID, data)
+	return eng.AssignByID(entity, compInfo, data)
 }
 
-func AssignByID[T any](eng *Engine, entity Entity, compID ComponentID, component T) error {
+func AssignByID[T any](eng *Engine, entity Entity, compInfo ComponentInfo, component T) error {
 	data := unsafe.Pointer(&component)
-	return eng.AssignByID(entity, compID, data)
+	return eng.AssignByID(entity, compInfo, data)
 }
 
 func Unassign[T any](eng *Engine, entity Entity) error {
@@ -71,7 +78,7 @@ func Unassign[T any](eng *Engine, entity Entity) error {
 		return fmt.Errorf("Component doesn't exist.")
 	}
 
-	return eng.UnassignByID(entity, compInfo.ID)
+	return eng.UnassignByID(entity, compInfo)
 }
 
 func GetComponent[T any](eng *Engine, entity Entity) (*T, error) {

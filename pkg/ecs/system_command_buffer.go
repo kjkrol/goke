@@ -15,10 +15,10 @@ const (
 )
 
 type systemCommand struct {
-	cType   commandType
-	entity  Entity
-	compID  ComponentID
-	dataPtr unsafe.Pointer
+	cType    commandType
+	entity   Entity
+	compInfo ComponentInfo
+	dataPtr  unsafe.Pointer
 }
 
 // -------------------------------------------------------------
@@ -55,18 +55,18 @@ func (cb *SystemCommandBuffer) AssignComponent(e Entity, info ComponentInfo, dat
 
 	// 3. Queue the command
 	cb.commands = append(cb.commands, systemCommand{
-		cType:   cmdAssignComponent,
-		entity:  e,
-		compID:  info.ID,
-		dataPtr: dest,
+		cType:    cmdAssignComponent,
+		entity:   e,
+		compInfo: info,
+		dataPtr:  dest,
 	})
 }
 
-func (cb *SystemCommandBuffer) RemoveComponent(e Entity, compID ComponentID) {
+func (cb *SystemCommandBuffer) RemoveComponent(e Entity, compInfo ComponentInfo) {
 	cb.commands = append(cb.commands, systemCommand{
-		cType:  cmdRemoveComponent,
-		entity: e,
-		compID: compID,
+		cType:    cmdRemoveComponent,
+		entity:   e,
+		compInfo: compInfo,
 	})
 }
 

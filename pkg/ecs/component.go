@@ -17,7 +17,7 @@ type ComponentsRegistry struct {
 	idToInfo   map[ComponentID]ComponentInfo
 }
 
-func newComponentsRegistry() *ComponentsRegistry {
+func NewComponentsRegistry() *ComponentsRegistry {
 	return &ComponentsRegistry{
 		typeToInfo: make(map[reflect.Type]ComponentInfo),
 		idToInfo:   make(map[ComponentID]ComponentInfo),

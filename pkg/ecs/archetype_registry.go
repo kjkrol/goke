@@ -15,7 +15,7 @@ type ArchetypeRegistry struct {
 	rootArch           *Archetype
 }
 
-func newArchetypeRegistry(componentsRegistry *ComponentsRegistry, viewRegistry *ViewRegistry) *ArchetypeRegistry {
+func NewArchetypeRegistry(componentsRegistry *ComponentsRegistry, viewRegistry *ViewRegistry) *ArchetypeRegistry {
 	reg := &ArchetypeRegistry{
 		archetypeMap:       make(map[ArchetypeMask]*Archetype),
 		archetypes:         make([]*Archetype, 0, 64),
@@ -77,10 +77,12 @@ var (
 	ErrEntityNotFound   = errors.New("entity not found in registry")
 )
 
-func (r *ArchetypeRegistry) Assign(entity Entity, compID ComponentID, data unsafe.Pointer) error {
-	if data == nil {
+func (r *ArchetypeRegistry) Assign(entity Entity, compInfo ComponentInfo, data unsafe.Pointer) error {
+	if data == nil && compInfo.Size > 0 {
 		return ErrNilComponentData
 	}
+
+	compID := compInfo.ID
 
 	index := entity.Index()
 	if int(index) >= len(r.entityArchLinks) || r.entityArchLinks[index].arch == nil {
@@ -118,10 +120,11 @@ func (r *ArchetypeRegistry) Assign(entity Entity, compID ComponentID, data unsaf
 	return nil
 }
 
-func (r *ArchetypeRegistry) UnAssign(entity Entity, compID ComponentID) {
+func (r *ArchetypeRegistry) UnAssign(entity Entity, compInfo ComponentInfo) {
 	index := entity.Index()
 	link := r.entityArchLinks[index]
 	oldArch := link.arch
+	compID := compInfo.ID
 
 	// FAST PATH (use Archetype-Graph)
 	if prevArch, ok := oldArch.edgesPrev[compID]; ok {

@@ -75,7 +75,7 @@ func TestECS_SystemInteractions(t *testing.T) {
 			s.Sync()
 		})
 
-		engine.UpdateSystems(time.Millisecond)
+		engine.Run(time.Millisecond)
 
 		if logger.Found {
 			t.Error("LoggerSystem found Log that should have been deferred until the end of the plan")
@@ -102,7 +102,7 @@ func TestECS_SystemInteractions(t *testing.T) {
 			s.Sync()
 		})
 
-		engine.UpdateSystems(time.Millisecond)
+		engine.Run(time.Millisecond)
 
 		if !logger.Found {
 			t.Error("LoggerSystem should have found Log due to explicit Sync call in the ExecutionPlan")

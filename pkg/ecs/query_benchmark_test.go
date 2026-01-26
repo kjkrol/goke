@@ -31,14 +31,14 @@ func setupBenchmark(_ *testing.B, count int) (*Registry, []Entity) {
 	var entities []Entity
 	for range count {
 		e := reg.CreateEntity()
-		reg.AssignByID(e, posTypeInfo.ID, unsafe.Pointer(&Pos{1, 1}))
-		reg.AssignByID(e, velTypeInfo.ID, unsafe.Pointer(&Vel{1, 1}))
-		reg.AssignByID(e, accTypeInfo.ID, unsafe.Pointer(&Acc{1, 1}))
-		reg.AssignByID(e, massTypeInfo.ID, unsafe.Pointer(&Mass{}))
-		reg.AssignByID(e, spinTypeInfo.ID, unsafe.Pointer(&Spin{}))
-		reg.AssignByID(e, charTypeInfo.ID, unsafe.Pointer(&Char{}))
-		reg.AssignByID(e, elecTypeInfo.ID, unsafe.Pointer(&Elec{1}))
-		reg.AssignByID(e, magnTypeInfo.ID, unsafe.Pointer(&Magn{1}))
+		reg.AssignByID(e, posTypeInfo, unsafe.Pointer(&Pos{1, 1}))
+		reg.AssignByID(e, velTypeInfo, unsafe.Pointer(&Vel{1, 1}))
+		reg.AssignByID(e, accTypeInfo, unsafe.Pointer(&Acc{1, 1}))
+		reg.AssignByID(e, massTypeInfo, unsafe.Pointer(&Mass{}))
+		reg.AssignByID(e, spinTypeInfo, unsafe.Pointer(&Spin{}))
+		reg.AssignByID(e, charTypeInfo, unsafe.Pointer(&Char{}))
+		reg.AssignByID(e, elecTypeInfo, unsafe.Pointer(&Elec{1}))
+		reg.AssignByID(e, magnTypeInfo, unsafe.Pointer(&Magn{1}))
 		entities = append(entities, e)
 	}
 	return reg, entities

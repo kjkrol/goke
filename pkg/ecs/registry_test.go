@@ -33,8 +33,8 @@ func TestViewReactivity(t *testing.T) {
 
 	// Assigning components triggers ArchetypeRegistry.getOrRegister
 	// which should notify the ViewRegistry
-	reg.AssignByID(e1, posTypeInfo.ID, unsafe.Pointer(&Position{10, 20}))
-	reg.AssignByID(e1, tagTypeInfo.ID, unsafe.Pointer(&TagA{}))
+	reg.AssignByID(e1, posTypeInfo, unsafe.Pointer(&Position{10, 20}))
+	reg.AssignByID(e1, tagTypeInfo, unsafe.Pointer(&TagA{}))
 
 	// 4. Verification: Did the View receive the new archetype?
 	if len(view.baked) == 0 {
@@ -58,7 +58,7 @@ func TestViewReactivity(t *testing.T) {
 	// (Has Position, but lacks TagA)
 	beforeCount := len(view.baked)
 	e2 := reg.CreateEntity()
-	reg.AssignByID(e2, posTypeInfo.ID, unsafe.Pointer(&Position{30, 40}))
+	reg.AssignByID(e2, posTypeInfo, unsafe.Pointer(&Position{30, 40}))
 
 	if len(view.baked) != beforeCount {
 		t.Errorf("View incorrectly added an archetype that does not satisfy the TagA requirement")

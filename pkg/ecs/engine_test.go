@@ -1,6 +1,7 @@
 package ecs_test
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
@@ -14,79 +15,71 @@ type Order struct {
 	Total float64
 }
 
-type Status struct {
-	Processed bool
-}
-
 type Discount struct {
 	Percentage float64
 }
 
-// system
-
-type BillingSystem struct {
-	query          *ecs.Query3[Order, Status, Discount]
-	processedCount int
-}
-
-func (s *BillingSystem) Init(reg *ecs.Registry) {
-	s.query = ecs.NewQuery3[Order, Status, Discount](reg)
-	s.processedCount = 0
-}
-
-func (s *BillingSystem) Update(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuffer, d time.Duration) {
-	for head := range s.query.All3() {
-		s.processedCount++
-		ord, st, disc := head.V1, head.V2, head.V3
-		ord.Total = ord.Total * (1 - disc.Percentage/100)
-		st.Processed = true
-	}
-}
-
-var _ ecs.System = (*BillingSystem)(nil)
+type Processed struct{}
 
 func TestECS_UseCase(t *testing.T) {
 	engine := ecs.NewEngine()
 
+	processedTypeInfo := engine.RegisterComponentType(reflect.TypeFor[Processed]())
+
 	eA := engine.CreateEntity()
 	ecs.Assign(engine, eA, Order{ID: "ORD-001", Total: 100.0})
-	ecs.Assign(engine, eA, Status{Processed: false})
 	ecs.Assign(engine, eA, Discount{Percentage: 10.0})
 
 	eB := engine.CreateEntity()
 	ecs.Assign(engine, eB, Order{ID: "ORD-002", Total: 50.0})
-	ecs.Assign(engine, eB, Status{Processed: false})
 
-	billingSystem := &BillingSystem{}
-	engine.RegisterSystem(billingSystem)
+	query1 := ecs.NewQuery2[Order, Discount](engine.Registry)
+	processedCount := 0
+
+	billingSystem := engine.RegisterSystemFunc(func(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuffer, d time.Duration) {
+		for head := range query1.All2() {
+			processedCount++
+			ord, disc := head.V1, head.V2
+			ord.Total = ord.Total * (1 - disc.Percentage/100)
+			cb.AssignComponent(head.Entity, processedTypeInfo, nil)
+		}
+	})
+	query2 := ecs.NewQuery0(engine.Registry, ecs.WithTag[Processed](), ecs.WithTag[Order](), ecs.WithTag[Discount]())
+	cleanerSystem := engine.RegisterSystemFunc(func(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuffer, d time.Duration) {
+		for entity := range query2.All() {
+			cb.RemoveEntity(entity)
+		}
+	})
 
 	engine.SetExecutionPlan(func(ctx ecs.ExecutionContext, d time.Duration) {
 		ctx.RunSystem(billingSystem, d)
+
+		// test this stage
+		order, _ := ecs.GetComponent[Order](engine, eA)
+		if order.Total != 90.0 {
+			t.Errorf("Discount has not been applied, Total: %v", order.Total)
+		}
+
+		ctx.Sync()
+		ctx.RunSystem(cleanerSystem, d)
 		ctx.Sync()
 	})
-	engine.UpdateSystems(time.Duration(time.Second))
+	engine.Run(time.Duration(time.Second))
 
-	if billingSystem.processedCount != 1 {
-		t.Errorf("BillingSystem should have processed 1 entity, but it processed %d",
-			billingSystem.processedCount)
+	// Final Assertions
+	if processedCount != 1 {
+		t.Errorf("Expected 1 processed order, got %d", processedCount)
 	}
 
-	order, _ := ecs.GetComponent[Order](engine, eA)
-	status, _ := ecs.GetComponent[Status](engine, eA)
-
-	if order.Total != 90.0 {
-		t.Errorf("Discount has not been applied, Total: %v", order.Total)
-	}
-
-	if !status.Processed {
-		t.Error("Status has not been changed to Processed")
-	}
-
-	engine.RemoveEntity(eA)
-
+	// Entity A should be removed from Registry
 	_, err := ecs.GetComponent[Order](engine, eA)
-
 	if err == nil {
-		t.Error("Data of entity eA should have been removed from orders map")
+		t.Error("Entity eA should have been removed from the registry")
+	}
+
+	// Entity B should still exist
+	_, errB := ecs.GetComponent[Order](engine, eB)
+	if errB != nil {
+		t.Error("Entity eB should not have been removed")
 	}
 }

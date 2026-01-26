@@ -61,9 +61,9 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	// Create entities with ALL components
 	for range 1000 {
 		e := eng.CreateEntity()
-		eng.AssignByID(e, posInfo.ID, unsafe.Pointer(&Position{0, 0}))
-		eng.AssignByID(e, velInfo.ID, unsafe.Pointer(&Velocity{10, 10}))
-		eng.AssignByID(e, healthInfo.ID, unsafe.Pointer(&Health{50, 100}))
+		eng.AssignByID(e, posInfo, unsafe.Pointer(&Position{0, 0}))
+		eng.AssignByID(e, velInfo, unsafe.Pointer(&Velocity{10, 10}))
+		eng.AssignByID(e, healthInfo, unsafe.Pointer(&Health{50, 100}))
 	}
 
 	// 2. Execution Plan: Run Physics and Health in parallel
@@ -73,7 +73,7 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	})
 
 	// 3. Run
-	eng.UpdateSystems(time.Second) // Simulate 1 second
+	eng.Run(time.Second) // Simulate 1 second
 
 	// 4. Verification
 	query := ecs.NewQuery2[Position, Health](eng.Registry)
