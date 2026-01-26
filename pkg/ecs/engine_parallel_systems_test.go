@@ -9,95 +9,88 @@ import (
 	"github.com/kjkrol/goke/pkg/ecs"
 )
 
-// --- Components ---
-type Initial struct{}
-type ComponentA struct{ Val int }
-type ComponentB struct{ Val int }
+// --- Components (Disjoint sets) ---
+type Position struct{ X, Y float32 }
+type Velocity struct{ VX, VY float32 }
+type Health struct{ Current, Max float32 }
 
-var (
-	initialInfo ecs.ComponentInfo
-	compAInfo   ecs.ComponentInfo
-	compBInfo   ecs.ComponentInfo
-)
-
-// --- Systems ---
-
-type ProducerSystem struct{}
-
-func (s *ProducerSystem) Init(reg *ecs.Registry) {}
-func (s *ProducerSystem) Update(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuffer, d time.Duration) {
-	// Create a new entity and mark it with Initial tag
-	e := cb.CreateEntity()
-	cb.AssignComponent(e, initialInfo, nil)
+// --- PhysicsSystem: Operates only on Motion data ---
+type PhysicsSystem struct {
+	query *ecs.Query2[Position, Velocity]
 }
 
-type WorkerASystem struct {
-	query *ecs.Query1[Initial]
+func (s *PhysicsSystem) Init(reg *ecs.Registry) {
+	s.query = ecs.NewQuery2[Position, Velocity](reg)
 }
-
-func (s *WorkerASystem) Init(reg *ecs.Registry) { s.query = ecs.NewQuery1[Initial](reg) }
-func (s *WorkerASystem) Update(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuffer, d time.Duration) {
-	for head := range s.query.All1() {
-		val := ComponentA{Val: 100}
-		cb.AssignComponent(head.Entity, compAInfo, unsafe.Pointer(&val))
+func (s *PhysicsSystem) Update(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuffer, d time.Duration) {
+	for head := range s.query.All2() {
+		head.V1.X += head.V2.VX * float32(d.Seconds())
+		head.V1.Y += head.V2.VY * float32(d.Seconds())
 	}
 }
 
-type WorkerBSystem struct {
-	query *ecs.Query1[Initial]
+// --- HealthSystem: Operates only on Health data ---
+type HealthSystem struct {
+	query *ecs.Query1[Health]
 }
 
-func (s *WorkerBSystem) Init(reg *ecs.Registry) { s.query = ecs.NewQuery1[Initial](reg) }
-func (s *WorkerBSystem) Update(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuffer, d time.Duration) {
+func (s *HealthSystem) Init(reg *ecs.Registry) {
+	s.query = ecs.NewQuery1[Health](reg)
+}
+func (s *HealthSystem) Update(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuffer, d time.Duration) {
 	for head := range s.query.All1() {
-		val := ComponentB{Val: 200}
-		cb.AssignComponent(head.Entity, compBInfo, unsafe.Pointer(&val))
+		if head.V1.Current < head.V1.Max {
+			head.V1.Current += 1.0 // Simple regen
+		}
 	}
 }
 
-// --- TEST ---
-
-func TestECS_ParallelExecution(t *testing.T) {
+func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	eng := ecs.NewEngine()
 
-	// Setup components
-	initialInfo = eng.RegisterComponentType(reflect.TypeFor[Initial]())
-	compAInfo = eng.RegisterComponentType(reflect.TypeFor[ComponentA]())
-	compBInfo = eng.RegisterComponentType(reflect.TypeFor[ComponentB]())
+	// 1. Setup
+	posInfo := eng.RegisterComponentType(reflect.TypeFor[Position]())
+	velInfo := eng.RegisterComponentType(reflect.TypeFor[Velocity]())
+	healthInfo := eng.RegisterComponentType(reflect.TypeFor[Health]())
 
-	// Instantiate systems
-	producer := &ProducerSystem{}
-	workerA := &WorkerASystem{}
-	workerB := &WorkerBSystem{}
+	phys := &PhysicsSystem{}
+	heal := &HealthSystem{}
+	eng.RegisterSystem(phys)
+	eng.RegisterSystem(heal)
 
-	// Register systems to allocate buffers
-	eng.RegisterSystem(producer)
-	eng.RegisterSystem(workerA)
-	eng.RegisterSystem(workerB)
+	// Create entities with ALL components
+	for range 1000 {
+		e := eng.CreateEntity()
+		eng.AssignByID(e, posInfo.ID, unsafe.Pointer(&Position{0, 0}))
+		eng.AssignByID(e, velInfo.ID, unsafe.Pointer(&Velocity{10, 10}))
+		eng.AssignByID(e, healthInfo.ID, unsafe.Pointer(&Health{50, 100}))
+	}
 
-	// Define the execution plan: 1 -> (2 & 3)
+	// 2. Execution Plan: Run Physics and Health in parallel
 	eng.SetExecutionPlan(func(ctx ecs.ExecutionContext, d time.Duration) {
-		// First: Producer creates entities
-		ctx.RunSystem(producer, d)
-		ctx.Sync()
-
-		// Second: Workers modify entities in parallel
-		ctx.RunParallel(d, workerA, workerB)
+		ctx.RunParallel(d, phys, heal)
 		ctx.Sync()
 	})
 
-	// Run update
-	eng.UpdateSystems(time.Millisecond * 16)
+	// 3. Run
+	eng.UpdateSystems(time.Second) // Simulate 1 second
 
-	// Verification
-	// We should have at least one entity with both ComponentA and ComponentB
-	query := ecs.NewQuery2[ComponentA, ComponentB](eng.Registry)
-	found := false
-	for range query.All2() {
-		found = true
+	// 4. Verification
+	query := ecs.NewQuery2[Position, Health](eng.Registry)
+	count := 0
+	for head := range query.All2() {
+		count++
+		// Check Physics result: 0 + 10*1s = 10
+		if head.V1.X != 10 {
+			t.Errorf("Physics failed: expected X=10, got %f", head.V1.X)
+		}
+		// Check Health result: 50 + 1 = 51
+		if head.V2.Current != 51 {
+			t.Errorf("Health failed: expected HP=51, got %f", head.V2.Current)
+		}
 	}
 
-	if !found {
-		t.Error("Parallel execution failed: Entity should have both ComponentA and ComponentB")
+	if count != 1000 {
+		t.Errorf("Expected 1000 entities, found %d", count)
 	}
 }

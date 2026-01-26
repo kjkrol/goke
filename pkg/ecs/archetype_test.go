@@ -190,3 +190,31 @@ func TestArchetype_EdgeCases(t *testing.T) {
 		}
 	})
 }
+
+// Scenario: Memory Alignment
+func TestArchetype_Alignment(t *testing.T) {
+	// Case: Testing with a struct that has odd size
+	type OddStruct struct {
+		A int8 // 1 byte
+	}
+
+	mask := NewArchetypeMask(1)
+	arch := NewArchetype(mask)
+	id := ComponentID(1)
+
+	info := reflect.TypeFor[OddStruct]()
+	arch.columns[id] = &column{
+		dataType: info,
+		itemSize: info.Size(),
+	}
+	arch.columns[id].growTo(arch.cap)
+
+	val := OddStruct{A: 42}
+	arch.AddEntity(Entity(1), id, unsafe.Pointer(&val))
+
+	// Check if we can retrieve it without corruption
+	res := *(*OddStruct)(arch.columns[id].GetElement(0))
+	if res.A != 42 {
+		t.Errorf("alignment or size issue: expected 42, got %d", res.A)
+	}
+}

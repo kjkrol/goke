@@ -1,6 +1,7 @@
 package ecs
 
 import (
+	"errors"
 	"reflect"
 	"unsafe"
 )
@@ -11,19 +12,25 @@ type ArchetypeRegistry struct {
 	entityArchLinks    []EntityArchLink
 	componentsRegistry *ComponentsRegistry
 	viewRegistry       *ViewRegistry
+	rootArch           *Archetype
 }
 
-func newArchetypeRegistry(
-	componentsRegistry *ComponentsRegistry,
-	viewRegistry *ViewRegistry,
-) *ArchetypeRegistry {
-	return &ArchetypeRegistry{
+func newArchetypeRegistry(componentsRegistry *ComponentsRegistry, viewRegistry *ViewRegistry) *ArchetypeRegistry {
+	reg := &ArchetypeRegistry{
 		archetypeMap:       make(map[ArchetypeMask]*Archetype),
-		archetypes:         make([]*Archetype, 0, archetypesInitCap),
-		entityArchLinks:    make([]EntityArchLink, 0, entityPoolInitCap),
+		archetypes:         make([]*Archetype, 0, 64),
+		entityArchLinks:    make([]EntityArchLink, 0, 1024),
 		componentsRegistry: componentsRegistry,
 		viewRegistry:       viewRegistry,
 	}
+
+	rootMask := ArchetypeMask{}
+	reg.rootArch = NewArchetype(rootMask)
+
+	reg.archetypeMap[rootMask] = reg.rootArch
+	reg.archetypes = append(reg.archetypes, reg.rootArch)
+
+	return reg
 }
 
 func (r *ArchetypeRegistry) Get(mask ArchetypeMask) *Archetype {
@@ -42,59 +49,95 @@ func (r *ArchetypeRegistry) AddEntity(entity Entity) {
 	for int(index) >= len(r.entityArchLinks) {
 		r.entityArchLinks = append(r.entityArchLinks, EntityArchLink{})
 	}
-	r.entityArchLinks[index] = EntityArchLink{}
+	row := r.rootArch.registerEntity(entity)
+	r.entityArchLinks[index] = EntityArchLink{
+		arch: r.rootArch,
+		row:  row,
+	}
 }
 
 func (r *ArchetypeRegistry) RemoveEntity(entity Entity) {
 	index := entity.Index()
 	link := r.entityArchLinks[index]
-	swappedEntity, swaped := link.arch.SwapRemoveEntity(link.row)
+	if link.arch == nil {
+		return
+	}
 
-	// Swap-and-Pop
-	if swaped {
-		// RemoveEntity moved last item of Archetype.entites to oldLink.columnIndex, so we have to update entityArchLinks
-		r.entityArchLinks[swappedEntity.Index()].arch = link.arch
+	swappedEntity, swapped := link.arch.SwapRemoveEntity(link.row)
+
+	if swapped {
 		r.entityArchLinks[swappedEntity.Index()].row = link.row
 	}
+
+	r.entityArchLinks[index] = EntityArchLink{arch: nil, row: 0}
 }
 
-func (r *ArchetypeRegistry) Assign(entity Entity, compID ComponentID, data unsafe.Pointer) {
+var (
+	ErrNilComponentData = errors.New("component data pointer cannot be nil")
+	ErrEntityNotFound   = errors.New("entity not found in registry")
+)
+
+func (r *ArchetypeRegistry) Assign(entity Entity, compID ComponentID, data unsafe.Pointer) error {
+	if data == nil {
+		return ErrNilComponentData
+	}
+
 	index := entity.Index()
+	if int(index) >= len(r.entityArchLinks) || r.entityArchLinks[index].arch == nil {
+		return ErrEntityNotFound
+	}
 	backLink := r.entityArchLinks[index]
 	oldArch := backLink.arch
 
-	// first time register
-	if oldArch == nil {
-		newMask := NewArchetypeMask(compID)
-		newArch := r.getOrRegister(newMask)
-		r.entityArchLinks[index] = newArch.AddEntity(entity, compID, data)
-		return
-	}
-
-	var oldMask = oldArch.mask
-	newMask := oldMask.Set(compID)
-
 	// override existing component
-	if oldMask == newMask {
-		col := backLink.arch.columns[compID]
-		col.setData(backLink.row, data)
-		return
+	if oldArch.mask.IsSet(compID) {
+		oldArch.columns[compID].setData(backLink.row, data)
+		return nil
 	}
+
+	// FAST PATH (use Archetype-Graph)
+	if nextArch, ok := oldArch.edgesNext[compID]; ok {
+		newArchRow := r.moveEntity(entity, backLink, nextArch)
+		nextArch.columns[compID].setData(newArchRow, data)
+		return nil
+	}
+
+	// SLOW PATH (nextArch does not exist yet)
 
 	// move to another archetype
+	newMask := oldArch.mask.Set(compID)
 	newArch := r.getOrRegister(newMask)
+
+	// register edges on Archetype-Graph
+	oldArch.edgesNext[compID] = newArch
+	newArch.edgesPrev[compID] = oldArch
+
 	newArchRow := r.moveEntity(entity, backLink, newArch)
 	newArch.columns[compID].setData(newArchRow, data)
+
+	return nil
 }
 
 func (r *ArchetypeRegistry) UnAssign(entity Entity, compID ComponentID) {
-	link := r.entityArchLinks[entity.Index()]
+	index := entity.Index()
+	link := r.entityArchLinks[index]
 	oldArch := link.arch
-	oldMask := oldArch.mask
-	newMask := oldMask.Clear(compID)
+
+	// FAST PATH (use Archetype-Graph)
+	if prevArch, ok := oldArch.edgesPrev[compID]; ok {
+		if prevArch.mask.IsEmpty() {
+			r.RemoveEntity(entity)
+			return
+		}
+		oldArch.columns[compID].zeroData(link.row)
+		r.moveEntity(entity, link, prevArch)
+		return
+	}
+	// SLOW PATH (prevArch does not exist yet)
+	newMask := oldArch.mask.Clear(compID)
 
 	// nothing to unassign
-	if oldMask == newMask {
+	if oldArch.mask == newMask {
 		return
 	}
 
@@ -104,6 +147,11 @@ func (r *ArchetypeRegistry) UnAssign(entity Entity, compID ComponentID) {
 	}
 
 	newArch := r.getOrRegister(newMask)
+
+	// register edges on Archetype-Graph
+	oldArch.edgesPrev[compID] = newArch
+	newArch.edgesNext[compID] = oldArch
+
 	oldArch.columns[compID].zeroData(link.row)
 	r.moveEntity(entity, link, newArch)
 }

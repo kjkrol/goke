@@ -12,6 +12,9 @@ type Archetype struct {
 	columns  map[ComponentID]*column
 	len      int
 	cap      int
+
+	edgesNext map[ComponentID]*Archetype
+	edgesPrev map[ComponentID]*Archetype
 }
 
 type ArchRow uint32
@@ -23,11 +26,13 @@ type EntityArchLink struct {
 
 func NewArchetype(mask ArchetypeMask) *Archetype {
 	return &Archetype{
-		mask:     mask,
-		entities: make([]Entity, initCapacity),
-		columns:  make(map[ComponentID]*column),
-		len:      0,
-		cap:      initCapacity,
+		mask:      mask,
+		entities:  make([]Entity, initCapacity),
+		columns:   make(map[ComponentID]*column),
+		len:       0,
+		cap:       initCapacity,
+		edgesNext: make(map[ComponentID]*Archetype),
+		edgesPrev: make(map[ComponentID]*Archetype),
 	}
 }
 
