@@ -6,6 +6,7 @@ import (
 
 const initCapacity = 1024
 
+// Supports 256 unique component types
 type Archetype struct {
 	mask     ArchetypeMask
 	entities []Entity

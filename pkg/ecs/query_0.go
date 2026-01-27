@@ -9,12 +9,9 @@ type Query0 struct {
 	*View
 }
 
-func NewQuery0(reg *Registry, options ...QueryOption) *Query0 {
-	viewBuilder := NewViewBuilder(reg)
-	for _, opt := range options {
-		opt(viewBuilder)
-	}
-	return &Query0{View: viewBuilder.Build()}
+func NewQuery0(reg *Registry, options ...ViewOption) *Query0 {
+	view := NewView(reg, options...)
+	return &Query0{View: view}
 }
 
 func (q *Query0) All() iter.Seq[Entity] {
@@ -38,7 +35,7 @@ func (q *Query0) Filter(entities []Entity) iter.Seq[Entity] {
 		for _, e := range entities {
 			link := links[e.Index()]
 			arch := link.arch
-			if arch == nil || !arch.mask.Contains(q.mask) {
+			if arch == nil || !q.View.matches(arch.mask) {
 				continue
 			}
 			if arch != lastArch {

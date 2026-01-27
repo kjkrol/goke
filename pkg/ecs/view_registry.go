@@ -14,7 +14,7 @@ func (vr *ViewRegistry) Register(v *View) {
 
 func (vr *ViewRegistry) OnArchetypeCreated(arch *Archetype) {
 	for _, v := range vr.views {
-		if arch.mask.Contains(v.mask) {
+		if v.matches(arch.mask) {
 			v.AddArchetype(arch)
 		}
 	}

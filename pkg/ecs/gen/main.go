@@ -70,7 +70,7 @@ func genQueryStructAndConstructor(f *os.File, n int, tParams string) {
 	fmt.Fprintf(f, "\ntype Query%d[%s any] struct {\n\t*View\n}\n", n, tParams)
 
 	// Constructor
-	fmt.Fprintf(f, "\nfunc NewQuery%d[%s any](reg *Registry, options ...QueryOption) *Query%d[%s] {\n", n, tParams, n, tParams)
+	fmt.Fprintf(f, "\nfunc NewQuery%d[%s any](reg *Registry, options ...ViewOption) *Query%d[%s] {\n", n, tParams, n, tParams)
 	fmt.Fprintln(f, "\tviewBuilder := NewViewBuilder(reg)")
 
 	// Register components
@@ -177,7 +177,7 @@ func genFilter(f *os.File, n int, allT, hT, tT string, hC int) {
 	fmt.Fprintf(f, "\t\tvar lastArch *Archetype; var cols [%d]*column\n", n)
 	fmt.Fprintf(f, "\t\tfor _, e := range entities {\n")
 	fmt.Fprintf(f, "\t\t\tlink := links[e.Index()]; arch := link.arch\n")
-	fmt.Fprintf(f, "\t\t\tif arch == nil || !arch.mask.Contains(q.mask) { continue }\n")                                                   // q.mask
+	fmt.Fprintf(f, "\t\t\tif arch == nil || q.View.matches(arch.mask) { continue }\n")                                                     // q.includeMask
 	fmt.Fprintf(f, "\t\t\tif arch != lastArch { for i := 0; i < %d; i++ { cols[i] = arch.columns[q.compIDs[i]] }; lastArch = arch }\n", n) // q.compIDs
 	fmt.Fprintf(f, "\t\t\tidx := uintptr(link.row)\n")
 
@@ -248,7 +248,7 @@ func genPureFilter(f *os.File, n int, allT, phT, ptT string, phC int) {
 	fmt.Fprintf(f, "\t\tvar lastArch *Archetype; var cols [%d]*column\n", n)
 	fmt.Fprintf(f, "\t\tfor _, e := range entities {\n")
 	fmt.Fprintf(f, "\t\t\tlink := links[e.Index()]; arch := link.arch\n")
-	fmt.Fprintf(f, "\t\t\tif arch == nil || !arch.mask.Contains(q.mask) { continue }\n")
+	fmt.Fprintf(f, "\t\t\tif arch == nil || q.View.matches(arch.mask) { continue }\n")
 	fmt.Fprintf(f, "\t\t\tif arch != lastArch { for i := 0; i < %d; i++ { cols[i] = arch.columns[q.compIDs[i]] }; lastArch = arch }\n", n)
 	fmt.Fprintf(f, "\t\t\tidx := uintptr(link.row)\n")
 

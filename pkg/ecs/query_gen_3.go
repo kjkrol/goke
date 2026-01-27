@@ -9,7 +9,7 @@ type Query3[T1, T2, T3 any] struct {
 	*View
 }
 
-func NewQuery3[T1, T2, T3 any](reg *Registry, options ...QueryOption) *Query3[T1, T2, T3] {
+func NewQuery3[T1, T2, T3 any](reg *Registry, options ...ViewOption) *Query3[T1, T2, T3] {
 	viewBuilder := NewViewBuilder(reg)
 	OnCompType[T1](viewBuilder)
 	OnCompType[T2](viewBuilder)
@@ -55,7 +55,7 @@ func (q *Query3[T1, T2, T3]) Filter3(entities []Entity) iter.Seq[Head3[T1, T2, T
 		var lastArch *Archetype; var cols [3]*column
 		for _, e := range entities {
 			link := links[e.Index()]; arch := link.arch
-			if arch == nil || !arch.mask.Contains(q.mask) { continue }
+			if arch == nil || q.View.matches(arch.mask) { continue }
 			if arch != lastArch { for i := 0; i < 3; i++ { cols[i] = arch.columns[q.compIDs[i]] }; lastArch = arch }
 			idx := uintptr(link.row)
 			if !yield(Head3[T1, T2, T3]{Entity: e, V1: (*T1)(unsafe.Add(cols[0].data, idx*cols[0].itemSize)), V2: (*T2)(unsafe.Add(cols[1].data, idx*cols[1].itemSize)), V3: (*T3)(unsafe.Add(cols[2].data, idx*cols[2].itemSize))}) { return }
@@ -86,7 +86,7 @@ func (q *Query3[T1, T2, T3]) PureFilter3(entities []Entity) iter.Seq[PHead3[T1, 
 		var lastArch *Archetype; var cols [3]*column
 		for _, e := range entities {
 			link := links[e.Index()]; arch := link.arch
-			if arch == nil || !arch.mask.Contains(q.mask) { continue }
+			if arch == nil || q.View.matches(arch.mask) { continue }
 			if arch != lastArch { for i := 0; i < 3; i++ { cols[i] = arch.columns[q.compIDs[i]] }; lastArch = arch }
 			idx := uintptr(link.row)
 			if !yield(PHead3[T1, T2, T3]{V1: (*T1)(unsafe.Add(cols[0].data, idx*cols[0].itemSize)), V2: (*T2)(unsafe.Add(cols[1].data, idx*cols[1].itemSize)), V3: (*T3)(unsafe.Add(cols[2].data, idx*cols[2].itemSize))}) { return }

@@ -9,7 +9,7 @@ type Query5[T1, T2, T3, T4, T5 any] struct {
 	*View
 }
 
-func NewQuery5[T1, T2, T3, T4, T5 any](reg *Registry, options ...QueryOption) *Query5[T1, T2, T3, T4, T5] {
+func NewQuery5[T1, T2, T3, T4, T5 any](reg *Registry, options ...ViewOption) *Query5[T1, T2, T3, T4, T5] {
 	viewBuilder := NewViewBuilder(reg)
 	OnCompType[T1](viewBuilder)
 	OnCompType[T2](viewBuilder)
@@ -69,7 +69,7 @@ func (q *Query5[T1, T2, T3, T4, T5]) Filter5(entities []Entity) iter.Seq2[Head5[
 		var lastArch *Archetype; var cols [5]*column
 		for _, e := range entities {
 			link := links[e.Index()]; arch := link.arch
-			if arch == nil || !arch.mask.Contains(q.mask) { continue }
+			if arch == nil || q.View.matches(arch.mask) { continue }
 			if arch != lastArch { for i := 0; i < 5; i++ { cols[i] = arch.columns[q.compIDs[i]] }; lastArch = arch }
 			idx := uintptr(link.row)
 			if !yield(Head5[T1, T2, T3]{Entity: e, V1: (*T1)(unsafe.Add(cols[0].data, idx*cols[0].itemSize)), V2: (*T2)(unsafe.Add(cols[1].data, idx*cols[1].itemSize)), V3: (*T3)(unsafe.Add(cols[2].data, idx*cols[2].itemSize))}, Tail5[T4, T5]{V4: (*T4)(unsafe.Add(cols[3].data, idx*cols[3].itemSize)), V5: (*T5)(unsafe.Add(cols[4].data, idx*cols[4].itemSize))}) { return }
@@ -104,7 +104,7 @@ func (q *Query5[T1, T2, T3, T4, T5]) PureFilter5(entities []Entity) iter.Seq2[PH
 		var lastArch *Archetype; var cols [5]*column
 		for _, e := range entities {
 			link := links[e.Index()]; arch := link.arch
-			if arch == nil || !arch.mask.Contains(q.mask) { continue }
+			if arch == nil || q.View.matches(arch.mask) { continue }
 			if arch != lastArch { for i := 0; i < 5; i++ { cols[i] = arch.columns[q.compIDs[i]] }; lastArch = arch }
 			idx := uintptr(link.row)
 			if !yield(PHead5[T1, T2, T3, T4]{V1: (*T1)(unsafe.Add(cols[0].data, idx*cols[0].itemSize)), V2: (*T2)(unsafe.Add(cols[1].data, idx*cols[1].itemSize)), V3: (*T3)(unsafe.Add(cols[2].data, idx*cols[2].itemSize)), V4: (*T4)(unsafe.Add(cols[3].data, idx*cols[3].itemSize))}, PTail5[T5]{V5: (*T5)(unsafe.Add(cols[4].data, idx*cols[4].itemSize))}) { return }

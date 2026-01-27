@@ -9,7 +9,7 @@ type Query4[T1, T2, T3, T4 any] struct {
 	*View
 }
 
-func NewQuery4[T1, T2, T3, T4 any](reg *Registry, options ...QueryOption) *Query4[T1, T2, T3, T4] {
+func NewQuery4[T1, T2, T3, T4 any](reg *Registry, options ...ViewOption) *Query4[T1, T2, T3, T4] {
 	viewBuilder := NewViewBuilder(reg)
 	OnCompType[T1](viewBuilder)
 	OnCompType[T2](viewBuilder)
@@ -62,7 +62,7 @@ func (q *Query4[T1, T2, T3, T4]) Filter4(entities []Entity) iter.Seq2[Head4[T1, 
 		var lastArch *Archetype; var cols [4]*column
 		for _, e := range entities {
 			link := links[e.Index()]; arch := link.arch
-			if arch == nil || !arch.mask.Contains(q.mask) { continue }
+			if arch == nil || q.View.matches(arch.mask) { continue }
 			if arch != lastArch { for i := 0; i < 4; i++ { cols[i] = arch.columns[q.compIDs[i]] }; lastArch = arch }
 			idx := uintptr(link.row)
 			if !yield(Head4[T1, T2, T3]{Entity: e, V1: (*T1)(unsafe.Add(cols[0].data, idx*cols[0].itemSize)), V2: (*T2)(unsafe.Add(cols[1].data, idx*cols[1].itemSize)), V3: (*T3)(unsafe.Add(cols[2].data, idx*cols[2].itemSize))}, Tail4[T4]{V4: (*T4)(unsafe.Add(cols[3].data, idx*cols[3].itemSize))}) { return }
@@ -95,7 +95,7 @@ func (q *Query4[T1, T2, T3, T4]) PureFilter4(entities []Entity) iter.Seq[PHead4[
 		var lastArch *Archetype; var cols [4]*column
 		for _, e := range entities {
 			link := links[e.Index()]; arch := link.arch
-			if arch == nil || !arch.mask.Contains(q.mask) { continue }
+			if arch == nil || q.View.matches(arch.mask) { continue }
 			if arch != lastArch { for i := 0; i < 4; i++ { cols[i] = arch.columns[q.compIDs[i]] }; lastArch = arch }
 			idx := uintptr(link.row)
 			if !yield(PHead4[T1, T2, T3, T4]{V1: (*T1)(unsafe.Add(cols[0].data, idx*cols[0].itemSize)), V2: (*T2)(unsafe.Add(cols[1].data, idx*cols[1].itemSize)), V3: (*T3)(unsafe.Add(cols[2].data, idx*cols[2].itemSize)), V4: (*T4)(unsafe.Add(cols[3].data, idx*cols[3].itemSize))}) { return }

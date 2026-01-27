@@ -9,7 +9,7 @@ type Query6[T1, T2, T3, T4, T5, T6 any] struct {
 	*View
 }
 
-func NewQuery6[T1, T2, T3, T4, T5, T6 any](reg *Registry, options ...QueryOption) *Query6[T1, T2, T3, T4, T5, T6] {
+func NewQuery6[T1, T2, T3, T4, T5, T6 any](reg *Registry, options ...ViewOption) *Query6[T1, T2, T3, T4, T5, T6] {
 	viewBuilder := NewViewBuilder(reg)
 	OnCompType[T1](viewBuilder)
 	OnCompType[T2](viewBuilder)
@@ -74,7 +74,7 @@ func (q *Query6[T1, T2, T3, T4, T5, T6]) Filter6(entities []Entity) iter.Seq2[He
 		var lastArch *Archetype; var cols [6]*column
 		for _, e := range entities {
 			link := links[e.Index()]; arch := link.arch
-			if arch == nil || !arch.mask.Contains(q.mask) { continue }
+			if arch == nil || q.View.matches(arch.mask) { continue }
 			if arch != lastArch { for i := 0; i < 6; i++ { cols[i] = arch.columns[q.compIDs[i]] }; lastArch = arch }
 			idx := uintptr(link.row)
 			if !yield(Head6[T1, T2, T3]{Entity: e, V1: (*T1)(unsafe.Add(cols[0].data, idx*cols[0].itemSize)), V2: (*T2)(unsafe.Add(cols[1].data, idx*cols[1].itemSize)), V3: (*T3)(unsafe.Add(cols[2].data, idx*cols[2].itemSize))}, Tail6[T4, T5, T6]{V4: (*T4)(unsafe.Add(cols[3].data, idx*cols[3].itemSize)), V5: (*T5)(unsafe.Add(cols[4].data, idx*cols[4].itemSize)), V6: (*T6)(unsafe.Add(cols[5].data, idx*cols[5].itemSize))}) { return }
@@ -111,7 +111,7 @@ func (q *Query6[T1, T2, T3, T4, T5, T6]) PureFilter6(entities []Entity) iter.Seq
 		var lastArch *Archetype; var cols [6]*column
 		for _, e := range entities {
 			link := links[e.Index()]; arch := link.arch
-			if arch == nil || !arch.mask.Contains(q.mask) { continue }
+			if arch == nil || q.View.matches(arch.mask) { continue }
 			if arch != lastArch { for i := 0; i < 6; i++ { cols[i] = arch.columns[q.compIDs[i]] }; lastArch = arch }
 			idx := uintptr(link.row)
 			if !yield(PHead6[T1, T2, T3, T4]{V1: (*T1)(unsafe.Add(cols[0].data, idx*cols[0].itemSize)), V2: (*T2)(unsafe.Add(cols[1].data, idx*cols[1].itemSize)), V3: (*T3)(unsafe.Add(cols[2].data, idx*cols[2].itemSize)), V4: (*T4)(unsafe.Add(cols[3].data, idx*cols[3].itemSize))}, PTail6[T5, T6]{V5: (*T5)(unsafe.Add(cols[4].data, idx*cols[4].itemSize)), V6: (*T6)(unsafe.Add(cols[5].data, idx*cols[5].itemSize))}) { return }

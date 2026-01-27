@@ -7,6 +7,14 @@ import (
 	"unsafe"
 )
 
+type position struct {
+	x, y float64
+}
+
+type velocity struct {
+	vx, vy float64
+}
+
 // 1. Basic Allocation and Growth (growTo)
 func TestColumn_AllocationAndGrowth(t *testing.T) {
 	dataType := reflect.TypeFor[position]()

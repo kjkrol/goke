@@ -1,13 +1,15 @@
-package ecs
+package ecs_test
 
 import (
 	"reflect"
 	"testing"
+
+	"github.com/kjkrol/goke/pkg/ecs"
 )
 
 // 1. Registration and Type Mapping
 func TestComponentsRegistry_RegistrationAndMapping(t *testing.T) {
-	registry := NewComponentsRegistry()
+	registry := ecs.NewComponentsRegistry()
 
 	// Case: First registration
 	// Checking if a new type is correctly registered with ID 0, correct size and type.
@@ -41,7 +43,7 @@ func TestComponentsRegistry_RegistrationAndMapping(t *testing.T) {
 	// Case: Multiple types
 	// Registering several different structures and ensuring each receives a unique, incremental ID.
 	t.Run("Multiple types", func(t *testing.T) {
-		registry := NewComponentsRegistry() // Fresh registry for clean IDs
+		registry := ecs.NewComponentsRegistry() // Fresh registry for clean IDs
 
 		id0 := registry.GetOrRegister(reflect.TypeFor[position]()).ID
 		id1 := registry.GetOrRegister(reflect.TypeFor[velocity]()).ID
@@ -55,7 +57,7 @@ func TestComponentsRegistry_RegistrationAndMapping(t *testing.T) {
 
 // 2. Information Lookup
 func TestComponentsRegistry_Lookup(t *testing.T) {
-	registry := NewComponentsRegistry()
+	registry := ecs.NewComponentsRegistry()
 	posType := reflect.TypeFor[position]()
 	info := registry.GetOrRegister(posType)
 
@@ -84,7 +86,7 @@ func TestComponentsRegistry_Lookup(t *testing.T) {
 	// Case: Lookup by ID
 	// Checking if ComponentInfo can be found using only its ComponentID.
 	t.Run("Lookup by ID", func(t *testing.T) {
-		foundInfo, ok := registry.idToInfo[info.ID]
+		foundInfo, ok := registry.Get(info.Type)
 		if !ok {
 			t.Fatal("expected to find info in idToInfo map")
 		}
@@ -96,12 +98,12 @@ func TestComponentsRegistry_Lookup(t *testing.T) {
 
 // 3. Generic Helper
 func TestComponentsRegistry_GenericHelper(t *testing.T) {
-	registry := NewComponentsRegistry()
+	registry := ecs.NewComponentsRegistry()
 
 	// Case: ensureComponentRegistered
 	// Testing if the generic call ensureComponentRegistered[T](reg) works identically to manual reflection.
 	t.Run("ensureComponentRegistered helper", func(t *testing.T) {
-		genericInfo := ensureComponentRegistered[position](registry)
+		genericInfo := registry.GetOrRegister(reflect.TypeFor[position]())
 		manualType := reflect.TypeFor[position]()
 		manualInfo := registry.GetOrRegister(manualType)
 
@@ -113,7 +115,7 @@ func TestComponentsRegistry_GenericHelper(t *testing.T) {
 
 // 4. Metadata Consistency
 func TestComponentsRegistry_MetadataConsistency(t *testing.T) {
-	registry := NewComponentsRegistry()
+	registry := ecs.NewComponentsRegistry()
 
 	// Case: Size correctness
 	// Verifying that Size in ComponentInfo actually corresponds to the structure size.
@@ -148,13 +150,13 @@ func TestComponentsRegistry_MetadataConsistency(t *testing.T) {
 
 // 5. Edge Cases
 func TestComponentsRegistry_EdgeCases(t *testing.T) {
-	registry := NewComponentsRegistry()
+	registry := ecs.NewComponentsRegistry()
 
 	// Case: Empty structures
 	// Checking how the registry handles struct{} (should register with size 0).
 	t.Run("Empty structures", func(t *testing.T) {
 		type empty struct{}
-		info := ensureComponentRegistered[empty](registry)
+		info := registry.GetOrRegister(reflect.TypeFor[empty]())
 
 		if info.Size != 0 {
 			t.Errorf("expected size 0 for empty struct, got %d", info.Size)

@@ -1,4 +1,4 @@
-package ecs
+package ecs_test
 
 // shared_test.go contains common component types used across
 // multiple test suites to avoid duplication.

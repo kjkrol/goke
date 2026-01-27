@@ -9,7 +9,7 @@ type Query2[T1, T2 any] struct {
 	*View
 }
 
-func NewQuery2[T1, T2 any](reg *Registry, options ...QueryOption) *Query2[T1, T2] {
+func NewQuery2[T1, T2 any](reg *Registry, options ...ViewOption) *Query2[T1, T2] {
 	viewBuilder := NewViewBuilder(reg)
 	OnCompType[T1](viewBuilder)
 	OnCompType[T2](viewBuilder)
@@ -50,7 +50,7 @@ func (q *Query2[T1, T2]) Filter2(entities []Entity) iter.Seq[Head2[T1, T2]] {
 		var lastArch *Archetype; var cols [2]*column
 		for _, e := range entities {
 			link := links[e.Index()]; arch := link.arch
-			if arch == nil || !arch.mask.Contains(q.mask) { continue }
+			if arch == nil || q.View.matches(arch.mask) { continue }
 			if arch != lastArch { for i := 0; i < 2; i++ { cols[i] = arch.columns[q.compIDs[i]] }; lastArch = arch }
 			idx := uintptr(link.row)
 			if !yield(Head2[T1, T2]{Entity: e, V1: (*T1)(unsafe.Add(cols[0].data, idx*cols[0].itemSize)), V2: (*T2)(unsafe.Add(cols[1].data, idx*cols[1].itemSize))}) { return }
@@ -79,7 +79,7 @@ func (q *Query2[T1, T2]) PureFilter2(entities []Entity) iter.Seq[PHead2[T1, T2]]
 		var lastArch *Archetype; var cols [2]*column
 		for _, e := range entities {
 			link := links[e.Index()]; arch := link.arch
-			if arch == nil || !arch.mask.Contains(q.mask) { continue }
+			if arch == nil || q.View.matches(arch.mask) { continue }
 			if arch != lastArch { for i := 0; i < 2; i++ { cols[i] = arch.columns[q.compIDs[i]] }; lastArch = arch }
 			idx := uintptr(link.row)
 			if !yield(PHead2[T1, T2]{V1: (*T1)(unsafe.Add(cols[0].data, idx*cols[0].itemSize)), V2: (*T2)(unsafe.Add(cols[1].data, idx*cols[1].itemSize))}) { return }
