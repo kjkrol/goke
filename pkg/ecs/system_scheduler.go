@@ -6,7 +6,7 @@ import (
 )
 
 type ExecutionContext interface {
-	RunSystem(System, time.Duration)
+	Run(System, time.Duration)
 	RunParallel(time.Duration, ...System)
 	Sync()
 }
@@ -40,7 +40,7 @@ func (s *SystemScheduler) RegisterSystem(sys System) {
 	s.buffers[sys] = NewSystemCommandBuffer()
 }
 
-func (s *SystemScheduler) Run(duration time.Duration) {
+func (s *SystemScheduler) Tick(duration time.Duration) {
 	if s.plan == nil {
 		panic("ECS Error: ExecutionPlan is not defined! Use SetPlan() before starting the loop.")
 	}
@@ -49,7 +49,7 @@ func (s *SystemScheduler) Run(duration time.Duration) {
 
 // -------------------------------------------------------------
 
-func (s *SystemScheduler) RunSystem(sys System, d time.Duration) {
+func (s *SystemScheduler) Run(sys System, d time.Duration) {
 	cb := s.getBuffer(sys)
 	sys.Update(s.register, cb, d)
 }

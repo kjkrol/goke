@@ -52,7 +52,7 @@ func TestECS_UseCase(t *testing.T) {
 	})
 
 	engine.SetExecutionPlan(func(ctx ecs.ExecutionContext, d time.Duration) {
-		ctx.RunSystem(billingSystem, d)
+		ctx.Run(billingSystem, d)
 
 		// test this stage
 		order, _ := ecs.GetComponent[Order](engine, eA)
@@ -61,7 +61,7 @@ func TestECS_UseCase(t *testing.T) {
 		}
 
 		ctx.Sync()
-		ctx.RunSystem(cleanerSystem, d)
+		ctx.Run(cleanerSystem, d)
 		ctx.Sync()
 	})
 	engine.Run(time.Duration(time.Second))

@@ -54,7 +54,7 @@ func (e *Engine) SetExecutionPlan(plan ExecutionPlan) {
 }
 
 func (e *Engine) Run(duration time.Duration) {
-	e.scheduler.Run(duration)
+	e.scheduler.Tick(duration)
 }
 
 func RegisterComponent[T any](eng *Engine) ComponentInfo {

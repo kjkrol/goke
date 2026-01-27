@@ -77,9 +77,26 @@ func main() {
     engine := ecs.NewEngine()
 
     e := engine.CreateEntity()
+
+    // --- Standard Assign (Slower) ---
+    // Why? This triggers a heap allocation due to Escape Analysis.
+    // Inside Assign, the operation 'data := unsafe.Pointer(&component)' takes the 
+    // address of a local variable. Since this pointer is passed to an external 
+    // function/storage, the compiler cannot prove the variable won't outlive 
+    // the stack frame. Consequently, 'component' escapes to the heap, 
+    // significantly increasing GC pressure.
     ecs.Assign(engine, e, Pos{X: 0, Y: 0})
     ecs.Assign(engine, e, Vel{X: 1, Y: 1})
-    ecs.Assign(engine, e, Acc{X: 0.1, Y: 0.1})
+    
+    // --- Direct Access (Fastest) ---
+    // Why? This avoids new allocations by working with pre-allocated memory.
+    // AddComponent[T] returns a direct pointer to the memory slot already 
+    // reserved within the ECS storage (Archetype/Chunk). You are modifying 
+    // the data in-place, staying within the bounds of the engine's pre-allocated 
+    // buffers and avoiding the "escape to heap" penalty.
+    ptr, _ := ecs.AddComponent[Acc](engine, entity)
+	ptr.X = 0.1
+	ptr.Y = 0.1
 
     movementSystem := &MovementSystem{}
     engine.RegisterSystem(movementSystem)

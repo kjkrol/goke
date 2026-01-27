@@ -70,8 +70,8 @@ func TestECS_SystemInteractions(t *testing.T) {
 		engine.RegisterSystem(logger)
 
 		engine.SetExecutionPlan(func(s ecs.ExecutionContext, d time.Duration) {
-			s.RunSystem(worker, d)
-			s.RunSystem(logger, d)
+			s.Run(worker, d)
+			s.Run(logger, d)
 			s.Sync()
 		})
 
@@ -96,9 +96,9 @@ func TestECS_SystemInteractions(t *testing.T) {
 		engine.RegisterSystem(logger)
 
 		engine.SetExecutionPlan(func(s ecs.ExecutionContext, d time.Duration) {
-			s.RunSystem(worker, d)
+			s.Run(worker, d)
 			s.Sync() // Force synchronization between systems
-			s.RunSystem(logger, d)
+			s.Run(logger, d)
 			s.Sync()
 		})
 
