@@ -9,7 +9,7 @@ type Query1[T1 any] struct {
 	*View
 }
 
-func NewQuery1[T1 any](reg *Registry, options ...ViewOption) *Query1[T1] {
+func newQuery1[T1 any](reg *Registry, options ...ViewOption) *Query1[T1] {
 	viewBuilder := NewViewBuilder(reg)
 	OnCompType[T1](viewBuilder)
 	for _, opt := range options {

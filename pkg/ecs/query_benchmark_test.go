@@ -17,8 +17,9 @@ type Char struct{ V [32]float32 }
 type Elec struct{ V float64 }
 type Magn struct{ V float64 }
 
-func setupBenchmark(_ *testing.B, count int) (*Registry, []Entity) {
-	reg := NewRegistry()
+func setupBenchmark(_ *testing.B, count int) (*Engine, []Entity) {
+	eng := NewEngine()
+	reg := eng.Registry
 	posTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Pos]())
 	velTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Vel]())
 	accTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Acc]())
@@ -41,14 +42,14 @@ func setupBenchmark(_ *testing.B, count int) (*Registry, []Entity) {
 		reg.AssignByID(e, magnTypeInfo, unsafe.Pointer(&Magn{1}))
 		entities = append(entities, e)
 	}
-	return reg, entities
+	return eng, entities
 }
 
 // --- Benchmarki Standardowe (All) ---
 
 func BenchmarkQuery0_All(b *testing.B) {
-	reg, _ := setupBenchmark(b, entitiesNumber)
-	query := NewQuery0(reg)
+	eng, _ := setupBenchmark(b, entitiesNumber)
+	query := NewQuery0(eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -64,8 +65,8 @@ func BenchmarkQuery0_All(b *testing.B) {
 }
 
 func BenchmarkQuery1_All(b *testing.B) {
-	reg, _ := setupBenchmark(b, entitiesNumber)
-	query1 := NewQuery1[Pos](reg)
+	eng, _ := setupBenchmark(b, entitiesNumber)
+	query1 := NewQuery1[Pos](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -82,8 +83,8 @@ func BenchmarkQuery1_All(b *testing.B) {
 }
 
 func BenchmarkQuery2_All(b *testing.B) {
-	reg, _ := setupBenchmark(b, entitiesNumber)
-	query2 := NewQuery2[Pos, Vel](reg)
+	eng, _ := setupBenchmark(b, entitiesNumber)
+	query2 := NewQuery2[Pos, Vel](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -100,8 +101,8 @@ func BenchmarkQuery2_All(b *testing.B) {
 }
 
 func BenchmarkQuery3_All(b *testing.B) {
-	reg, _ := setupBenchmark(b, entitiesNumber)
-	query3 := NewQuery3[Pos, Vel, Acc](reg)
+	eng, _ := setupBenchmark(b, entitiesNumber)
+	query3 := NewQuery3[Pos, Vel, Acc](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -119,9 +120,9 @@ func BenchmarkQuery3_All(b *testing.B) {
 }
 
 func BenchmarkQuery3WithTag_All(b *testing.B) {
-	reg, _ := setupBenchmark(b, entitiesNumber)
+	eng, _ := setupBenchmark(b, entitiesNumber)
 
-	query := NewQuery3[Pos, Vel, Acc](reg, WithTag[Mass]())
+	query := NewQuery3[Pos, Vel, Acc](eng, WithTag[Mass]())
 
 	fn := func() {
 		for head := range query.All3() {
@@ -137,8 +138,8 @@ func BenchmarkQuery3WithTag_All(b *testing.B) {
 }
 
 func BenchmarkQuery4_All(b *testing.B) {
-	reg, _ := setupBenchmark(b, entitiesNumber)
-	query4 := NewQuery4[Pos, Vel, Acc, Mass](reg)
+	eng, _ := setupBenchmark(b, entitiesNumber)
+	query4 := NewQuery4[Pos, Vel, Acc, Mass](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -157,8 +158,8 @@ func BenchmarkQuery4_All(b *testing.B) {
 }
 
 func BenchmarkQuery5_All(b *testing.B) {
-	reg, _ := setupBenchmark(b, entitiesNumber)
-	query5 := NewQuery5[Pos, Vel, Acc, Mass, Spin](reg)
+	eng, _ := setupBenchmark(b, entitiesNumber)
+	query5 := NewQuery5[Pos, Vel, Acc, Mass, Spin](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -178,8 +179,8 @@ func BenchmarkQuery5_All(b *testing.B) {
 }
 
 func BenchmarkQuery6_All(b *testing.B) {
-	reg, _ := setupBenchmark(b, entitiesNumber)
-	query6 := NewQuery6[Pos, Vel, Acc, Mass, Spin, Char](reg)
+	eng, _ := setupBenchmark(b, entitiesNumber)
+	query6 := NewQuery6[Pos, Vel, Acc, Mass, Spin, Char](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -197,8 +198,8 @@ func BenchmarkQuery6_All(b *testing.B) {
 }
 
 func BenchmarkQuery7_All(b *testing.B) {
-	reg, _ := setupBenchmark(b, entitiesNumber)
-	query7 := NewQuery7[Pos, Vel, Acc, Mass, Spin, Char, Elec](reg)
+	eng, _ := setupBenchmark(b, entitiesNumber)
+	query7 := NewQuery7[Pos, Vel, Acc, Mass, Spin, Char, Elec](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -216,8 +217,8 @@ func BenchmarkQuery7_All(b *testing.B) {
 }
 
 func BenchmarkQuery8_All(b *testing.B) {
-	reg, _ := setupBenchmark(b, entitiesNumber)
-	query8 := NewQuery8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn](reg)
+	eng, _ := setupBenchmark(b, entitiesNumber)
+	query8 := NewQuery8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -237,8 +238,8 @@ func BenchmarkQuery8_All(b *testing.B) {
 // --- Benchmarki Filtrowane ---
 
 func BenchmarkQuery3_Filtered100(b *testing.B) {
-	reg, entities := setupBenchmark(b, entitiesNumber)
-	query3 := NewQuery3[Pos, Vel, Acc](reg)
+	eng, entities := setupBenchmark(b, entitiesNumber)
+	query3 := NewQuery3[Pos, Vel, Acc](eng)
 	subset := entities[:100]
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
@@ -259,8 +260,8 @@ func BenchmarkQuery3_Filtered100(b *testing.B) {
 // --- Benchmarki Pure All ---
 
 func BenchmarkQuery1_PureAll(b *testing.B) {
-	reg, _ := setupBenchmark(b, entitiesNumber)
-	query1 := NewQuery1[Pos](reg)
+	eng, _ := setupBenchmark(b, entitiesNumber)
+	query1 := NewQuery1[Pos](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -277,8 +278,8 @@ func BenchmarkQuery1_PureAll(b *testing.B) {
 }
 
 func BenchmarkQuery2_PureAll(b *testing.B) {
-	reg, _ := setupBenchmark(b, entitiesNumber)
-	query2 := NewQuery2[Pos, Vel](reg)
+	eng, _ := setupBenchmark(b, entitiesNumber)
+	query2 := NewQuery2[Pos, Vel](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -295,8 +296,8 @@ func BenchmarkQuery2_PureAll(b *testing.B) {
 }
 
 func BenchmarkQuery3_PureAll(b *testing.B) {
-	reg, _ := setupBenchmark(b, entitiesNumber)
-	query3 := NewQuery3[Pos, Vel, Acc](reg)
+	eng, _ := setupBenchmark(b, entitiesNumber)
+	query3 := NewQuery3[Pos, Vel, Acc](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -314,8 +315,8 @@ func BenchmarkQuery3_PureAll(b *testing.B) {
 }
 
 func BenchmarkQuery4_PureAll(b *testing.B) {
-	reg, _ := setupBenchmark(b, entitiesNumber)
-	query4 := NewQuery4[Pos, Vel, Acc, Mass](reg)
+	eng, _ := setupBenchmark(b, entitiesNumber)
+	query4 := NewQuery4[Pos, Vel, Acc, Mass](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -333,8 +334,8 @@ func BenchmarkQuery4_PureAll(b *testing.B) {
 }
 
 func BenchmarkQuery5_PureAll(b *testing.B) {
-	reg, _ := setupBenchmark(b, entitiesNumber)
-	query5 := NewQuery5[Pos, Vel, Acc, Mass, Spin](reg)
+	eng, _ := setupBenchmark(b, entitiesNumber)
+	query5 := NewQuery5[Pos, Vel, Acc, Mass, Spin](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -352,8 +353,8 @@ func BenchmarkQuery5_PureAll(b *testing.B) {
 }
 
 func BenchmarkQuery6_PureAll(b *testing.B) {
-	reg, _ := setupBenchmark(b, entitiesNumber)
-	query6 := NewQuery6[Pos, Vel, Acc, Mass, Spin, Char](reg)
+	eng, _ := setupBenchmark(b, entitiesNumber)
+	query6 := NewQuery6[Pos, Vel, Acc, Mass, Spin, Char](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -371,8 +372,8 @@ func BenchmarkQuery6_PureAll(b *testing.B) {
 }
 
 func BenchmarkQuery7_PureAll(b *testing.B) {
-	reg, _ := setupBenchmark(b, entitiesNumber)
-	query7 := NewQuery7[Pos, Vel, Acc, Mass, Spin, Char, Elec](reg)
+	eng, _ := setupBenchmark(b, entitiesNumber)
+	query7 := NewQuery7[Pos, Vel, Acc, Mass, Spin, Char, Elec](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -390,8 +391,8 @@ func BenchmarkQuery7_PureAll(b *testing.B) {
 }
 
 func BenchmarkQuery8_PureAll(b *testing.B) {
-	reg, _ := setupBenchmark(b, entitiesNumber)
-	query8 := NewQuery8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn](reg)
+	eng, _ := setupBenchmark(b, entitiesNumber)
+	query8 := NewQuery8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -411,8 +412,8 @@ func BenchmarkQuery8_PureAll(b *testing.B) {
 // --- Benchmarki Pure Filtered ---
 
 func BenchmarkQuery3_PureFiltered100(b *testing.B) {
-	reg, entities := setupBenchmark(b, entitiesNumber)
-	query3 := NewQuery3[Pos, Vel, Acc](reg)
+	eng, entities := setupBenchmark(b, entitiesNumber)
+	query3 := NewQuery3[Pos, Vel, Acc](eng)
 	subset := entities[:100]
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.

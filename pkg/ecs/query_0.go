@@ -9,7 +9,7 @@ type Query0 struct {
 	*View
 }
 
-func NewQuery0(reg *Registry, options ...ViewOption) *Query0 {
+func newQuery0(reg *Registry, options ...ViewOption) *Query0 {
 	view := NewView(reg, options...)
 	return &Query0{View: view}
 }

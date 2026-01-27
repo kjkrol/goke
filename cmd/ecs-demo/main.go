@@ -30,7 +30,7 @@ func main() {
 	ecs.Assign(engine, entity, Status{Processed: false})
 	ecs.Assign(engine, entity, Discount{Percentage: 20.0})
 
-	query := ecs.NewQuery3[Order, Status, Discount](engine.Registry)
+	query := ecs.NewQuery3[Order, Status, Discount](engine)
 	billing := engine.RegisterSystemFunc(func(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuffer, d time.Duration) {
 		for head := range query.All3() {
 			ord, st, disc := head.V1, head.V2, head.V3

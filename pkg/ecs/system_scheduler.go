@@ -35,7 +35,6 @@ func (s *SystemScheduler) SetExecutionPlan(plan ExecutionPlan) {
 }
 
 func (s *SystemScheduler) RegisterSystem(sys System) {
-	sys.Init(s.register)
 	s.systems = append(s.systems, sys)
 	s.buffers[sys] = NewSystemCommandBuffer()
 }

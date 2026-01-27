@@ -9,7 +9,7 @@ type Query8[T1, T2, T3, T4, T5, T6, T7, T8 any] struct {
 	*View
 }
 
-func NewQuery8[T1, T2, T3, T4, T5, T6, T7, T8 any](reg *Registry, options ...ViewOption) *Query8[T1, T2, T3, T4, T5, T6, T7, T8] {
+func newQuery8[T1, T2, T3, T4, T5, T6, T7, T8 any](reg *Registry, options ...ViewOption) *Query8[T1, T2, T3, T4, T5, T6, T7, T8] {
 	viewBuilder := NewViewBuilder(reg)
 	OnCompType[T1](viewBuilder)
 	OnCompType[T2](viewBuilder)

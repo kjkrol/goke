@@ -22,8 +22,8 @@ type WorkerSystem struct {
 	query *ecs.Query1[Task]
 }
 
-func (s *WorkerSystem) Init(reg *ecs.Registry) {
-	s.query = ecs.NewQuery1[Task](reg)
+func (s *WorkerSystem) Init(eng *ecs.Engine) {
+	s.query = ecs.NewQuery1[Task](eng)
 }
 
 func (s *WorkerSystem) Update(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuffer, d time.Duration) {
@@ -38,8 +38,8 @@ type LoggerSystem struct {
 	Found bool
 }
 
-func (s *LoggerSystem) Init(reg *ecs.Registry) {
-	s.query = ecs.NewQuery1[Log](reg)
+func (s *LoggerSystem) Init(eng *ecs.Engine) {
+	s.query = ecs.NewQuery1[Log](eng)
 }
 
 func (s *LoggerSystem) Update(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuffer, d time.Duration) {

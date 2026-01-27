@@ -35,7 +35,7 @@ func TestQuery_WithTag_And_Without_Logic(t *testing.T) {
 	t.Run("Inclusion and Exclusion Logic", func(t *testing.T) {
 		// Goal: Find entities that have 'position', but are NOT 'velocity' (not moving)
 		// Expected: eA and eC
-		query := ecs.NewQuery0(engine.Registry,
+		query := ecs.NewQuery0(engine,
 			ecs.WithTag[position](),
 			ecs.Without[velocity](),
 		)
@@ -55,7 +55,7 @@ func TestQuery_WithTag_And_Without_Logic(t *testing.T) {
 	t.Run("Tag as Requirement", func(t *testing.T) {
 		// Goal: Find entities with 'position' AND 'complexComponent'
 		// Expected: eC only
-		query := ecs.NewQuery0(engine.Registry,
+		query := ecs.NewQuery0(engine,
 			ecs.WithTag[position](),
 			ecs.WithTag[complexComponent](),
 		)
@@ -71,7 +71,7 @@ func TestQuery_WithTag_And_Without_Logic(t *testing.T) {
 	// 4. Test: Filter method on a manual slice
 	t.Run("Manual Slice Filtering", func(t *testing.T) {
 		// Goal: From a list of entities, filter out those that are 'complexComponent'
-		query := ecs.NewQuery0(engine.Registry, ecs.Without[complexComponent]())
+		query := ecs.NewQuery0(engine, ecs.Without[complexComponent]())
 
 		input := []ecs.Entity{eA, eB, eC}
 		var result []ecs.Entity

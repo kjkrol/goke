@@ -40,11 +40,13 @@ func NewEngine() *Engine {
 }
 
 func (e *Engine) RegisterSystem(system System) {
+	system.Init(e)
 	e.scheduler.RegisterSystem(system)
 }
 
 func (e *Engine) RegisterSystemFunc(fn SystemFunc) System {
 	wrapper := &functionalSystem{updateFn: fn}
+	wrapper.Init(e)
 	e.scheduler.RegisterSystem(wrapper)
 	return wrapper
 }
@@ -103,4 +105,32 @@ func GetComponent[T any](eng *Engine, entity Entity) (*T, error) {
 	}
 
 	return (*T)(data), nil
+}
+
+func NewQuery0(eng *Engine, options ...ViewOption) *Query0 {
+	return newQuery0(eng.Registry, options...)
+}
+func NewQuery1[T1 any](eng *Engine, options ...ViewOption) *Query1[T1] {
+	return newQuery1[T1](eng.Registry, options...)
+}
+func NewQuery2[T1, T2 any](eng *Engine, options ...ViewOption) *Query2[T1, T2] {
+	return newQuery2[T1, T2](eng.Registry, options...)
+}
+func NewQuery3[T1, T2, T3 any](eng *Engine, options ...ViewOption) *Query3[T1, T2, T3] {
+	return newQuery3[T1, T2, T3](eng.Registry, options...)
+}
+func NewQuery4[T1, T2, T3, T4 any](eng *Engine, options ...ViewOption) *Query4[T1, T2, T3, T4] {
+	return newQuery4[T1, T2, T3, T4](eng.Registry, options...)
+}
+func NewQuery5[T1, T2, T3, T4, T5 any](eng *Engine, options ...ViewOption) *Query5[T1, T2, T3, T4, T5] {
+	return newQuery5[T1, T2, T3, T4, T5](eng.Registry, options...)
+}
+func NewQuery6[T1, T2, T3, T4, T5, T6 any](eng *Engine, options ...ViewOption) *Query6[T1, T2, T3, T4, T5, T6] {
+	return newQuery6[T1, T2, T3, T4, T5, T6](eng.Registry, options...)
+}
+func NewQuery7[T1, T2, T3, T4, T5, T6, T7 any](eng *Engine, options ...ViewOption) *Query7[T1, T2, T3, T4, T5, T6, T7] {
+	return newQuery7[T1, T2, T3, T4, T5, T6, T7](eng.Registry, options...)
+}
+func NewQuery8[T1, T2, T3, T4, T5, T6, T7, T8 any](eng *Engine, options ...ViewOption) *Query8[T1, T2, T3, T4, T5, T6, T7, T8] {
+	return newQuery8[T1, T2, T3, T4, T5, T6, T7, T8](eng.Registry, options...)
 }

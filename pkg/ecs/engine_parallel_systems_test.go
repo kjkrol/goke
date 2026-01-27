@@ -19,8 +19,8 @@ type PhysicsSystem struct {
 	query *ecs.Query2[Position, Velocity]
 }
 
-func (s *PhysicsSystem) Init(reg *ecs.Registry) {
-	s.query = ecs.NewQuery2[Position, Velocity](reg)
+func (s *PhysicsSystem) Init(eng *ecs.Engine) {
+	s.query = ecs.NewQuery2[Position, Velocity](eng)
 }
 func (s *PhysicsSystem) Update(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuffer, d time.Duration) {
 	for head := range s.query.All2() {
@@ -34,8 +34,8 @@ type HealthSystem struct {
 	query *ecs.Query1[Health]
 }
 
-func (s *HealthSystem) Init(reg *ecs.Registry) {
-	s.query = ecs.NewQuery1[Health](reg)
+func (s *HealthSystem) Init(eng *ecs.Engine) {
+	s.query = ecs.NewQuery1[Health](eng)
 }
 func (s *HealthSystem) Update(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuffer, d time.Duration) {
 	for head := range s.query.All1() {
@@ -76,7 +76,7 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	eng.Run(time.Second) // Simulate 1 second
 
 	// 4. Verification
-	query := ecs.NewQuery2[Position, Health](eng.Registry)
+	query := ecs.NewQuery2[Position, Health](eng)
 	count := 0
 	for head := range query.All2() {
 		count++

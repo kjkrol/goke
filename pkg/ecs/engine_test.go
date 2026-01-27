@@ -33,7 +33,7 @@ func TestECS_UseCase(t *testing.T) {
 	eB := engine.CreateEntity()
 	ecs.Assign(engine, eB, Order{ID: "ORD-002", Total: 50.0})
 
-	query1 := ecs.NewQuery2[Order, Discount](engine.Registry)
+	query1 := ecs.NewQuery2[Order, Discount](engine)
 	processedCount := 0
 
 	billingSystem := engine.RegisterSystemFunc(func(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuffer, d time.Duration) {
@@ -44,7 +44,7 @@ func TestECS_UseCase(t *testing.T) {
 			cb.AssignComponent(head.Entity, processedTypeInfo, nil)
 		}
 	})
-	query2 := ecs.NewQuery0(engine.Registry, ecs.WithTag[Processed](), ecs.WithTag[Order](), ecs.WithTag[Discount]())
+	query2 := ecs.NewQuery0(engine, ecs.WithTag[Processed](), ecs.WithTag[Order](), ecs.WithTag[Discount]())
 	cleanerSystem := engine.RegisterSystemFunc(func(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuffer, d time.Duration) {
 		for entity := range query2.All() {
 			cb.RemoveEntity(entity)

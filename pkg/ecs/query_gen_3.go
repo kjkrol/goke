@@ -9,7 +9,7 @@ type Query3[T1, T2, T3 any] struct {
 	*View
 }
 
-func NewQuery3[T1, T2, T3 any](reg *Registry, options ...ViewOption) *Query3[T1, T2, T3] {
+func newQuery3[T1, T2, T3 any](reg *Registry, options ...ViewOption) *Query3[T1, T2, T3] {
 	viewBuilder := NewViewBuilder(reg)
 	OnCompType[T1](viewBuilder)
 	OnCompType[T2](viewBuilder)

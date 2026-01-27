@@ -9,7 +9,7 @@ type Query6[T1, T2, T3, T4, T5, T6 any] struct {
 	*View
 }
 
-func NewQuery6[T1, T2, T3, T4, T5, T6 any](reg *Registry, options ...ViewOption) *Query6[T1, T2, T3, T4, T5, T6] {
+func newQuery6[T1, T2, T3, T4, T5, T6 any](reg *Registry, options ...ViewOption) *Query6[T1, T2, T3, T4, T5, T6] {
 	viewBuilder := NewViewBuilder(reg)
 	OnCompType[T1](viewBuilder)
 	OnCompType[T2](viewBuilder)

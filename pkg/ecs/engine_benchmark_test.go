@@ -147,7 +147,7 @@ func BenchmarkEngine_Query_RealData(b *testing.B) {
 	}
 
 	// Twoje Query1
-	query := ecs.NewQuery1[Position3](engine.Registry)
+	query := ecs.NewQuery1[Position3](engine)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -201,7 +201,7 @@ func BenchmarkEngine_Fragmentation_And_MassDelete(b *testing.B) {
 			engine.RemoveEntity(entities[j])
 		}
 
-		query := ecs.NewQuery1[Position3](engine.Registry)
+		query := ecs.NewQuery1[Position3](engine)
 
 		b.ResetTimer()
 		b.ReportAllocs()

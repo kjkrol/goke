@@ -70,7 +70,7 @@ func genQueryStructAndConstructor(f *os.File, n int, tParams string) {
 	fmt.Fprintf(f, "\ntype Query%d[%s any] struct {\n\t*View\n}\n", n, tParams)
 
 	// Constructor
-	fmt.Fprintf(f, "\nfunc NewQuery%d[%s any](reg *Registry, options ...ViewOption) *Query%d[%s] {\n", n, tParams, n, tParams)
+	fmt.Fprintf(f, "\nfunc newQuery%d[%s any](reg *Registry, options ...ViewOption) *Query%d[%s] {\n", n, tParams, n, tParams)
 	fmt.Fprintln(f, "\tviewBuilder := NewViewBuilder(reg)")
 
 	// Register components
