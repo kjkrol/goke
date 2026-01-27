@@ -46,7 +46,24 @@ func setupBenchmark(_ *testing.B, count int) (*Registry, []Entity) {
 
 // --- Benchmarki Standardowe (All) ---
 
-func BenchmarkView1_All(b *testing.B) {
+func BenchmarkQuery0_All(b *testing.B) {
+	reg, _ := setupBenchmark(b, entitiesNumber)
+	query := NewQuery0(reg)
+
+	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
+	fn := func() {
+		for entity := range query.All() {
+			entity.IsVirtual()
+		}
+	}
+
+	b.ResetTimer()
+	for b.Loop() {
+		fn()
+	}
+}
+
+func BenchmarkQuery1_All(b *testing.B) {
 	reg, _ := setupBenchmark(b, entitiesNumber)
 	query1 := NewQuery1[Pos](reg)
 
@@ -64,7 +81,7 @@ func BenchmarkView1_All(b *testing.B) {
 	}
 }
 
-func BenchmarkView2_All(b *testing.B) {
+func BenchmarkQuery2_All(b *testing.B) {
 	reg, _ := setupBenchmark(b, entitiesNumber)
 	query2 := NewQuery2[Pos, Vel](reg)
 
@@ -82,7 +99,7 @@ func BenchmarkView2_All(b *testing.B) {
 	}
 }
 
-func BenchmarkView3_All(b *testing.B) {
+func BenchmarkQuery3_All(b *testing.B) {
 	reg, _ := setupBenchmark(b, entitiesNumber)
 	query3 := NewQuery3[Pos, Vel, Acc](reg)
 
@@ -101,7 +118,7 @@ func BenchmarkView3_All(b *testing.B) {
 	}
 }
 
-func BenchmarkView3WithTag_All(b *testing.B) {
+func BenchmarkQuery3WithTag_All(b *testing.B) {
 	reg, _ := setupBenchmark(b, entitiesNumber)
 
 	query := NewQuery3[Pos, Vel, Acc](reg, WithTag[Mass]())
@@ -119,7 +136,7 @@ func BenchmarkView3WithTag_All(b *testing.B) {
 	}
 }
 
-func BenchmarkView4_All(b *testing.B) {
+func BenchmarkQuery4_All(b *testing.B) {
 	reg, _ := setupBenchmark(b, entitiesNumber)
 	query4 := NewQuery4[Pos, Vel, Acc, Mass](reg)
 
@@ -139,7 +156,7 @@ func BenchmarkView4_All(b *testing.B) {
 	}
 }
 
-func BenchmarkView5_All(b *testing.B) {
+func BenchmarkQuery5_All(b *testing.B) {
 	reg, _ := setupBenchmark(b, entitiesNumber)
 	query5 := NewQuery5[Pos, Vel, Acc, Mass, Spin](reg)
 
@@ -160,7 +177,7 @@ func BenchmarkView5_All(b *testing.B) {
 	}
 }
 
-func BenchmarkView6_All(b *testing.B) {
+func BenchmarkQuery6_All(b *testing.B) {
 	reg, _ := setupBenchmark(b, entitiesNumber)
 	query6 := NewQuery6[Pos, Vel, Acc, Mass, Spin, Char](reg)
 
@@ -179,7 +196,7 @@ func BenchmarkView6_All(b *testing.B) {
 	}
 }
 
-func BenchmarkView7_All(b *testing.B) {
+func BenchmarkQuery7_All(b *testing.B) {
 	reg, _ := setupBenchmark(b, entitiesNumber)
 	query7 := NewQuery7[Pos, Vel, Acc, Mass, Spin, Char, Elec](reg)
 
@@ -198,7 +215,7 @@ func BenchmarkView7_All(b *testing.B) {
 	}
 }
 
-func BenchmarkView8_All(b *testing.B) {
+func BenchmarkQuery8_All(b *testing.B) {
 	reg, _ := setupBenchmark(b, entitiesNumber)
 	query8 := NewQuery8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn](reg)
 
@@ -219,7 +236,7 @@ func BenchmarkView8_All(b *testing.B) {
 
 // --- Benchmarki Filtrowane ---
 
-func BenchmarkView3_Filtered100(b *testing.B) {
+func BenchmarkQuery3_Filtered100(b *testing.B) {
 	reg, entities := setupBenchmark(b, entitiesNumber)
 	query3 := NewQuery3[Pos, Vel, Acc](reg)
 	subset := entities[:100]
@@ -241,7 +258,7 @@ func BenchmarkView3_Filtered100(b *testing.B) {
 
 // --- Benchmarki Pure All ---
 
-func BenchmarkView1_PureAll(b *testing.B) {
+func BenchmarkQuery1_PureAll(b *testing.B) {
 	reg, _ := setupBenchmark(b, entitiesNumber)
 	query1 := NewQuery1[Pos](reg)
 
@@ -259,7 +276,7 @@ func BenchmarkView1_PureAll(b *testing.B) {
 	}
 }
 
-func BenchmarkView2_PureAll(b *testing.B) {
+func BenchmarkQuery2_PureAll(b *testing.B) {
 	reg, _ := setupBenchmark(b, entitiesNumber)
 	query2 := NewQuery2[Pos, Vel](reg)
 
@@ -277,7 +294,7 @@ func BenchmarkView2_PureAll(b *testing.B) {
 	}
 }
 
-func BenchmarkView3_PureAll(b *testing.B) {
+func BenchmarkQuery3_PureAll(b *testing.B) {
 	reg, _ := setupBenchmark(b, entitiesNumber)
 	query3 := NewQuery3[Pos, Vel, Acc](reg)
 
@@ -296,7 +313,7 @@ func BenchmarkView3_PureAll(b *testing.B) {
 	}
 }
 
-func BenchmarkView4_PureAll(b *testing.B) {
+func BenchmarkQuery4_PureAll(b *testing.B) {
 	reg, _ := setupBenchmark(b, entitiesNumber)
 	query4 := NewQuery4[Pos, Vel, Acc, Mass](reg)
 
@@ -315,7 +332,7 @@ func BenchmarkView4_PureAll(b *testing.B) {
 	}
 }
 
-func BenchmarkView5_PureAll(b *testing.B) {
+func BenchmarkQuery5_PureAll(b *testing.B) {
 	reg, _ := setupBenchmark(b, entitiesNumber)
 	query5 := NewQuery5[Pos, Vel, Acc, Mass, Spin](reg)
 
@@ -334,7 +351,7 @@ func BenchmarkView5_PureAll(b *testing.B) {
 	}
 }
 
-func BenchmarkView6_PureAll(b *testing.B) {
+func BenchmarkQuery6_PureAll(b *testing.B) {
 	reg, _ := setupBenchmark(b, entitiesNumber)
 	query6 := NewQuery6[Pos, Vel, Acc, Mass, Spin, Char](reg)
 
@@ -353,7 +370,7 @@ func BenchmarkView6_PureAll(b *testing.B) {
 	}
 }
 
-func BenchmarkView7_PureAll(b *testing.B) {
+func BenchmarkQuery7_PureAll(b *testing.B) {
 	reg, _ := setupBenchmark(b, entitiesNumber)
 	query7 := NewQuery7[Pos, Vel, Acc, Mass, Spin, Char, Elec](reg)
 
@@ -372,7 +389,7 @@ func BenchmarkView7_PureAll(b *testing.B) {
 	}
 }
 
-func BenchmarkView8_PureAll(b *testing.B) {
+func BenchmarkQuery8_PureAll(b *testing.B) {
 	reg, _ := setupBenchmark(b, entitiesNumber)
 	query8 := NewQuery8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn](reg)
 
@@ -393,7 +410,7 @@ func BenchmarkView8_PureAll(b *testing.B) {
 
 // --- Benchmarki Pure Filtered ---
 
-func BenchmarkView3_PureFiltered100(b *testing.B) {
+func BenchmarkQuery3_PureFiltered100(b *testing.B) {
 	reg, entities := setupBenchmark(b, entitiesNumber)
 	query3 := NewQuery3[Pos, Vel, Acc](reg)
 	subset := entities[:100]

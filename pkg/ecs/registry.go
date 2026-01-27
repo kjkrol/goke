@@ -56,6 +56,16 @@ func (r *Registry) AssignByID(entity Entity, compInfo ComponentInfo, data unsafe
 	return nil
 }
 
+// AllocateComponentMemoryByID ensures the entity is valid and performs the allocation in the archetype.
+func (r *Registry) AllocateComponentMemoryByID(entity Entity, compInfo ComponentInfo) (unsafe.Pointer, error) {
+	if !r.entityPool.IsValid(entity) {
+		return nil, fmt.Errorf("invalid entity")
+	}
+
+	// Calling the new method we discussed for ArchetypeRegistry
+	return r.archetypeRegistry.AllocateComponentMemory(entity, compInfo)
+}
+
 func (r *Registry) UnassignByID(entity Entity, compInfo ComponentInfo) error {
 	if !r.entityPool.IsValid(entity) {
 		return fmt.Errorf("Invalid Entity")

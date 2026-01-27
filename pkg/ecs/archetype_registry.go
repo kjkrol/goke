@@ -18,8 +18,8 @@ type ArchetypeRegistry struct {
 func NewArchetypeRegistry(componentsRegistry *ComponentsRegistry, viewRegistry *ViewRegistry) *ArchetypeRegistry {
 	reg := &ArchetypeRegistry{
 		archetypeMap:       make(map[ArchetypeMask]*Archetype),
-		archetypes:         make([]*Archetype, 0, 64),
-		entityArchLinks:    make([]EntityArchLink, 0, 1024),
+		archetypes:         make([]*Archetype, 0, archetypesInitCap),
+		entityArchLinks:    make([]EntityArchLink, 0, entityPoolInitCap),
 		componentsRegistry: componentsRegistry,
 		viewRegistry:       viewRegistry,
 	}
@@ -118,6 +118,50 @@ func (r *ArchetypeRegistry) Assign(entity Entity, compInfo ComponentInfo, data u
 	newArch.columns[compID].setData(newArchRow, data)
 
 	return nil
+}
+
+// AllocateComponentMemory ensures the entity has the component and returns a pointer to its memory.
+// This avoids the 'escape to heap' allocation of the component data struct.
+func (r *ArchetypeRegistry) AllocateComponentMemory(entity Entity, compInfo ComponentInfo) (unsafe.Pointer, error) {
+	compID := compInfo.ID
+	index := entity.Index()
+
+	// Safety check (similar to your Assign)
+	if int(index) >= len(r.entityArchLinks) || r.entityArchLinks[index].arch == nil {
+		return nil, ErrEntityNotFound
+	}
+
+	backLink := r.entityArchLinks[index]
+	oldArch := backLink.arch
+	var targetRow ArchRow
+	var targetArch *Archetype
+
+	// 1. If component already exists, just return the address
+	if oldArch.mask.IsSet(compID) {
+		targetRow = backLink.row
+		targetArch = oldArch
+	} else {
+		// 2. Perform structural change (Archetype Transition)
+		// Check if we have a fast path in the Archetype-Graph
+		nextArch, ok := oldArch.edgesNext[compID]
+		if !ok {
+			// Slow path: create or get new archetype
+			newMask := oldArch.mask.Set(compID)
+			nextArch = r.getOrRegister(newMask)
+
+			// Link in the graph
+			oldArch.edgesNext[compID] = nextArch
+			nextArch.edgesPrev[compID] = oldArch
+		}
+
+		// Move existing data to the new archetype
+		targetRow = r.moveEntity(entity, backLink, nextArch)
+		targetArch = nextArch
+	}
+
+	// 3. Calculate and return the direct pointer
+	column := targetArch.columns[compID]
+	return unsafe.Add(column.data, uintptr(targetRow)*column.itemSize), nil
 }
 
 func (r *ArchetypeRegistry) UnAssign(entity Entity, compInfo ComponentInfo) {

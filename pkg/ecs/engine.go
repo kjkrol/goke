@@ -14,6 +14,7 @@ type (
 
 		RegisterComponentType(reflect.Type) ComponentInfo
 		AssignByID(Entity, ComponentInfo, unsafe.Pointer) error
+		AllocateComponentMemoryByID(Entity, ComponentInfo) (unsafe.Pointer, error)
 		UnassignByID(Entity, ComponentInfo) error
 		GetComponent(Entity, ComponentID) (unsafe.Pointer, error)
 
@@ -79,6 +80,15 @@ func Unassign[T any](eng *Engine, entity Entity) error {
 	}
 
 	return eng.UnassignByID(entity, compInfo)
+}
+
+func AddComponent[T any](eng *Engine, entity Entity) (*T, error) {
+	compInfo := ensureComponentRegistered[T](eng.componentsRegistry)
+	ptr, err := eng.AllocateComponentMemoryByID(entity, compInfo)
+	if err != nil {
+		return nil, err
+	}
+	return (*T)(ptr), nil
 }
 
 func GetComponent[T any](eng *Engine, entity Entity) (*T, error) {
