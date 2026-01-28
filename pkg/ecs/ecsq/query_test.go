@@ -5,8 +5,7 @@ import (
 	"testing"
 
 	"github.com/kjkrol/goke/internal/core"
-	"github.com/kjkrol/goke/pkg/ecs"
-	"github.com/kjkrol/goke/pkg/ecsq"
+	"github.com/kjkrol/goke/pkg/ecs/ecsq"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -38,11 +37,11 @@ func TestQuery_WithTag_And_Without_Logic(t *testing.T) {
 		// Goal: Find entities that have 'position', but are NOT 'velocity' (not moving)
 		// Expected: eA and eC
 		query := ecsq.NewQuery0(reg,
-			ecs.WithTag[position](),
-			ecs.Without[velocity](),
+			core.WithTag[position](),
+			core.Without[velocity](),
 		)
 
-		found := make(map[ecs.Entity]bool)
+		found := make(map[core.Entity]bool)
 		for e := range query.All() {
 			found[e] = true
 		}
@@ -58,8 +57,8 @@ func TestQuery_WithTag_And_Without_Logic(t *testing.T) {
 		// Goal: Find entities with 'position' AND 'complexComponent'
 		// Expected: eC only
 		query := ecsq.NewQuery0(reg,
-			ecs.WithTag[position](),
-			ecs.WithTag[complexComponent](),
+			core.WithTag[position](),
+			core.WithTag[complexComponent](),
 		)
 
 		count := 0
@@ -73,10 +72,10 @@ func TestQuery_WithTag_And_Without_Logic(t *testing.T) {
 	// 4. Test: Filter method on a manual slice
 	t.Run("Manual Slice Filtering", func(t *testing.T) {
 		// Goal: From a list of entities, filter out those that are 'complexComponent'
-		query := ecsq.NewQuery0(reg, ecs.Without[complexComponent]())
+		query := ecsq.NewQuery0(reg, core.Without[complexComponent]())
 
-		input := []ecs.Entity{eA, eB, eC}
-		var result []ecs.Entity
+		input := []core.Entity{eA, eB, eC}
+		var result []core.Entity
 		for e := range query.Filter(input) {
 			result = append(result, e)
 		}

@@ -1,4 +1,4 @@
-//go:generate go run ../../internal/gen/queries/main.go
+//go:generate go run ../../../internal/gen/queries/main.go
 package ecsq
 
 // This file triggers the generation of type-safe ECS queries.

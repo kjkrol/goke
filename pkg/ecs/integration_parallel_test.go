@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/kjkrol/goke/pkg/ecs"
-	"github.com/kjkrol/goke/pkg/ecsq"
+	"github.com/kjkrol/goke/pkg/ecs/ecsq"
 )
 
 // --- Components (Disjoint sets) ---

@@ -2,7 +2,7 @@ package ecs
 
 import (
 	"github.com/kjkrol/goke/internal/core"
-	"github.com/kjkrol/goke/pkg/ecsq"
+	"github.com/kjkrol/goke/pkg/ecs/ecsq"
 )
 
 // ViewOption defines criteria for filtering entities in a query beyond
