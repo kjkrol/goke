@@ -19,7 +19,7 @@ type Magn struct{ V float64 }
 
 func setupBenchmark(_ *testing.B, count int) (*Engine, []Entity) {
 	eng := NewEngine()
-	reg := eng.Registry
+	reg := eng.registry
 	posTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Pos]())
 	velTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Vel]())
 	accTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Acc]())

@@ -1,4 +1,4 @@
-package ecs
+package core
 
 import (
 	"reflect"
@@ -18,16 +18,16 @@ type velocity struct {
 // 1. Basic Allocation and Growth (growTo)
 func TestColumn_AllocationAndGrowth(t *testing.T) {
 	dataType := reflect.TypeFor[position]()
-	col := &column{
+	col := &Column{
 		dataType: dataType,
-		itemSize: dataType.Size(),
+		ItemSize: dataType.Size(),
 	}
 
 	// Case: Initial Growth
 	// Checking if data is available and pointer is not nil after first growTo.
 	t.Run("Initial Growth", func(t *testing.T) {
 		col.growTo(10)
-		if col.data == nil {
+		if col.Data == nil {
 			t.Fatal("expected column data pointer to be allocated, got nil")
 		}
 		if col.cap != 10 {
@@ -75,9 +75,9 @@ func TestColumn_DataManipulation(t *testing.T) {
 	}
 
 	dataType := reflect.TypeFor[largeStruct]()
-	col := &column{
+	col := &Column{
 		dataType: dataType,
-		itemSize: dataType.Size(),
+		ItemSize: dataType.Size(),
 	}
 	col.growTo(10)
 
@@ -88,11 +88,11 @@ func TestColumn_DataManipulation(t *testing.T) {
 		ptr1 := uintptr(col.GetElement(1))
 		ptr5 := uintptr(col.GetElement(5))
 
-		if ptr1-ptr0 != col.itemSize {
-			t.Errorf("pointer shift mismatch: got %d, want %d", ptr1-ptr0, col.itemSize)
+		if ptr1-ptr0 != col.ItemSize {
+			t.Errorf("pointer shift mismatch: got %d, want %d", ptr1-ptr0, col.ItemSize)
 		}
-		if ptr5-ptr0 != col.itemSize*5 {
-			t.Errorf("multi-row pointer shift mismatch: got %d, want %d", ptr5-ptr0, col.itemSize*5)
+		if ptr5-ptr0 != col.ItemSize*5 {
+			t.Errorf("multi-row pointer shift mismatch: got %d, want %d", ptr5-ptr0, col.ItemSize*5)
 		}
 	})
 
@@ -124,9 +124,9 @@ func TestColumn_DataManipulation(t *testing.T) {
 // 3. Lifecycle Management (zeroData / copyData)
 func TestColumn_LifecycleManagement(t *testing.T) {
 	dataType := reflect.TypeFor[int64]()
-	col := &column{
+	col := &Column{
 		dataType: dataType,
-		itemSize: dataType.Size(),
+		ItemSize: dataType.Size(),
 	}
 	col.growTo(10)
 
@@ -176,9 +176,9 @@ func TestColumn_GCPersistence(t *testing.T) {
 	// Ensuring c.rawSlice prevents GC from reclaiming col.data.
 	t.Run("GC Stress Test", func(t *testing.T) {
 		dataType := reflect.TypeFor[position]()
-		col := &column{
+		col := &Column{
 			dataType: dataType,
-			itemSize: dataType.Size(),
+			ItemSize: dataType.Size(),
 		}
 		col.growTo(100)
 
@@ -209,9 +209,9 @@ func TestColumn_AlignmentAndTypes(t *testing.T) {
 			Data [13]byte
 		}
 		dataType := reflect.TypeFor[oddStruct]()
-		col := &column{
+		col := &Column{
 			dataType: dataType,
-			itemSize: dataType.Size(),
+			ItemSize: dataType.Size(),
 		}
 		col.growTo(2)
 
@@ -232,9 +232,9 @@ func TestColumn_AlignmentAndTypes(t *testing.T) {
 	t.Run("Zero-size types", func(t *testing.T) {
 		type empty struct{}
 		dataType := reflect.TypeFor[empty]()
-		col := &column{
+		col := &Column{
 			dataType: dataType,
-			itemSize: dataType.Size(),
+			ItemSize: dataType.Size(),
 		}
 		col.growTo(10)
 
@@ -242,7 +242,7 @@ func TestColumn_AlignmentAndTypes(t *testing.T) {
 		ptr0 := col.GetElement(0)
 		ptr1 := col.GetElement(1)
 
-		if ptr0 != ptr1 && col.itemSize == 0 {
+		if ptr0 != ptr1 && col.ItemSize == 0 {
 			// In Go, zero-sized objects may have the same address
 		}
 	})

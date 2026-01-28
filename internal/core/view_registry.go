@@ -1,4 +1,4 @@
-package ecs
+package core
 
 type ViewRegistry struct {
 	views []*View
@@ -14,7 +14,7 @@ func (vr *ViewRegistry) Register(v *View) {
 
 func (vr *ViewRegistry) OnArchetypeCreated(arch *Archetype) {
 	for _, v := range vr.views {
-		if v.matches(arch.mask) {
+		if v.Matches(arch.Mask) {
 			v.AddArchetype(arch)
 		}
 	}

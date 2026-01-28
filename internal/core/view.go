@@ -1,50 +1,50 @@
-package ecs
+package core
 
 const MaxComponents = 8
 
-type matchedArch struct {
-	entities *[]Entity
-	columns  [MaxComponents]*column
-	len      *int
+type MatchedArch struct {
+	Entities *[]Entity
+	Columns  [MaxComponents]*Column
+	Len      *int
 }
 
 type View struct {
-	reg         *Registry
+	Reg         *Registry
 	includeMask ArchetypeMask
 	excludeMask ArchetypeMask
-	compIDs     []ComponentID
+	CompIDs     []ComponentID
 	matched     []*Archetype
-	baked       []matchedArch
+	Baked       []MatchedArch
 }
 
 func (v *View) Reindex() {
 	v.matched = v.matched[:0]
-	for _, arch := range v.reg.archetypeRegistry.All() {
-		if v.matches(arch.mask) {
+	for _, arch := range v.Reg.ArchetypeRegistry.All() {
+		if v.Matches(arch.Mask) {
 			v.matched = append(v.matched, arch)
 		}
 	}
 
-	v.baked = v.baked[:0]
+	v.Baked = v.Baked[:0]
 	for _, arch := range v.matched {
 		v.AddArchetype(arch)
 	}
 }
 
 func (v *View) AddArchetype(arch *Archetype) {
-	mArch := matchedArch{
-		entities: &arch.entities,
-		len:      &arch.len,
+	mArch := MatchedArch{
+		Entities: &arch.entities,
+		Len:      &arch.len,
 	}
-	for i, id := range v.compIDs {
-		mArch.columns[i] = arch.columns[id]
+	for i, id := range v.CompIDs {
+		mArch.Columns[i] = arch.Columns[id]
 	}
-	v.baked = append(v.baked, mArch)
+	v.Baked = append(v.Baked, mArch)
 }
 
 // ---------------------------------------------------------
 
-func (v *View) matches(archMask ArchetypeMask) bool {
+func (v *View) Matches(archMask ArchetypeMask) bool {
 	// Inclusion - Unrolled with Early Exit
 	if (archMask[0] & v.includeMask[0]) != v.includeMask[0] {
 		return false

@@ -1,4 +1,4 @@
-package ecs
+package core
 
 import "fmt"
 
@@ -19,17 +19,17 @@ func NewViewBuilder(reg *Registry) *ViewBuilder {
 }
 
 func OnCompType[T any](b *ViewBuilder) {
-	compInfo := ensureComponentRegistered[T](b.reg.componentsRegistry)
+	compInfo := EnsureComponentRegistered[T](b.reg.ComponentsRegistry)
 	b.OnType(compInfo.ID)
 }
 
 func OnTagType[T any](b *ViewBuilder) {
-	compInfo := ensureComponentRegistered[T](b.reg.componentsRegistry)
+	compInfo := EnsureComponentRegistered[T](b.reg.ComponentsRegistry)
 	b.OnTag(compInfo.ID)
 }
 
 func OnCompExcludeType[T any](b *ViewBuilder) {
-	compInfo := ensureComponentRegistered[T](b.reg.componentsRegistry)
+	compInfo := EnsureComponentRegistered[T](b.reg.ComponentsRegistry)
 	b.OnExcludeType(compInfo.ID)
 }
 
@@ -68,12 +68,12 @@ func (b *ViewBuilder) Build() *View {
 	}
 
 	v := &View{
-		reg:         b.reg,
+		Reg:         b.reg,
 		includeMask: mask,
 		excludeMask: excludedMask,
-		compIDs:     b.compIDs,
+		CompIDs:     b.compIDs,
 	}
 	v.Reindex()
-	v.reg.viewRegistry.Register(v)
+	v.Reg.ViewRegistry.Register(v)
 	return v
 }

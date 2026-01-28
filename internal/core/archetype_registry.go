@@ -1,4 +1,4 @@
-package ecs
+package core
 
 import (
 	"errors"
@@ -9,7 +9,7 @@ import (
 type ArchetypeRegistry struct {
 	archetypeMap       map[ArchetypeMask]*Archetype
 	archetypes         []*Archetype
-	entityArchLinks    []EntityArchLink
+	EntityArchLinks    []EntityArchLink
 	componentsRegistry *ComponentsRegistry
 	viewRegistry       *ViewRegistry
 	rootArch           *Archetype
@@ -19,7 +19,7 @@ func NewArchetypeRegistry(componentsRegistry *ComponentsRegistry, viewRegistry *
 	reg := &ArchetypeRegistry{
 		archetypeMap:       make(map[ArchetypeMask]*Archetype),
 		archetypes:         make([]*Archetype, 0, archetypesInitCap),
-		entityArchLinks:    make([]EntityArchLink, 0, entityPoolInitCap),
+		EntityArchLinks:    make([]EntityArchLink, 0, entityPoolInitCap),
 		componentsRegistry: componentsRegistry,
 		viewRegistry:       viewRegistry,
 	}
@@ -46,30 +46,30 @@ func (r *ArchetypeRegistry) All() []*Archetype {
 
 func (r *ArchetypeRegistry) AddEntity(entity Entity) {
 	index := entity.Index()
-	for int(index) >= len(r.entityArchLinks) {
-		r.entityArchLinks = append(r.entityArchLinks, EntityArchLink{})
+	for int(index) >= len(r.EntityArchLinks) {
+		r.EntityArchLinks = append(r.EntityArchLinks, EntityArchLink{})
 	}
 	row := r.rootArch.registerEntity(entity)
-	r.entityArchLinks[index] = EntityArchLink{
-		arch: r.rootArch,
-		row:  row,
+	r.EntityArchLinks[index] = EntityArchLink{
+		Arch: r.rootArch,
+		Row:  row,
 	}
 }
 
 func (r *ArchetypeRegistry) RemoveEntity(entity Entity) {
 	index := entity.Index()
-	link := r.entityArchLinks[index]
-	if link.arch == nil {
+	link := r.EntityArchLinks[index]
+	if link.Arch == nil {
 		return
 	}
 
-	swappedEntity, swapped := link.arch.SwapRemoveEntity(link.row)
+	swappedEntity, swapped := link.Arch.SwapRemoveEntity(link.Row)
 
 	if swapped {
-		r.entityArchLinks[swappedEntity.Index()].row = link.row
+		r.EntityArchLinks[swappedEntity.Index()].Row = link.Row
 	}
 
-	r.entityArchLinks[index] = EntityArchLink{arch: nil, row: 0}
+	r.EntityArchLinks[index] = EntityArchLink{Arch: nil, Row: 0}
 }
 
 var (
@@ -85,29 +85,29 @@ func (r *ArchetypeRegistry) Assign(entity Entity, compInfo ComponentInfo, data u
 	compID := compInfo.ID
 
 	index := entity.Index()
-	if int(index) >= len(r.entityArchLinks) || r.entityArchLinks[index].arch == nil {
+	if int(index) >= len(r.EntityArchLinks) || r.EntityArchLinks[index].Arch == nil {
 		return ErrEntityNotFound
 	}
-	backLink := r.entityArchLinks[index]
-	oldArch := backLink.arch
+	backLink := r.EntityArchLinks[index]
+	oldArch := backLink.Arch
 
 	// override existing component
-	if oldArch.mask.IsSet(compID) {
-		oldArch.columns[compID].setData(backLink.row, data)
+	if oldArch.Mask.IsSet(compID) {
+		oldArch.Columns[compID].setData(backLink.Row, data)
 		return nil
 	}
 
 	// FAST PATH (use Archetype-Graph)
 	if nextArch, ok := oldArch.edgesNext[compID]; ok {
 		newArchRow := r.moveEntity(entity, backLink, nextArch)
-		nextArch.columns[compID].setData(newArchRow, data)
+		nextArch.Columns[compID].setData(newArchRow, data)
 		return nil
 	}
 
 	// SLOW PATH (nextArch does not exist yet)
 
 	// move to another archetype
-	newMask := oldArch.mask.Set(compID)
+	newMask := oldArch.Mask.Set(compID)
 	newArch := r.getOrRegister(newMask)
 
 	// register edges on Archetype-Graph
@@ -115,7 +115,7 @@ func (r *ArchetypeRegistry) Assign(entity Entity, compInfo ComponentInfo, data u
 	newArch.edgesPrev[compID] = oldArch
 
 	newArchRow := r.moveEntity(entity, backLink, newArch)
-	newArch.columns[compID].setData(newArchRow, data)
+	newArch.Columns[compID].setData(newArchRow, data)
 
 	return nil
 }
@@ -127,18 +127,18 @@ func (r *ArchetypeRegistry) AllocateComponentMemory(entity Entity, compInfo Comp
 	index := entity.Index()
 
 	// Safety check (similar to your Assign)
-	if int(index) >= len(r.entityArchLinks) || r.entityArchLinks[index].arch == nil {
+	if int(index) >= len(r.EntityArchLinks) || r.EntityArchLinks[index].Arch == nil {
 		return nil, ErrEntityNotFound
 	}
 
-	backLink := r.entityArchLinks[index]
-	oldArch := backLink.arch
+	backLink := r.EntityArchLinks[index]
+	oldArch := backLink.Arch
 	var targetRow ArchRow
 	var targetArch *Archetype
 
 	// 1. If component already exists, just return the address
-	if oldArch.mask.IsSet(compID) {
-		targetRow = backLink.row
+	if oldArch.Mask.IsSet(compID) {
+		targetRow = backLink.Row
 		targetArch = oldArch
 	} else {
 		// 2. Perform structural change (Archetype Transition)
@@ -146,7 +146,7 @@ func (r *ArchetypeRegistry) AllocateComponentMemory(entity Entity, compInfo Comp
 		nextArch, ok := oldArch.edgesNext[compID]
 		if !ok {
 			// Slow path: create or get new archetype
-			newMask := oldArch.mask.Set(compID)
+			newMask := oldArch.Mask.Set(compID)
 			nextArch = r.getOrRegister(newMask)
 
 			// Link in the graph
@@ -160,31 +160,31 @@ func (r *ArchetypeRegistry) AllocateComponentMemory(entity Entity, compInfo Comp
 	}
 
 	// 3. Calculate and return the direct pointer
-	column := targetArch.columns[compID]
-	return unsafe.Add(column.data, uintptr(targetRow)*column.itemSize), nil
+	column := targetArch.Columns[compID]
+	return unsafe.Add(column.Data, uintptr(targetRow)*column.ItemSize), nil
 }
 
 func (r *ArchetypeRegistry) UnAssign(entity Entity, compInfo ComponentInfo) {
 	index := entity.Index()
-	link := r.entityArchLinks[index]
-	oldArch := link.arch
+	link := r.EntityArchLinks[index]
+	oldArch := link.Arch
 	compID := compInfo.ID
 
 	// FAST PATH (use Archetype-Graph)
 	if prevArch, ok := oldArch.edgesPrev[compID]; ok {
-		if prevArch.mask.IsEmpty() {
+		if prevArch.Mask.IsEmpty() {
 			r.RemoveEntity(entity)
 			return
 		}
-		oldArch.columns[compID].zeroData(link.row)
+		oldArch.Columns[compID].zeroData(link.Row)
 		r.moveEntity(entity, link, prevArch)
 		return
 	}
 	// SLOW PATH (prevArch does not exist yet)
-	newMask := oldArch.mask.Clear(compID)
+	newMask := oldArch.Mask.Clear(compID)
 
 	// nothing to unassign
-	if oldArch.mask == newMask {
+	if oldArch.Mask == newMask {
 		return
 	}
 
@@ -199,7 +199,7 @@ func (r *ArchetypeRegistry) UnAssign(entity Entity, compInfo ComponentInfo) {
 	oldArch.edgesPrev[compID] = newArch
 	newArch.edgesNext[compID] = oldArch
 
-	oldArch.columns[compID].zeroData(link.row)
+	oldArch.Columns[compID].zeroData(link.Row)
 	r.moveEntity(entity, link, newArch)
 }
 
@@ -214,10 +214,10 @@ func (r *ArchetypeRegistry) getOrRegister(mask ArchetypeMask) *Archetype {
 	mask.ForEachSet(func(id ComponentID) {
 		info := r.componentsRegistry.idToInfo[id]
 		slice := reflect.MakeSlice(reflect.SliceOf(info.Type), initCapacity, initCapacity)
-		arch.columns[id] = &column{
-			data:     slice.UnsafePointer(),
+		arch.Columns[id] = &Column{
+			Data:     slice.UnsafePointer(),
 			dataType: info.Type,
-			itemSize: info.Size,
+			ItemSize: info.Size,
 			len:      0,
 			cap:      initCapacity,
 		}
@@ -233,21 +233,21 @@ func (r *ArchetypeRegistry) getOrRegister(mask ArchetypeMask) *Archetype {
 
 func (r *ArchetypeRegistry) moveEntity(entity Entity, link EntityArchLink, newArch *Archetype) ArchRow {
 	index := entity.Index()
-	oldArch := link.arch
-	oldArchRow := link.row
+	oldArch := link.Arch
+	oldArchRow := link.Row
 
 	newArchRow := newArch.registerEntity(entity)
 
-	for id, newCol := range newArch.columns {
-		if oldCol, exists := oldArch.columns[id]; exists {
+	for id, newCol := range newArch.Columns {
+		if oldCol, exists := oldArch.Columns[id]; exists {
 			newCol.setData(newArchRow, oldCol.GetElement(oldArchRow))
 		}
 	}
 
 	r.RemoveEntity(entity)
 
-	r.entityArchLinks[index].arch = newArch
-	r.entityArchLinks[index].row = newArchRow
+	r.EntityArchLinks[index].Arch = newArch
+	r.EntityArchLinks[index].Row = newArchRow
 
 	return newArchRow
 }

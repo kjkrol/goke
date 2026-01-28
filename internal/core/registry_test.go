@@ -1,4 +1,4 @@
-package ecs
+package core
 
 import (
 	"reflect"
@@ -24,8 +24,8 @@ func TestViewReactivity(t *testing.T) {
 		Build()
 
 	// Initial check: The view should be empty because no archetypes exist yet
-	if len(view.baked) != 0 {
-		t.Errorf("Expected 0 baked archetypes initially, got %d", len(view.baked))
+	if len(view.Baked) != 0 {
+		t.Errorf("Expected 0 baked archetypes initially, got %d", len(view.Baked))
 	}
 
 	// 3. Action: Create an entity that forces a new matching archetype
@@ -37,14 +37,14 @@ func TestViewReactivity(t *testing.T) {
 	reg.AssignByID(e1, tagTypeInfo, unsafe.Pointer(&TagA{}))
 
 	// 4. Verification: Did the View receive the new archetype?
-	if len(view.baked) == 0 {
+	if len(view.Baked) == 0 {
 		t.Fatal("View failed to detect new archetype created after view initialization!")
 	}
 
 	// Verify the data inside baked reflects the added entity
 	foundMatchingArch := false
-	for _, b := range view.baked {
-		if *b.len == 1 {
+	for _, b := range view.Baked {
+		if *b.Len == 1 {
 			foundMatchingArch = true
 			break
 		}
@@ -56,11 +56,11 @@ func TestViewReactivity(t *testing.T) {
 
 	// 5. Negative Test: Create an entity that DOES NOT match the mask
 	// (Has Position, but lacks TagA)
-	beforeCount := len(view.baked)
+	beforeCount := len(view.Baked)
 	e2 := reg.CreateEntity()
 	reg.AssignByID(e2, posTypeInfo, unsafe.Pointer(&Position{30, 40}))
 
-	if len(view.baked) != beforeCount {
+	if len(view.Baked) != beforeCount {
 		t.Errorf("View incorrectly added an archetype that does not satisfy the TagA requirement")
 	}
 }

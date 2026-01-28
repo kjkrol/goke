@@ -19,17 +19,17 @@ func TestQuery_WithTag_And_Without_Logic(t *testing.T) {
 
 	// Entity A: Only position
 	eA := engine.CreateEntity()
-	engine.AllocateByID(eA, positionType)
+	engine.Allocate(eA, positionType)
 
 	// Entity B: position + velocity (Moving entity)
 	eB := engine.CreateEntity()
-	engine.AllocateByID(eB, positionType)
-	engine.AllocateByID(eB, velocityType)
+	engine.Allocate(eB, positionType)
+	engine.Allocate(eB, velocityType)
 
 	// Entity C: position + complexComponent (Static named entity)
 	eC := engine.CreateEntity()
-	engine.AllocateByID(eC, positionType)
-	engine.AllocateByID(eC, complexType)
+	engine.Allocate(eC, positionType)
+	engine.Allocate(eC, complexType)
 
 	// 2. Test: Filter Inclusion (WithTag) and Exclusion (Without)
 	t.Run("Inclusion and Exclusion Logic", func(t *testing.T) {
@@ -84,4 +84,19 @@ func TestQuery_WithTag_And_Without_Logic(t *testing.T) {
 		assert.Contains(t, result, eB)
 		assert.NotContains(t, result, eC)
 	})
+}
+
+// Any other shared test utilities can go here, for example:
+type complexComponent struct {
+	Active bool
+	Layer  int32
+	Name   [16]byte
+}
+
+type position struct {
+	x, y float64
+}
+
+type velocity struct {
+	vx, vy float64
 }

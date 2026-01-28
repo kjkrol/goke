@@ -26,7 +26,7 @@ func BenchmarkEngine_Structural_RealData(b *testing.B) {
 	tempEntities := make([]ecs.Entity, warmupCount)
 	for i := 0; i < warmupCount; i++ {
 		tempEntities[i] = engine.CreateEntity()
-		engine.AllocateByID(tempEntities[i], posInfo)
+		engine.Allocate(tempEntities[i], posInfo)
 	}
 	for i := 0; i < warmupCount; i++ {
 		engine.RemoveEntity(tempEntities[i])
@@ -58,7 +58,7 @@ func BenchmarkEngine_Structural_RealData(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			// Get memory directly from the archetype
-			ptr, _ := engine.AllocateByID(entities[i], posInfo)
+			ptr, _ := engine.Allocate(entities[i], posInfo)
 			p := (*Position3)(ptr)
 			// Write directly to the destination
 			p.X = float64(i)
@@ -96,7 +96,7 @@ func BenchmarkEngine_Structural_RealData(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			// Structural change + get pointer to the new memory slot
-			ptr, _ := engine.AllocateByID(entities[i], velInfo)
+			ptr, _ := engine.Allocate(entities[i], velInfo)
 			v := (*Velocity3)(ptr)
 			v.X = float64(i)
 			v.Y = 1
@@ -141,7 +141,7 @@ func BenchmarkEngine_Query_RealData(b *testing.B) {
 	count := 100000
 	for i := 0; i < count; i++ {
 		e := engine.CreateEntity()
-		ptr, _ := engine.AllocateByID(e, posInfo)
+		ptr, _ := engine.Allocate(e, posInfo)
 		p := (*Position3)(ptr)
 		p.X, p.Y, p.Z = float64(i), 1.0, 2.0
 	}
@@ -167,7 +167,7 @@ func BenchmarkEngine_Fragmentation_And_MassDelete(b *testing.B) {
 	entities := make([]ecs.Entity, count)
 	for i := 0; i < count; i++ {
 		entities[i] = engine.CreateEntity()
-		ptr, _ := engine.AllocateByID(entities[i], posInfo)
+		ptr, _ := engine.Allocate(entities[i], posInfo)
 		p := (*Position3)(ptr)
 		p.X = float64(i)
 	}
@@ -182,7 +182,7 @@ func BenchmarkEngine_Fragmentation_And_MassDelete(b *testing.B) {
 			posInfo = engine.RegisterComponentType(reflect.TypeFor[Position3]())
 			for j := 0; j < count; j++ {
 				entities[j] = engine.CreateEntity()
-				engine.AllocateByID(entities[j], posInfo)
+				engine.Allocate(entities[j], posInfo)
 			}
 			b.StartTimer()
 

@@ -5,38 +5,55 @@ import (
 	"reflect"
 	"time"
 	"unsafe"
+
+	"github.com/kjkrol/goke/internal/core"
 )
 
-type (
-	EngineAPI interface {
-		CreateEntity() Entity
-		RemoveEntity(entity Entity) bool
+type Entity = core.Entity
+type ComponentID = core.ComponentID
+type ComponentInfo = core.ComponentInfo
 
-		RegisterComponentType(reflect.Type) ComponentInfo
-		AssignByID(Entity, ComponentInfo, unsafe.Pointer) error
-		AllocateByID(Entity, ComponentInfo) (unsafe.Pointer, error)
-		UnassignByID(Entity, ComponentInfo) error
-		GetComponent(Entity, ComponentID) (unsafe.Pointer, error)
+type ExecutionPlan = core.ExecutionPlan
+type ExecutionContext = core.ExecutionContext
 
-		RegisterSystem(System)
-		RegisterSystemFunc(SystemFunc) System
-		SetExecutionPlan(ExecutionPlan)
-		Run(time.Duration)
-	}
-	Engine struct {
-		*Registry
-		scheduler *SystemScheduler
-	}
-)
-
-var _ EngineAPI = (*Engine)(nil)
+type Engine struct {
+	registry  *core.Registry
+	scheduler *core.SystemScheduler
+}
 
 func NewEngine() *Engine {
-	reg := NewRegistry()
+	reg := core.NewRegistry()
 	return &Engine{
-		Registry:  reg,
-		scheduler: NewScheduler(reg),
+		registry:  reg,
+		scheduler: core.NewScheduler(reg),
 	}
+}
+
+func (e *Engine) CreateEntity() Entity {
+	return e.registry.CreateEntity()
+}
+
+func (e *Engine) RemoveEntity(entity Entity) bool {
+	return e.registry.RemoveEntity(entity)
+}
+
+func (e *Engine) RegisterComponentType(componentType reflect.Type) ComponentInfo {
+	return e.registry.RegisterComponentType(componentType)
+}
+
+func (e *Engine) Allocate(entity Entity, compInfo ComponentInfo) (unsafe.Pointer, error) {
+	return e.registry.AllocateByID(entity, compInfo)
+}
+
+func (e *Engine) AssignByID(entity Entity, compInfo ComponentInfo, data unsafe.Pointer) error {
+	return e.registry.AssignByID(entity, compInfo, data)
+}
+
+func (e *Engine) UnassignByID(entity Entity, compInfo ComponentInfo) error {
+	return e.registry.UnassignByID(entity, compInfo)
+}
+func (e *Engine) GetComponent(entity Entity, compID ComponentID) (unsafe.Pointer, error) {
+	return e.registry.GetComponent(entity, compID)
 }
 
 func (e *Engine) RegisterSystem(system System) {
@@ -59,12 +76,14 @@ func (e *Engine) Run(duration time.Duration) {
 	e.scheduler.Tick(duration)
 }
 
+// generic helpers
+
 func RegisterComponent[T any](eng *Engine) ComponentInfo {
-	return ensureComponentRegistered[T](eng.componentsRegistry)
+	return core.EnsureComponentRegistered[T](eng.registry.ComponentsRegistry)
 }
 
 func Assign[T any](eng *Engine, entity Entity, component T) error {
-	compInfo := ensureComponentRegistered[T](eng.componentsRegistry)
+	compInfo := core.EnsureComponentRegistered[T](eng.registry.ComponentsRegistry)
 	data := unsafe.Pointer(&component)
 	return eng.AssignByID(entity, compInfo, data)
 }
@@ -76,7 +95,7 @@ func AssignByID[T any](eng *Engine, entity Entity, compInfo ComponentInfo, compo
 
 func Unassign[T any](eng *Engine, entity Entity) error {
 	componentType := reflect.TypeFor[T]()
-	compInfo, ok := eng.componentsRegistry.Get(componentType)
+	compInfo, ok := eng.registry.ComponentsRegistry.Get(componentType)
 	if !ok {
 		return fmt.Errorf("Component doesn't exist.")
 	}
@@ -85,8 +104,8 @@ func Unassign[T any](eng *Engine, entity Entity) error {
 }
 
 func AddComponent[T any](eng *Engine, entity Entity) (*T, error) {
-	compInfo := ensureComponentRegistered[T](eng.componentsRegistry)
-	ptr, err := eng.AllocateByID(entity, compInfo)
+	compInfo := core.EnsureComponentRegistered[T](eng.registry.ComponentsRegistry)
+	ptr, err := eng.Allocate(entity, compInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -95,42 +114,14 @@ func AddComponent[T any](eng *Engine, entity Entity) (*T, error) {
 
 func GetComponent[T any](eng *Engine, entity Entity) (*T, error) {
 	compType := reflect.TypeFor[T]()
-	compInfo, ok := eng.componentsRegistry.Get(compType)
+	compInfo, ok := eng.registry.ComponentsRegistry.Get(compType)
 	if !ok {
 		return nil, fmt.Errorf("Component doesn't exist.")
 	}
-	data, err := eng.GetComponent(entity, compInfo.ID)
+	data, err := eng.registry.GetComponent(entity, compInfo.ID)
 	if err != nil {
 		return nil, err
 	}
 
 	return (*T)(data), nil
-}
-
-func NewQuery0(eng *Engine, options ...ViewOption) *Query0 {
-	return newQuery0(eng.Registry, options...)
-}
-func NewQuery1[T1 any](eng *Engine, options ...ViewOption) *Query1[T1] {
-	return newQuery1[T1](eng.Registry, options...)
-}
-func NewQuery2[T1, T2 any](eng *Engine, options ...ViewOption) *Query2[T1, T2] {
-	return newQuery2[T1, T2](eng.Registry, options...)
-}
-func NewQuery3[T1, T2, T3 any](eng *Engine, options ...ViewOption) *Query3[T1, T2, T3] {
-	return newQuery3[T1, T2, T3](eng.Registry, options...)
-}
-func NewQuery4[T1, T2, T3, T4 any](eng *Engine, options ...ViewOption) *Query4[T1, T2, T3, T4] {
-	return newQuery4[T1, T2, T3, T4](eng.Registry, options...)
-}
-func NewQuery5[T1, T2, T3, T4, T5 any](eng *Engine, options ...ViewOption) *Query5[T1, T2, T3, T4, T5] {
-	return newQuery5[T1, T2, T3, T4, T5](eng.Registry, options...)
-}
-func NewQuery6[T1, T2, T3, T4, T5, T6 any](eng *Engine, options ...ViewOption) *Query6[T1, T2, T3, T4, T5, T6] {
-	return newQuery6[T1, T2, T3, T4, T5, T6](eng.Registry, options...)
-}
-func NewQuery7[T1, T2, T3, T4, T5, T6, T7 any](eng *Engine, options ...ViewOption) *Query7[T1, T2, T3, T4, T5, T6, T7] {
-	return newQuery7[T1, T2, T3, T4, T5, T6, T7](eng.Registry, options...)
-}
-func NewQuery8[T1, T2, T3, T4, T5, T6, T7, T8 any](eng *Engine, options ...ViewOption) *Query8[T1, T2, T3, T4, T5, T6, T7, T8] {
-	return newQuery8[T1, T2, T3, T4, T5, T6, T7, T8](eng.Registry, options...)
 }

@@ -1,4 +1,4 @@
-package ecs
+package core
 
 type EntityGenerationalPool struct {
 	lastIndex   uint32

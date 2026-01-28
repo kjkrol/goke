@@ -1,4 +1,4 @@
-package ecs
+package core
 
 import (
 	"reflect"
@@ -19,7 +19,7 @@ func TestArchetypeRegistry_FastPath(t *testing.T) {
 	// First assignment: Should build the graph edge (Slow Path)
 	reg.Assign(e1, posTypeInfo, unsafe.Pointer(&posData))
 
-	arch1 := reg.entityArchLinks[e1.Index()].arch
+	arch1 := reg.EntityArchLinks[e1.Index()].Arch
 	if arch1 == reg.rootArch {
 		t.Fatal("entity E1 should have moved from rootArch")
 	}
@@ -31,7 +31,7 @@ func TestArchetypeRegistry_FastPath(t *testing.T) {
 
 	// Second assignment: Should follow the edge (Fast Path)
 	reg.Assign(e2, posTypeInfo, unsafe.Pointer(&posData))
-	arch2 := reg.entityArchLinks[e2.Index()].arch
+	arch2 := reg.EntityArchLinks[e2.Index()].Arch
 
 	if arch1 != arch2 {
 		t.Error("E1 and E2 should share the same archetype instance via graph edges")
@@ -51,7 +51,7 @@ func TestArchetypeRegistry_CycleConsistency(t *testing.T) {
 	// Passing a valid pointer to avoid panic in column.setData
 	posData := position{x: 10, y: 20}
 	reg.Assign(e, posTypeInfo, unsafe.Pointer(&posData))
-	archA := reg.entityArchLinks[e.Index()].arch
+	archA := reg.EntityArchLinks[e.Index()].Arch
 
 	if archA == nil || archA == reg.rootArch {
 		t.Fatal("entity failed to move to a new archetype")
@@ -114,13 +114,13 @@ func TestArchetypeRegistry_RemovalStrategy(t *testing.T) {
 
 	index := e.Index()
 	// Fix: changed 'r' to 'reg'
-	if int(index) >= len(reg.entityArchLinks) {
+	if int(index) >= len(reg.EntityArchLinks) {
 		t.Fatal("entity link index out of bounds")
 	}
 
-	link := reg.entityArchLinks[index]
-	if link.arch != nil {
-		t.Errorf("entity should be removed (arch == nil), but still linked to archetype with mask: %v", link.arch.mask)
+	link := reg.EntityArchLinks[index]
+	if link.Arch != nil {
+		t.Errorf("entity should be removed (arch == nil), but still linked to archetype with mask: %v", link.Arch.Mask)
 	}
 }
 
@@ -135,18 +135,18 @@ func TestArchetypeRegistry_OverwriteIdempotency(t *testing.T) {
 	reg.AddEntity(e)
 	reg.Assign(e, posTypeInfo, unsafe.Pointer(&p1))
 
-	linkBefore := reg.entityArchLinks[e.Index()]
+	linkBefore := reg.EntityArchLinks[e.Index()]
 
 	// Case: Assign same component again (update data)
 	reg.Assign(e, posTypeInfo, unsafe.Pointer(&p2))
 
-	linkAfter := reg.entityArchLinks[e.Index()]
+	linkAfter := reg.EntityArchLinks[e.Index()]
 
-	if linkBefore.arch != linkAfter.arch || linkBefore.row != linkAfter.row {
+	if linkBefore.Arch != linkAfter.Arch || linkBefore.Row != linkAfter.Row {
 		t.Error("re-assigning same component should not move entity in graph")
 	}
 
-	gotData := *(*position)(linkAfter.arch.columns[posTypeInfo.ID].GetElement(linkAfter.row))
+	gotData := *(*position)(linkAfter.Arch.Columns[posTypeInfo.ID].GetElement(linkAfter.Row))
 	if gotData != p2 {
 		t.Errorf("data update failed: got %+v, want %+v", gotData, p2)
 	}
@@ -169,9 +169,9 @@ func TestArchetypeRegistry_SwapPopIntegrity(t *testing.T) {
 
 	reg.RemoveEntity(e1)
 
-	link2 := reg.entityArchLinks[e2.Index()]
-	if link2.row != 1 {
-		t.Errorf("E2 should be at row 1, got %d", link2.row)
+	link2 := reg.EntityArchLinks[e2.Index()]
+	if link2.Row != 1 {
+		t.Errorf("E2 should be at row 1, got %d", link2.Row)
 	}
 }
 

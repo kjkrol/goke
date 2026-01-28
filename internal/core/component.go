@@ -1,4 +1,4 @@
-package ecs
+package core
 
 import (
 	"reflect"
@@ -48,7 +48,7 @@ func (r *ComponentsRegistry) GetOrRegister(t reflect.Type) ComponentInfo {
 	return info
 }
 
-func ensureComponentRegistered[T any](m *ComponentsRegistry) ComponentInfo {
+func EnsureComponentRegistered[T any](m *ComponentsRegistry) ComponentInfo {
 	componentType := reflect.TypeFor[T]()
 	return m.GetOrRegister(componentType)
 }

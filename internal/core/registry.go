@@ -1,4 +1,4 @@
-package ecs
+package core
 
 import (
 	"fmt"
@@ -11,10 +11,10 @@ const viewRegistryInitCap = 1024
 const archetypesInitCap = 64
 
 type Registry struct {
-	entityPool         *EntityGenerationalPool
-	componentsRegistry *ComponentsRegistry
-	viewRegistry       *ViewRegistry
-	archetypeRegistry  *ArchetypeRegistry
+	EntityPool         *EntityGenerationalPool
+	ComponentsRegistry *ComponentsRegistry
+	ViewRegistry       *ViewRegistry
+	ArchetypeRegistry  *ArchetypeRegistry
 }
 
 var _ ReadOnlyRegistry = (*Registry)(nil)
@@ -24,67 +24,67 @@ func NewRegistry() *Registry {
 	viewRegistry := NewViewRegistry()
 	archetypeRegistry := NewArchetypeRegistry(componentsRegistry, viewRegistry)
 	return &Registry{
-		entityPool:         NewEntityGenerator(entityPoolInitCap),
-		componentsRegistry: componentsRegistry,
-		viewRegistry:       viewRegistry,
-		archetypeRegistry:  archetypeRegistry,
+		EntityPool:         NewEntityGenerator(entityPoolInitCap),
+		ComponentsRegistry: componentsRegistry,
+		ViewRegistry:       viewRegistry,
+		ArchetypeRegistry:  archetypeRegistry,
 	}
 }
 
 func (r *Registry) CreateEntity() Entity {
-	entity := r.entityPool.Next()
-	r.archetypeRegistry.AddEntity(entity)
+	entity := r.EntityPool.Next()
+	r.ArchetypeRegistry.AddEntity(entity)
 	return entity
 }
 
 func (r *Registry) RemoveEntity(entity Entity) bool {
-	if !r.entityPool.IsValid(entity) {
+	if !r.EntityPool.IsValid(entity) {
 		return false
 	}
 
-	r.archetypeRegistry.RemoveEntity(entity)
-	r.entityPool.Release(entity)
+	r.ArchetypeRegistry.RemoveEntity(entity)
+	r.EntityPool.Release(entity)
 	return true
 }
 
 func (r *Registry) AssignByID(entity Entity, compInfo ComponentInfo, data unsafe.Pointer) error {
-	if !r.entityPool.IsValid(entity) {
+	if !r.EntityPool.IsValid(entity) {
 		return fmt.Errorf("Invalid Entity")
 	}
 
-	r.archetypeRegistry.Assign(entity, compInfo, data)
+	r.ArchetypeRegistry.Assign(entity, compInfo, data)
 	return nil
 }
 
 // AllocateByID ensures the entity is valid and performs the allocation in the archetype.
 func (r *Registry) AllocateByID(entity Entity, compInfo ComponentInfo) (unsafe.Pointer, error) {
-	if !r.entityPool.IsValid(entity) {
+	if !r.EntityPool.IsValid(entity) {
 		return nil, fmt.Errorf("invalid entity")
 	}
 
 	// Calling the new method we discussed for ArchetypeRegistry
-	return r.archetypeRegistry.AllocateComponentMemory(entity, compInfo)
+	return r.ArchetypeRegistry.AllocateComponentMemory(entity, compInfo)
 }
 
 func (r *Registry) UnassignByID(entity Entity, compInfo ComponentInfo) error {
-	if !r.entityPool.IsValid(entity) {
+	if !r.EntityPool.IsValid(entity) {
 		return fmt.Errorf("Invalid Entity")
 	}
 
-	r.archetypeRegistry.UnAssign(entity, compInfo)
+	r.ArchetypeRegistry.UnAssign(entity, compInfo)
 	return nil
 }
 
 func (r *Registry) RegisterComponentType(componentType reflect.Type) ComponentInfo {
-	return r.componentsRegistry.GetOrRegister(componentType)
+	return r.ComponentsRegistry.GetOrRegister(componentType)
 }
 
 func (r *Registry) GetComponent(entity Entity, compID ComponentID) (unsafe.Pointer, error) {
-	if !r.entityPool.IsValid(entity) {
+	if !r.EntityPool.IsValid(entity) {
 		return nil, fmt.Errorf("Invalid Entity")
 	}
 
-	link := r.archetypeRegistry.entityArchLinks[entity.Index()]
-	col := link.arch.columns[compID]
-	return col.GetElement(link.row), nil
+	link := r.ArchetypeRegistry.EntityArchLinks[entity.Index()]
+	col := link.Arch.Columns[compID]
+	return col.GetElement(link.Row), nil
 }

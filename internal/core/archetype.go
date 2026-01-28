@@ -1,4 +1,4 @@
-package ecs
+package core
 
 import (
 	"unsafe"
@@ -8,9 +8,9 @@ const initCapacity = 1024
 
 // Supports 256 unique component types
 type Archetype struct {
-	mask     ArchetypeMask
+	Mask     ArchetypeMask
 	entities []Entity
-	columns  map[ComponentID]*column
+	Columns  map[ComponentID]*Column
 	len      int
 	cap      int
 
@@ -21,15 +21,15 @@ type Archetype struct {
 type ArchRow uint32
 
 type EntityArchLink struct {
-	arch *Archetype
-	row  ArchRow
+	Arch *Archetype
+	Row  ArchRow
 }
 
 func NewArchetype(mask ArchetypeMask) *Archetype {
 	return &Archetype{
-		mask:      mask,
+		Mask:      mask,
 		entities:  make([]Entity, initCapacity),
-		columns:   make(map[ComponentID]*column),
+		Columns:   make(map[ComponentID]*Column),
 		len:       0,
 		cap:       initCapacity,
 		edgesNext: make(map[ComponentID]*Archetype),
@@ -40,14 +40,14 @@ func NewArchetype(mask ArchetypeMask) *Archetype {
 func (a *Archetype) AddEntity(entity Entity, compID ComponentID, data unsafe.Pointer) EntityArchLink {
 	row := a.registerEntity(entity)
 
-	for id, col := range a.columns {
+	for id, col := range a.Columns {
 		if id == compID {
 			col.setData(row, data)
 		} else {
 			col.zeroData(row)
 		}
 	}
-	return EntityArchLink{arch: a, row: row}
+	return EntityArchLink{Arch: a, Row: row}
 }
 
 func (a *Archetype) SwapRemoveEntity(row ArchRow) (swapedEntity Entity, swaped bool) {
@@ -55,7 +55,7 @@ func (a *Archetype) SwapRemoveEntity(row ArchRow) (swapedEntity Entity, swaped b
 	entityToMove := a.entities[lastRow]
 
 	// 1. Swap data in all columns
-	for _, col := range a.columns {
+	for _, col := range a.Columns {
 		if row != lastRow {
 			col.copyData(row, lastRow)
 		}
@@ -98,7 +98,7 @@ func (a *Archetype) ensureCapacity() {
 	copy(newEntities, a.entities)
 	a.entities = newEntities
 
-	for _, col := range a.columns {
+	for _, col := range a.Columns {
 		col.growTo(newCap)
 	}
 

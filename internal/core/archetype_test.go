@@ -1,4 +1,4 @@
-package ecs
+package core
 
 import (
 	"reflect"
@@ -9,11 +9,11 @@ import (
 // Internal helper to inject columns into archetype for testing
 func addTestColumn[T any](a *Archetype, id ComponentID) {
 	t := reflect.TypeFor[T]()
-	a.columns[id] = &column{
+	a.Columns[id] = &Column{
 		dataType: t,
-		itemSize: t.Size(),
+		ItemSize: t.Size(),
 	}
-	a.columns[id].growTo(a.cap)
+	a.Columns[id].growTo(a.cap)
 }
 
 // Helper to verify if memory at pointer is zeroed
@@ -47,8 +47,8 @@ func TestArchetype_CapacityAndGrowth(t *testing.T) {
 	if arch.cap != expectedCap {
 		t.Errorf("expected capacity to grow to %d, got %d", expectedCap, arch.cap)
 	}
-	if arch.columns[1].cap != expectedCap {
-		t.Errorf("column capacity should match archetype capacity: expected %d, got %d", expectedCap, arch.columns[1].cap)
+	if arch.Columns[1].cap != expectedCap {
+		t.Errorf("column capacity should match archetype capacity: expected %d, got %d", expectedCap, arch.Columns[1].cap)
 	}
 }
 
@@ -69,8 +69,8 @@ func TestArchetype_AddEntityAndRegistration(t *testing.T) {
 	link0 := arch.AddEntity(e0, compID1, unsafe.Pointer(&p0))
 	link1 := arch.AddEntity(e1, compID1, unsafe.Pointer(&p1))
 
-	if link0.row != 0 || link1.row != 1 {
-		t.Errorf("expected sequential rows 0 and 1, got %d and %d", link0.row, link1.row)
+	if link0.Row != 0 || link1.Row != 1 {
+		t.Errorf("expected sequential rows 0 and 1, got %d and %d", link0.Row, link1.Row)
 	}
 
 	// Case: Column data routing
@@ -78,18 +78,18 @@ func TestArchetype_AddEntityAndRegistration(t *testing.T) {
 	e2 := Entity(12)
 	link2 := arch.AddEntity(e2, compID1, unsafe.Pointer(&posData))
 
-	gotP := *(*position)(arch.columns[compID1].GetElement(link2.row))
+	gotP := *(*position)(arch.Columns[compID1].GetElement(link2.Row))
 	if gotP != posData {
 		t.Errorf("routing failed: data not found in target column")
 	}
 
-	gotV := *(*velocity)(arch.columns[compID2].GetElement(link2.row))
+	gotV := *(*velocity)(arch.Columns[compID2].GetElement(link2.Row))
 	if gotV.vx != 0 || gotV.vy != 0 {
 		t.Error("routing failed: non-target column was not zeroed")
 	}
 
 	// Case: Link integrity
-	if link2.arch != arch {
+	if link2.Arch != arch {
 		t.Error("EntityArchLink should point to the correct archetype")
 	}
 }
@@ -130,7 +130,7 @@ func TestArchetype_SwapRemoveLogic(t *testing.T) {
 	if arch.entities[2] != 0 {
 		t.Error("old last slot in entities slice should be cleared")
 	}
-	if !isMemoryZeroed(arch.columns[compID].GetElement(2), arch.columns[compID].itemSize) {
+	if !isMemoryZeroed(arch.Columns[compID].GetElement(2), arch.Columns[compID].ItemSize) {
 		t.Error("old last slot in column should be zeroed")
 	}
 }
@@ -148,15 +148,15 @@ func TestArchetype_MultiColumnIntegrity(t *testing.T) {
 	p0, v0 := position{1, 1}, velocity{10, 10}
 	p1, v1 := position{2, 2}, velocity{20, 20}
 	arch.AddEntity(Entity(0), posID, unsafe.Pointer(&p0))
-	arch.columns[velID].setData(0, unsafe.Pointer(&v0))
+	arch.Columns[velID].setData(0, unsafe.Pointer(&v0))
 	arch.AddEntity(Entity(1), posID, unsafe.Pointer(&p1))
-	arch.columns[velID].setData(1, unsafe.Pointer(&v1))
+	arch.Columns[velID].setData(1, unsafe.Pointer(&v1))
 
 	arch.SwapRemoveEntity(0) // E1 moves to row 0
 
 	// Case: Data isolation (E1 components must remain paired correctly)
-	resP := *(*position)(arch.columns[posID].GetElement(0))
-	resV := *(*velocity)(arch.columns[velID].GetElement(0))
+	resP := *(*position)(arch.Columns[posID].GetElement(0))
+	resV := *(*velocity)(arch.Columns[velID].GetElement(0))
 
 	if resP != p1 || resV != v1 {
 		t.Errorf("multi-column integrity lost: row 0 has mismatched components %+v, %+v", resP, resV)
@@ -203,17 +203,17 @@ func TestArchetype_Alignment(t *testing.T) {
 	id := ComponentID(1)
 
 	info := reflect.TypeFor[OddStruct]()
-	arch.columns[id] = &column{
+	arch.Columns[id] = &Column{
 		dataType: info,
-		itemSize: info.Size(),
+		ItemSize: info.Size(),
 	}
-	arch.columns[id].growTo(arch.cap)
+	arch.Columns[id].growTo(arch.cap)
 
 	val := OddStruct{A: 42}
 	arch.AddEntity(Entity(1), id, unsafe.Pointer(&val))
 
 	// Check if we can retrieve it without corruption
-	res := *(*OddStruct)(arch.columns[id].GetElement(0))
+	res := *(*OddStruct)(arch.Columns[id].GetElement(0))
 	if res.A != 42 {
 		t.Errorf("alignment or size issue: expected 42, got %d", res.A)
 	}

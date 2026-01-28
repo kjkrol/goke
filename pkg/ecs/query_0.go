@@ -3,23 +3,25 @@ package ecs
 
 import (
 	"iter"
+
+	"github.com/kjkrol/goke/internal/core"
 )
 
 type Query0 struct {
-	*View
+	*core.View
 }
 
-func newQuery0(reg *Registry, options ...ViewOption) *Query0 {
-	view := NewView(reg, options...)
+func newQuery0(reg *core.Registry, options ...ViewOption) *Query0 {
+	view := core.NewView(reg, options...)
 	return &Query0{View: view}
 }
 
 func (q *Query0) All() iter.Seq[Entity] {
 	return func(yield func(Entity) bool) {
-		for i := range q.baked {
-			b := &q.baked[i]
-			for j := 0; j < *b.len; j++ {
-				if !yield((*b.entities)[j]) {
+		for i := range q.Baked {
+			b := &q.Baked[i]
+			for j := 0; j < *b.Len; j++ {
+				if !yield((*b.Entities)[j]) {
 					return
 				}
 			}
@@ -28,19 +30,19 @@ func (q *Query0) All() iter.Seq[Entity] {
 }
 
 func (q *Query0) Filter(entities []Entity) iter.Seq[Entity] {
-	links := q.reg.archetypeRegistry.entityArchLinks
+	links := q.Reg.ArchetypeRegistry.EntityArchLinks
 	return func(yield func(Entity) bool) {
-		var lastArch *Archetype
-		var cols [0]*column
+		var lastArch *core.Archetype
+		var cols [0]*core.Column
 		for _, e := range entities {
 			link := links[e.Index()]
-			arch := link.arch
-			if arch == nil || !q.View.matches(arch.mask) {
+			arch := link.Arch
+			if arch == nil || !q.View.Matches(arch.Mask) {
 				continue
 			}
 			if arch != lastArch {
 				for i := 0; i < 0; i++ {
-					cols[i] = arch.columns[q.compIDs[i]]
+					cols[i] = arch.Columns[q.CompIDs[i]]
 				}
 				lastArch = arch
 			}

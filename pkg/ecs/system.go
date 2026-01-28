@@ -2,16 +2,18 @@ package ecs
 
 import (
 	"time"
-	"unsafe"
+
+	"github.com/kjkrol/goke/internal/core"
 )
 
-type ReadOnlyRegistry interface {
-	GetComponent(e Entity, compID ComponentID) (unsafe.Pointer, error)
-}
+// ---------------- Systems ------------------------------- //
+
+type ReadOnlyRegistry = core.ReadOnlyRegistry
+type SystemCommandBuffer = core.SystemCommandBuffer
 
 type System interface {
+	core.System
 	Init(*Engine)
-	Update(ReadOnlyRegistry, *SystemCommandBuffer, time.Duration)
 }
 
 type SystemFunc func(reg ReadOnlyRegistry, cb *SystemCommandBuffer, d time.Duration)
