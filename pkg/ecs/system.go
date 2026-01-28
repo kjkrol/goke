@@ -12,7 +12,7 @@ type ReadOnlyRegistry = core.ReadOnlyRegistry
 type SystemCommandBuffer = core.SystemCommandBuffer
 
 type System interface {
-	core.System
+	Update(reg ReadOnlyRegistry, cb *SystemCommandBuffer, d time.Duration)
 	Init(*Engine)
 }
 
