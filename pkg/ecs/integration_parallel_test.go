@@ -1,12 +1,26 @@
+/*
+This test suite validates the "Parallel Execution" capabilities of the engine.
+
+It specifically focuses on the "Disjoint Component Set" rule:
+Multiple systems can safely execute in parallel on the same entities, provided
+they operate on non-overlapping sets of components.
+
+The test verifies that:
+ 1. The Scheduler correctly orchestrates concurrent execution using RunParallel.
+ 2. Data integrity is maintained across different components of the same entity
+    when accessed by multiple threads simultaneously.
+ 3. Post-parallel synchronization (Sync) correctly stabilizes the state for
+    subsequent read operations.
+*/
 package ecs_test
 
 import (
 	"reflect"
 	"testing"
 	"time"
-	"unsafe"
 
 	"github.com/kjkrol/goke/pkg/ecs"
+	"github.com/kjkrol/goke/pkg/ecsq"
 )
 
 // --- Components (Disjoint sets) ---
@@ -16,7 +30,7 @@ type Health struct{ Current, Max float32 }
 
 // --- PhysicsSystem: Operates only on Motion data ---
 type PhysicsSystem struct {
-	query *ecs.Query2[Position, Velocity]
+	query *ecsq.Query2[Position, Velocity]
 }
 
 func (s *PhysicsSystem) Init(eng *ecs.Engine) {
@@ -31,7 +45,7 @@ func (s *PhysicsSystem) Update(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBu
 
 // --- HealthSystem: Operates only on Health data ---
 type HealthSystem struct {
-	query *ecs.Query1[Health]
+	query *ecsq.Query1[Health]
 }
 
 func (s *HealthSystem) Init(eng *ecs.Engine) {
@@ -45,6 +59,11 @@ func (s *HealthSystem) Update(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuf
 	}
 }
 
+// TestECS_ParallelExecution_Disjoint simulates a high-load scenario where physics
+// calculations and health regeneration occur simultaneously.
+// It ensures that even if an entity possesses both sets of components,
+// the engine can process them in parallel without race conditions because
+// the systems access separate memory regions (columns).
 func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	eng := ecs.NewEngine()
 
@@ -61,9 +80,12 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	// Create entities with ALL components
 	for range 1000 {
 		e := eng.CreateEntity()
-		eng.AssignByID(e, posInfo, unsafe.Pointer(&Position{0, 0}))
-		eng.AssignByID(e, velInfo, unsafe.Pointer(&Velocity{10, 10}))
-		eng.AssignByID(e, healthInfo, unsafe.Pointer(&Health{50, 100}))
+		pos, _ := ecs.AddComponentByInfo[Position](eng, e, posInfo)
+		*pos = Position{0, 0}
+		vel, _ := ecs.AddComponentByInfo[Velocity](eng, e, velInfo)
+		*vel = Velocity{10, 10}
+		hel, _ := ecs.AddComponentByInfo[Health](eng, e, healthInfo)
+		*hel = Health{50, 100}
 	}
 
 	// 2. Execution Plan: Run Physics and Health in parallel

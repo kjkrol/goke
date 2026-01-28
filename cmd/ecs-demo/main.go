@@ -22,13 +22,14 @@ func main() {
 	entity := engine.CreateEntity()
 
 	// Direct Access approach (fastest)
-	ptr, _ := ecs.AddComponent[Order](engine, entity)
-	ptr.ID = "ORD-99"
-	ptr.Total = 200.0
+	order, _ := ecs.AddComponent[Order](engine, entity)
+	*order = Order{ID: "ORD-99", Total: 200.0}
 
 	// based on unsafe.Pointer -> requires allocation on heap (slower)
-	ecs.Assign(engine, entity, Status{Processed: false})
-	ecs.Assign(engine, entity, Discount{Percentage: 20.0})
+	status, _ := ecs.AddComponent[Status](engine, entity)
+	*status = Status{Processed: false}
+	discount, _ := ecs.AddComponent[Discount](engine, entity)
+	*discount = Discount{Percentage: 20.0}
 
 	query := ecs.NewQuery3[Order, Status, Discount](engine)
 	billing := engine.RegisterSystemFunc(func(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuffer, d time.Duration) {
@@ -44,8 +45,8 @@ func main() {
 		ctx.Sync()
 	})
 
-	order, _ := ecs.GetComponent[Order](engine, entity)
-	fmt.Printf("Order id: %v value: %v\n", order.ID, order.Total)
+	orderResult, _ := ecs.GetComponent[Order](engine, entity)
+	fmt.Printf("Order id: %v value: %v\n", orderResult.ID, orderResult.Total)
 	engine.Run(time.Duration(time.Second))
-	fmt.Printf("Order id: %v value with discount: %v\n", order.ID, order.Total)
+	fmt.Printf("Order id: %v value with discount: %v\n", orderResult.ID, orderResult.Total)
 }

@@ -27,11 +27,14 @@ func TestECS_UseCase(t *testing.T) {
 	processedTypeInfo := engine.RegisterComponentType(reflect.TypeFor[Processed]())
 
 	eA := engine.CreateEntity()
-	ecs.Assign(engine, eA, Order{ID: "ORD-001", Total: 100.0})
-	ecs.Assign(engine, eA, Discount{Percentage: 10.0})
+	order, _ := ecs.AddComponent[Order](engine, eA)
+	*order = Order{ID: "ORD-001", Total: 100.0}
+	discount, _ := ecs.AddComponent[Discount](engine, eA)
+	*discount = Discount{Percentage: 10.0}
 
 	eB := engine.CreateEntity()
-	ecs.Assign(engine, eB, Order{ID: "ORD-002", Total: 50.0})
+	order2, _ := ecs.AddComponent[Order](engine, eB)
+	*order2 = Order{ID: "ORD-002", Total: 50.0}
 
 	query1 := ecs.NewQuery2[Order, Discount](engine)
 	processedCount := 0

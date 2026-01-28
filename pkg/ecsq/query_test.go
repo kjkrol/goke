@@ -1,41 +1,43 @@
-package ecs_test
+package ecsq_test
 
 import (
 	"reflect"
 	"testing"
 
+	"github.com/kjkrol/goke/internal/core"
 	"github.com/kjkrol/goke/pkg/ecs"
+	"github.com/kjkrol/goke/pkg/ecsq"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestQuery_WithTag_And_Without_Logic(t *testing.T) {
-	engine := ecs.NewEngine()
+	reg := core.NewRegistry()
 
 	// 1. Setup Entities with different structural profiles
 
-	positionType := engine.RegisterComponentType(reflect.TypeFor[position]())
-	velocityType := engine.RegisterComponentType(reflect.TypeFor[velocity]())
-	complexType := engine.RegisterComponentType(reflect.TypeFor[complexComponent]())
+	positionType := reg.RegisterComponentType(reflect.TypeFor[position]())
+	velocityType := reg.RegisterComponentType(reflect.TypeFor[velocity]())
+	complexType := reg.RegisterComponentType(reflect.TypeFor[complexComponent]())
 
 	// Entity A: Only position
-	eA := engine.CreateEntity()
-	engine.Allocate(eA, positionType)
+	eA := reg.CreateEntity()
+	reg.AllocateByID(eA, positionType)
 
 	// Entity B: position + velocity (Moving entity)
-	eB := engine.CreateEntity()
-	engine.Allocate(eB, positionType)
-	engine.Allocate(eB, velocityType)
+	eB := reg.CreateEntity()
+	reg.AllocateByID(eB, positionType)
+	reg.AllocateByID(eB, velocityType)
 
 	// Entity C: position + complexComponent (Static named entity)
-	eC := engine.CreateEntity()
-	engine.Allocate(eC, positionType)
-	engine.Allocate(eC, complexType)
+	eC := reg.CreateEntity()
+	reg.AllocateByID(eC, positionType)
+	reg.AllocateByID(eC, complexType)
 
 	// 2. Test: Filter Inclusion (WithTag) and Exclusion (Without)
 	t.Run("Inclusion and Exclusion Logic", func(t *testing.T) {
 		// Goal: Find entities that have 'position', but are NOT 'velocity' (not moving)
 		// Expected: eA and eC
-		query := ecs.NewQuery0(engine,
+		query := ecsq.NewQuery0(reg,
 			ecs.WithTag[position](),
 			ecs.Without[velocity](),
 		)
@@ -55,7 +57,7 @@ func TestQuery_WithTag_And_Without_Logic(t *testing.T) {
 	t.Run("Tag as Requirement", func(t *testing.T) {
 		// Goal: Find entities with 'position' AND 'complexComponent'
 		// Expected: eC only
-		query := ecs.NewQuery0(engine,
+		query := ecsq.NewQuery0(reg,
 			ecs.WithTag[position](),
 			ecs.WithTag[complexComponent](),
 		)
@@ -71,7 +73,7 @@ func TestQuery_WithTag_And_Without_Logic(t *testing.T) {
 	// 4. Test: Filter method on a manual slice
 	t.Run("Manual Slice Filtering", func(t *testing.T) {
 		// Goal: From a list of entities, filter out those that are 'complexComponent'
-		query := ecs.NewQuery0(engine, ecs.Without[complexComponent]())
+		query := ecsq.NewQuery0(reg, ecs.Without[complexComponent]())
 
 		input := []ecs.Entity{eA, eB, eC}
 		var result []ecs.Entity

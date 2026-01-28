@@ -1,3 +1,15 @@
+/*
+This test suite validates the "Deferred Command Pattern" and "System Synchronization".
+
+It focuses on the lifecycle of component modifications within an ExecutionPlan:
+ 1. Snapshot Integrity: Ensures systems operate on a consistent state during their Update cycle.
+ 2. Modification Deferral: Verifies that changes made via SystemCommandBuffer are buffered
+    and isolated from other systems in the same synchronization stage.
+ 3. Sync Point Enforcement: Confirms that ExecutionContext.Sync() correctly flushes the buffer,
+    making all changes globally visible for subsequent stages.
+
+This is critical for preventing race conditions and ensuring deterministic system execution.
+*/
 package ecs_test
 
 import (
@@ -7,6 +19,7 @@ import (
 	"unsafe"
 
 	"github.com/kjkrol/goke/pkg/ecs"
+	"github.com/kjkrol/goke/pkg/ecsq"
 )
 
 // --- Components ---
@@ -19,7 +32,7 @@ var logInfo ecs.ComponentInfo
 // --- Systems ---
 
 type WorkerSystem struct {
-	query *ecs.Query1[Task]
+	query *ecsq.Query1[Task]
 }
 
 func (s *WorkerSystem) Init(eng *ecs.Engine) {
@@ -34,7 +47,7 @@ func (s *WorkerSystem) Update(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuf
 }
 
 type LoggerSystem struct {
-	query *ecs.Query1[Log]
+	query *ecsq.Query1[Log]
 	Found bool
 }
 
@@ -50,6 +63,9 @@ func (s *LoggerSystem) Update(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuf
 
 // --- TEST ---
 
+// TestECS_SystemInteractions validates that the state remains isolated between systems
+// until an explicit Sync point is reached, ensuring that concurrent-safe logic
+// is maintained by the scheduler.
 func TestECS_SystemInteractions(t *testing.T) {
 
 	setupComponents := func(e *ecs.Engine) {
@@ -61,7 +77,8 @@ func TestECS_SystemInteractions(t *testing.T) {
 		setupComponents(engine)
 
 		e := engine.CreateEntity()
-		ecs.Assign(engine, e, Task{Completed: false})
+		task, _ := ecs.AddComponent[Task](engine, e)
+		*task = Task{Completed: false}
 
 		worker := &WorkerSystem{}
 		logger := &LoggerSystem{}
@@ -87,7 +104,8 @@ func TestECS_SystemInteractions(t *testing.T) {
 		setupComponents(engine)
 
 		e := engine.CreateEntity()
-		ecs.Assign(engine, e, Task{Completed: false})
+		task, _ := ecs.AddComponent[Task](engine, e)
+		*task = Task{Completed: false}
 
 		worker := &WorkerSystem{}
 		logger := &LoggerSystem{}

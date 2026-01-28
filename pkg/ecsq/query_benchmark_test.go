@@ -1,9 +1,11 @@
-package ecs
+package ecsq
 
 import (
 	"reflect"
 	"testing"
 	"unsafe"
+
+	"github.com/kjkrol/goke/internal/core"
 )
 
 const entitiesNumber = 1000
@@ -17,9 +19,8 @@ type Char struct{ V [32]float32 }
 type Elec struct{ V float64 }
 type Magn struct{ V float64 }
 
-func setupBenchmark(_ *testing.B, count int) (*Engine, []Entity) {
-	eng := NewEngine()
-	reg := eng.registry
+func setupBenchmark(_ *testing.B, count int) (*core.Registry, []core.Entity) {
+	reg := core.NewRegistry()
 	posTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Pos]())
 	velTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Vel]())
 	accTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Acc]())
@@ -29,7 +30,7 @@ func setupBenchmark(_ *testing.B, count int) (*Engine, []Entity) {
 	elecTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Elec]())
 	magnTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Magn]())
 
-	var entities []Entity
+	var entities []core.Entity
 	for range count {
 		e := reg.CreateEntity()
 		reg.AssignByID(e, posTypeInfo, unsafe.Pointer(&Pos{1, 1}))
@@ -42,7 +43,7 @@ func setupBenchmark(_ *testing.B, count int) (*Engine, []Entity) {
 		reg.AssignByID(e, magnTypeInfo, unsafe.Pointer(&Magn{1}))
 		entities = append(entities, e)
 	}
-	return eng, entities
+	return reg, entities
 }
 
 // --- Benchmarki Standardowe (All) ---
@@ -122,7 +123,7 @@ func BenchmarkQuery3_All(b *testing.B) {
 func BenchmarkQuery3WithTag_All(b *testing.B) {
 	eng, _ := setupBenchmark(b, entitiesNumber)
 
-	query := NewQuery3[Pos, Vel, Acc](eng, WithTag[Mass]())
+	query := NewQuery3[Pos, Vel, Acc](eng, core.WithTag[Mass]())
 
 	fn := func() {
 		for head := range query.All3() {
