@@ -4,8 +4,6 @@ import (
 	"unsafe"
 )
 
-const initCapacity = 1024
-
 // Supports 256 unique component types
 type Archetype struct {
 	Mask     ArchetypeMask
@@ -16,6 +14,7 @@ type Archetype struct {
 
 	edgesNext map[ComponentID]*Archetype
 	edgesPrev map[ComponentID]*Archetype
+	initCap   int
 }
 
 type ArchRow uint32
@@ -25,15 +24,16 @@ type EntityArchLink struct {
 	Row  ArchRow
 }
 
-func NewArchetype(mask ArchetypeMask) *Archetype {
+func NewArchetype(mask ArchetypeMask, defaultArchetypeChunkSize int) *Archetype {
 	return &Archetype{
 		Mask:      mask,
-		entities:  make([]Entity, initCapacity),
+		entities:  make([]Entity, defaultArchetypeChunkSize),
 		Columns:   make(map[ComponentID]*Column),
 		len:       0,
-		cap:       initCapacity,
+		cap:       defaultArchetypeChunkSize,
 		edgesNext: make(map[ComponentID]*Archetype),
 		edgesPrev: make(map[ComponentID]*Archetype),
+		initCap:   defaultArchetypeChunkSize,
 	}
 }
 
@@ -60,6 +60,7 @@ func (a *Archetype) SwapRemoveEntity(row ArchRow) (swapedEntity Entity, swaped b
 			col.copyData(row, lastRow)
 		}
 		col.zeroData(lastRow)
+		col.len--
 	}
 
 	// 2. Swap entity ID in the entities slice
@@ -78,6 +79,10 @@ func (a *Archetype) registerEntity(entity Entity) ArchRow {
 	a.ensureCapacity()
 	newIdx := a.len
 
+	for _, col := range a.Columns {
+		col.len++
+	}
+
 	a.entities[newIdx] = entity
 	a.len++
 
@@ -91,7 +96,7 @@ func (a *Archetype) ensureCapacity() {
 
 	newCap := a.cap * 2
 	if newCap == 0 {
-		newCap = initCapacity
+		newCap = a.initCap
 	}
 
 	newEntities := make([]Entity, newCap)

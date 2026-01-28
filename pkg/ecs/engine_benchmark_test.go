@@ -11,7 +11,13 @@ type Velocity3 struct{ X, Y, Z float64 }
 type ProcessedTag struct{}
 
 func BenchmarkEngine_Structural(b *testing.B) {
-	engine := ecs.NewEngine()
+	engine := ecs.NewEngine(
+		ecs.WithInitialEntityCap(100000),
+		ecs.WithDefaultArchetypeChunkSize(2048),
+		ecs.WithInitialArchetypeRegistryCap(128),
+		ecs.WithFreeIndicesCap(100000),
+		ecs.WithViewRegistryInitCap(64),
+	)
 
 	// Pre-registering for "Turbo" performance in benchmarks
 	posInfo := ecs.RegisterComponent[Position3](engine)
@@ -75,7 +81,13 @@ func BenchmarkEngine_Structural(b *testing.B) {
 }
 
 func BenchmarkEngine_Query(b *testing.B) {
-	engine := ecs.NewEngine()
+	engine := ecs.NewEngine(
+		ecs.WithInitialEntityCap(100000),
+		ecs.WithDefaultArchetypeChunkSize(1024),
+		ecs.WithInitialArchetypeRegistryCap(128),
+		ecs.WithFreeIndicesCap(100000),
+		ecs.WithViewRegistryInitCap(64),
+	)
 	posInfo := ecs.RegisterComponent[Position3](engine)
 
 	count := 100000
@@ -96,24 +108,59 @@ func BenchmarkEngine_Query(b *testing.B) {
 	}
 }
 
-func BenchmarkEngine_MassOperations(b *testing.B) {
-	// SCENARIO: Remove every second entity to stress Swap & Pop
-	b.Run("Fragmentation_Stress", func(b *testing.B) {
-		count := 100000
-		for i := 0; i < b.N; i++ {
+func BenchmarkEngine_RemoveEntity_Clean(b *testing.B) {
+	count := 100000
+	// Initialize the engine with "Turbo" settings to pre-allocate memory buffers
+	engine := ecs.NewEngine(
+		ecs.WithInitialEntityCap(count),
+		ecs.WithDefaultArchetypeChunkSize(1024),
+		ecs.WithFreeIndicesCap(count),
+	)
+	posInfo := ecs.RegisterComponent[Position3](engine)
+
+	// --- SETUP PHASE ---
+	// Pre-create entities outside the timed loop to isolate the cost of removal
+	entities := make([]ecs.Entity, count)
+	for j := 0; j < count; j++ {
+		entities[j] = engine.CreateEntity()
+		ecs.AddComponentByInfo[Position3](engine, entities[j], posInfo)
+	}
+
+	b.ResetTimer() // Exclude setup time from the results
+	b.ReportAllocs()
+
+	// --- EXECUTION PHASE ---
+	for i := 0; i < b.N; i++ {
+		idx := i % count
+
+		// If b.N > count, we need to re-create the entity to ensure
+		// we are benchmarking a real 'Remove' operation rather than
+		// an early-exit check for a non-existent entity.
+		if i >= count && i%count == 0 {
 			b.StopTimer()
-			engine := ecs.NewEngine()
-			posInfo := ecs.RegisterComponent[Position3](engine)
-			entities := make([]ecs.Entity, count)
 			for j := 0; j < count; j++ {
 				entities[j] = engine.CreateEntity()
 				ecs.AddComponentByInfo[Position3](engine, entities[j], posInfo)
 			}
 			b.StartTimer()
-
-			for j := 0; j < count; j += 2 {
-				engine.RemoveEntity(entities[j])
-			}
 		}
-	})
+
+		engine.RemoveEntity(entities[idx])
+	}
+}
+
+func BenchmarkEngine_AddRemove_Stability(b *testing.B) {
+	engine := ecs.NewEngine(ecs.WithInitialEntityCap(1024))
+	posInfo := ecs.RegisterComponent[Position3](engine)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		e := engine.CreateEntity()
+		ecs.AddComponentByInfo[Position3](engine, e, posInfo)
+
+		// Usuwamy co drugą, żeby wymusić swapowanie w archetypie
+		if i%2 == 0 {
+			engine.RemoveEntity(e)
+		}
+	}
 }

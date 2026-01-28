@@ -6,7 +6,7 @@ import (
 
 // 1. Sequential Allocation
 func TestEntityGenerationalPool_SequentialAllocation(t *testing.T) {
-	pool := NewEntityGenerator(10)
+	pool := NewEntityGenerator(10, 10)
 
 	// Case: New entities receive incremental indices and generation 0
 	for i := 0; i < 5; i++ {
@@ -28,7 +28,7 @@ func TestEntityGenerationalPool_SequentialAllocation(t *testing.T) {
 
 // 2. Index Recycling
 func TestEntityGenerationalPool_Recycling(t *testing.T) {
-	pool := NewEntityGenerator(10)
+	pool := NewEntityGenerator(10, 10)
 
 	// Case: Releasing and reusing an index
 	e0 := pool.Next() // idx: 0, gen: 0
@@ -59,7 +59,7 @@ func TestEntityGenerationalPool_Recycling(t *testing.T) {
 
 // 3. Validation Logic
 func TestEntityGenerationalPool_Validation(t *testing.T) {
-	pool := NewEntityGenerator(10)
+	pool := NewEntityGenerator(10, 10)
 
 	// Case: Active entity is valid
 	e := pool.Next()
@@ -91,7 +91,7 @@ func TestEntityGenerationalPool_Validation(t *testing.T) {
 
 // 4. Stress & Multiple Reuse
 func TestEntityGenerationalPool_MultipleReuse(t *testing.T) {
-	pool := NewEntityGenerator(1)
+	pool := NewEntityGenerator(1, 1)
 	idx := uint32(0)
 
 	// Case: Cycling the same index multiple times
@@ -108,7 +108,7 @@ func TestEntityGenerationalPool_MultipleReuse(t *testing.T) {
 // 5. Initial State
 func TestEntityGenerationalPool_InitialState(t *testing.T) {
 	capacity := 128
-	pool := NewEntityGenerator(capacity)
+	pool := NewEntityGenerator(capacity, capacity)
 
 	// Case: Internal slices should respect initial capacity
 	if cap(pool.generations) < capacity {

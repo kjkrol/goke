@@ -3,12 +3,11 @@ package ecsq
 import (
 	"reflect"
 	"testing"
-	"unsafe"
 
 	"github.com/kjkrol/goke/internal/core"
 )
 
-const entitiesNumber = 1000
+const entitiesNumber = 1000 * 1000
 
 type Pos struct{ X, Y float32 }
 type Vel struct{ X, Y float32 }
@@ -20,7 +19,7 @@ type Elec struct{ V float64 }
 type Magn struct{ V float64 }
 
 func setupBenchmark(_ *testing.B, count int) (*core.Registry, []core.Entity) {
-	reg := core.NewRegistry()
+	reg := core.NewRegistry(core.DefaultRegistryConfig())
 	posTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Pos]())
 	velTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Vel]())
 	accTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Acc]())
@@ -33,14 +32,30 @@ func setupBenchmark(_ *testing.B, count int) (*core.Registry, []core.Entity) {
 	var entities []core.Entity
 	for range count {
 		e := reg.CreateEntity()
-		reg.AssignByID(e, posTypeInfo, unsafe.Pointer(&Pos{1, 1}))
-		reg.AssignByID(e, velTypeInfo, unsafe.Pointer(&Vel{1, 1}))
-		reg.AssignByID(e, accTypeInfo, unsafe.Pointer(&Acc{1, 1}))
-		reg.AssignByID(e, massTypeInfo, unsafe.Pointer(&Mass{}))
-		reg.AssignByID(e, spinTypeInfo, unsafe.Pointer(&Spin{}))
-		reg.AssignByID(e, charTypeInfo, unsafe.Pointer(&Char{}))
-		reg.AssignByID(e, elecTypeInfo, unsafe.Pointer(&Elec{1}))
-		reg.AssignByID(e, magnTypeInfo, unsafe.Pointer(&Magn{1}))
+		if pos, err := reg.AllocateByID(e, posTypeInfo); err == nil {
+			*(*Pos)(pos) = Pos{1, 1}
+		}
+		if vel, err := reg.AllocateByID(e, velTypeInfo); err == nil {
+			*(*Vel)(vel) = Vel{1, 1}
+		}
+		if acc, err := reg.AllocateByID(e, accTypeInfo); err == nil {
+			*(*Acc)(acc) = Acc{1, 1}
+		}
+		if mass, err := reg.AllocateByID(e, massTypeInfo); err == nil {
+			*(*Mass)(mass) = Mass{}
+		}
+		if spin, err := reg.AllocateByID(e, spinTypeInfo); err == nil {
+			*(*Spin)(spin) = Spin{}
+		}
+		if char, err := reg.AllocateByID(e, charTypeInfo); err == nil {
+			*(*Char)(char) = Char{}
+		}
+		if elec, err := reg.AllocateByID(e, elecTypeInfo); err == nil {
+			*(*Elec)(elec) = Elec{1}
+		}
+		if magn, err := reg.AllocateByID(e, magnTypeInfo); err == nil {
+			*(*Magn)(magn) = Magn{1}
+		}
 		entities = append(entities, e)
 	}
 	return reg, entities

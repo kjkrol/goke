@@ -10,7 +10,7 @@ import (
 )
 
 func TestQuery_WithTag_And_Without_Logic(t *testing.T) {
-	reg := core.NewRegistry()
+	reg := core.NewRegistry(core.DefaultRegistryConfig())
 
 	// 1. Setup Entities with different structural profiles
 

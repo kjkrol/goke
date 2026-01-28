@@ -1,6 +1,9 @@
 package core
 
-import "math/bits"
+import (
+	"iter"
+	"math/bits"
+)
 
 const MaskSize = 4
 
@@ -44,14 +47,20 @@ func (b ArchetypeMask) Contains(subMask ArchetypeMask) bool {
 	return true
 }
 
-func (b ArchetypeMask) ForEachSet(fn func(id ComponentID)) {
-	for wordIdx := 0; wordIdx < MaskSize; wordIdx++ {
-		word := b[wordIdx]
-		for word != 0 {
-			bitPos := bits.TrailingZeros64(word)
-			id := ComponentID(wordIdx*64 + bitPos)
-			fn(id)
-			word &= ^(1 << bitPos)
+func (b ArchetypeMask) AllSet() iter.Seq[ComponentID] {
+	return func(yield func(ComponentID) bool) {
+		for wordIdx := 0; wordIdx < MaskSize; wordIdx++ {
+			word := b[wordIdx]
+			for word != 0 {
+				bitPos := bits.TrailingZeros64(word)
+				id := ComponentID(wordIdx*64 + bitPos)
+
+				if !yield(id) {
+					return
+				}
+
+				word &= word - 1
+			}
 		}
 	}
 }

@@ -76,11 +76,11 @@ func (q *Query7[T1, T2, T3, T4, T5, T6, T7]) All7() iter.Seq2[Head7[T1, T2, T3],
 }
 
 func (q *Query7[T1, T2, T3, T4, T5, T6, T7]) Filter7(entities []core.Entity) iter.Seq2[Head7[T1, T2, T3], Tail7[T4, T5, T6, T7]] {
-	links := q.Reg.ArchetypeRegistry.EntityArchLinks
+	links := q.Reg.ArchetypeRegistry.EntityLinkStore
 	return func(yield func(Head7[T1, T2, T3], Tail7[T4, T5, T6, T7]) bool) {
 		var lastArch *core.Archetype; var cols [7]*core.Column
 		for _, e := range entities {
-			link := links[e.Index()]; arch := link.Arch
+			link := links.Get(e.Index()); arch := link.Arch
 			if arch == nil || q.View.Matches(arch.Mask) { continue }
 			if arch != lastArch { for i := 0; i < 7; i++ { cols[i] = arch.Columns[q.CompIDs[i]] }; lastArch = arch }
 			idx := uintptr(link.Row)
@@ -115,11 +115,11 @@ func (q *Query7[T1, T2, T3, T4, T5, T6, T7]) PureAll7() iter.Seq2[PHead7[T1, T2,
 }
 
 func (q *Query7[T1, T2, T3, T4, T5, T6, T7]) PureFilter7(entities []core.Entity) iter.Seq2[PHead7[T1, T2, T3, T4], PTail7[T5, T6, T7]] {
-	links := q.Reg.ArchetypeRegistry.EntityArchLinks
+	links := q.Reg.ArchetypeRegistry.EntityLinkStore
 	return func(yield func(PHead7[T1, T2, T3, T4], PTail7[T5, T6, T7]) bool) {
 		var lastArch *core.Archetype; var cols [7]*core.Column
 		for _, e := range entities {
-			link := links[e.Index()]; arch := link.Arch
+			link := links.Get(e.Index()); arch := link.Arch
 			if arch == nil || q.View.Matches(arch.Mask) { continue }
 			if arch != lastArch { for i := 0; i < 7; i++ { cols[i] = arch.Columns[q.CompIDs[i]] }; lastArch = arch }
 			idx := uintptr(link.Row)

@@ -52,11 +52,11 @@ func (q *Query3[T1, T2, T3]) All3() iter.Seq[Head3[T1, T2, T3]] {
 }
 
 func (q *Query3[T1, T2, T3]) Filter3(entities []core.Entity) iter.Seq[Head3[T1, T2, T3]] {
-	links := q.Reg.ArchetypeRegistry.EntityArchLinks
+	links := q.Reg.ArchetypeRegistry.EntityLinkStore
 	return func(yield func(Head3[T1, T2, T3]) bool) {
 		var lastArch *core.Archetype; var cols [3]*core.Column
 		for _, e := range entities {
-			link := links[e.Index()]; arch := link.Arch
+			link := links.Get(e.Index()); arch := link.Arch
 			if arch == nil || q.View.Matches(arch.Mask) { continue }
 			if arch != lastArch { for i := 0; i < 3; i++ { cols[i] = arch.Columns[q.CompIDs[i]] }; lastArch = arch }
 			idx := uintptr(link.Row)
@@ -83,11 +83,11 @@ func (q *Query3[T1, T2, T3]) PureAll3() iter.Seq[PHead3[T1, T2, T3]] {
 }
 
 func (q *Query3[T1, T2, T3]) PureFilter3(entities []core.Entity) iter.Seq[PHead3[T1, T2, T3]] {
-	links := q.Reg.ArchetypeRegistry.EntityArchLinks
+	links := q.Reg.ArchetypeRegistry.EntityLinkStore
 	return func(yield func(PHead3[T1, T2, T3]) bool) {
 		var lastArch *core.Archetype; var cols [3]*core.Column
 		for _, e := range entities {
-			link := links[e.Index()]; arch := link.Arch
+			link := links.Get(e.Index()); arch := link.Arch
 			if arch == nil || q.View.Matches(arch.Mask) { continue }
 			if arch != lastArch { for i := 0; i < 3; i++ { cols[i] = arch.Columns[q.CompIDs[i]] }; lastArch = arch }
 			idx := uintptr(link.Row)

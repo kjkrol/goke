@@ -6,10 +6,6 @@ import (
 	"unsafe"
 )
 
-const entityPoolInitCap = 1024
-const viewRegistryInitCap = 1024
-const archetypesInitCap = 64
-
 type Registry struct {
 	EntityPool         *EntityGenerationalPool
 	ComponentsRegistry *ComponentsRegistry
@@ -19,12 +15,12 @@ type Registry struct {
 
 var _ ReadOnlyRegistry = (*Registry)(nil)
 
-func NewRegistry() *Registry {
+func NewRegistry(cfg RegistryConfig) *Registry {
 	componentsRegistry := NewComponentsRegistry()
-	viewRegistry := NewViewRegistry()
-	archetypeRegistry := NewArchetypeRegistry(componentsRegistry, viewRegistry)
+	viewRegistry := NewViewRegistry(cfg.ViewRegistryInitCap)
+	archetypeRegistry := NewArchetypeRegistry(componentsRegistry, viewRegistry, cfg)
 	return &Registry{
-		EntityPool:         NewEntityGenerator(entityPoolInitCap),
+		EntityPool:         NewEntityGenerator(cfg.InitialEntityCap, cfg.FreeIndicesCap),
 		ComponentsRegistry: componentsRegistry,
 		ViewRegistry:       viewRegistry,
 		ArchetypeRegistry:  archetypeRegistry,
@@ -42,18 +38,9 @@ func (r *Registry) RemoveEntity(entity Entity) bool {
 		return false
 	}
 
-	r.ArchetypeRegistry.RemoveEntity(entity)
+	r.ArchetypeRegistry.UnlinkEntity(entity)
 	r.EntityPool.Release(entity)
 	return true
-}
-
-func (r *Registry) AssignByID(entity Entity, compInfo ComponentInfo, data unsafe.Pointer) error {
-	if !r.EntityPool.IsValid(entity) {
-		return fmt.Errorf("Invalid Entity")
-	}
-
-	r.ArchetypeRegistry.Assign(entity, compInfo, data)
-	return nil
 }
 
 // AllocateByID ensures the entity is valid and performs the allocation in the archetype.
@@ -84,7 +71,15 @@ func (r *Registry) GetComponent(entity Entity, compID ComponentID) (unsafe.Point
 		return nil, fmt.Errorf("Invalid Entity")
 	}
 
-	link := r.ArchetypeRegistry.EntityArchLinks[entity.Index()]
-	col := link.Arch.Columns[compID]
+	link := r.ArchetypeRegistry.EntityLinkStore.Get(entity.Index())
+	if link.Arch == nil {
+		return nil, fmt.Errorf("entity not found in registry")
+	}
+
+	col, exists := link.Arch.Columns[compID]
+	if !exists {
+		return nil, fmt.Errorf("component not found in archetype")
+	}
+
 	return col.GetElement(link.Row), nil
 }

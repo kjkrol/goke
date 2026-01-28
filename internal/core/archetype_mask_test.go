@@ -144,9 +144,10 @@ func TestArchetypeMask_Iteration(t *testing.T) {
 	t.Run("Empty Mask", func(t *testing.T) {
 		mask := ArchetypeMask{}
 		calls := 0
-		mask.ForEachSet(func(id ComponentID) {
+		for id := range mask.AllSet() {
 			calls++
-		})
+			_ = id
+		}
 		if calls != 0 {
 			t.Errorf("expected 0 iteration calls, got %d", calls)
 		}
@@ -158,9 +159,10 @@ func TestArchetypeMask_Iteration(t *testing.T) {
 		input := []ComponentID{5, 70, 200}
 		mask := NewArchetypeMask(input...)
 		var output []ComponentID
-		mask.ForEachSet(func(id ComponentID) {
+
+		for id := range mask.AllSet() {
 			output = append(output, id)
-		})
+		}
 
 		if !reflect.DeepEqual(input, output) {
 			t.Errorf("iteration mismatch: got %v, want %v", output, input)
@@ -175,9 +177,10 @@ func TestArchetypeMask_Iteration(t *testing.T) {
 			mask = mask.Set(ComponentID(i))
 		}
 		count := 0
-		mask.ForEachSet(func(id ComponentID) {
+		for id := range mask.AllSet() {
 			count++
-		})
+			_ = id
+		}
 		if count != 64 {
 			t.Errorf("expected to iterate over 64 bits, got %d", count)
 		}

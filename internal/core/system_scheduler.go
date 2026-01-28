@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"sync"
 	"time"
 )
@@ -8,7 +9,7 @@ import (
 type ExecutionContext interface {
 	Run(System, time.Duration)
 	RunParallel(time.Duration, ...System)
-	Sync()
+	Sync() error
 }
 
 type ExecutionPlan func(ExecutionContext, time.Duration)
@@ -68,12 +69,16 @@ func (s *SystemScheduler) RunParallel(d time.Duration, systems ...System) {
 	wg.Wait()
 }
 
-func (s *SystemScheduler) Sync() {
+func (s *SystemScheduler) Sync() error {
 	for _, cb := range s.buffers {
 		if len(cb.commands) > 0 {
-			s.applyBufferCommands(cb)
+			err := s.applyBufferCommands(cb)
+			if err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
 // -------------------------------------------------------------
@@ -82,7 +87,7 @@ func (s *SystemScheduler) getBuffer(sys System) *SystemCommandBuffer {
 	return s.buffers[sys]
 }
 
-func (s *SystemScheduler) applyBufferCommands(cb *SystemCommandBuffer) {
+func (s *SystemScheduler) applyBufferCommands(cb *SystemCommandBuffer) error {
 	vMap := make(map[Entity]Entity)
 	for _, cmd := range cb.commands {
 
@@ -95,7 +100,11 @@ func (s *SystemScheduler) applyBufferCommands(cb *SystemCommandBuffer) {
 
 		switch cmd.cType {
 		case cmdAssignComponent:
-			s.register.AssignByID(target, cmd.compInfo, cmd.dataPtr)
+			ptr, err := s.register.AllocateByID(target, cmd.compInfo)
+			if err != nil {
+				return fmt.Errorf("failed to allocate ID for target %d: %w", target, err)
+			}
+			memmove(ptr, cmd.dataPtr, cmd.compInfo.Size)
 		case cmdRemoveComponent:
 			s.register.UnassignByID(target, cmd.compInfo)
 		case cmdRemoveEntity:
@@ -106,4 +115,5 @@ func (s *SystemScheduler) applyBufferCommands(cb *SystemCommandBuffer) {
 		}
 	}
 	cb.reset()
+	return nil
 }

@@ -3,12 +3,11 @@ package core
 import (
 	"reflect"
 	"testing"
-	"unsafe"
 )
 
 func TestViewReactivity(t *testing.T) {
 	// 1. Setup: Create Registry and define component types
-	reg := NewRegistry()
+	reg := NewRegistry(DefaultRegistryConfig())
 
 	type Position struct{ X, Y float32 }
 	type TagA struct{}
@@ -33,8 +32,10 @@ func TestViewReactivity(t *testing.T) {
 
 	// Assigning components triggers ArchetypeRegistry.getOrRegister
 	// which should notify the ViewRegistry
-	reg.AssignByID(e1, posTypeInfo, unsafe.Pointer(&Position{10, 20}))
-	reg.AssignByID(e1, tagTypeInfo, unsafe.Pointer(&TagA{}))
+	posPtr, _ := reg.AllocateByID(e1, posTypeInfo)
+	*(*Position)(posPtr) = Position{X: 10, Y: 20}
+	tagPtr, _ := reg.AllocateByID(e1, tagTypeInfo)
+	*(*TagA)(tagPtr) = TagA{}
 
 	// 4. Verification: Did the View receive the new archetype?
 	if len(view.Baked) == 0 {
@@ -58,7 +59,8 @@ func TestViewReactivity(t *testing.T) {
 	// (Has Position, but lacks TagA)
 	beforeCount := len(view.Baked)
 	e2 := reg.CreateEntity()
-	reg.AssignByID(e2, posTypeInfo, unsafe.Pointer(&Position{30, 40}))
+	posPtr2, _ := reg.AllocateByID(e2, posTypeInfo)
+	*(*Position)(posPtr2) = Position{X: 30, Y: 40}
 
 	if len(view.Baked) != beforeCount {
 		t.Errorf("View incorrectly added an archetype that does not satisfy the TagA requirement")

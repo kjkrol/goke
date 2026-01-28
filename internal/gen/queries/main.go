@@ -172,11 +172,11 @@ func genFilter(f *os.File, n int, allT, hT, tT string, hC int) {
 	}
 
 	fmt.Fprintf(f, "\nfunc (q *Query%d[%s]) Filter%d(entities []core.Entity) %s[%s] {\n", n, allT, n, seq, yield)
-	fmt.Fprintf(f, "\tlinks := q.Reg.ArchetypeRegistry.EntityArchLinks\n") // q.reg
+	fmt.Fprintf(f, "\tlinks := q.Reg.ArchetypeRegistry.EntityLinkStore\n") // q.reg
 	fmt.Fprintf(f, "\treturn func(yield func(%s) bool) {\n", yield)
 	fmt.Fprintf(f, "\t\tvar lastArch *core.Archetype; var cols [%d]*core.Column\n", n)
 	fmt.Fprintf(f, "\t\tfor _, e := range entities {\n")
-	fmt.Fprintf(f, "\t\t\tlink := links[e.Index()]; arch := link.Arch\n")
+	fmt.Fprintf(f, "\t\t\tlink := links.Get(e.Index()); arch := link.Arch\n")
 	fmt.Fprintf(f, "\t\t\tif arch == nil || q.View.Matches(arch.Mask) { continue }\n")
 	fmt.Fprintf(f, "\t\t\tif arch != lastArch { for i := 0; i < %d; i++ { cols[i] = arch.Columns[q.CompIDs[i]] }; lastArch = arch }\n", n) // q.CompIDs
 	fmt.Fprintf(f, "\t\t\tidx := uintptr(link.Row)\n")
@@ -243,11 +243,11 @@ func genPureFilter(f *os.File, n int, allT, phT, ptT string, phC int) {
 	}
 
 	fmt.Fprintf(f, "\nfunc (q *Query%d[%s]) PureFilter%d(entities []core.Entity) %s[%s] {\n", n, allT, n, seq, yield)
-	fmt.Fprintf(f, "\tlinks := q.Reg.ArchetypeRegistry.EntityArchLinks\n")
+	fmt.Fprintf(f, "\tlinks := q.Reg.ArchetypeRegistry.EntityLinkStore\n")
 	fmt.Fprintf(f, "\treturn func(yield func(%s) bool) {\n", yield)
 	fmt.Fprintf(f, "\t\tvar lastArch *core.Archetype; var cols [%d]*core.Column\n", n)
 	fmt.Fprintf(f, "\t\tfor _, e := range entities {\n")
-	fmt.Fprintf(f, "\t\t\tlink := links[e.Index()]; arch := link.Arch\n")
+	fmt.Fprintf(f, "\t\t\tlink := links.Get(e.Index()); arch := link.Arch\n")
 	fmt.Fprintf(f, "\t\t\tif arch == nil || q.View.Matches(arch.Mask) { continue }\n")
 	fmt.Fprintf(f, "\t\t\tif arch != lastArch { for i := 0; i < %d; i++ { cols[i] = arch.Columns[q.CompIDs[i]] }; lastArch = arch }\n", n)
 	fmt.Fprintf(f, "\t\t\tidx := uintptr(link.Row)\n")

@@ -29,12 +29,12 @@ func (q *Query0) All() iter.Seq[core.Entity] {
 }
 
 func (q *Query0) Filter(entities []core.Entity) iter.Seq[core.Entity] {
-	links := q.Reg.ArchetypeRegistry.EntityArchLinks
+	links := q.Reg.ArchetypeRegistry.EntityLinkStore
 	return func(yield func(core.Entity) bool) {
 		var lastArch *core.Archetype
 		var cols [0]*core.Column
 		for _, e := range entities {
-			link := links[e.Index()]
+			link := links.Get(e.Index())
 			arch := link.Arch
 			if arch == nil || !q.View.Matches(arch.Mask) {
 				continue

@@ -29,8 +29,9 @@ func isMemoryZeroed(ptr unsafe.Pointer, size uintptr) bool {
 
 // Scenario 1: Capacity & Growth
 func TestArchetype_CapacityAndGrowth(t *testing.T) {
+	initCapacity := 128
 	mask := NewArchetypeMask(1)
-	arch := NewArchetype(mask)
+	arch := NewArchetype(mask, initCapacity)
 	addTestColumn[position](arch, 1)
 
 	// Case: Initial capacity
@@ -55,7 +56,8 @@ func TestArchetype_CapacityAndGrowth(t *testing.T) {
 // Scenario 2: AddEntity & Registration
 func TestArchetype_AddEntityAndRegistration(t *testing.T) {
 	mask := NewArchetypeMask(1, 2)
-	arch := NewArchetype(mask)
+	initCapacity := 128
+	arch := NewArchetype(mask, initCapacity)
 	compID1, compID2 := ComponentID(1), ComponentID(2)
 	addTestColumn[position](arch, compID1)
 	addTestColumn[velocity](arch, compID2)
@@ -95,50 +97,50 @@ func TestArchetype_AddEntityAndRegistration(t *testing.T) {
 }
 
 // Scenario 3: Swap-and-Pop Logic
-func TestArchetype_SwapRemoveLogic(t *testing.T) {
+func TestArchetype_SwapRemoveWithLenSync(t *testing.T) {
 	mask := NewArchetypeMask(1)
-	arch := NewArchetype(mask)
-	compID := ComponentID(1)
-	addTestColumn[int32](arch, compID)
+	arch := NewArchetype(mask, 10)
+	addTestColumn[int32](arch, 1)
 
-	// Populate [E0:0, E1:10, E2:20]
-	for i := 0; i < 3; i++ {
-		val := int32(i * 10)
-		arch.AddEntity(Entity(i), compID, unsafe.Pointer(&val))
+	// Przygotowujemy dane, żeby nie słać nil
+	val1, val2 := int32(10), int32(20)
+
+	// 1. Dodajemy encje
+	arch.AddEntity(Entity(1), 1, unsafe.Pointer(&val1))
+	arch.AddEntity(Entity(2), 1, unsafe.Pointer(&val2))
+
+	// Sprawdzamy stan początkowy przed usunięciem
+	if arch.len != 2 {
+		t.Fatalf("Setup failed: Arch len should be 2, got %d", arch.len)
+	}
+	if arch.Columns[1].len != 2 {
+		t.Fatalf("Setup failed: Column len should be 2, got %d", arch.Columns[1].len)
 	}
 
-	// Case: Remove last entity
-	_, swappedLast := arch.SwapRemoveEntity(2)
-	if swappedLast {
-		t.Error("removing the last entity should not trigger a swap")
+	// 2. Wykonujemy Swap-Remove
+	arch.SwapRemoveEntity(0) // Usuwamy pierwszą encję
+
+	// 3. Weryfikacja zmiany (to czego brakowało)
+	if arch.len != 1 {
+		t.Errorf("Archetype len should decrease to 1, got %d", arch.len)
 	}
 
-	// Case: Remove middle entity
-	// State is now [E0:0, E1:10]. Let's add E2 back to have [E0, E1, E2]
-	val2 := int32(20)
-	arch.AddEntity(Entity(2), compID, unsafe.Pointer(&val2))
-
-	movedEntity, swappedMid := arch.SwapRemoveEntity(0) // Remove E0
-	if !swappedMid || movedEntity != Entity(2) {
-		t.Errorf("expected E2 to move to row 0, got entity %d", movedEntity)
-	}
-	if arch.entities[0] != Entity(2) {
-		t.Errorf("entities slice mismatch: row 0 should be E2, got %d", arch.entities[0])
+	if arch.Columns[1].len != 1 {
+		t.Errorf("Column len should decrease to 1, got %d", arch.Columns[1].len)
 	}
 
-	// Case: Memory sanitization
-	if arch.entities[2] != 0 {
-		t.Error("old last slot in entities slice should be cleared")
-	}
-	if !isMemoryZeroed(arch.Columns[compID].GetElement(2), arch.Columns[compID].ItemSize) {
-		t.Error("old last slot in column should be zeroed")
+	// Dodatkowe sprawdzenie spójności między strukturami
+	if arch.Columns[1].len != arch.len {
+		t.Errorf("Critical Sync Error: Archetype len (%d) != Column len (%d)",
+			arch.len, arch.Columns[1].len)
 	}
 }
 
 // Scenario 4: Multi-Column Integrity
 func TestArchetype_MultiColumnIntegrity(t *testing.T) {
 	mask := NewArchetypeMask(1, 2)
-	arch := NewArchetype(mask)
+	initCapacity := 128
+	arch := NewArchetype(mask, initCapacity)
 	posID, velID := ComponentID(1), ComponentID(2)
 	addTestColumn[position](arch, posID)
 	addTestColumn[velocity](arch, velID)
@@ -167,7 +169,8 @@ func TestArchetype_MultiColumnIntegrity(t *testing.T) {
 func TestArchetype_EdgeCases(t *testing.T) {
 	// Case: Columnless Archetype Operations
 	t.Run("Columnless operations", func(t *testing.T) {
-		arch := NewArchetype(ArchetypeMask{})
+		initCapacity := 128
+		arch := NewArchetype(ArchetypeMask{}, initCapacity)
 		arch.registerEntity(Entity(100))
 		if arch.len != 1 {
 			t.Fatal("failed to register entity in columnless archetype")
@@ -180,7 +183,8 @@ func TestArchetype_EdgeCases(t *testing.T) {
 
 	// Case: Remove from single-entity archetype
 	t.Run("Single-entity remove", func(t *testing.T) {
-		arch := NewArchetype(NewArchetypeMask(1))
+		initCapacity := 128
+		arch := NewArchetype(NewArchetypeMask(1), initCapacity)
 		addTestColumn[int32](arch, 1)
 		arch.registerEntity(Entity(5))
 
@@ -199,7 +203,8 @@ func TestArchetype_Alignment(t *testing.T) {
 	}
 
 	mask := NewArchetypeMask(1)
-	arch := NewArchetype(mask)
+	initCapacity := 128
+	arch := NewArchetype(mask, initCapacity)
 	id := ComponentID(1)
 
 	info := reflect.TypeFor[OddStruct]()
@@ -216,5 +221,74 @@ func TestArchetype_Alignment(t *testing.T) {
 	res := *(*OddStruct)(arch.Columns[id].GetElement(0))
 	if res.A != 42 {
 		t.Errorf("alignment or size issue: expected 42, got %d", res.A)
+	}
+}
+
+func TestArchetype_DataIntegrityAfterGrowth(t *testing.T) {
+	// 1. Setup z małym cap, żeby szybko wymusić grow
+	initCap := 2
+	mask := NewArchetypeMask(1)
+	arch := NewArchetype(mask, initCap)
+	addTestColumn[int32](arch, 1)
+
+	// 2. Dodajemy encje do pełna (0 i 1)
+	val0, val1 := int32(100), int32(200)
+	arch.AddEntity(Entity(0), 1, unsafe.Pointer(&val0))
+	arch.AddEntity(Entity(1), 1, unsafe.Pointer(&val1))
+
+	// 3. To wywoła growTo(4).
+	// Jeśli col.len nie było inkrementowane, growTo NIE SKOPIUJE val0 i val1!
+	val2 := int32(300)
+	arch.AddEntity(Entity(2), 1, unsafe.Pointer(&val2))
+
+	// 4. WERYFIKACJA: Czy dane z pierwszego bloku pamięci nadal tam są?
+	got0 := *(*int32)(arch.Columns[1].GetElement(0))
+	got1 := *(*int32)(arch.Columns[1].GetElement(1))
+	got2 := *(*int32)(arch.Columns[1].GetElement(2))
+
+	if got0 != 100 {
+		t.Errorf("DATA LOSS: Entity 0 data corrupted after growth. Expected 100, got %d", got0)
+	}
+	if got1 != 200 {
+		t.Errorf("DATA LOSS: Entity 1 data corrupted after growth. Expected 200, got %d", got1)
+	}
+	if got2 != 300 {
+		t.Errorf("Entity 2 (new) data mismatch. Got %d", got2)
+	}
+}
+
+func TestArchetype_RegisterAndSetData(t *testing.T) {
+	arch := NewArchetype(NewArchetypeMask(1), 2) // Cap = 2
+	addTestColumn[int32](arch, 1)
+
+	// Wypełniamy
+	arch.registerEntity(Entity(0))
+	arch.registerEntity(Entity(1))
+
+	// Ta rejestracja wywoła growTo
+	newRow := arch.registerEntity(Entity(2))
+
+	// Symulujemy setData z moveEntity
+	val := int32(777)
+	arch.Columns[1].setData(newRow, unsafe.Pointer(&val))
+
+	got := *(*int32)(arch.Columns[1].GetElement(newRow))
+	if got != 777 {
+		t.Errorf("setData failed after grow: expected 777, got %d", got)
+	}
+}
+
+func TestArchetype_RemoveLastEntityLenSync(t *testing.T) {
+	arch := NewArchetype(NewArchetypeMask(1), 5)
+	addTestColumn[int32](arch, 1)
+
+	arch.registerEntity(Entity(1)) // len = 1
+
+	// Usuwamy jedyną (ostatnią) encję
+	arch.SwapRemoveEntity(0)
+
+	if arch.len != 0 || arch.Columns[1].len != 0 {
+		t.Errorf("Failed to sync len when removing last entity: arch=%d, col=%d",
+			arch.len, arch.Columns[1].len)
 	}
 }

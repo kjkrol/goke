@@ -21,6 +21,8 @@ type (
 	ExecutionPlan = core.ExecutionPlan
 	// ExecutionContext provides methods to run systems (parallel or sync) within a plan.
 	ExecutionContext = core.ExecutionContext
+
+	EngineConfig = core.RegistryConfig
 )
 
 // Engine is the main entry point for the ECS. It acts as the coordinator
@@ -33,9 +35,24 @@ type Engine struct {
 	scheduler *core.SystemScheduler
 }
 
-// NewEngine creates and initializes a new ECS Engine with default settings.
-func NewEngine() *Engine {
-	reg := core.NewRegistry()
+// NewEngine creates and initializes a new ECS Engine instance.
+// It accepts optional EngineOption functions to override the default EngineConfig,
+// allowing for fine-tuned memory pre-allocation and performance optimization
+// (e.g., adjusting archetype chunk sizes to minimize GC pressure).
+func NewEngine(opts ...EngineOption) *Engine {
+	config := EngineConfig{
+		InitialEntityCap:            1024,
+		DefaultArchetypeChunkSize:   128,
+		InitialArchetypeRegistryCap: 64,
+		FreeIndicesCap:              1024,
+		ViewRegistryInitCap:         32,
+	}
+
+	for _, opt := range opts {
+		opt(&config)
+	}
+
+	reg := core.NewRegistry(config)
 	return &Engine{
 		registry:  reg,
 		scheduler: core.NewScheduler(reg),

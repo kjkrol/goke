@@ -4,41 +4,64 @@ type EntityGenerationalPool struct {
 	lastIndex   uint32
 	freeIndices []uint32
 	generations []uint32
+	capacity    uint32
 }
 
-func NewEntityGenerator(initialCapacity int) *EntityGenerationalPool {
+func NewEntityGenerator(initialEntityCap, freeIndicesCap int) *EntityGenerationalPool {
 	return &EntityGenerationalPool{
-		generations: make([]uint32, 0, initialCapacity),
-		freeIndices: make([]uint32, 0, 128),
+		// Pre-allocate with full length to avoid 'append' logic for generations
+		generations: make([]uint32, initialEntityCap),
+		// Pre-allocate capacity for freeIndices, but keep length 0
+		freeIndices: make([]uint32, 0, freeIndicesCap),
+		capacity:    uint32(initialEntityCap),
 	}
 }
 
 func (p *EntityGenerationalPool) Next() Entity {
-	var index uint32
-	if len(p.freeIndices) > 0 {
-		index = p.freeIndices[len(p.freeIndices)-1]
-		p.freeIndices = p.freeIndices[:len(p.freeIndices)-1]
-	} else {
-		index = p.lastIndex
-		p.lastIndex++
-		p.generations = append(p.generations, 0)
+	// Priority 1: Reuse deleted indices (Fast Path)
+	if fLen := len(p.freeIndices); fLen > 0 {
+		index := p.freeIndices[fLen-1]
+		p.freeIndices = p.freeIndices[:fLen-1]
+		gen := p.generations[index]
+		return NewEntity(gen, index)
 	}
 
-	gen := p.generations[index]
-	return NewEntity(gen, index)
+	// Priority 2: Use new index
+	if p.lastIndex >= p.capacity {
+		p.grow()
+	}
+
+	index := p.lastIndex
+	p.lastIndex++
+
+	// generations[index] is already 0 due to make() or grow() zero-init
+	return NewEntity(p.generations[index], index)
+}
+
+func (p *EntityGenerationalPool) grow() {
+	newCap := p.capacity * 2
+	if newCap == 0 {
+		newCap = 8 // Default fallback
+	}
+
+	// Grow generations - this is a heavy operation, but happens rarely
+	newGenerations := make([]uint32, newCap)
+	copy(newGenerations, p.generations)
+	p.generations = newGenerations
+	p.capacity = newCap
 }
 
 func (p *EntityGenerationalPool) Release(e Entity) uint32 {
 	index := e.Index()
+	// Increment generation to invalidate existing handles
 	p.generations[index]++
+
+	// We assume freeIndicesCap was set correctly to avoid grow here
 	p.freeIndices = append(p.freeIndices, index)
 	return index
 }
 
 func (p *EntityGenerationalPool) IsValid(e Entity) bool {
-	if e.IsVirtual() {
-		return false
-	}
 	index, gen := e.Unpack()
-	return index < uint32(len(p.generations)) && p.generations[index] == gen
+	return index < p.lastIndex && p.generations[index] == gen
 }

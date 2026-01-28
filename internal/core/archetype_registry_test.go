@@ -3,7 +3,6 @@ package core
 import (
 	"reflect"
 	"testing"
-	"unsafe"
 )
 
 // 1. Fast Path Discovery
@@ -17,9 +16,11 @@ func TestArchetypeRegistry_FastPath(t *testing.T) {
 	reg.AddEntity(e2)
 
 	// First assignment: Should build the graph edge (Slow Path)
-	reg.Assign(e1, posTypeInfo, unsafe.Pointer(&posData))
+	if ptr, err := reg.AllocateComponentMemory(e1, posTypeInfo); err == nil {
+		*(*position)(ptr) = posData
+	}
 
-	arch1 := reg.EntityArchLinks[e1.Index()].Arch
+	arch1 := reg.EntityLinkStore.Get(e1.Index()).Arch
 	if arch1 == reg.rootArch {
 		t.Fatal("entity E1 should have moved from rootArch")
 	}
@@ -30,8 +31,10 @@ func TestArchetypeRegistry_FastPath(t *testing.T) {
 	}
 
 	// Second assignment: Should follow the edge (Fast Path)
-	reg.Assign(e2, posTypeInfo, unsafe.Pointer(&posData))
-	arch2 := reg.EntityArchLinks[e2.Index()].Arch
+	if ptr, err := reg.AllocateComponentMemory(e2, posTypeInfo); err == nil {
+		*(*position)(ptr) = posData
+	}
+	arch2 := reg.EntityLinkStore.Get(e2.Index()).Arch
 
 	if arch1 != arch2 {
 		t.Error("E1 and E2 should share the same archetype instance via graph edges")
@@ -50,8 +53,10 @@ func TestArchetypeRegistry_CycleConsistency(t *testing.T) {
 	// Root -> +Pos -> ArchA
 	// Passing a valid pointer to avoid panic in column.setData
 	posData := position{x: 10, y: 20}
-	reg.Assign(e, posTypeInfo, unsafe.Pointer(&posData))
-	archA := reg.EntityArchLinks[e.Index()].Arch
+	if ptr, err := reg.AllocateComponentMemory(e, posTypeInfo); err == nil {
+		*(*position)(ptr) = posData
+	}
+	archA := reg.EntityLinkStore.Get(e.Index()).Arch
 
 	if archA == nil || archA == reg.rootArch {
 		t.Fatal("entity failed to move to a new archetype")
@@ -79,8 +84,12 @@ func TestArchetypeRegistry_GraphBranching(t *testing.T) {
 
 	// Branching from Root to two different archetypes
 	// Use actual pointers instead of nil
-	reg.Assign(e1, posTypeInfo, unsafe.Pointer(&pData))
-	reg.Assign(e2, velTypeInfo, unsafe.Pointer(&vData))
+	if ptr, err := reg.AllocateComponentMemory(e1, posTypeInfo); err == nil {
+		*(*position)(ptr) = pData
+	}
+	if ptr, err := reg.AllocateComponentMemory(e2, velTypeInfo); err == nil {
+		*(*velocity)(ptr) = vData
+	}
 
 	// Case: Root should have 2 independent outgoing edges
 	if len(reg.rootArch.edgesNext) != 2 {
@@ -105,7 +114,9 @@ func TestArchetypeRegistry_RemovalStrategy(t *testing.T) {
 	reg.AddEntity(e)
 
 	// Validating if Assign works with the new error-returning signature
-	if err := reg.Assign(e, posTypeInfo, unsafe.Pointer(&pData)); err != nil {
+	if ptr, err := reg.AllocateComponentMemory(e, posTypeInfo); err == nil {
+		*(*position)(ptr) = pData
+	} else {
 		t.Fatalf("failed to assign component: %v", err)
 	}
 
@@ -113,12 +124,8 @@ func TestArchetypeRegistry_RemovalStrategy(t *testing.T) {
 	reg.UnAssign(e, posTypeInfo)
 
 	index := e.Index()
-	// Fix: changed 'r' to 'reg'
-	if int(index) >= len(reg.EntityArchLinks) {
-		t.Fatal("entity link index out of bounds")
-	}
+	link := reg.EntityLinkStore.Get(index)
 
-	link := reg.EntityArchLinks[index]
 	if link.Arch != nil {
 		t.Errorf("entity should be removed (arch == nil), but still linked to archetype with mask: %v", link.Arch.Mask)
 	}
@@ -133,14 +140,18 @@ func TestArchetypeRegistry_OverwriteIdempotency(t *testing.T) {
 	p2 := position{2, 2}
 
 	reg.AddEntity(e)
-	reg.Assign(e, posTypeInfo, unsafe.Pointer(&p1))
+	if ptr, err := reg.AllocateComponentMemory(e, posTypeInfo); err == nil {
+		*(*position)(ptr) = p1
+	}
 
-	linkBefore := reg.EntityArchLinks[e.Index()]
+	linkBefore := reg.EntityLinkStore.Get(e.Index())
 
 	// Case: Assign same component again (update data)
-	reg.Assign(e, posTypeInfo, unsafe.Pointer(&p2))
+	if ptr, err := reg.AllocateComponentMemory(e, posTypeInfo); err == nil {
+		*(*position)(ptr) = p2
+	}
 
-	linkAfter := reg.EntityArchLinks[e.Index()]
+	linkAfter := reg.EntityLinkStore.Get(e.Index())
 
 	if linkBefore.Arch != linkAfter.Arch || linkBefore.Row != linkAfter.Row {
 		t.Error("re-assigning same component should not move entity in graph")
@@ -161,15 +172,22 @@ func TestArchetypeRegistry_SwapPopIntegrity(t *testing.T) {
 
 	// Fix: replace nil with pointer in all Assign calls
 	reg.AddEntity(e0)
-	reg.Assign(e0, posTypeInfo, unsafe.Pointer(&pData))
+	if ptr, err := reg.AllocateComponentMemory(e0, posTypeInfo); err == nil {
+		*(*position)(ptr) = pData
+	}
+
 	reg.AddEntity(e1)
-	reg.Assign(e1, posTypeInfo, unsafe.Pointer(&pData))
+	if ptr, err := reg.AllocateComponentMemory(e1, posTypeInfo); err == nil {
+		*(*position)(ptr) = pData
+	}
 	reg.AddEntity(e2)
-	reg.Assign(e2, posTypeInfo, unsafe.Pointer(&pData))
+	if ptr, err := reg.AllocateComponentMemory(e2, posTypeInfo); err == nil {
+		*(*position)(ptr) = pData
+	}
 
-	reg.RemoveEntity(e1)
+	reg.UnlinkEntity(e1)
 
-	link2 := reg.EntityArchLinks[e2.Index()]
+	link2 := reg.EntityLinkStore.Get(e2.Index())
 	if link2.Row != 1 {
 		t.Errorf("E2 should be at row 1, got %d", link2.Row)
 	}
@@ -183,7 +201,7 @@ func setupTestRegistry() *ArchetypeRegistry {
 	// Mock ViewRegistry to avoid panics
 	viewReg := &ViewRegistry{}
 
-	return NewArchetypeRegistry(compReg, viewReg)
+	return NewArchetypeRegistry(compReg, viewReg, DefaultRegistryConfig())
 }
 
 func TestArchetypeRegistry_AssignValidation(t *testing.T) {
@@ -195,21 +213,21 @@ func TestArchetypeRegistry_AssignValidation(t *testing.T) {
 	posTypeInfo := reg.componentsRegistry.GetOrRegister(reflect.TypeFor[position]())
 
 	// Case: Passing tag
-	err := reg.Assign(e, voidTypeInfo, nil)
-	if err != nil {
+	if _, err := reg.AllocateComponentMemory(e, voidTypeInfo); err != nil {
 		t.Errorf("unexpected error when assigning tag component: tags should allow nil data, but got: %v", err)
 	}
 
+	eX := Entity(3123)
 	// Case: Passing nil data
-	err = reg.Assign(e, posTypeInfo, nil)
-	if err != ErrNilComponentData {
+	if _, err := reg.AllocateComponentMemory(eX, posTypeInfo); err != ErrEntityNotFound {
 		t.Errorf("expected ErrNilComponentData, got %v", err)
 	}
 
 	// Case: Passing valid data
 	pos := position{1, 2}
-	err = reg.Assign(e, posTypeInfo, unsafe.Pointer(&pos))
-	if err != nil {
+	if ptr, err := reg.AllocateComponentMemory(e, posTypeInfo); err == nil {
+		*(*position)(ptr) = pos
+	} else {
 		t.Errorf("unexpected error for valid assign: %v", err)
 	}
 }

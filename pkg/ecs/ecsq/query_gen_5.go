@@ -66,11 +66,11 @@ func (q *Query5[T1, T2, T3, T4, T5]) All5() iter.Seq2[Head5[T1, T2, T3], Tail5[T
 }
 
 func (q *Query5[T1, T2, T3, T4, T5]) Filter5(entities []core.Entity) iter.Seq2[Head5[T1, T2, T3], Tail5[T4, T5]] {
-	links := q.Reg.ArchetypeRegistry.EntityArchLinks
+	links := q.Reg.ArchetypeRegistry.EntityLinkStore
 	return func(yield func(Head5[T1, T2, T3], Tail5[T4, T5]) bool) {
 		var lastArch *core.Archetype; var cols [5]*core.Column
 		for _, e := range entities {
-			link := links[e.Index()]; arch := link.Arch
+			link := links.Get(e.Index()); arch := link.Arch
 			if arch == nil || q.View.Matches(arch.Mask) { continue }
 			if arch != lastArch { for i := 0; i < 5; i++ { cols[i] = arch.Columns[q.CompIDs[i]] }; lastArch = arch }
 			idx := uintptr(link.Row)
@@ -101,11 +101,11 @@ func (q *Query5[T1, T2, T3, T4, T5]) PureAll5() iter.Seq2[PHead5[T1, T2, T3, T4]
 }
 
 func (q *Query5[T1, T2, T3, T4, T5]) PureFilter5(entities []core.Entity) iter.Seq2[PHead5[T1, T2, T3, T4], PTail5[T5]] {
-	links := q.Reg.ArchetypeRegistry.EntityArchLinks
+	links := q.Reg.ArchetypeRegistry.EntityLinkStore
 	return func(yield func(PHead5[T1, T2, T3, T4], PTail5[T5]) bool) {
 		var lastArch *core.Archetype; var cols [5]*core.Column
 		for _, e := range entities {
-			link := links[e.Index()]; arch := link.Arch
+			link := links.Get(e.Index()); arch := link.Arch
 			if arch == nil || q.View.Matches(arch.Mask) { continue }
 			if arch != lastArch { for i := 0; i < 5; i++ { cols[i] = arch.Columns[q.CompIDs[i]] }; lastArch = arch }
 			idx := uintptr(link.Row)

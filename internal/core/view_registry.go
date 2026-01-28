@@ -4,7 +4,7 @@ type ViewRegistry struct {
 	views []*View
 }
 
-func NewViewRegistry() *ViewRegistry {
+func NewViewRegistry(viewRegistryInitCap int) *ViewRegistry {
 	return &ViewRegistry{views: make([]*View, 0, viewRegistryInitCap)}
 }
 
