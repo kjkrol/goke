@@ -13,7 +13,7 @@ type ProcessedTag struct{}
 func BenchmarkEngine_Structural(b *testing.B) {
 	engine := ecs.NewEngine(
 		ecs.WithInitialEntityCap(100000),
-		ecs.WithDefaultArchetypeChunkSize(2048),
+		ecs.WithDefaultArchetypeChunkSize(4096),
 		ecs.WithInitialArchetypeRegistryCap(128),
 		ecs.WithFreeIndicesCap(100000),
 		ecs.WithViewRegistryInitCap(64),
@@ -25,19 +25,34 @@ func BenchmarkEngine_Structural(b *testing.B) {
 	tagInfo := ecs.RegisterComponent[ProcessedTag](engine)
 
 	// --- 1. ENTITY CREATION & INITIALIZATION ---
-	// Tests AddComponentByInfo + In-place dereference (*ptr = value)
-	b.Run("Create_And_Init_Entity", func(b *testing.B) {
+	// Tests CreateEntity
+	b.Run("Create_Entity", func(b *testing.B) {
+		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			e := engine.CreateEntity()
-			pos, _ := ecs.AllocateComponentByInfo[Position3](engine, e, posInfo)
-			*pos = Position3{X: 1, Y: 2, Z: 3}
+			_ = e
 		}
 	})
 
 	// --- 2. ARCHETYPE TRANSITION (Evolution) ---
 	// Tests moving an entity from {Position} to {Position, Velocity}
-	b.Run("Add_Component_Transition", func(b *testing.B) {
+	b.Run("Add_Component", func(b *testing.B) {
+		entities := make([]ecs.Entity, b.N)
+		for i := 0; i < b.N; i++ {
+			entities[i] = engine.CreateEntity()
+		}
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			v, _ := ecs.AllocateComponentByInfo[Velocity3](engine, entities[i], velInfo)
+			*v = Velocity3{X: 10, Y: 10}
+		}
+	})
+
+	// --- 2. ARCHETYPE TRANSITION (Evolution) ---
+	// Tests moving an entity from {Position} to {Position, Velocity}
+	b.Run("Add_2nd_Component", func(b *testing.B) {
 		entities := make([]ecs.Entity, b.N)
 		for i := 0; i < b.N; i++ {
 			entities[i] = engine.CreateEntity()
@@ -113,7 +128,7 @@ func BenchmarkEngine_RemoveEntity_Clean(b *testing.B) {
 	// Initialize the engine with "Turbo" settings to pre-allocate memory buffers
 	engine := ecs.NewEngine(
 		ecs.WithInitialEntityCap(count),
-		ecs.WithDefaultArchetypeChunkSize(1024),
+		ecs.WithDefaultArchetypeChunkSize(4096),
 		ecs.WithFreeIndicesCap(count),
 	)
 	posInfo := ecs.RegisterComponent[Position3](engine)
@@ -156,7 +171,8 @@ func BenchmarkEngine_AddRemove_Stability(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		e := engine.CreateEntity()
-		ecs.AllocateComponentByInfo[Position3](engine, e, posInfo)
+		p, _ := ecs.AllocateComponentByInfo[Position3](engine, e, posInfo)
+		*p = Position3{X: 1}
 
 		// Usuwamy co drugą, żeby wymusić swapowanie w archetypie
 		if i%2 == 0 {

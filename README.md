@@ -84,7 +84,7 @@ func main() {
     query := ecs.NewQuery3[Pos, Vel, Acc](engine)
 
     // 3. Register Functional Systems
-    moveSys := engine.RegisterSystemFunc(func(cb *ecs.SystemCommandBuffer, d time.Duration) {
+    moveSys := engine.RegisterSystemFunc(func(cb *ecs.Commands, d time.Duration) {
         for head := range query.All3() {
             p, v, a := head.V1, head.V2, head.V3
             v.X += a.X; v.Y += a.Y
@@ -115,9 +115,10 @@ These benchmarks highlight the efficiency of our archetype-based memory manageme
 
 | Operation | Performance | Memory | Allocs | Technical Mechanism |
 | :--- | :--- | :--- | :--- | :--- |
-| **Create & Init Entity** | **104.6 ns/op** | 146 B/op | **0** | Pre-allocated archetype slotting |
-| **Add Component** | **160.0 ns/op** | 196 B/op | **0** | Archetype migration (+ data copy) |
-| **Add Tag** | **86.2 ns/op** | 17 B/op | **0** | Archetype migration (Zero-size data move) |
+| **Create Entity** | **25.2 ns/op** | 91 B/op | **0** | Pre-allocated archetype slotting |
+| **Add First Component** | **89.8 ns/op** | 75 B/op | **0** | Archetype migration (+ no data move + data insert) |
+| **Add Next Component** | **145.8 ns/op** | 196 B/op | **0** | Archetype migration (+ data move + data insert) |
+| **Add Tag** | **86.2 ns/op** | 17 B/op | **0** | Archetype migration (+ data move + no data insert) |
 | **Remove Component** | **47.2 ns/op** | 0 B/op | **0** | Archetype migration (Swap-and-pop) |
 | **Remove Entity** | **42.0 ns/op** | 0 B/op | **0** | Index recycling & record invalidation |
 | **Structural Stability** | **133.0 ns/op** | 94 B/op | **0** | Stress test of add/remove cycles |
