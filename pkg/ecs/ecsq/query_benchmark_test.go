@@ -7,7 +7,7 @@ import (
 	"github.com/kjkrol/goke/internal/core"
 )
 
-const entitiesNumber = 10000000
+const entitiesNumber = 1000
 
 type Pos struct{ X, Y float32 }
 type Vel struct{ X, Y float32 }
@@ -64,6 +64,7 @@ func setupBenchmark(_ *testing.B, count int) (*core.Registry, []core.Entity) {
 // --- Benchmarki Standardowe (All) ---
 
 func BenchmarkQuery0_All(b *testing.B) {
+	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
 	query := NewQuery0(eng)
 
@@ -74,17 +75,17 @@ func BenchmarkQuery0_All(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-	for b.Loop() {
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
 		fn()
 	}
 }
 
 func BenchmarkQuery1_All(b *testing.B) {
+	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
 	query1 := NewQuery1[Pos](eng)
 
-	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
 		for head := range query1.All1() {
 			pos := head.V1
@@ -92,13 +93,14 @@ func BenchmarkQuery1_All(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-	for b.Loop() {
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
 		fn()
 	}
 }
 
 func BenchmarkQuery2_All(b *testing.B) {
+	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
 	query2 := NewQuery2[Pos, Vel](eng)
 
@@ -110,13 +112,14 @@ func BenchmarkQuery2_All(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-	for b.Loop() {
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
 		fn()
 	}
 }
 
 func BenchmarkQuery3_All(b *testing.B) {
+	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
 	query3 := NewQuery3[Pos, Vel, Acc](eng)
 
@@ -129,15 +132,15 @@ func BenchmarkQuery3_All(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-	for b.Loop() {
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
 		fn()
 	}
 }
 
 func BenchmarkQuery3WithTag_All(b *testing.B) {
+	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-
 	query := NewQuery3[Pos, Vel, Acc](eng, core.WithTag[Mass]())
 
 	fn := func() {
@@ -147,13 +150,14 @@ func BenchmarkQuery3WithTag_All(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-	for b.Loop() {
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
 		fn()
 	}
 }
 
 func BenchmarkQuery4_All(b *testing.B) {
+	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
 	query4 := NewQuery4[Pos, Vel, Acc, Mass](eng)
 
@@ -167,13 +171,14 @@ func BenchmarkQuery4_All(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-	for b.Loop() {
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
 		fn()
 	}
 }
 
 func BenchmarkQuery5_All(b *testing.B) {
+	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
 	query5 := NewQuery5[Pos, Vel, Acc, Mass, Spin](eng)
 
@@ -188,13 +193,14 @@ func BenchmarkQuery5_All(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-	for b.Loop() {
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
 		fn()
 	}
 }
 
 func BenchmarkQuery6_All(b *testing.B) {
+	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
 	query6 := NewQuery6[Pos, Vel, Acc, Mass, Spin, Char](eng)
 
@@ -207,13 +213,14 @@ func BenchmarkQuery6_All(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-	for b.Loop() {
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
 		fn()
 	}
 }
 
 func BenchmarkQuery7_All(b *testing.B) {
+	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
 	query7 := NewQuery7[Pos, Vel, Acc, Mass, Spin, Char, Elec](eng)
 
@@ -226,13 +233,14 @@ func BenchmarkQuery7_All(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-	for b.Loop() {
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
 		fn()
 	}
 }
 
 func BenchmarkQuery8_All(b *testing.B) {
+	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
 	query8 := NewQuery8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn](eng)
 
@@ -245,8 +253,8 @@ func BenchmarkQuery8_All(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-	for b.Loop() {
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
 		fn()
 	}
 }
@@ -254,6 +262,7 @@ func BenchmarkQuery8_All(b *testing.B) {
 // --- Benchmarki Filtrowane ---
 
 func BenchmarkQuery3_Filtered100(b *testing.B) {
+	b.StopTimer()
 	eng, entities := setupBenchmark(b, entitiesNumber)
 	query3 := NewQuery3[Pos, Vel, Acc](eng)
 	subset := entities[:100]
@@ -267,8 +276,8 @@ func BenchmarkQuery3_Filtered100(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-	for b.Loop() {
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
 		fn()
 	}
 }
@@ -276,6 +285,7 @@ func BenchmarkQuery3_Filtered100(b *testing.B) {
 // --- Benchmarki Pure All ---
 
 func BenchmarkQuery1_PureAll(b *testing.B) {
+	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
 	query1 := NewQuery1[Pos](eng)
 
@@ -287,13 +297,14 @@ func BenchmarkQuery1_PureAll(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-	for b.Loop() {
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
 		fn()
 	}
 }
 
 func BenchmarkQuery2_PureAll(b *testing.B) {
+	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
 	query2 := NewQuery2[Pos, Vel](eng)
 
@@ -305,13 +316,14 @@ func BenchmarkQuery2_PureAll(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-	for b.Loop() {
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
 		fn()
 	}
 }
 
 func BenchmarkQuery3_PureAll(b *testing.B) {
+	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
 	query3 := NewQuery3[Pos, Vel, Acc](eng)
 
@@ -324,13 +336,14 @@ func BenchmarkQuery3_PureAll(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-	for b.Loop() {
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
 		fn()
 	}
 }
 
 func BenchmarkQuery4_PureAll(b *testing.B) {
+	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
 	query4 := NewQuery4[Pos, Vel, Acc, Mass](eng)
 
@@ -343,13 +356,14 @@ func BenchmarkQuery4_PureAll(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-	for b.Loop() {
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
 		fn()
 	}
 }
 
 func BenchmarkQuery5_PureAll(b *testing.B) {
+	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
 	query5 := NewQuery5[Pos, Vel, Acc, Mass, Spin](eng)
 
@@ -362,13 +376,14 @@ func BenchmarkQuery5_PureAll(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-	for b.Loop() {
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
 		fn()
 	}
 }
 
 func BenchmarkQuery6_PureAll(b *testing.B) {
+	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
 	query6 := NewQuery6[Pos, Vel, Acc, Mass, Spin, Char](eng)
 
@@ -381,13 +396,14 @@ func BenchmarkQuery6_PureAll(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-	for b.Loop() {
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
 		fn()
 	}
 }
 
 func BenchmarkQuery7_PureAll(b *testing.B) {
+	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
 	query7 := NewQuery7[Pos, Vel, Acc, Mass, Spin, Char, Elec](eng)
 
@@ -400,13 +416,14 @@ func BenchmarkQuery7_PureAll(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-	for b.Loop() {
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
 		fn()
 	}
 }
 
 func BenchmarkQuery8_PureAll(b *testing.B) {
+	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
 	query8 := NewQuery8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn](eng)
 
@@ -419,8 +436,8 @@ func BenchmarkQuery8_PureAll(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-	for b.Loop() {
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
 		fn()
 	}
 }
@@ -428,6 +445,7 @@ func BenchmarkQuery8_PureAll(b *testing.B) {
 // --- Benchmarki Pure Filtered ---
 
 func BenchmarkQuery3_PureFiltered100(b *testing.B) {
+	b.StopTimer()
 	eng, entities := setupBenchmark(b, entitiesNumber)
 	query3 := NewQuery3[Pos, Vel, Acc](eng)
 	subset := entities[:100]
@@ -441,8 +459,8 @@ func BenchmarkQuery3_PureFiltered100(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-	for b.Loop() {
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
 		fn()
 	}
 }

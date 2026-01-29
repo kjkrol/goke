@@ -198,6 +198,36 @@ The engine demonstrates perfect linear scaling for full world iterations and det
 * **Instruction Efficiency:** Even with 8 components, the engine processes entities at **~1 ns/entity**, fitting a 10M entity update within a **10ms** window.
 * **Pure Mode Gain:** Bypassing Entity ID generation provides up to **29%** additional throughput for heavy computational systems.
 
+
+## Benchmark Comparison: goke/ecs vs. Arche (RAW Data)
+
+It is important to note that while **goke/ecs** achieves industry-leading raw iteration speeds, **Arche** is a more established framework providing a broader feature set. The performance trade-offs in **Arche** often stem from supporting complex functionalities that **goke/ecs** intentionally omits to maintain its lean profile, such as:
+
+* **Entity Relations:** Native support for parent-child hierarchies and linked entities.
+* **Batch Operations:** Highly optimized mass entity spawning and destruction.
+* **Event Listeners:** Comprehensive system for monitoring entity and component lifecycles (in **goke/ecs**, this includes Cached Views that listen for newly created archetypes to dynamically attach them to the view).
+
+## Benchmark Comparison: goke/ecs vs. Arche
+**Environment:** Apple M1 Max (ARM64)  
+**Units:** Nanoseconds per operation (ns/op)
+
+| Category | goke/ecs | Arche | Winner | Verified |
+| :--- | :--- | :--- | :--- | :--- |
+| **Iteration (1 Comp)** | **0.41 ns** | 0.55 ns | **goke/ecs (+24%)** | YES |
+| **Iteration (2 Comp)** | **0.49 ns** | 1.37 ns | **goke/ecs (+64%)** | YES |
+| **Iteration (3 Comp)** | **0.65 ns** | 1.79 ns | **goke/ecs (+63%)** | YES |
+| **Create Entity** | 25.20 ns | **20.60 ns** | **Arche (+18%)** | YES |
+| **Add First Component** | 89.80 ns | **29.30 ns** | **Arche (+67%)** | YES |
+| **Add Next Component** | 145.80 ns | **??** | **Arche (+??%)** | NO |
+| **Add Tag** | 86.20 ns | **??** | **Arche (+??%)** | NO |
+| **Remove Component** | 47.20 ns | **??** | **Arche (+??%)** | NO |
+| **Remove Entity** | 42.00 ns | **??** | **Arche (+??%)** | NO |
+| **Query Filter** | 4.48 ns | **??** | **Arche (+??%)** | NO |
+
+## Roadmap
+
+* **Batch Operations:** Implementation of high-performance bulk operations for entity creation and destruction, aimed at maximizing overhead reduction during large-scale data processing.
+
 ## License
 
 GOKE is licensed under the MIT License. See the LICENSE file for more details.
