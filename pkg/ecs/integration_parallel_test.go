@@ -36,7 +36,7 @@ type PhysicsSystem struct {
 func (s *PhysicsSystem) Init(eng *ecs.Engine) {
 	s.query = ecs.NewQuery2[Position, Velocity](eng)
 }
-func (s *PhysicsSystem) Update(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuffer, d time.Duration) {
+func (s *PhysicsSystem) Update(reg ecs.Lookup, cb *ecs.Commands, d time.Duration) {
 	for head := range s.query.All2() {
 		head.V1.X += head.V2.VX * float32(d.Seconds())
 		head.V1.Y += head.V2.VY * float32(d.Seconds())
@@ -51,7 +51,7 @@ type HealthSystem struct {
 func (s *HealthSystem) Init(eng *ecs.Engine) {
 	s.query = ecs.NewQuery1[Health](eng)
 }
-func (s *HealthSystem) Update(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuffer, d time.Duration) {
+func (s *HealthSystem) Update(reg ecs.Lookup, cb *ecs.Commands, d time.Duration) {
 	for head := range s.query.All1() {
 		if head.V1.Current < head.V1.Max {
 			head.V1.Current += 1.0 // Simple regen
@@ -80,11 +80,11 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	// Create entities with ALL components
 	for range 1000 {
 		e := eng.CreateEntity()
-		pos, _ := ecs.AddComponentByInfo[Position](eng, e, posInfo)
+		pos, _ := ecs.AllocateComponentByInfo[Position](eng, e, posInfo)
 		*pos = Position{0, 0}
-		vel, _ := ecs.AddComponentByInfo[Velocity](eng, e, velInfo)
+		vel, _ := ecs.AllocateComponentByInfo[Velocity](eng, e, velInfo)
 		*vel = Velocity{10, 10}
-		hel, _ := ecs.AddComponentByInfo[Health](eng, e, healthInfo)
+		hel, _ := ecs.AllocateComponentByInfo[Health](eng, e, healthInfo)
 		*hel = Health{50, 100}
 	}
 
@@ -94,8 +94,8 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 		ctx.Sync()
 	})
 
-	// 3. Run
-	eng.Run(time.Second) // Simulate 1 second
+	// 3. Tick engine
+	eng.Tick(time.Second) // Simulate 1 second
 
 	// 4. Verification
 	query := ecs.NewQuery2[Position, Health](eng)

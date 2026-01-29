@@ -5,6 +5,7 @@ import (
 	"unsafe"
 )
 
+// Dynamic Array (Vector) - SoA (Structure of Arrays).
 type Column struct {
 	Data     unsafe.Pointer
 	rawSlice reflect.Value // prevent GC from garbage collecting
