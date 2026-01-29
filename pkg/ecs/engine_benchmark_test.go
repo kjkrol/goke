@@ -30,7 +30,7 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			e := engine.CreateEntity()
-			pos, _ := ecs.AddComponentByInfo[Position3](engine, e, posInfo)
+			pos, _ := ecs.AllocateComponentByInfo[Position3](engine, e, posInfo)
 			*pos = Position3{X: 1, Y: 2, Z: 3}
 		}
 	})
@@ -41,13 +41,13 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		entities := make([]ecs.Entity, b.N)
 		for i := 0; i < b.N; i++ {
 			entities[i] = engine.CreateEntity()
-			p, _ := ecs.AddComponentByInfo[Position3](engine, entities[i], posInfo)
+			p, _ := ecs.AllocateComponentByInfo[Position3](engine, entities[i], posInfo)
 			*p = Position3{X: 1}
 		}
 		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			v, _ := ecs.AddComponentByInfo[Velocity3](engine, entities[i], velInfo)
+			v, _ := ecs.AllocateComponentByInfo[Velocity3](engine, entities[i], velInfo)
 			*v = Velocity3{X: 10, Y: 10}
 		}
 	})
@@ -61,7 +61,7 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			ecs.AddComponentByInfo[ProcessedTag](engine, entities[i], tagInfo)
+			ecs.AllocateComponentByInfo[ProcessedTag](engine, entities[i], tagInfo)
 		}
 	})
 
@@ -70,7 +70,7 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		entities := make([]ecs.Entity, b.N)
 		for i := 0; i < b.N; i++ {
 			entities[i] = engine.CreateEntity()
-			ecs.AddComponentByInfo[Position3](engine, entities[i], posInfo)
+			ecs.AllocateComponentByInfo[Position3](engine, entities[i], posInfo)
 		}
 		b.ResetTimer()
 		b.ReportAllocs()
@@ -93,7 +93,7 @@ func BenchmarkEngine_Query(b *testing.B) {
 	count := 100000
 	for i := 0; i < count; i++ {
 		e := engine.CreateEntity()
-		pos, _ := ecs.AddComponentByInfo[Position3](engine, e, posInfo)
+		pos, _ := ecs.AllocateComponentByInfo[Position3](engine, e, posInfo)
 		*pos = Position3{X: float64(i)}
 	}
 
@@ -123,7 +123,7 @@ func BenchmarkEngine_RemoveEntity_Clean(b *testing.B) {
 	entities := make([]ecs.Entity, count)
 	for j := 0; j < count; j++ {
 		entities[j] = engine.CreateEntity()
-		ecs.AddComponentByInfo[Position3](engine, entities[j], posInfo)
+		ecs.AllocateComponentByInfo[Position3](engine, entities[j], posInfo)
 	}
 
 	b.ResetTimer() // Exclude setup time from the results
@@ -140,7 +140,7 @@ func BenchmarkEngine_RemoveEntity_Clean(b *testing.B) {
 			b.StopTimer()
 			for j := 0; j < count; j++ {
 				entities[j] = engine.CreateEntity()
-				ecs.AddComponentByInfo[Position3](engine, entities[j], posInfo)
+				ecs.AllocateComponentByInfo[Position3](engine, entities[j], posInfo)
 			}
 			b.StartTimer()
 		}
@@ -156,7 +156,7 @@ func BenchmarkEngine_AddRemove_Stability(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		e := engine.CreateEntity()
-		ecs.AddComponentByInfo[Position3](engine, e, posInfo)
+		ecs.AllocateComponentByInfo[Position3](engine, e, posInfo)
 
 		// Usuwamy co drugą, żeby wymusić swapowanie w archetypie
 		if i%2 == 0 {

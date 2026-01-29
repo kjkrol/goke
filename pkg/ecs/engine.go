@@ -108,8 +108,9 @@ func (e *Engine) SetExecutionPlan(plan ExecutionPlan) {
 	e.scheduler.SetExecutionPlan(plan)
 }
 
-// Run executes one tick of the engine with the provided delta duration.
-func (e *Engine) Run(duration time.Duration) {
+// Tick updates the engine state by executing a single simulation step
+// with the given delta time.
+func (e *Engine) Tick(duration time.Duration) {
 	e.scheduler.Tick(duration)
 }
 
@@ -132,10 +133,10 @@ func RemoveComponent[T any](eng *Engine, entity Entity) error {
 	return eng.registry.UnassignByID(entity, compInfo)
 }
 
-// AddComponent adds a component of type T to an entity and returns a typed pointer to its memory.
-// This is the most efficient way to add data, as it allows direct modification within
-// the engine's storage, bypassing temporary copies and potential heap escapes.
-func AddComponent[T any](eng *Engine, entity Entity) (*T, error) {
+// AllocateComponent reserves memory for a component of type T and returns a direct pointer.
+// It is the most efficient way to add data, enabling in-place modification and
+// bypassing temporary copies or potential heap escapes.
+func AllocateComponent[T any](eng *Engine, entity Entity) (*T, error) {
 	compInfo := core.EnsureComponentRegistered[T](eng.registry.ComponentsRegistry)
 	ptr, err := eng.registry.AllocateByID(entity, compInfo)
 	if err != nil {
@@ -144,16 +145,28 @@ func AddComponent[T any](eng *Engine, entity Entity) (*T, error) {
 	return (*T)(ptr), nil
 }
 
-// AddComponentByInfo adds a component of type T using pre-cached ComponentInfo.
-// This is a high-performance alternative to AddComponent, as it skips the
-// component registration check and type lookup. It returns a typed pointer
-// for direct in-place initialization.
-func AddComponentByInfo[T any](eng *Engine, entity Entity, compInfo ComponentInfo) (*T, error) {
+// AllocateComponentByInfo assigns a component to an entity using pre-cached ComponentInfo.
+// This is a high-performance alternative to AllocateComponent, as it skips
+// registry lookups and type reflection. It returns a typed pointer for
+// direct in-place initialization.
+func AllocateComponentByInfo[T any](eng *Engine, entity Entity, compInfo ComponentInfo) (*T, error) {
 	ptr, err := eng.registry.AllocateByID(entity, compInfo)
 	if err != nil {
 		return nil, err
 	}
 	return (*T)(ptr), nil
+}
+
+// AllocateComponent reserves memory for a component of type T and returns a direct pointer.
+// It is the most efficient way to add data, enabling in-place modification and
+// bypassing temporary copies or potential heap escapes.
+func SetComponent[T any](eng *Engine, entity Entity, value T) error {
+	if ptr, err := AllocateComponent[T](eng, entity); err == nil {
+		*ptr = value
+		return nil
+	} else {
+		return err
+	}
 }
 
 // GetComponent returns a typed pointer to an entity's component of type T.

@@ -1,3 +1,11 @@
+<p align="center">
+  <img src="assets/logo.png" alt="GOKE Logo" width="300">
+</p>
+
+<p align="center">
+  <a href="https://go.dev"><img src="https://img.shields.io/badge/Go-1.23+-00ADD8?style=flat-square&logo=go" alt="Go Version"></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="License"></a>
+</p>
 # GOKE
 
 *aka "Golang kjkrol ECS"*
@@ -8,27 +16,41 @@
 
 Unlike many ECS implementations in Go that rely on component maps or reflection during the update loop, GOKE shifts the heavy lifting to the initialization phase using:
 
-* **Archetype-Based Storage (SoA)**: Entities with the same component composition (Archetypes) are stored in contiguous memory blocks. This layout is **L1/L2 Cache friendly**, allowing the CPU to utilize hardware prefetching to stream data directly into registers.
-* **Flat Cache View**: Views pre-calculate direct pointers to component columns within archetypes during indexing. This eliminates map lookups and pointer chasing inside the hot loop.
-* **Zero-Overhead Iteration**: By using a specialized code generator and fixed-size arrays, the iteration loop performance is comparable to raw C++ array processing.
-* **World-Class Benchmarks**: In "Simple Update" tests (Pos+Vel+Acc), GOKE achieves processing times as low as **~0.54 ns per entity**, reaching the physical limits of modern CPU instruction pipelining.
-
-
+* **Archetype-Based Storage (SoA)**: Entities with the same component composition are stored in contiguous memory blocks (columns). This layout is **L1/L2 Cache friendly**, allowing the CPU to utilize hardware prefetching.
+* **Flat Cache View**: Views pre-calculate direct pointers to component columns within archetypes. This eliminates map lookups and pointer chasing inside the hot loop.
+* **Zero-Overhead Iteration**: Powered by native `for range` over functions (`iter.Seq`), enabling the Go compiler to perform aggressive loop inlining.
+* **Deterministic $O(1)$ Filtering**: Querying 100 specific entities takes the same time (~462 ns) whether the registry contains 1,000 or 100,000 entities by bypassing hash map probing.
 
 ## Key Features
 
-* **Zero Reflection in Update**: All pointer arithmetic and bitmask calculations are resolved during `Reindex`, not every frame.
-* **Modern Iterators**: Powered by native `for range` over functions (`iter.Seq2`), enabling the Go compiler to perform aggressive loop inlining.
-* **True Type Safety**: Fully powered by Go Generics. No more `interface{}` casting or type assertions inside your systems.
-* **No Bounds Checks**: The generated code uses fixed-size array metadata, allowing the compiler to elide bounds check instructions in the hottest parts of the engine.
+GOKE provides a professional-grade toolkit for high-performance simulation and game development:
+
+* **Type-Safe Generics**: Built-in support for `NewQuery1[A]` up to `NewQuery8[A..H]`. No type assertions or `interface{}` overhead in the hot loop.
+* **Go 1.23+ Range Iterators**: Seamless integration with native `for range` loops via `iter.Seq`, allowing the compiler to perform aggressive loop inlining.
+* **Command Buffer**: Thread-safe structural changes (Create/Remove/Add/Unassign) are buffered and applied during synchronization points to maintain state consistency.
+* **Flexible Systems**: Supporting both stateless **Functional Systems** (closures) and **Stateful Systems** (structs) with full `Init/Update` lifecycles.
+* **Advanced Execution Planning**: Deterministic scheduling with `RunParallel` support to utilize multi-core processors while maintaining control via explicit `Sync()` points.
+* **Low-Level Access**: Use `AllocateComponent` for direct `*T` pointers to archetype storage or `AllocateComponentByInfo` to bypass reflection entirely.
+
+> 💡 **See it in action**: Check the `cmd` directory for practical, ready-to-run examples, including a concurrent dice game simulation demonstrating parallel systems and state management.
+
+
+## Core Architecture & "Mechanical Sympathy"
+
+GOKE is designed with an understanding of modern CPU constraints:
+
+### Memory Layout
+1.  **Generation-based Recycling**: Entities are 64-bit IDs (32-bit Index / 32-bit Generation). This solves the ABA problem while allowing dense packing of internal storage.
+2.  **Hardware Prefetching Optimization**: All query structures (Head/Tail) are strictly limited to a maximum of 4 pointer fields. Beyond this, CPU prefetching efficiency degrades. GOKE adheres to this limit to maintain maximal throughput.
+3.  **Archetype Masks**: Supports up to **256 unique component types** using a fast, constant-time bitwise operation (4x64-bit fields).
+
+### Execution Plan
+* **Deferred Commands**: State consistency is maintained via `Commands`. Changes (add/remove) are buffered and applied during explicit `Sync()` points.
+* **Power to the Programmer**: Support for `RunParallel` execution. GOKE provides the tools for concurrency, assuming the developer ensures disjoint component sets to avoid races.
 
 ## Installation
 
 GOKE requires **Go 1.23** or newer.
-
-```bash
-go get github.com/kjkrol/goke
-```
 
 ## Usage Example
 
@@ -38,122 +60,140 @@ package main
 import (
     "fmt"
     "time"
-	
-	"github.com/kjkrol/goke/pkg/ecs"
+    "[github.com/kjkrol/goke/pkg/ecs](https://github.com/kjkrol/goke/pkg/ecs)"
 )
 
 type Pos struct{ X, Y float32 }
 type Vel struct{ X, Y float32 }
 type Acc struct{ X, Y float32 }
 
-type MovementSystem struct {
-    query *ecs.Query3[Pos, Vel, Acc]
-}
-
-func (s *MovementSystem) Init(reg *ecs.Registry) {
-    // View automatically finds matching archetypes and caches data pointers
-    s.query = ecs.NewQuery3[Pos, Vel, Acc](reg)
-}
-
-func (s *MovementSystem) Update(
-    reg ecs.ReadOnlyRegistry,
-    cb *ecs.SystemCommandBuffer,
-    d time.Duration,
-) {
-    // Ultra-fast iteration over contiguous memory blocks
-    for head := range s.query.All3() {
-        pos, vel, acc := head.V1, head.V2, head.V3
-        
-        vel.X += acc.X
-        vel.Y += acc.Y
-        pos.X += vel.X
-        pos.Y += vel.Y
-    }
-}
-
-func (s *MovementSystem) ShouldSync() bool { return false }
-
 func main() {
     engine := ecs.NewEngine()
+    entity := engine.CreateEntity()
 
-    e := engine.CreateEntity()
-
-    // --- Standard Assign (Slower) ---
-    // Why? This triggers a heap allocation due to Escape Analysis.
-    // Inside Assign, the operation 'data := unsafe.Pointer(&component)' takes the 
-    // address of a local variable. Since this pointer is passed to an external 
-    // function/storage, the compiler cannot prove the variable won't outlive 
-    // the stack frame. Consequently, 'component' escapes to the heap, 
-    // significantly increasing GC pressure.
-    ecs.Assign(engine, e, Pos{X: 0, Y: 0})
-    ecs.Assign(engine, e, Vel{X: 1, Y: 1})
+    // 1. Setup Components (Standard or Fast Allocation)
+    ecs.SetComponent(engine, entity, Pos{X: 0, Y: 0})
     
-    // --- Direct Access (Fastest) ---
-    // Why? This avoids new allocations by working with pre-allocated memory.
-    // AddComponent[T] returns a direct pointer to the memory slot already 
-    // reserved within the ECS storage (Archetype/Chunk). You are modifying 
-    // the data in-place, staying within the bounds of the engine's pre-allocated 
-    // buffers and avoiding the "escape to heap" penalty.
-    ptr, _ := ecs.AddComponent[Acc](engine, entity)
-	ptr.X = 0.1
-	ptr.Y = 0.1
+    // Direct Access (Fastest): Returns a direct pointer to storage
+    acc, _ := ecs.AllocateComponent[Acc](engine, entity)
+    *acc = Acc{X: 0.1, Y: 0.1}
 
-    movementSystem := &MovementSystem{}
-    engine.RegisterSystem(movementSystem)
-    
+    // 2. Define Queries
+    query := ecs.NewQuery3[Pos, Vel, Acc](engine)
+
+    // 3. Register Functional Systems
+    moveSys := engine.RegisterSystemFunc(func(cb *ecs.SystemCommandBuffer, d time.Duration) {
+        for head := range query.All3() {
+            p, v, a := head.V1, head.V2, head.V3
+            v.X += a.X; v.Y += a.Y
+            p.X += v.X; p.Y += v.Y
+        }
+    })
+
+    // 4. Define Execution Plan
     engine.SetExecutionPlan(func(ctx ecs.ExecutionContext, d time.Duration) {
-		ctx.RunSystem(movementSystem, d)
-		ctx.Sync()
-	})
+        ctx.Run(moveSys, d)
+        ctx.Sync()
+    })
+
+    // 5. Run simulation
+    engine.Tick(time.Millisecond * 16)
     
-    // Run the system update loop
-    engine.Run(time.Millisecond * 16)
+    res, _ := ecs.GetComponent[Pos](engine, entity)
+    fmt.Printf("Final Position: %+v\n", res)
 }
 ```
 
 ## Performance & Scalability
 
-The engine is engineered for extreme scalability and deterministic performance. By utilizing a **Centralized Record System** (dense array lookup) instead of traditional hash maps, we have effectively decoupled query performance from the total entity count ($N$).
+The engine is engineered for extreme scalability and deterministic performance. By utilizing a **Centralized Record System** (dense array lookup) instead of traditional hash maps, we have effectively decoupled both structural changes and query performance from the total entity count ($N$).
 
-### Benchmarks (Apple M1 Max)
-The following benchmarks demonstrate the efficiency of SoA (Structure of Arrays) and the $O(1)$ nature of our record-based filtering.
+### Structural Operations (Apple M1 Max)
+These benchmarks highlight the efficiency of our archetype-based memory management. Every operation below results in **0 heap allocations**, ensuring no GC pressure during the simulation loop.
 
-| Registry Size ($N$) | Operation | Entities Processed ($k$) | Total Time | Per Entity | Mechanism |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| 100,000 | **View1 All** | 100,000 | ~43,462 ns | **0.43 ns** | Linear SoA Access |
-| 100,000 | **View3 All** | 100,000 | ~73,639 ns | **0.73 ns** | Multi-column SoA |
-| **1,000** | **View3 Filtered** | 100 | **~455 ns** | 4.55 ns | O(1) Record Lookup |
-| **10,000** | **View3 Filtered** | 100 | **~463 ns** | 4.63 ns | O(1) Record Lookup |
-| **100,000** | **View3 Filtered** | 100 | **~462 ns** | 4.62 ns | O(1) Record Lookup |
-
-### Benchmarks (AMD Ryzen 7 5825U)
-The following benchmarks demonstrate the efficiency of SoA (Structure of Arrays) and the $O(1)$ nature of our record-based filtering on x86_64 architecture.
-
-| Registry Size ($N$) | Operation | Entities Processed ($k$) | Total Time | Per Entity | Mechanism |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| 100,000 | **View1 All** | 100,000 | ~47,292 ns | **0.47 ns** | Linear SoA Access |
-| 100,000 | **View3 All** | 100,000 | ~56,188 ns | **0.56 ns** | Multi-column SoA |
-| **1,000** | **View3 Filtered** | 100 | **~507 ns** | 5.07 ns | O(1) Record Lookup |
-| **10,000** | **View3 Filtered** | 100 | **~575 ns** | 5.75 ns | O(1) Record Lookup |
-| **100,000** | **View3 Filtered** | 100 | **~516 ns** | 5.16 ns | O(1) Record Lookup |
+| Operation | Performance | Memory | Allocs | Technical Mechanism |
+| :--- | :--- | :--- | :--- | :--- |
+| **Create & Init Entity** | **104.6 ns/op** | 146 B/op | **0** | Pre-allocated archetype slotting |
+| **Add Component** | **160.0 ns/op** | 196 B/op | **0** | Archetype migration (+ data copy) |
+| **Add Tag** | **86.2 ns/op** | 17 B/op | **0** | Archetype migration (Zero-size data move) |
+| **Remove Component** | **47.2 ns/op** | 0 B/op | **0** | Archetype migration (Swap-and-pop) |
+| **Remove Entity** | **42.0 ns/op** | 0 B/op | **0** | Index recycling & record invalidation |
+| **Structural Stability** | **133.0 ns/op** | 94 B/op | **0** | Stress test of add/remove cycles |
 
 ### Key Technical Takeaways
 
-* **Deterministic $O(1)$ Filtering:** As shown in the benchmarks, querying 100 specific entities takes exactly the same time (~462 ns) whether the registry contains 1,000 or 100,000 entities. This is achieved by bypassing hash map probing entirely.
-* **Extreme Data Locality:** With a processing speed of **~0.43 ns per entity** in linear scans, the engine operates at near-memory-bandwidth limits, fully utilizing CPU prefetching and L1/L2 caches.
-* **Hybrid Iterator Strategy:** Our generated `Filtered` queries implement a "Last Archetype Cache". If the filtered list contains entities from the same archetype, the engine reuses column pointers, significantly reducing pointer arithmetic and memory-to-register traffic.
-* **Zero-Map Overhead:** By moving the "Entity to Index" mapping to a centralized, dense array of `Records`, we eliminated the cache-miss-heavy map lookups that typically slow down ECS engines as they scale.
+* **Zero-Allocation Architecture:** All core operations (adding/removing components, creating entities) are performed with zero heap allocations after the initial pre-allocation phase. This eliminates stuttering caused by the Go Garbage Collector.
+* **Archetype Migration Efficiency:** Even when structural changes require moving data between memory blocks, the operation is extremely fast (~160ns for components, ~86ns for tags). We use direct memory block copies (`memmove`), bypassing the overhead of reflection or interfaces.
+* **Deterministic O(1) Filtering:** Querying specific entities takes constant time (~460ns) regardless of whether the world contains 1,000 or 100,000 entities, thanks to our dense array Record system.
+* **Data Locality:** By storing components in contiguous SoA (Structure of Arrays) layouts, the engine achieves processing speeds of **~0.43 ns per entity**, operating at the limits of modern CPU cache efficiency.
 
-## Memory Architecture (L1/L2 Cache Optimization)
+### Query Benchmarks (Apple M1 Max)
+The following benchmarks demonstrate the efficiency of SoA (Structure of Arrays) and the $O(1)$ nature of our record-based filtering.
 
-Traditional ECS designs often suffer from "Cache Misses" because components for a single entity are scattered across the heap. GOKE solves this by:
-1. Grouping identical entity types into **Archetypes**.
-2. Storing component data in **Structure of Arrays (SoA)** format.
-3. Using **Flat Cache Views** to provide the CPU with a predictable, linear stream of data.
+### Query Performance & Scalability (Apple M1 Max)
 
-This approach ensures that when the CPU fetches a component for one entity, the hardware prefetcher automatically pulls the data for the next several entities into the **L1/L2 cache** before the code even asks for them.
+The engine demonstrates perfect linear scaling for full world iterations and deterministic constant-time performance for filtered lookups across four orders of magnitude.
 
+#### 1. Scalability Overview: $O(N)$ vs $O(1)$
+| Registry Size ($N$) | Operation | Entities Processed | Total Time | Per Entity | Mechanism |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **1,000** | **Query3 All** | 1,000 | 822.0 ns | 0.82 ns | Linear SoA |
+| **10,000** | **Query3 All** | 10,000 | 10,306 ns | 1.03 ns | Linear SoA |
+| **100,000** | **Query3 All** | 100,000 | 97,686 ns | 0.97 ns | Linear SoA |
+| **1,000,000** | **Query3 All** | 1,000,000 | 0.98 ms | 0.98 ns | Linear SoA |
+| **10,000,000** | **Query3 All** | 10,000,000 | 9.85 ms | **0.98 ns** | Linear SoA |
+| **10,000,000** | **Query3 Filtered** | **100** | **448.3 ns** | **4.48 ns** | **O(1) Record Lookup** |
 
+#### 2. Complexity Scaling (10M Entities Stress Test)
+| Query Complexity | Standard Iterator | Pure Iterator (No ID) | Performance Gain |
+| :--- | :--- | :--- | :--- |
+| **Query0 (Entity Only)** | 4.19 ms | - | - |
+| **Query1 (1 Comp)** | 6.22 ms | 4.42 ms | **+29.0%** |
+| **Query3 (3 Comps)** | 9.85 ms | 8.02 ms | **+18.5%** |
+| **Query8 (8 Comps)** | 10.08 ms | 8.14 ms | **+19.2%** |
+
+#### 3. Full Benchmark Logs
+<details>
+<summary>Click to view all scenarios (Query 0-8, Pure, Filtered)</summary>
+
+| Registry Size ($N$) | Operation | Total Time | Per Entity | Mechanism |
+| :--- | :--- | :--- | :--- | :--- |
+| **1,000** | Query0 All | 435.9 ns | 0.43 ns | Linear SoA |
+| **1,000** | Query3 All | 822.0 ns | 0.82 ns | Linear SoA |
+| **1,000** | Query8 All | 809.4 ns | 0.80 ns | Linear SoA |
+| **1,000** | Query3 Filtered 100 | 432.1 ns | 4.32 ns | O(1) Lookup |
+| **1,000** | Query3 Pure All | 644.6 ns | 0.64 ns | Pure Scan |
+| **10,000** | Query0 All | 4,208 ns | 0.42 ns | Linear SoA |
+| **10,000** | Query3 All | 10,306 ns | 1.03 ns | Linear SoA |
+| **10,000** | Query8 All | 9,920 ns | 0.99 ns | Linear SoA |
+| **10,000** | Query3 Filtered 100 | 438.0 ns | 4.38 ns | O(1) Lookup |
+| **10,000** | Query3 Pure All | 7,673 ns | 0.76 ns | Pure Scan |
+| **100,000** | Query0 All | 41,813 ns | 0.41 ns | Linear SoA |
+| **100,000** | Query3 All | 97,686 ns | 0.97 ns | Linear SoA |
+| **100,000** | Query8 All | 97,582 ns | 0.97 ns | Linear SoA |
+| **100,000** | Query3 Filtered 100 | 454.9 ns | 4.54 ns | O(1) Lookup |
+| **100,000** | Query3 Pure All | 77,924 ns | 0.77 ns | Pure Scan |
+| **1,000,000** | Query0 All | 415,515 ns | 0.41 ns | Linear SoA |
+| **1,000,000** | Query3 All | 989,272 ns | 0.98 ns | Linear SoA |
+| **1,000,000** | Query8 All | 992,372 ns | 0.99 ns | Linear SoA |
+| **1,000,000** | Query3 Filtered 100 | 444.9 ns | 4.44 ns | O(1) Lookup |
+| **1,000,000** | Query3 Pure All | 797,392 ns | 0.79 ns | Pure Scan |
+| **10,000,000** | Query0 All | 4,195,179 ns | 0.41 ns | Linear SoA |
+| **10,000,000** | Query1 All | 6,229,583 ns | 0.62 ns | Linear SoA |
+| **10,000,000** | Query3 All | 9,857,888 ns | 0.98 ns | Linear SoA |
+| **10,000,000** | Query8 All | 10,089,932 ns | 1.00 ns | Linear SoA |
+| **10,000,000** | Query3 Filtered 100 | 448.3 ns | 4.48 ns | O(1) Lookup |
+| **10,000,000** | Query1 Pure All | 4,424,216 ns | 0.44 ns | Pure Scan |
+| **10,000,000** | Query3 Pure All | 8,029,977 ns | 0.80 ns | Pure Scan |
+| **10,000,000** | Query8 Pure All | 8,140,268 ns | 0.81 ns | Pure Scan |
+| **10,000,000** | Query3 Pure Filtered 100 | 432.1 ns | 4.32 ns | Pure Lookup |
+
+</details>
+
+### Key Technical Takeaways
+* **Near-Zero Latency:** Targeted queries (Filtered) remain at **~440 ns** regardless of whether the world has 1k or 10M entities.
+* **Instruction Efficiency:** Even with 8 components, the engine processes entities at **~1 ns/entity**, fitting a 10M entity update within a **10ms** window.
+* **Pure Mode Gain:** Bypassing Entity ID generation provides up to **29%** additional throughput for heavy computational systems.
 
 ## License
 

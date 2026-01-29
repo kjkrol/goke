@@ -56,9 +56,10 @@
 //     This is determined by the ArchetypeMask (4x64-bit fields), ensuring that
 //     archetype matching remains a fast, constant-time bitwise operation.
 //
-//   - Memory Pre-allocation: Archetypes are initialized with a default capacity
-//     (1024 entities). While storage grows dynamically, pre-allocating large
-//     batches of entities can further minimize memory fragmentation and GC pressure.
+//   - Memory Pre-allocation: Archetypes and internal structures are initialized
+//     with predefined capacities (configurable via EngineOptions). This reduces
+//     early memory fragmentation and minimizes GC pressure during the initial
+//     entity burst.
 //
 //   - Entity Indexing: Entities are 64-bit identifiers, allowing for a virtually
 //     unlimited number of entities, constrained only by the available system RAM.

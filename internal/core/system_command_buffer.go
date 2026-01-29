@@ -25,6 +25,7 @@ type systemCommand struct {
 
 const pageSize = 4096
 
+// Linear Allocator
 type SystemCommandBuffer struct {
 	commands      []systemCommand
 	pages         [][]byte
@@ -41,24 +42,24 @@ func NewSystemCommandBuffer() *SystemCommandBuffer {
 }
 
 // RecordAssign safely copies component data into the buffer's pool
-func (cb *SystemCommandBuffer) AssignComponent(e Entity, info ComponentInfo, data unsafe.Pointer) {
-	size := int(info.Size)
+func AssignComponent[T any](cb *SystemCommandBuffer, e Entity, info ComponentInfo, value T) {
+	size := int(unsafe.Sizeof(value))
 
-	var dest unsafe.Pointer
+	var ptr unsafe.Pointer
 
-	if size > 0 && data != nil {
-		// 1. Get stable memory address
-		dest = cb.reserveSpace(size)
-		// 2. Copy the data
-		copy(unsafe.Slice((*byte)(dest), size), unsafe.Slice((*byte)(data), size))
+	if size > 0 {
+		align := int(unsafe.Alignof(value))
+		ptr = cb.reserveSpace(size, align)
+		*(*T)(ptr) = value
+	} else {
+		ptr = nil
 	}
 
-	// 3. Queue the command
 	cb.commands = append(cb.commands, systemCommand{
 		cType:    cmdAssignComponent,
 		entity:   e,
 		compInfo: info,
-		dataPtr:  dest,
+		dataPtr:  ptr,
 	})
 }
 
@@ -97,13 +98,16 @@ func (cb *SystemCommandBuffer) reset() {
 
 // reserveSpace ensures there is enough contiguous memory in the pages
 // and returns a pointer to the start of the reserved block.
-func (cb *SystemCommandBuffer) reserveSpace(size int) unsafe.Pointer {
-	// Check if the component fits in the remaining space of the current page
+func (cb *SystemCommandBuffer) reserveSpace(size int, align int) unsafe.Pointer {
+	// 1. Align the current offset
+	// This moves the offset to the next multiple of 'align'
+	cb.offset = (cb.offset + align - 1) &^ (align - 1)
+
+	// 2. Check if it fits in the current page after alignment
 	if cb.offset+size > pageSize {
 		cb.pageIdx++
 		cb.offset = 0
 
-		// Handle allocation of a new page or resizing if the component is huge
 		if cb.pageIdx >= len(cb.pages) {
 			newPageSize := pageSize
 			if size > newPageSize {
@@ -111,7 +115,6 @@ func (cb *SystemCommandBuffer) reserveSpace(size int) unsafe.Pointer {
 			}
 			cb.pages = append(cb.pages, make([]byte, newPageSize))
 		} else if len(cb.pages[cb.pageIdx]) < size {
-			// Resize existing page if it's reused but too small for a large component
 			cb.pages[cb.pageIdx] = make([]byte, size)
 		}
 	}

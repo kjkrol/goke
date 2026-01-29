@@ -16,7 +16,6 @@ import (
 	"reflect"
 	"testing"
 	"time"
-	"unsafe"
 
 	"github.com/kjkrol/goke/pkg/ecs"
 	"github.com/kjkrol/goke/pkg/ecs/ecsq"
@@ -39,10 +38,10 @@ func (s *WorkerSystem) Init(eng *ecs.Engine) {
 	s.query = ecs.NewQuery1[Task](eng)
 }
 
-func (s *WorkerSystem) Update(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuffer, d time.Duration) {
+func (s *WorkerSystem) Update(reg ecs.Lookup, cb *ecs.Commands, d time.Duration) {
 	for head := range s.query.All1() {
 		msg := Log{Msg: "Done"}
-		cb.AssignComponent(head.Entity, logInfo, unsafe.Pointer(&msg))
+		ecs.AssignComponent(cb, head.Entity, logInfo, msg)
 	}
 }
 
@@ -55,7 +54,7 @@ func (s *LoggerSystem) Init(eng *ecs.Engine) {
 	s.query = ecs.NewQuery1[Log](eng)
 }
 
-func (s *LoggerSystem) Update(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuffer, d time.Duration) {
+func (s *LoggerSystem) Update(reg ecs.Lookup, cb *ecs.Commands, d time.Duration) {
 	for range s.query.All1() {
 		s.Found = true
 	}
@@ -77,7 +76,7 @@ func TestECS_SystemInteractions(t *testing.T) {
 		setupComponents(engine)
 
 		e := engine.CreateEntity()
-		task, _ := ecs.AddComponent[Task](engine, e)
+		task, _ := ecs.AllocateComponent[Task](engine, e)
 		*task = Task{Completed: false}
 
 		worker := &WorkerSystem{}
@@ -92,7 +91,7 @@ func TestECS_SystemInteractions(t *testing.T) {
 			s.Sync()
 		})
 
-		engine.Run(time.Millisecond)
+		engine.Tick(time.Millisecond)
 
 		if logger.Found {
 			t.Error("LoggerSystem found Log that should have been deferred until the end of the plan")
@@ -104,7 +103,7 @@ func TestECS_SystemInteractions(t *testing.T) {
 		setupComponents(engine)
 
 		e := engine.CreateEntity()
-		task, _ := ecs.AddComponent[Task](engine, e)
+		task, _ := ecs.AllocateComponent[Task](engine, e)
 		*task = Task{Completed: false}
 
 		worker := &WorkerSystem{}
@@ -120,7 +119,7 @@ func TestECS_SystemInteractions(t *testing.T) {
 			s.Sync()
 		})
 
-		engine.Run(time.Millisecond)
+		engine.Tick(time.Millisecond)
 
 		if !logger.Found {
 			t.Error("LoggerSystem should have found Log due to explicit Sync call in the ExecutionPlan")

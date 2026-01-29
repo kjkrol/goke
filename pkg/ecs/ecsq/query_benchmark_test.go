@@ -7,7 +7,7 @@ import (
 	"github.com/kjkrol/goke/internal/core"
 )
 
-const entitiesNumber = 1000 * 1000
+const entitiesNumber = 10000000
 
 type Pos struct{ X, Y float32 }
 type Vel struct{ X, Y float32 }

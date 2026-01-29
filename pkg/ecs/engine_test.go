@@ -27,28 +27,28 @@ func TestECS_UseCase(t *testing.T) {
 	processedTypeInfo := engine.RegisterComponentType(reflect.TypeFor[Processed]())
 
 	eA := engine.CreateEntity()
-	order, _ := ecs.AddComponent[Order](engine, eA)
+	order, _ := ecs.AllocateComponent[Order](engine, eA)
 	*order = Order{ID: "ORD-001", Total: 100.0}
-	discount, _ := ecs.AddComponent[Discount](engine, eA)
+	discount, _ := ecs.AllocateComponent[Discount](engine, eA)
 	*discount = Discount{Percentage: 10.0}
 
 	eB := engine.CreateEntity()
-	order2, _ := ecs.AddComponent[Order](engine, eB)
+	order2, _ := ecs.AllocateComponent[Order](engine, eB)
 	*order2 = Order{ID: "ORD-002", Total: 50.0}
 
 	query1 := ecs.NewQuery2[Order, Discount](engine)
 	processedCount := 0
 
-	billingSystem := engine.RegisterSystemFunc(func(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuffer, d time.Duration) {
+	billingSystem := engine.RegisterSystemFunc(func(cb *ecs.Commands, d time.Duration) {
 		for head := range query1.All2() {
 			processedCount++
 			ord, disc := head.V1, head.V2
 			ord.Total = ord.Total * (1 - disc.Percentage/100)
-			cb.AssignComponent(head.Entity, processedTypeInfo, nil)
+			ecs.AssignComponent(cb, head.Entity, processedTypeInfo, Processed{})
 		}
 	})
 	query2 := ecs.NewQuery0(engine, ecs.WithTag[Processed](), ecs.WithTag[Order](), ecs.WithTag[Discount]())
-	cleanerSystem := engine.RegisterSystemFunc(func(reg ecs.ReadOnlyRegistry, cb *ecs.SystemCommandBuffer, d time.Duration) {
+	cleanerSystem := engine.RegisterSystemFunc(func(cb *ecs.Commands, d time.Duration) {
 		for entity := range query2.All() {
 			cb.RemoveEntity(entity)
 		}
@@ -67,7 +67,7 @@ func TestECS_UseCase(t *testing.T) {
 		ctx.Run(cleanerSystem, d)
 		ctx.Sync()
 	})
-	engine.Run(time.Duration(time.Second))
+	engine.Tick(time.Duration(time.Second))
 
 	// Final Assertions
 	if processedCount != 1 {
