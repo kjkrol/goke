@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/kjkrol/goke/pkg/ecs"
-	"github.com/kjkrol/goke/pkg/ecs/ecsq"
 )
 
 // --- Components (Disjoint sets) ---
@@ -30,14 +29,14 @@ type Health struct{ Current, Max float32 }
 
 // --- PhysicsSystem: Operates only on Motion data ---
 type PhysicsSystem struct {
-	query *ecsq.Query2[Position, Velocity]
+	query *ecs.View2[Position, Velocity]
 }
 
 func (s *PhysicsSystem) Init(eng *ecs.Engine) {
-	s.query = ecs.NewQuery2[Position, Velocity](eng)
+	s.query = ecs.NewView2[Position, Velocity](eng)
 }
 func (s *PhysicsSystem) Update(reg ecs.Lookup, cb *ecs.Commands, d time.Duration) {
-	for head := range s.query.All2() {
+	for head := range s.query.All() {
 		head.V1.X += head.V2.VX * float32(d.Seconds())
 		head.V1.Y += head.V2.VY * float32(d.Seconds())
 	}
@@ -45,14 +44,14 @@ func (s *PhysicsSystem) Update(reg ecs.Lookup, cb *ecs.Commands, d time.Duration
 
 // --- HealthSystem: Operates only on Health data ---
 type HealthSystem struct {
-	query *ecsq.Query1[Health]
+	query *ecs.View1[Health]
 }
 
 func (s *HealthSystem) Init(eng *ecs.Engine) {
-	s.query = ecs.NewQuery1[Health](eng)
+	s.query = ecs.NewView1[Health](eng)
 }
 func (s *HealthSystem) Update(reg ecs.Lookup, cb *ecs.Commands, d time.Duration) {
-	for head := range s.query.All1() {
+	for head := range s.query.All() {
 		if head.V1.Current < head.V1.Max {
 			head.V1.Current += 1.0 // Simple regen
 		}
@@ -98,9 +97,9 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	eng.Tick(time.Second) // Simulate 1 second
 
 	// 4. Verification
-	query := ecs.NewQuery2[Position, Health](eng)
+	query := ecs.NewView2[Position, Health](eng)
 	count := 0
-	for head := range query.All2() {
+	for head := range query.All() {
 		count++
 		// Check Physics result: 0 + 10*1s = 10
 		if head.V1.X != 10 {

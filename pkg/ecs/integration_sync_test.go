@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/kjkrol/goke/pkg/ecs"
-	"github.com/kjkrol/goke/pkg/ecs/ecsq"
 )
 
 // --- Components ---
@@ -31,31 +30,31 @@ var logInfo ecs.ComponentInfo
 // --- Systems ---
 
 type WorkerSystem struct {
-	query *ecsq.Query1[Task]
+	view *ecs.View1[Task]
 }
 
 func (s *WorkerSystem) Init(eng *ecs.Engine) {
-	s.query = ecs.NewQuery1[Task](eng)
+	s.view = ecs.NewView1[Task](eng)
 }
 
 func (s *WorkerSystem) Update(reg ecs.Lookup, cb *ecs.Commands, d time.Duration) {
-	for head := range s.query.All1() {
+	for head := range s.view.All() {
 		msg := Log{Msg: "Done"}
 		ecs.AssignComponent(cb, head.Entity, logInfo, msg)
 	}
 }
 
 type LoggerSystem struct {
-	query *ecsq.Query1[Log]
+	view  *ecs.View1[Log]
 	Found bool
 }
 
 func (s *LoggerSystem) Init(eng *ecs.Engine) {
-	s.query = ecs.NewQuery1[Log](eng)
+	s.view = ecs.NewView1[Log](eng)
 }
 
 func (s *LoggerSystem) Update(reg ecs.Lookup, cb *ecs.Commands, d time.Duration) {
-	for range s.query.All1() {
+	for range s.view.All() {
 		s.Found = true
 	}
 }

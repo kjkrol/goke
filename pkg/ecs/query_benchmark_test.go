@@ -1,4 +1,4 @@
-package ecsq
+package ecs
 
 import (
 	"reflect"
@@ -18,59 +18,60 @@ type Char struct{ V [32]float32 }
 type Elec struct{ V float64 }
 type Magn struct{ V float64 }
 
-func setupBenchmark(_ *testing.B, count int) (*core.Registry, []core.Entity) {
-	reg := core.NewRegistry(core.DefaultRegistryConfig())
-	posTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Pos]())
-	velTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Vel]())
-	accTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Acc]())
-	massTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Mass]())
-	spinTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Spin]())
-	charTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Char]())
-	elecTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Elec]())
-	magnTypeInfo := reg.RegisterComponentType(reflect.TypeFor[Magn]())
+func setupBenchmark(_ *testing.B, count int) (*Engine, []core.Entity) {
+	eng := NewEngine()
+	posTypeInfo := eng.RegisterComponentType(reflect.TypeFor[Pos]())
+	velTypeInfo := eng.RegisterComponentType(reflect.TypeFor[Vel]())
+	accTypeInfo := eng.RegisterComponentType(reflect.TypeFor[Acc]())
+	massTypeInfo := eng.RegisterComponentType(reflect.TypeFor[Mass]())
+	spinTypeInfo := eng.RegisterComponentType(reflect.TypeFor[Spin]())
+	charTypeInfo := eng.RegisterComponentType(reflect.TypeFor[Char]())
+	elecTypeInfo := eng.RegisterComponentType(reflect.TypeFor[Elec]())
+	magnTypeInfo := eng.RegisterComponentType(reflect.TypeFor[Magn]())
 
 	var entities []core.Entity
 	for range count {
-		e := reg.CreateEntity()
-		if pos, err := reg.AllocateByID(e, posTypeInfo); err == nil {
+		e := eng.CreateEntity()
+
+		if pos, err := AllocateComponentByInfo[Pos](eng, e, posTypeInfo); err == nil {
 			*(*Pos)(pos) = Pos{1, 1}
 		}
-		if vel, err := reg.AllocateByID(e, velTypeInfo); err == nil {
+		if vel, err := AllocateComponentByInfo[Vel](eng, e, velTypeInfo); err == nil {
 			*(*Vel)(vel) = Vel{1, 1}
 		}
-		if acc, err := reg.AllocateByID(e, accTypeInfo); err == nil {
+		if acc, err := AllocateComponentByInfo[Acc](eng, e, accTypeInfo); err == nil {
 			*(*Acc)(acc) = Acc{1, 1}
 		}
-		if mass, err := reg.AllocateByID(e, massTypeInfo); err == nil {
+		if mass, err := AllocateComponentByInfo[Mass](eng, e, massTypeInfo); err == nil {
 			*(*Mass)(mass) = Mass{}
 		}
-		if spin, err := reg.AllocateByID(e, spinTypeInfo); err == nil {
+		if spin, err := AllocateComponentByInfo[Spin](eng, e, spinTypeInfo); err == nil {
 			*(*Spin)(spin) = Spin{}
 		}
-		if char, err := reg.AllocateByID(e, charTypeInfo); err == nil {
+		if char, err := AllocateComponentByInfo[Char](eng, e, charTypeInfo); err == nil {
 			*(*Char)(char) = Char{}
 		}
-		if elec, err := reg.AllocateByID(e, elecTypeInfo); err == nil {
+		if elec, err := AllocateComponentByInfo[Elec](eng, e, elecTypeInfo); err == nil {
 			*(*Elec)(elec) = Elec{1}
 		}
-		if magn, err := reg.AllocateByID(e, magnTypeInfo); err == nil {
+		if magn, err := AllocateComponentByInfo[Magn](eng, e, magnTypeInfo); err == nil {
 			*(*Magn)(magn) = Magn{1}
 		}
 		entities = append(entities, e)
 	}
-	return reg, entities
+	return eng, entities
 }
 
 // --- Benchmarki Standardowe (All) ---
 
-func BenchmarkQuery0_All(b *testing.B) {
+func BenchmarkView0_All(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	query := NewQuery0(eng)
+	view := NewView0(eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
-		for entity := range query.All() {
+		for entity := range view.All() {
 			entity.IsVirtual()
 		}
 	}
@@ -81,13 +82,13 @@ func BenchmarkQuery0_All(b *testing.B) {
 	}
 }
 
-func BenchmarkQuery1_All(b *testing.B) {
+func BenchmarkView1_All(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	query1 := NewQuery1[Pos](eng)
+	view1 := NewView1[Pos](eng)
 
 	fn := func() {
-		for head := range query1.All1() {
+		for head := range view1.All() {
 			pos := head.V1
 			pos.X += pos.X
 		}
@@ -99,14 +100,14 @@ func BenchmarkQuery1_All(b *testing.B) {
 	}
 }
 
-func BenchmarkQuery2_All(b *testing.B) {
+func BenchmarkView2_All(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	query2 := NewQuery2[Pos, Vel](eng)
+	view2 := NewView2[Pos, Vel](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
-		for head := range query2.All2() {
+		for head := range view2.All() {
 			pos, vel := head.V1, head.V2
 			pos.X += vel.X
 		}
@@ -118,14 +119,14 @@ func BenchmarkQuery2_All(b *testing.B) {
 	}
 }
 
-func BenchmarkQuery3_All(b *testing.B) {
+func BenchmarkView3_All(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	query3 := NewQuery3[Pos, Vel, Acc](eng)
+	view3 := NewView3[Pos, Vel, Acc](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
-		for head := range query3.All3() {
+		for head := range view3.All() {
 			pos, vel, acc := head.V1, head.V2, head.V3
 			vel.X += acc.X
 			pos.X += vel.X
@@ -138,13 +139,13 @@ func BenchmarkQuery3_All(b *testing.B) {
 	}
 }
 
-func BenchmarkQuery3WithTag_All(b *testing.B) {
+func BenchmarkView3WithTag_All(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	query := NewQuery3[Pos, Vel, Acc](eng, core.WithTag[Mass]())
+	view := NewView3[Pos, Vel, Acc](eng, core.WithTag[Mass]())
 
 	fn := func() {
-		for head := range query.All3() {
+		for head := range view.All() {
 			p, v, a := head.V1, head.V2, head.V3
 			p.X += v.X + a.X
 		}
@@ -156,14 +157,14 @@ func BenchmarkQuery3WithTag_All(b *testing.B) {
 	}
 }
 
-func BenchmarkQuery4_All(b *testing.B) {
+func BenchmarkView4_All(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	query4 := NewQuery4[Pos, Vel, Acc, Mass](eng)
+	view4 := NewView4[Pos, Vel, Acc, Mass](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
-		for head, tail := range query4.All4() {
+		for head, tail := range view4.All() {
 			pos, vel, acc := head.V1, head.V2, head.V3
 			_ = tail.V4 // Mass
 			vel.X += acc.X
@@ -177,14 +178,14 @@ func BenchmarkQuery4_All(b *testing.B) {
 	}
 }
 
-func BenchmarkQuery5_All(b *testing.B) {
+func BenchmarkView5_All(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	query5 := NewQuery5[Pos, Vel, Acc, Mass, Spin](eng)
+	view5 := NewView5[Pos, Vel, Acc, Mass, Spin](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
-		for head, tail := range query5.All5() {
+		for head, tail := range view5.All() {
 			pos, vel, acc := head.V1, head.V2, head.V3
 			_ = tail.V4
 			_ = tail.V5
@@ -199,14 +200,14 @@ func BenchmarkQuery5_All(b *testing.B) {
 	}
 }
 
-func BenchmarkQuery6_All(b *testing.B) {
+func BenchmarkView6_All(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	query6 := NewQuery6[Pos, Vel, Acc, Mass, Spin, Char](eng)
+	view6 := NewView6[Pos, Vel, Acc, Mass, Spin, Char](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
-		for head, _ := range query6.All6() {
+		for head, _ := range view6.All() {
 			pos, vel, acc := head.V1, head.V2, head.V3
 			vel.X += acc.X
 			pos.X += vel.X
@@ -219,14 +220,14 @@ func BenchmarkQuery6_All(b *testing.B) {
 	}
 }
 
-func BenchmarkQuery7_All(b *testing.B) {
+func BenchmarkView7_All(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	query7 := NewQuery7[Pos, Vel, Acc, Mass, Spin, Char, Elec](eng)
+	view7 := NewView7[Pos, Vel, Acc, Mass, Spin, Char, Elec](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
-		for head, _ := range query7.All7() {
+		for head, _ := range view7.All() {
 			pos, vel, acc := head.V1, head.V2, head.V3
 			vel.X += acc.X
 			pos.X += vel.X
@@ -239,14 +240,14 @@ func BenchmarkQuery7_All(b *testing.B) {
 	}
 }
 
-func BenchmarkQuery8_All(b *testing.B) {
+func BenchmarkView8_All(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	query8 := NewQuery8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn](eng)
+	view8 := NewView8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
-		for head, _ := range query8.All8() {
+		for head, _ := range view8.All() {
 			pos, vel, acc := head.V1, head.V2, head.V3
 			vel.X += acc.X
 			pos.X += vel.X
@@ -261,15 +262,34 @@ func BenchmarkQuery8_All(b *testing.B) {
 
 // --- Benchmarki Filtrowane ---
 
-func BenchmarkQuery3_Filtered100(b *testing.B) {
+func BenchmarkView0_Filter100(b *testing.B) {
 	b.StopTimer()
 	eng, entities := setupBenchmark(b, entitiesNumber)
-	query3 := NewQuery3[Pos, Vel, Acc](eng)
+	view3 := NewView0(eng)
 	subset := entities[:100]
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
-		for head := range query3.Filter3(subset) {
+		for entity := range view3.Filter(subset) {
+			_ = entity
+		}
+	}
+
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		fn()
+	}
+}
+
+func BenchmarkView3_Filter100(b *testing.B) {
+	b.StopTimer()
+	eng, entities := setupBenchmark(b, entitiesNumber)
+	view3 := NewView3[Pos, Vel, Acc](eng)
+	subset := entities[:100]
+
+	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
+	fn := func() {
+		for head := range view3.Filter(subset) {
 			pos, vel, acc := head.V1, head.V2, head.V3
 			acc.X += vel.X
 			pos.X += vel.X
@@ -284,14 +304,14 @@ func BenchmarkQuery3_Filtered100(b *testing.B) {
 
 // --- Benchmarki Pure All ---
 
-func BenchmarkQuery1_PureAll(b *testing.B) {
+func BenchmarkView1_Values(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	query1 := NewQuery1[Pos](eng)
+	view1 := NewView1[Pos](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
-		for head := range query1.PureAll1() {
+		for head := range view1.Values() {
 			pos := head.V1
 			pos.X += pos.X
 		}
@@ -303,14 +323,14 @@ func BenchmarkQuery1_PureAll(b *testing.B) {
 	}
 }
 
-func BenchmarkQuery2_PureAll(b *testing.B) {
+func BenchmarkView2_Values(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	query2 := NewQuery2[Pos, Vel](eng)
+	view2 := NewView2[Pos, Vel](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
-		for head := range query2.PureAll2() {
+		for head := range view2.Values() {
 			pos, vel := head.V1, head.V2
 			pos.X += vel.X
 		}
@@ -322,14 +342,14 @@ func BenchmarkQuery2_PureAll(b *testing.B) {
 	}
 }
 
-func BenchmarkQuery3_PureAll(b *testing.B) {
+func BenchmarkView3_Values(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	query3 := NewQuery3[Pos, Vel, Acc](eng)
+	view3 := NewView3[Pos, Vel, Acc](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
-		for head := range query3.PureAll3() {
+		for head := range view3.Values() {
 			pos, vel, acc := head.V1, head.V2, head.V3
 			vel.X += acc.X
 			pos.X += vel.X
@@ -342,14 +362,14 @@ func BenchmarkQuery3_PureAll(b *testing.B) {
 	}
 }
 
-func BenchmarkQuery4_PureAll(b *testing.B) {
+func BenchmarkView4_Values(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	query4 := NewQuery4[Pos, Vel, Acc, Mass](eng)
+	view4 := NewView4[Pos, Vel, Acc, Mass](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
-		for head := range query4.PureAll4() {
+		for head := range view4.Values() {
 			pos, vel, acc := head.V1, head.V2, head.V3
 			vel.X += acc.X
 			pos.X += vel.X
@@ -362,14 +382,14 @@ func BenchmarkQuery4_PureAll(b *testing.B) {
 	}
 }
 
-func BenchmarkQuery5_PureAll(b *testing.B) {
+func BenchmarkView5_Values(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	query5 := NewQuery5[Pos, Vel, Acc, Mass, Spin](eng)
+	view5 := NewView5[Pos, Vel, Acc, Mass, Spin](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
-		for head, _ := range query5.PureAll5() {
+		for head, _ := range view5.Values() {
 			pos, vel, acc := head.V1, head.V2, head.V3
 			vel.X += acc.X
 			pos.X += vel.X
@@ -382,14 +402,14 @@ func BenchmarkQuery5_PureAll(b *testing.B) {
 	}
 }
 
-func BenchmarkQuery6_PureAll(b *testing.B) {
+func BenchmarkView6_Values(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	query6 := NewQuery6[Pos, Vel, Acc, Mass, Spin, Char](eng)
+	view6 := NewView6[Pos, Vel, Acc, Mass, Spin, Char](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
-		for head, _ := range query6.PureAll6() {
+		for head, _ := range view6.Values() {
 			pos, vel, acc := head.V1, head.V2, head.V3
 			vel.X += acc.X
 			pos.X += vel.X
@@ -402,14 +422,14 @@ func BenchmarkQuery6_PureAll(b *testing.B) {
 	}
 }
 
-func BenchmarkQuery7_PureAll(b *testing.B) {
+func BenchmarkView7_Values(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	query7 := NewQuery7[Pos, Vel, Acc, Mass, Spin, Char, Elec](eng)
+	view7 := NewView7[Pos, Vel, Acc, Mass, Spin, Char, Elec](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
-		for head, _ := range query7.PureAll7() {
+		for head, _ := range view7.Values() {
 			pos, vel, acc := head.V1, head.V2, head.V3
 			vel.X += acc.X
 			pos.X += vel.X
@@ -422,14 +442,14 @@ func BenchmarkQuery7_PureAll(b *testing.B) {
 	}
 }
 
-func BenchmarkQuery8_PureAll(b *testing.B) {
+func BenchmarkView8_Values(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	query8 := NewQuery8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn](eng)
+	view8 := NewView8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
-		for head, _ := range query8.PureAll8() {
+		for head, _ := range view8.Values() {
 			pos, vel, acc := head.V1, head.V2, head.V3
 			vel.X += acc.X
 			pos.X += vel.X
@@ -442,17 +462,17 @@ func BenchmarkQuery8_PureAll(b *testing.B) {
 	}
 }
 
-// --- Benchmarki Pure Filtered ---
+// --- Benchmarki FilterValues ---
 
-func BenchmarkQuery3_PureFiltered100(b *testing.B) {
+func BenchmarkView3_FilterValues100(b *testing.B) {
 	b.StopTimer()
 	eng, entities := setupBenchmark(b, entitiesNumber)
-	query3 := NewQuery3[Pos, Vel, Acc](eng)
+	view3 := NewView3[Pos, Vel, Acc](eng)
 	subset := entities[:100]
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
-		for head := range query3.PureFilter3(subset) {
+		for head := range view3.FilterValues(subset) {
 			pos, vel, acc := head.V1, head.V2, head.V3
 			acc.X += vel.X
 			pos.X += vel.X

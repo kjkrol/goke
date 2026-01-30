@@ -22,7 +22,7 @@ type (
 	// data and a SystemCommandBuffer to request changes.
 	//
 	// Init is called once when the system is registered, providing access
-	// to the Engine instance for setup (e.g., pre-registering components or queries).
+	// to the Engine instance for setup (e.g., pre-registering components or views).
 	System interface {
 		Update(reg Lookup, cb *Commands, d time.Duration)
 		Init(*Engine)

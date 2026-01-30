@@ -27,7 +27,7 @@ Unlike many ECS implementations in Go that rely on component maps or reflection 
 
 GOKE provides a professional-grade toolkit for high-performance simulation and game development:
 
-* **Type-Safe Generics**: Built-in support for `NewQuery1[A]` up to `NewQuery8[A..H]`. No type assertions or `interface{}` overhead in the hot loop.
+* **Type-Safe Generics**: Built-in support for `NewView1[A]` up to `NewViewy8[A..H]`. No type assertions or `interface{}` overhead in the hot loop.
 * **Go 1.23+ Range Iterators**: Seamless integration with native `for range` loops via `iter.Seq`, allowing the compiler to perform aggressive loop inlining.
 * **Command Buffer**: Thread-safe structural changes (Create/Remove/Add/Unassign) are buffered and applied during synchronization points to maintain state consistency.
 * **Flexible Systems**: Supporting both stateless **Functional Systems** (closures) and **Stateful Systems** (structs) with full `Init/Update` lifecycles.
@@ -43,7 +43,7 @@ GOKE is designed with an understanding of modern CPU constraints:
 
 ### Memory Layout
 1.  **Generation-based Recycling**: Entities are 64-bit IDs (32-bit Index / 32-bit Generation). This solves the ABA problem while allowing dense packing of internal storage.
-2.  **Hardware Prefetching Optimization**: All query structures (Head/Tail) are strictly limited to a maximum of 4 pointer fields. Beyond this, CPU prefetching efficiency degrades. GOKE adheres to this limit to maintain maximal throughput.
+2.  **Hardware Prefetching Optimization**: All view structures (Head/Tail) are strictly limited to a maximum of 4 pointer fields. Beyond this, CPU prefetching efficiency degrades. GOKE adheres to this limit to maintain maximal throughput.
 3.  **Archetype Masks**: Supports up to **256 unique component types** using a fast, constant-time bitwise operation (4x64-bit fields).
 
 ### Execution Plan
@@ -80,12 +80,12 @@ func main() {
     acc, _ := ecs.AllocateComponent[Acc](engine, entity)
     *acc = Acc{X: 0.1, Y: 0.1}
 
-    // 2. Define Queries
-    query := ecs.NewQuery3[Pos, Vel, Acc](engine)
+    // 2. Define View
+    view := ecs.NewView3[Pos, Vel, Acc](engine)
 
     // 3. Register Functional Systems
     moveSys := engine.RegisterSystemFunc(func(cb *ecs.Commands, d time.Duration) {
-        for head := range query.All3() {
+        for head := range view.Values() {
             p, v, a := head.V1, head.V2, head.V3
             v.X += a.X; v.Y += a.Y
             p.X += v.X; p.Y += v.Y
@@ -140,61 +140,61 @@ The engine demonstrates perfect linear scaling for full world iterations and det
 #### 1. Scalability Overview: $O(N)$ vs $O(1)$
 | Registry Size ($N$) | Operation | Entities Processed | Total Time | Per Entity | Mechanism |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1,000** | **Query3 All** | 1,000 | 822.0 ns | 0.82 ns | Linear SoA |
-| **10,000** | **Query3 All** | 10,000 | 10,306 ns | 1.03 ns | Linear SoA |
-| **100,000** | **Query3 All** | 100,000 | 97,686 ns | 0.97 ns | Linear SoA |
-| **1,000,000** | **Query3 All** | 1,000,000 | 0.98 ms | 0.98 ns | Linear SoA |
-| **10,000,000** | **Query3 All** | 10,000,000 | 9.85 ms | **0.98 ns** | Linear SoA |
-| **10,000,000** | **Query3 Filtered** | **100** | **448.3 ns** | **4.48 ns** | **O(1) Record Lookup** |
+| **1,000** | **View3.All** | 1,000 | 822.0 ns | 0.82 ns | Linear SoA |
+| **10,000** | **View3.All** | 10,000 | 10,306 ns | 1.03 ns | Linear SoA |
+| **100,000** | **View3.All** | 100,000 | 97,686 ns | 0.97 ns | Linear SoA |
+| **1,000,000** | **View3.All** | 1,000,000 | 0.98 ms | 0.98 ns | Linear SoA |
+| **10,000,000** | **View3.All** | 10,000,000 | 9.85 ms | **0.98 ns** | Linear SoA |
+| **10,000,000** | **View3.Filter** | **100** | **448.3 ns** | **4.48 ns** | **O(1) Record Lookup** |
 
 #### 2. Complexity Scaling (10M Entities Stress Test)
-| Query Complexity | Standard Iterator | Pure Iterator (No ID) | Performance Gain |
+| View Complexity | Standard Iterator | Pure Iterator (No ID) | Performance Gain |
 | :--- | :--- | :--- | :--- |
-| **Query0 (Entity Only)** | 4.19 ms | - | - |
-| **Query1 (1 Comp)** | 6.22 ms | 4.42 ms | **+29.0%** |
-| **Query3 (3 Comps)** | 9.85 ms | 8.02 ms | **+18.5%** |
-| **Query8 (8 Comps)** | 10.08 ms | 8.14 ms | **+19.2%** |
+| **View0.All (Entity Only)** | 4.19 ms | - | - |
+| **View1.All (1 Comp)** | 6.22 ms | 4.42 ms | **+29.0%** |
+| **View3.All (3 Comps)** | 9.85 ms | 8.02 ms | **+18.5%** |
+| **View8.All (8 Comps)** | 10.08 ms | 8.14 ms | **+19.2%** |
 
 #### 3. Full Benchmark Logs
 <details>
-<summary>Click to view all scenarios (Query 0-8, Pure, Filtered)</summary>
+<summary>Click to view all scenarios (View 0-8, Pure, Filtered)</summary>
 
 | Registry Size ($N$) | Operation | Total Time | Per Entity | Mechanism |
 | :--- | :--- | :--- | :--- | :--- |
-| **1,000** | Query0 All | 435.9 ns | 0.43 ns | Linear SoA |
-| **1,000** | Query3 All | 822.0 ns | 0.82 ns | Linear SoA |
-| **1,000** | Query8 All | 809.4 ns | 0.80 ns | Linear SoA |
-| **1,000** | Query3 Filtered 100 | 432.1 ns | 4.32 ns | O(1) Lookup |
-| **1,000** | Query3 Pure All | 644.6 ns | 0.64 ns | Pure Scan |
-| **10,000** | Query0 All | 4,208 ns | 0.42 ns | Linear SoA |
-| **10,000** | Query3 All | 10,306 ns | 1.03 ns | Linear SoA |
-| **10,000** | Query8 All | 9,920 ns | 0.99 ns | Linear SoA |
-| **10,000** | Query3 Filtered 100 | 438.0 ns | 4.38 ns | O(1) Lookup |
-| **10,000** | Query3 Pure All | 7,673 ns | 0.76 ns | Pure Scan |
-| **100,000** | Query0 All | 41,813 ns | 0.41 ns | Linear SoA |
-| **100,000** | Query3 All | 97,686 ns | 0.97 ns | Linear SoA |
-| **100,000** | Query8 All | 97,582 ns | 0.97 ns | Linear SoA |
-| **100,000** | Query3 Filtered 100 | 454.9 ns | 4.54 ns | O(1) Lookup |
-| **100,000** | Query3 Pure All | 77,924 ns | 0.77 ns | Pure Scan |
-| **1,000,000** | Query0 All | 415,515 ns | 0.41 ns | Linear SoA |
-| **1,000,000** | Query3 All | 989,272 ns | 0.98 ns | Linear SoA |
-| **1,000,000** | Query8 All | 992,372 ns | 0.99 ns | Linear SoA |
-| **1,000,000** | Query3 Filtered 100 | 444.9 ns | 4.44 ns | O(1) Lookup |
-| **1,000,000** | Query3 Pure All | 797,392 ns | 0.79 ns | Pure Scan |
-| **10,000,000** | Query0 All | 4,195,179 ns | 0.41 ns | Linear SoA |
-| **10,000,000** | Query1 All | 6,229,583 ns | 0.62 ns | Linear SoA |
-| **10,000,000** | Query3 All | 9,857,888 ns | 0.98 ns | Linear SoA |
-| **10,000,000** | Query8 All | 10,089,932 ns | 1.00 ns | Linear SoA |
-| **10,000,000** | Query3 Filtered 100 | 448.3 ns | 4.48 ns | O(1) Lookup |
-| **10,000,000** | Query1 Pure All | 4,424,216 ns | 0.44 ns | Pure Scan |
-| **10,000,000** | Query3 Pure All | 8,029,977 ns | 0.80 ns | Pure Scan |
-| **10,000,000** | Query8 Pure All | 8,140,268 ns | 0.81 ns | Pure Scan |
-| **10,000,000** | Query3 Pure Filtered 100 | 432.1 ns | 4.32 ns | Pure Lookup |
+| **1,000** | View0.All | 435.9 ns | 0.43 ns | Linear SoA |
+| **1,000** | View3.All | 822.0 ns | 0.82 ns | Linear SoA |
+| **1,000** | View8.All | 809.4 ns | 0.80 ns | Linear SoA |
+| **1,000** | View3.Filter 100 | 432.1 ns | 4.32 ns | O(1) Lookup |
+| **1,000** | View3.Values | 644.6 ns | 0.64 ns | Pure Scan |
+| **10,000** | View0.All | 4,208 ns | 0.42 ns | Linear SoA |
+| **10,000** | View3.All | 10,306 ns | 1.03 ns | Linear SoA |
+| **10,000** | View8.All | 9,920 ns | 0.99 ns | Linear SoA |
+| **10,000** | View3.Filter 100 | 438.0 ns | 4.38 ns | O(1) Lookup |
+| **10,000** | View3.Values | 7,673 ns | 0.76 ns | Pure Scan |
+| **100,000** | View0.All | 41,813 ns | 0.41 ns | Linear SoA |
+| **100,000** | View3.All | 97,686 ns | 0.97 ns | Linear SoA |
+| **100,000** | View8.All | 97,582 ns | 0.97 ns | Linear SoA |
+| **100,000** | View3.Filter 100 | 454.9 ns | 4.54 ns | O(1) Lookup |
+| **100,000** | View3.Values | 77,924 ns | 0.77 ns | Pure Scan |
+| **1,000,000** | View0.All | 415,515 ns | 0.41 ns | Linear SoA |
+| **1,000,000** | View3.All | 989,272 ns | 0.98 ns | Linear SoA |
+| **1,000,000** | View8.All | 992,372 ns | 0.99 ns | Linear SoA |
+| **1,000,000** | View3.Filter 100 | 444.9 ns | 4.44 ns | O(1) Lookup |
+| **1,000,000** | View3.Values | 797,392 ns | 0.79 ns | Pure Scan |
+| **10,000,000** | View0.All | 4,195,179 ns | 0.41 ns | Linear SoA |
+| **10,000,000** | View1.All | 6,229,583 ns | 0.62 ns | Linear SoA |
+| **10,000,000** | View3.All | 9,857,888 ns | 0.98 ns | Linear SoA |
+| **10,000,000** | View8.All | 10,089,932 ns | 1.00 ns | Linear SoA |
+| **10,000,000** | View3.Filter 100 | 448.3 ns | 4.48 ns | O(1) Lookup |
+| **10,000,000** | View1.Values | 4,424,216 ns | 0.44 ns | Pure Scan |
+| **10,000,000** | View3.Values | 8,029,977 ns | 0.80 ns | Pure Scan |
+| **10,000,000** | View8.Values | 8,140,268 ns | 0.81 ns | Pure Scan |
+| **10,000,000** | View3 FilterValues 100 | 432.1 ns | 4.32 ns | Pure Lookup |
 
 </details>
 
 ### Key Technical Takeaways
-* **Near-Zero Latency:** Targeted queries (Filtered) remain at **~440 ns** regardless of whether the world has 1k or 10M entities.
+* **Near-Zero Latency:** Targeted queries (Filter) remain at **~440 ns** regardless of whether the world has 1k or 10M entities.
 * **Instruction Efficiency:** Even with 8 components, the engine processes entities at **~1 ns/entity**, fitting a 10M entity update within a **10ms** window.
 * **Pure Mode Gain:** Bypassing Entity ID generation provides up to **29%** additional throughput for heavy computational systems.
 
@@ -222,7 +222,7 @@ It is important to note that while **goke/ecs** achieves industry-leading raw it
 | **Add Tag** | 86.20 ns | **??** | **Arche (+??%)** | NO |
 | **Remove Component** | 47.20 ns | **??** | **Arche (+??%)** | NO |
 | **Remove Entity** | 42.00 ns | **??** | **Arche (+??%)** | NO |
-| **Query Filter** | 4.48 ns | **??** | **Arche (+??%)** | NO |
+| **View Filter** | 4.48 ns | **??** | **Arche (+??%)** | NO |
 
 ## Roadmap
 
@@ -236,4 +236,4 @@ GOKE is licensed under the MIT License. See the LICENSE file for more details.
 
 Detailed API documentation and examples are available on [pkg.go.dev](https://pkg.go.dev/github.com/kjkrol/goke).
 
-For a deep dive into the internal mechanics, check the `doc.go` files within the `ecs` and `ecsq` packages.
+For a deep dive into the internal mechanics, check the `doc.go` files within the `ecs` packages.
