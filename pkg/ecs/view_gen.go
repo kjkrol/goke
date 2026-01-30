@@ -62,7 +62,10 @@ func (q *View1[T1]) Filter(selected []Entity) iter.Seq[Head1[T1]] {
 		var lastArch *core.Archetype
 		var cols [1]*core.Column
 		for _, e := range selected {
-			link := links.Get(e.Index())
+			link, ok := links.Get(e)
+			if !ok {
+				continue
+			}
 			arch := link.Arch
 			if arch == nil || !q.View.Matches(arch.Mask) {
 				continue
@@ -114,7 +117,10 @@ func (q *View1[T1]) FilterValues(selected []Entity) iter.Seq[VHead1[T1]] {
 		var lastArch *core.Archetype
 		var cols [1]*core.Column
 		for _, e := range selected {
-			link := links.Get(e.Index())
+			link, ok := links.Get(e)
+			if !ok {
+				continue
+			}
 			arch := link.Arch
 			if arch == nil || !q.View.Matches(arch.Mask) {
 				continue
@@ -196,7 +202,10 @@ func (q *View2[T1, T2]) Filter(selected []Entity) iter.Seq[Head2[T1, T2]] {
 		var lastArch *core.Archetype
 		var cols [2]*core.Column
 		for _, e := range selected {
-			link := links.Get(e.Index())
+			link, ok := links.Get(e)
+			if !ok {
+				continue
+			}
 			arch := link.Arch
 			if arch == nil || !q.View.Matches(arch.Mask) {
 				continue
@@ -250,7 +259,10 @@ func (q *View2[T1, T2]) FilterValues(selected []Entity) iter.Seq[VHead2[T1, T2]]
 		var lastArch *core.Archetype
 		var cols [2]*core.Column
 		for _, e := range selected {
-			link := links.Get(e.Index())
+			link, ok := links.Get(e)
+			if !ok {
+				continue
+			}
 			arch := link.Arch
 			if arch == nil || !q.View.Matches(arch.Mask) {
 				continue
@@ -337,7 +349,10 @@ func (q *View3[T1, T2, T3]) Filter(selected []Entity) iter.Seq[Head3[T1, T2, T3]
 		var lastArch *core.Archetype
 		var cols [3]*core.Column
 		for _, e := range selected {
-			link := links.Get(e.Index())
+			link, ok := links.Get(e)
+			if !ok {
+				continue
+			}
 			arch := link.Arch
 			if arch == nil || !q.View.Matches(arch.Mask) {
 				continue
@@ -393,7 +408,10 @@ func (q *View3[T1, T2, T3]) FilterValues(selected []Entity) iter.Seq[VHead3[T1, 
 		var lastArch *core.Archetype
 		var cols [3]*core.Column
 		for _, e := range selected {
-			link := links.Get(e.Index())
+			link, ok := links.Get(e)
+			if !ok {
+				continue
+			}
 			arch := link.Arch
 			if arch == nil || !q.View.Matches(arch.Mask) {
 				continue
@@ -489,7 +507,10 @@ func (q *View4[T1, T2, T3, T4]) Filter(selected []Entity) iter.Seq2[Head4[T1, T2
 		var lastArch *core.Archetype
 		var cols [4]*core.Column
 		for _, e := range selected {
-			link := links.Get(e.Index())
+			link, ok := links.Get(e)
+			if !ok {
+				continue
+			}
 			arch := link.Arch
 			if arch == nil || !q.View.Matches(arch.Mask) {
 				continue
@@ -548,7 +569,10 @@ func (q *View4[T1, T2, T3, T4]) FilterValues(selected []Entity) iter.Seq[VHead4[
 		var lastArch *core.Archetype
 		var cols [4]*core.Column
 		for _, e := range selected {
-			link := links.Get(e.Index())
+			link, ok := links.Get(e)
+			if !ok {
+				continue
+			}
 			arch := link.Arch
 			if arch == nil || !q.View.Matches(arch.Mask) {
 				continue
@@ -652,7 +676,10 @@ func (q *View5[T1, T2, T3, T4, T5]) Filter(selected []Entity) iter.Seq2[Head5[T1
 		var lastArch *core.Archetype
 		var cols [5]*core.Column
 		for _, e := range selected {
-			link := links.Get(e.Index())
+			link, ok := links.Get(e)
+			if !ok {
+				continue
+			}
 			arch := link.Arch
 			if arch == nil || !q.View.Matches(arch.Mask) {
 				continue
@@ -714,7 +741,10 @@ func (q *View5[T1, T2, T3, T4, T5]) FilterValues(selected []Entity) iter.Seq2[VH
 		var lastArch *core.Archetype
 		var cols [5]*core.Column
 		for _, e := range selected {
-			link := links.Get(e.Index())
+			link, ok := links.Get(e)
+			if !ok {
+				continue
+			}
 			arch := link.Arch
 			if arch == nil || !q.View.Matches(arch.Mask) {
 				continue
@@ -824,7 +854,10 @@ func (q *View6[T1, T2, T3, T4, T5, T6]) Filter(selected []Entity) iter.Seq2[Head
 		var lastArch *core.Archetype
 		var cols [6]*core.Column
 		for _, e := range selected {
-			link := links.Get(e.Index())
+			link, ok := links.Get(e)
+			if !ok {
+				continue
+			}
 			arch := link.Arch
 			if arch == nil || !q.View.Matches(arch.Mask) {
 				continue
@@ -888,7 +921,10 @@ func (q *View6[T1, T2, T3, T4, T5, T6]) FilterValues(selected []Entity) iter.Seq
 		var lastArch *core.Archetype
 		var cols [6]*core.Column
 		for _, e := range selected {
-			link := links.Get(e.Index())
+			link, ok := links.Get(e)
+			if !ok {
+				continue
+			}
 			arch := link.Arch
 			if arch == nil || !q.View.Matches(arch.Mask) {
 				continue
@@ -1003,7 +1039,10 @@ func (q *View7[T1, T2, T3, T4, T5, T6, T7]) Filter(selected []Entity) iter.Seq2[
 		var lastArch *core.Archetype
 		var cols [7]*core.Column
 		for _, e := range selected {
-			link := links.Get(e.Index())
+			link, ok := links.Get(e)
+			if !ok {
+				continue
+			}
 			arch := link.Arch
 			if arch == nil || !q.View.Matches(arch.Mask) {
 				continue
@@ -1069,7 +1108,10 @@ func (q *View7[T1, T2, T3, T4, T5, T6, T7]) FilterValues(selected []Entity) iter
 		var lastArch *core.Archetype
 		var cols [7]*core.Column
 		for _, e := range selected {
-			link := links.Get(e.Index())
+			link, ok := links.Get(e)
+			if !ok {
+				continue
+			}
 			arch := link.Arch
 			if arch == nil || !q.View.Matches(arch.Mask) {
 				continue
@@ -1189,7 +1231,10 @@ func (q *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Filter(selected []Entity) iter.S
 		var lastArch *core.Archetype
 		var cols [8]*core.Column
 		for _, e := range selected {
-			link := links.Get(e.Index())
+			link, ok := links.Get(e)
+			if !ok {
+				continue
+			}
 			arch := link.Arch
 			if arch == nil || !q.View.Matches(arch.Mask) {
 				continue
@@ -1257,7 +1302,10 @@ func (q *View8[T1, T2, T3, T4, T5, T6, T7, T8]) FilterValues(selected []Entity) 
 		var lastArch *core.Archetype
 		var cols [8]*core.Column
 		for _, e := range selected {
-			link := links.Get(e.Index())
+			link, ok := links.Get(e)
+			if !ok {
+				continue
+			}
 			arch := link.Arch
 			if arch == nil || !q.View.Matches(arch.Mask) {
 				continue

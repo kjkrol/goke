@@ -6,11 +6,11 @@ import (
 )
 
 const (
-	MaskSize      = 4
-	MaxComponents = 256
+	MaskSize      = 2
+	MaxComponents = 128
 )
 
-// ArchetypeMask Should handle 4 * 64 = 256 types of components
+// ArchetypeMask Should handle 2 * 64 = 128 types of components
 type ArchetypeMask [MaskSize]uint64
 
 func NewArchetypeMask(componentIDs ...ComponentID) ArchetypeMask {
@@ -77,5 +77,27 @@ func (b ArchetypeMask) IsSet(bit ComponentID) bool {
 }
 
 func (b ArchetypeMask) IsEmpty() bool {
-	return b[0] == 0 && b[1] == 0 && b[2] == 0 && b[3] == 0
+	return b[0] == 0 && b[1] == 0
+}
+
+func (b ArchetypeMask) Count() int {
+	return bits.OnesCount64(b[0]) +
+		bits.OnesCount64(b[1])
+}
+
+// Matches returns true if the mask contains all bits from include AND none from exclude.
+func (b ArchetypeMask) Matches(include, exclude ArchetypeMask) bool {
+	// Inclusion check - must contain ALL bits from includeMask
+	if (b[0]&include[0]) != include[0] ||
+		(b[1]&include[1]) != include[1] {
+		return false
+	}
+
+	// Exclusion check - must contain NONE of the bits from excludeMask
+	if (b[0]&exclude[0]) != 0 ||
+		(b[1]&exclude[1]) != 0 {
+		return false
+	}
+
+	return true
 }

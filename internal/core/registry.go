@@ -71,8 +71,8 @@ func (r *Registry) GetComponent(entity Entity, compID ComponentID) (unsafe.Point
 		return nil, fmt.Errorf("Invalid Entity")
 	}
 
-	link := r.ArchetypeRegistry.EntityLinkStore.Get(entity.Index())
-	if link.Arch == nil {
+	link, ok := r.ArchetypeRegistry.EntityLinkStore.Get(entity)
+	if !ok {
 		return nil, fmt.Errorf("entity not found in registry")
 	}
 

@@ -73,7 +73,11 @@ func (q *View{{.N}}[{{.AllTParams}}]) Filter(selected []Entity) {{.AllSeqType}} 
 	return func(yield func({{.AllYieldArgs}}) bool) {
 		var lastArch *core.Archetype; var cols [{{.N}}]*core.Column
 		for _, e := range selected {
-			link := links.Get(e.Index()); arch := link.Arch
+			link, ok := links.Get(e);
+			if !ok {
+				continue
+			}
+			arch := link.Arch
 			if arch == nil || !q.View.Matches(arch.Mask) { continue }
 			if arch != lastArch { 
 				for i := 0; i < {{.N}}; i++ { cols[i] = arch.Columns[q.CompIDs[i]] }
@@ -128,7 +132,11 @@ func (q *View{{.N}}[{{.AllTParams}}]) FilterValues(selected []Entity) {{.PureSeq
 	return func(yield func({{.PureYieldArgs}}) bool) {
 		var lastArch *core.Archetype; var cols [{{.N}}]*core.Column
 		for _, e := range selected {
-			link := links.Get(e.Index()); arch := link.Arch
+			link, ok := links.Get(e);
+			if !ok {
+				continue
+			}
+			arch := link.Arch
 			if arch == nil || !q.View.Matches(arch.Mask) { continue }
 			if arch != lastArch { 
 				for i := 0; i < {{.N}}; i++ { cols[i] = arch.Columns[q.CompIDs[i]] }

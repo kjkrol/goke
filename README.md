@@ -44,7 +44,7 @@ GOKE is designed with an understanding of modern CPU constraints:
 ### Memory Layout
 1.  **Generation-based Recycling**: Entities are 64-bit IDs (32-bit Index / 32-bit Generation). This solves the ABA problem while allowing dense packing of internal storage.
 2.  **Hardware Prefetching Optimization**: All view structures (Head/Tail) are strictly limited to a maximum of 4 pointer fields. Beyond this, CPU prefetching efficiency degrades. GOKE adheres to this limit to maintain maximal throughput.
-3.  **Archetype Masks**: Supports up to **256 unique component types** using a fast, constant-time bitwise operation (4x64-bit fields).
+3.  **Archetype Masks**: Supports up to **128 unique component types** using a fast, constant-time bitwise operation (2x64-bit fields).
 
 ### Execution Plan
 * **Deferred Commands**: State consistency is maintained via `Commands`. Changes (add/remove) are buffered and applied during explicit `Sync()` points.

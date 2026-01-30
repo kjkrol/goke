@@ -32,7 +32,10 @@ func (v *View0) Filter(selected []Entity) iter.Seq[core.Entity] {
 	links := v.Reg.ArchetypeRegistry.EntityLinkStore
 	return func(yield func(core.Entity) bool) {
 		for _, e := range selected {
-			link := links.Get(e.Index())
+			link, ok := links.Get(e)
+			if !ok {
+				continue
+			}
 			arch := link.Arch
 
 			if arch == nil || !v.Matches(arch.Mask) {

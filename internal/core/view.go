@@ -42,36 +42,6 @@ func (v *View) AddArchetype(arch *Archetype) {
 	v.Baked = append(v.Baked, mArch)
 }
 
-// ---------------------------------------------------------
-
 func (v *View) Matches(archMask ArchetypeMask) bool {
-	// Inclusion - Unrolled with Early Exit
-	if (archMask[0] & v.includeMask[0]) != v.includeMask[0] {
-		return false
-	}
-	if (archMask[1] & v.includeMask[1]) != v.includeMask[1] {
-		return false
-	}
-	if (archMask[2] & v.includeMask[2]) != v.includeMask[2] {
-		return false
-	}
-	if (archMask[3] & v.includeMask[3]) != v.includeMask[3] {
-		return false
-	}
-
-	// Exclusion - Unrolled with Early Exit
-	if (archMask[0] & v.excludeMask[0]) != 0 {
-		return false
-	}
-	if (archMask[1] & v.excludeMask[1]) != 0 {
-		return false
-	}
-	if (archMask[2] & v.excludeMask[2]) != 0 {
-		return false
-	}
-	if (archMask[3] & v.excludeMask[3]) != 0 {
-		return false
-	}
-
-	return true
+	return archMask.Matches(v.includeMask, v.excludeMask)
 }

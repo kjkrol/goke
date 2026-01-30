@@ -6,46 +6,6 @@ import (
 	"unsafe"
 )
 
-type EntityLinkStore struct {
-	links []EntityArchLink
-}
-
-func NewEntityLinkStore(initialCap int) *EntityLinkStore {
-	return &EntityLinkStore{
-		links: make([]EntityArchLink, initialCap),
-	}
-}
-
-func (s *EntityLinkStore) Get(index uint32) EntityArchLink {
-	if index >= uint32(len(s.links)) {
-		return EntityArchLink{}
-	}
-	return s.links[index]
-}
-
-func (s *EntityLinkStore) Update(index uint32, arch *Archetype, row ArchRow) {
-	if index >= uint32(len(s.links)) {
-		s.grow(index + 1)
-	}
-	s.links[index] = EntityArchLink{Arch: arch, Row: row}
-}
-
-func (s *EntityLinkStore) Clear(index uint32) {
-	if index < uint32(len(s.links)) {
-		s.links[index] = EntityArchLink{Arch: nil, Row: 0}
-	}
-}
-
-func (s *EntityLinkStore) grow(minLen uint32) {
-	newCap := uint32(len(s.links)) * 2
-	if newCap < minLen {
-		newCap = minLen
-	}
-	newLinks := make([]EntityArchLink, newCap)
-	copy(newLinks, s.links)
-	s.links = newLinks
-}
-
 type ArchetypeRegistry struct {
 	archetypeMap              map[ArchetypeMask]*Archetype
 	archetypes                []*Archetype
@@ -91,25 +51,23 @@ func (r *ArchetypeRegistry) All() []*Archetype {
 }
 
 func (r *ArchetypeRegistry) AddEntity(entity Entity) {
-	index := entity.Index()
 	row := r.rootArch.registerEntity(entity)
-	r.EntityLinkStore.Update(index, r.rootArch, row)
+	r.EntityLinkStore.Update(entity, r.rootArch, row)
 }
 
 func (r *ArchetypeRegistry) UnlinkEntity(entity Entity) {
-	index := entity.Index()
-	link := r.EntityLinkStore.Get(index)
-	if link.Arch == nil {
+	link, ok := r.EntityLinkStore.Get(entity)
+	if !ok {
 		return
 	}
 
 	swappedEntity, swapped := link.Arch.SwapRemoveEntity(link.Row)
 
 	if swapped {
-		r.EntityLinkStore.Update(swappedEntity.Index(), link.Arch, link.Row)
+		r.EntityLinkStore.Update(swappedEntity, link.Arch, link.Row)
 	}
 
-	r.EntityLinkStore.Clear(index)
+	r.EntityLinkStore.Clear(entity)
 }
 
 var (
@@ -120,10 +78,9 @@ var (
 // This avoids the 'escape to heap' allocation of the component data struct.
 func (r *ArchetypeRegistry) AllocateComponentMemory(entity Entity, compInfo ComponentInfo) (unsafe.Pointer, error) {
 	compID := compInfo.ID
-	index := entity.Index()
 
-	backLink := r.EntityLinkStore.Get(index)
-	if backLink.Arch == nil {
+	backLink, ok := r.EntityLinkStore.Get(entity)
+	if !ok {
 		return nil, ErrEntityNotFound
 	}
 
@@ -160,8 +117,10 @@ func (r *ArchetypeRegistry) AllocateComponentMemory(entity Entity, compInfo Comp
 }
 
 func (r *ArchetypeRegistry) UnAssign(entity Entity, compInfo ComponentInfo) {
-	index := entity.Index()
-	link := r.EntityLinkStore.Get(index)
+	link, ok := r.EntityLinkStore.Get(entity)
+	if !ok {
+		return
+	}
 	oldArch := link.Arch
 	compID := compInfo.ID
 
@@ -229,21 +188,20 @@ func (r *ArchetypeRegistry) getOrRegister(mask ArchetypeMask) *Archetype {
 // --------------------------------------------------------------
 
 func (r *ArchetypeRegistry) moveEntity(entity Entity, link EntityArchLink, newArch *Archetype) ArchRow {
-	index := entity.Index()
 	oldArch := link.Arch
 	oldArchRow := link.Row
 
 	newArchRow := newArch.registerEntity(entity)
 
-	for id, newCol := range newArch.Columns {
+	for _, id := range newArch.activeIDs {
 		if oldCol := oldArch.Columns[id]; oldCol != nil {
-			newCol.setData(newArchRow, oldCol.GetElement(oldArchRow))
+			newArch.Columns[id].setData(newArchRow, oldCol.GetElement(oldArchRow))
 		}
 	}
 
 	r.UnlinkEntity(entity)
 
-	r.EntityLinkStore.Update(index, newArch, newArchRow)
+	r.EntityLinkStore.Update(entity, newArch, newArchRow)
 
 	return newArchRow
 }

@@ -1,32 +1,43 @@
 package core
 
-// Supports 256 unique component types
+import "math/bits"
+
 type Archetype struct {
 	Mask     ArchetypeMask
 	entities []Entity
 	Columns  [MaxComponents]*Column
-	len      int
-	cap      int
+	// Cached IDs of active components for high-speed iteration
+	activeIDs []ComponentID
+
+	len     int
+	cap     int
+	initCap int
 
 	edgesNext [MaxComponents]*Archetype
 	edgesPrev [MaxComponents]*Archetype
-	initCap   int
 }
 
 type ArchRow uint32
 
-type EntityArchLink struct {
-	Arch *Archetype
-	Row  ArchRow
-}
-
 func NewArchetype(mask ArchetypeMask, defaultArchetypeChunkSize int) *Archetype {
+	// Pre-calculate active IDs to avoid bitmask scanning in hot loops
+	activeIDs := make([]ComponentID, 0, mask.Count())
+	for i, word := range mask {
+		for word != 0 {
+			bitPos := bits.TrailingZeros64(word)
+			id := ComponentID(i*64 + bitPos)
+			activeIDs = append(activeIDs, id)
+			word &= word - 1
+		}
+	}
+
 	return &Archetype{
-		Mask:     mask,
-		entities: make([]Entity, defaultArchetypeChunkSize),
-		len:      0,
-		cap:      defaultArchetypeChunkSize,
-		initCap:  defaultArchetypeChunkSize,
+		Mask:      mask,
+		entities:  make([]Entity, defaultArchetypeChunkSize),
+		activeIDs: activeIDs,
+		len:       0,
+		cap:       defaultArchetypeChunkSize,
+		initCap:   defaultArchetypeChunkSize,
 	}
 }
 
@@ -34,8 +45,8 @@ func (a *Archetype) SwapRemoveEntity(row ArchRow) (swapedEntity Entity, swaped b
 	lastRow := ArchRow(a.len - 1)
 	entityToMove := a.entities[lastRow]
 
-	// 1. Swap data in all columns
-	for id := range a.Mask.AllSet() {
+	// 1. Swap data in all active columns using cached IDs
+	for _, id := range a.activeIDs {
 		col := a.Columns[id]
 
 		if row != lastRow {
@@ -50,8 +61,7 @@ func (a *Archetype) SwapRemoveEntity(row ArchRow) (swapedEntity Entity, swaped b
 	a.entities[row] = entityToMove
 	a.entities[lastRow] = 0
 	a.len--
-	// 3. Return the entity that was moved to the new position
-	// If we removed the last one, no entity was moved to 'index'
+
 	if row == lastRow {
 		return 0, false
 	}
@@ -62,7 +72,8 @@ func (a *Archetype) registerEntity(entity Entity) ArchRow {
 	a.ensureCapacity()
 	newIdx := a.len
 
-	for id := range a.Mask.AllSet() {
+	// Update column lengths using cached IDs
+	for _, id := range a.activeIDs {
 		a.Columns[id].len++
 	}
 
@@ -86,25 +97,24 @@ func (a *Archetype) ensureCapacity() {
 	copy(newEntities, a.entities)
 	a.entities = newEntities
 
-	for id := range a.Mask.AllSet() {
+	// Grow columns using cached IDs
+	for _, id := range a.activeIDs {
 		a.Columns[id].growTo(newCap)
 	}
 
 	a.cap = newCap
 }
 
-// CountNextEdges returns the number of outgoing connections (adding a component).
+// CountNextEdges remains as is (or use a stored counter if needed)
 func (a *Archetype) CountNextEdges() int {
 	return countNonNull(a.edgesNext)
 }
 
-// CountPrevEdges returns the number of incoming connections (removing a component).
 func (a *Archetype) CountPrevEdges() int {
 	return countNonNull(a.edgesPrev)
 }
 
-// Internal helper to iterate through the fixed-size array
-func countNonNull(edges [MaskSize * 64]*Archetype) int {
+func countNonNull(edges [MaxComponents]*Archetype) int {
 	count := 0
 	for _, edge := range edges {
 		if edge != nil {

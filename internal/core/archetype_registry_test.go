@@ -20,8 +20,8 @@ func TestArchetypeRegistry_FastPath(t *testing.T) {
 		*(*position)(ptr) = posData
 	}
 
-	arch1 := reg.EntityLinkStore.Get(e1.Index()).Arch
-	if arch1 == reg.rootArch {
+	arch1, _ := reg.EntityLinkStore.Get(e1)
+	if arch1.Arch == reg.rootArch {
 		t.Fatal("entity E1 should have moved from rootArch")
 	}
 
@@ -34,9 +34,9 @@ func TestArchetypeRegistry_FastPath(t *testing.T) {
 	if ptr, err := reg.AllocateComponentMemory(e2, posTypeInfo); err == nil {
 		*(*position)(ptr) = posData
 	}
-	arch2 := reg.EntityLinkStore.Get(e2.Index()).Arch
+	arch2, _ := reg.EntityLinkStore.Get(e2)
 
-	if arch1 != arch2 {
+	if arch1.Arch != arch2.Arch {
 		t.Error("E1 and E2 should share the same archetype instance via graph edges")
 	}
 }
@@ -56,14 +56,14 @@ func TestArchetypeRegistry_CycleConsistency(t *testing.T) {
 	if ptr, err := reg.AllocateComponentMemory(e, posTypeInfo); err == nil {
 		*(*position)(ptr) = posData
 	}
-	archA := reg.EntityLinkStore.Get(e.Index()).Arch
+	linkA, _ := reg.EntityLinkStore.Get(e)
 
-	if archA == nil || archA == reg.rootArch {
+	if linkA.Arch == nil || linkA.Arch == reg.rootArch {
 		t.Fatal("entity failed to move to a new archetype")
 	}
 
 	// Case: Verify back-link exists in the graph
-	if archA.edgesPrev[posTypeInfo.ID] != reg.rootArch {
+	if linkA.Arch.edgesPrev[posTypeInfo.ID] != reg.rootArch {
 		t.Error("bidirectional link (edgesPrev) from ArchA to Root not established")
 	}
 }
@@ -123,8 +123,7 @@ func TestArchetypeRegistry_RemovalStrategy(t *testing.T) {
 	// Case: UnAssigning the only component should trigger RemoveEntity
 	reg.UnAssign(e, posTypeInfo)
 
-	index := e.Index()
-	link := reg.EntityLinkStore.Get(index)
+	link, _ := reg.EntityLinkStore.Get(e)
 
 	if link.Arch != nil {
 		t.Errorf("entity should be removed (arch == nil), but still linked to archetype with mask: %v", link.Arch.Mask)
@@ -144,14 +143,14 @@ func TestArchetypeRegistry_OverwriteIdempotency(t *testing.T) {
 		*(*position)(ptr) = p1
 	}
 
-	linkBefore := reg.EntityLinkStore.Get(e.Index())
+	linkBefore, _ := reg.EntityLinkStore.Get(e)
 
 	// Case: Assign same component again (update data)
 	if ptr, err := reg.AllocateComponentMemory(e, posTypeInfo); err == nil {
 		*(*position)(ptr) = p2
 	}
 
-	linkAfter := reg.EntityLinkStore.Get(e.Index())
+	linkAfter, _ := reg.EntityLinkStore.Get(e)
 
 	if linkBefore.Arch != linkAfter.Arch || linkBefore.Row != linkAfter.Row {
 		t.Error("re-assigning same component should not move entity in graph")
@@ -187,7 +186,7 @@ func TestArchetypeRegistry_SwapPopIntegrity(t *testing.T) {
 
 	reg.UnlinkEntity(e1)
 
-	link2 := reg.EntityLinkStore.Get(e2.Index())
+	link2, _ := reg.EntityLinkStore.Get(e2)
 	if link2.Row != 1 {
 		t.Errorf("E2 should be at row 1, got %d", link2.Row)
 	}

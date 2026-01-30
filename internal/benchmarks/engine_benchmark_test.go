@@ -24,6 +24,17 @@ func BenchmarkEngine_Structural(b *testing.B) {
 	velInfo := ecs.RegisterComponent[Velocity3](engine)
 	tagInfo := ecs.RegisterComponent[ProcessedTag](engine)
 
+	// initialize archetypes
+	eStart1 := engine.CreateEntity()
+	ecs.AllocateComponentByInfo[Velocity3](engine, eStart1, velInfo)
+
+	eStart2 := engine.CreateEntity()
+	ecs.AllocateComponentByInfo[Position3](engine, eStart2, posInfo)
+	ecs.AllocateComponentByInfo[Velocity3](engine, eStart2, velInfo)
+
+	eStart3 := engine.CreateEntity()
+	ecs.AllocateComponentByInfo[ProcessedTag](engine, eStart3, tagInfo)
+
 	// --- 1. ENTITY CREATION & INITIALIZATION ---
 	// Tests CreateEntity
 	b.Run("Create_Entity", func(b *testing.B) {
@@ -91,6 +102,44 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			engine.RemoveComponentByID(entities[i], posInfo)
+		}
+	})
+
+	// --- 5. COMPONENT ACCESS (GET) ---
+
+	// Benchmark for GetComponent: Uses reflection to find ComponentInfo.
+	// This is the "Convenience Path" - slower but easier to use.
+	b.Run("Get_Component_Reflect", func(b *testing.B) {
+		e := engine.CreateEntity()
+		p, _ := ecs.AllocateComponentByInfo[Position3](engine, e, posInfo)
+		*p = Position3{X: 1, Y: 2, Z: 3}
+
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			// Internally calls reflect.TypeFor[T]() and registry lookups
+			pos, err := ecs.GetComponent[Position3](engine, e)
+			if err == nil {
+				pos.X += 1.0
+			}
+		}
+	})
+
+	// Benchmark for GetComponentByType: Uses pre-fetched ComponentInfo.
+	// This is the "Fast Path" - bypasses reflection and registry maps.
+	b.Run("Get_Component_Direct", func(b *testing.B) {
+		e := engine.CreateEntity()
+		p, _ := ecs.AllocateComponentByInfo[Position3](engine, e, posInfo)
+		*p = Position3{X: 1, Y: 2, Z: 3}
+
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			// Uses the provided compInfo to jump straight to the correct column
+			pos, err := ecs.GetComponentByType[Position3](engine, e, posInfo)
+			if err == nil {
+				pos.X += 1.0
+			}
 		}
 	})
 }

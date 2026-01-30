@@ -183,3 +183,13 @@ func GetComponent[T any](eng *Engine, entity Entity) (*T, error) {
 
 	return (*T)(data), nil
 }
+
+// GetComponent returns a typed pointer to an entity's component of type T.
+func GetComponentByType[T any](eng *Engine, entity Entity, compInfo ComponentInfo) (*T, error) {
+	data, err := eng.registry.GetComponent(entity, compInfo.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return (*T)(data), nil
+}
