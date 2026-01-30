@@ -1,4 +1,4 @@
-//go:generate go run ../../internal/gen/views/main.go
+//go:generate go run internal/gen/views/main.go
 package ecs
 
 // This file triggers the generation of type-safe ECS views.

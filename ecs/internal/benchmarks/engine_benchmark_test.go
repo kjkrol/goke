@@ -3,7 +3,7 @@ package benchmarks
 import (
 	"testing"
 
-	"github.com/kjkrol/goke/pkg/ecs"
+	"github.com/kjkrol/goke/ecs"
 )
 
 type Position3 struct{ X, Y, Z float64 }

@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/kjkrol/goke/pkg/ecs"
+	"github.com/kjkrol/goke/ecs"
 )
 
 // --- Components ---

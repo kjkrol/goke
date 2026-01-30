@@ -2,7 +2,7 @@
 package ecs
 
 import (
-	"github.com/kjkrol/goke/internal/core"
+	"github.com/kjkrol/goke/ecs/internal/core"
 	"iter"
 	"unsafe"
 )

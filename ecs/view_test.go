@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/kjkrol/goke/internal/core"
-	"github.com/kjkrol/goke/pkg/ecs"
+	"github.com/kjkrol/goke/ecs"
+	"github.com/kjkrol/goke/ecs/internal/core"
 	"github.com/stretchr/testify/assert"
 )
 

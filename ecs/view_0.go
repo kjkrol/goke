@@ -3,7 +3,7 @@ package ecs
 import (
 	"iter"
 
-	"github.com/kjkrol/goke/internal/core"
+	"github.com/kjkrol/goke/ecs/internal/core"
 )
 
 type View0 struct {

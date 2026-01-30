@@ -6,7 +6,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/kjkrol/goke/internal/core"
+	"github.com/kjkrol/goke/ecs/internal/core"
 )
 
 type (

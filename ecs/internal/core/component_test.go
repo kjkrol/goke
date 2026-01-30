@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/kjkrol/goke/internal/core"
+	"github.com/kjkrol/goke/ecs/internal/core"
 )
 
 // 1. Registration and Type Mapping

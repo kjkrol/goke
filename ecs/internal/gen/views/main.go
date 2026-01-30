@@ -57,7 +57,7 @@ func main() {
 	f.WriteString("import (\n")
 	f.WriteString("\t\"iter\"\n")
 	f.WriteString("\t\"unsafe\"\n")
-	f.WriteString("\t\"github.com/kjkrol/goke/internal/core\"\n")
+	f.WriteString("\t\"github.com/kjkrol/goke/ecs/internal/core\"\n")
 	f.WriteString(")\n\n")
 
 	for i := 1; i <= 8; i++ {
