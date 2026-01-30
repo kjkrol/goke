@@ -27,14 +27,14 @@ func main() {
 	ptr, _ := ecs.AllocateComponent[Acc](engine, entity)
 	*ptr = Acc{X: 0.1, Y: 0.1}
 
-	// Initialize query for Pos, Vel, and Acc components
-	query := ecs.NewQuery3[Pos, Vel, Acc](engine)
+	// Initialize view for Pos, Vel, and Acc components
+	view := ecs.NewView3[Pos, Vel, Acc](engine)
 
 	// Define the movement system using the functional registration pattern
 	movementSystem := engine.RegisterSystemFunc(func(cb *ecs.Commands, d time.Duration) {
 		// High-performance iteration utilizing Data Locality.
 		// Component data is processed in contiguous memory blocks (SoA layout).
-		for head := range query.All3() {
+		for head := range view.Values() {
 			pos, vel, acc := head.V1, head.V2, head.V3
 
 			vel.X += acc.X
@@ -47,7 +47,7 @@ func main() {
 	// Configure the engine's execution workflow and synchronization points
 	engine.SetExecutionPlan(func(ctx ecs.ExecutionContext, d time.Duration) {
 		ctx.Run(movementSystem, d)
-		ctx.Sync() // Ensure all component updates are flushed and queries are consistent
+		ctx.Sync() // Ensure all component updates are flushed and views are consistent
 	})
 
 	// Execute a single simulation step (standard 60 FPS tick)

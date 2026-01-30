@@ -38,23 +38,23 @@ func main() {
 	stateEnt := engine.CreateEntity()
 	ecs.SetComponent(engine, stateEnt, GameState{Turn: 0, Finished: false})
 
-	// --- Queries ---
-	// Queries are defined here to be captured by system closures
-	qDice := ecs.NewQuery1[Dice](engine)
-	qPlayers := ecs.NewQuery1[Player](engine)
+	// --- Views ---
+	// Views are defined here to be captured by system closures
+	vDice := ecs.NewView1[Dice](engine)
+	vPlayers := ecs.NewView1[Player](engine)
 
 	// --- Systems Registration ---
 
 	// System 1: Roll the dice
 	rollSys := engine.RegisterSystemFunc(func(cb *ecs.Commands, d time.Duration) {
-		for res := range qDice.All1() {
+		for res := range vDice.Values() {
 			res.V1.Value = rand.Intn(6) + 1
 		}
 	})
 
 	// System 2: Players place their bets
 	betSys := engine.RegisterSystemFunc(func(cb *ecs.Commands, d time.Duration) {
-		for res := range qPlayers.All1() {
+		for res := range vPlayers.Values() {
 			res.V1.Bet = rand.Intn(6) + 1
 		}
 	})
@@ -73,7 +73,7 @@ func main() {
 		fmt.Printf("🎲 Turn %d | Dice Result: %d\n", s.Turn, dice.Value)
 
 		// Check all bets against the dice result
-		for res := range qPlayers.All1() {
+		for res := range vPlayers.All() {
 			fmt.Printf("   Player %d bet: %d\n", res.Entity, res.V1.Bet)
 			if res.V1.Bet == dice.Value {
 				fmt.Printf("🏆 VICTORY! Player %d won the game!\n", res.Entity)

@@ -112,12 +112,12 @@ func BenchmarkEngine_Query(b *testing.B) {
 		*pos = Position3{X: float64(i)}
 	}
 
-	query := ecs.NewQuery1[Position3](engine)
+	view := ecs.NewView1[Position3](engine)
 
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		for head := range query.All1() {
+		for head := range view.All() {
 			head.V1.X += 0.1
 		}
 	}

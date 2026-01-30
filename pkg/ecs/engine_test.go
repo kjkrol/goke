@@ -36,18 +36,18 @@ func TestECS_UseCase(t *testing.T) {
 	order2, _ := ecs.AllocateComponent[Order](engine, eB)
 	*order2 = Order{ID: "ORD-002", Total: 50.0}
 
-	query1 := ecs.NewQuery2[Order, Discount](engine)
+	query1 := ecs.NewView2[Order, Discount](engine)
 	processedCount := 0
 
 	billingSystem := engine.RegisterSystemFunc(func(cb *ecs.Commands, d time.Duration) {
-		for head := range query1.All2() {
+		for head := range query1.All() {
 			processedCount++
 			ord, disc := head.V1, head.V2
 			ord.Total = ord.Total * (1 - disc.Percentage/100)
 			ecs.AssignComponent(cb, head.Entity, processedTypeInfo, Processed{})
 		}
 	})
-	query2 := ecs.NewQuery0(engine, ecs.WithTag[Processed](), ecs.WithTag[Order](), ecs.WithTag[Discount]())
+	query2 := ecs.NewView0(engine, ecs.WithTag[Processed](), ecs.WithTag[Order](), ecs.WithTag[Discount]())
 	cleanerSystem := engine.RegisterSystemFunc(func(cb *ecs.Commands, d time.Duration) {
 		for entity := range query2.All() {
 			cb.RemoveEntity(entity)

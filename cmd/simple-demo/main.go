@@ -26,9 +26,9 @@ func main() {
 	ecs.SetComponent(engine, entity, Discount{Percentage: 20.0})
 
 	// Define the Billing System to calculate discounted totals for unprocessed orders
-	query := ecs.NewQuery2[Order, Discount](engine, ecs.Without[Processed]())
+	view := ecs.NewView2[Order, Discount](engine, ecs.Without[Processed]())
 	billing := engine.RegisterSystemFunc(func(cb *ecs.Commands, d time.Duration) {
-		for head := range query.All2() {
+		for head := range view.All() {
 			ord, disc := head.V1, head.V2
 			ord.Total = ord.Total * (1 - disc.Percentage/100)
 
@@ -39,9 +39,9 @@ func main() {
 
 	// Define the Teardown System to monitor simulation exit conditions
 	close := false
-	query2 := ecs.NewQuery0(engine, ecs.WithTag[Processed]())
+	view2 := ecs.NewView0(engine, ecs.WithTag[Processed]())
 	teardownSystem := engine.RegisterSystemFunc(func(cb *ecs.Commands, d time.Duration) {
-		for e := range query2.Filter([]ecs.Entity{entity}) {
+		for e := range view2.Filter([]ecs.Entity{entity}) {
 			_ = e
 			close = true
 			break

@@ -1,0 +1,47 @@
+package ecs
+
+import (
+	"iter"
+
+	"github.com/kjkrol/goke/internal/core"
+)
+
+type View0 struct {
+	*core.View
+}
+
+func NewView0(eng *Engine, options ...core.ViewOption) *View0 {
+	view := core.NewView(eng.registry, options...)
+	return &View0{View: view}
+}
+
+func (v *View0) All() iter.Seq[core.Entity] {
+	return func(yield func(core.Entity) bool) {
+		for i := range v.Baked {
+			b := &v.Baked[i]
+			for j := 0; j < *b.Len; j++ {
+				if !yield((*b.Entities)[j]) {
+					return
+				}
+			}
+		}
+	}
+}
+
+func (v *View0) Filter(selected []Entity) iter.Seq[core.Entity] {
+	links := v.Reg.ArchetypeRegistry.EntityLinkStore
+	return func(yield func(core.Entity) bool) {
+		for _, e := range selected {
+			link := links.Get(e.Index())
+			arch := link.Arch
+
+			if arch == nil || !v.Matches(arch.Mask) {
+				continue
+			}
+
+			if !yield(e) {
+				return
+			}
+		}
+	}
+}

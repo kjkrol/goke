@@ -37,7 +37,7 @@ func WithFreeIndicesCap(cap int) EngineOption {
 }
 
 // WithViewRegistryInitCap sets the initial capacity for the query/view cache.
-// Optimization for scenarios with a high number of unique system queries.
+// Optimization for scenarios with a high number of unique system views.
 func WithViewRegistryInitCap(cap int) EngineOption {
 	return func(c *EngineConfig) {
 		c.ViewRegistryInitCap = cap
