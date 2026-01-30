@@ -26,7 +26,7 @@ func TestArchetypeRegistry_FastPath(t *testing.T) {
 	}
 
 	// Case: Verify edge was cached in rootArch
-	if _, ok := reg.rootArch.edgesNext[posTypeInfo.ID]; !ok {
+	if nextEdge := reg.rootArch.edgesNext[posTypeInfo.ID]; nextEdge == nil {
 		t.Fatal("fast path edge was not cached in rootArch")
 	}
 
@@ -92,8 +92,8 @@ func TestArchetypeRegistry_GraphBranching(t *testing.T) {
 	}
 
 	// Case: Root should have 2 independent outgoing edges
-	if len(reg.rootArch.edgesNext) != 2 {
-		t.Errorf("expected 2 outgoing edges from Root, got %d", len(reg.rootArch.edgesNext))
+	if count := reg.rootArch.CountNextEdges(); count != 2 {
+		t.Errorf("expected 2 outgoing edges from Root, got %d", count)
 	}
 
 	archPos := reg.rootArch.edgesNext[posTypeInfo.ID]

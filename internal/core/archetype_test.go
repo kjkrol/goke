@@ -53,46 +53,28 @@ func TestArchetype_CapacityAndGrowth(t *testing.T) {
 	}
 }
 
-// Scenario 2: AddEntity & Registration
-func TestArchetype_AddEntityAndRegistration(t *testing.T) {
+// Scenario 2: Manual Registration & Data Setting
+func TestArchetype_ManualRegistration(t *testing.T) {
 	mask := NewArchetypeMask(1, 2)
-	initCapacity := 128
-	arch := NewArchetype(mask, initCapacity)
+	arch := NewArchetype(mask, 128)
 	compID1, compID2 := ComponentID(1), ComponentID(2)
 	addTestColumn[position](arch, compID1)
 	addTestColumn[velocity](arch, compID2)
 
-	// Case: Sequential adding
 	e0 := Entity(10)
-	e1 := Entity(11)
 	p0 := position{x: 1, y: 1}
-	p1 := position{x: 2, y: 2}
 
-	link0 := arch.AddEntity(e0, compID1, unsafe.Pointer(&p0))
-	link1 := arch.AddEntity(e1, compID1, unsafe.Pointer(&p1))
+	// 1. Register
+	row := arch.registerEntity(e0)
 
-	if link0.Row != 0 || link1.Row != 1 {
-		t.Errorf("expected sequential rows 0 and 1, got %d and %d", link0.Row, link1.Row)
-	}
+	// 2. Set Data manually
+	arch.Columns[compID1].setData(row, unsafe.Pointer(&p0))
+	arch.Columns[compID2].zeroData(row) // Manually zero if needed
 
-	// Case: Column data routing
-	posData := position{x: 100, y: 200}
-	e2 := Entity(12)
-	link2 := arch.AddEntity(e2, compID1, unsafe.Pointer(&posData))
-
-	gotP := *(*position)(arch.Columns[compID1].GetElement(link2.Row))
-	if gotP != posData {
-		t.Errorf("routing failed: data not found in target column")
-	}
-
-	gotV := *(*velocity)(arch.Columns[compID2].GetElement(link2.Row))
-	if gotV.vx != 0 || gotV.vy != 0 {
-		t.Error("routing failed: non-target column was not zeroed")
-	}
-
-	// Case: Link integrity
-	if link2.Arch != arch {
-		t.Error("EntityArchLink should point to the correct archetype")
+	// 3. Verify
+	gotP := *(*position)(arch.Columns[compID1].GetElement(row))
+	if gotP != p0 {
+		t.Errorf("expected %+v, got %+v", p0, gotP)
 	}
 }
 
@@ -102,14 +84,16 @@ func TestArchetype_SwapRemoveWithLenSync(t *testing.T) {
 	arch := NewArchetype(mask, 10)
 	addTestColumn[int32](arch, 1)
 
-	// Przygotowujemy dane, żeby nie słać nil
 	val1, val2 := int32(10), int32(20)
 
-	// 1. Dodajemy encje
-	arch.AddEntity(Entity(1), 1, unsafe.Pointer(&val1))
-	arch.AddEntity(Entity(2), 1, unsafe.Pointer(&val2))
+	// 1. Add entities using the actual API: register + setData
+	row0 := arch.registerEntity(Entity(1))
+	arch.Columns[1].setData(row0, unsafe.Pointer(&val1))
 
-	// Sprawdzamy stan początkowy przed usunięciem
+	row1 := arch.registerEntity(Entity(2))
+	arch.Columns[1].setData(row1, unsafe.Pointer(&val2))
+
+	// Verify initial state
 	if arch.len != 2 {
 		t.Fatalf("Setup failed: Arch len should be 2, got %d", arch.len)
 	}
@@ -117,10 +101,11 @@ func TestArchetype_SwapRemoveWithLenSync(t *testing.T) {
 		t.Fatalf("Setup failed: Column len should be 2, got %d", arch.Columns[1].len)
 	}
 
-	// 2. Wykonujemy Swap-Remove
-	arch.SwapRemoveEntity(0) // Usuwamy pierwszą encję
+	// 2. Perform Swap-Remove
+	// This will move Entity(2) from row 1 to row 0
+	arch.SwapRemoveEntity(0)
 
-	// 3. Weryfikacja zmiany (to czego brakowało)
+	// 3. Verify sync and length reduction
 	if arch.len != 1 {
 		t.Errorf("Archetype len should decrease to 1, got %d", arch.len)
 	}
@@ -129,7 +114,12 @@ func TestArchetype_SwapRemoveWithLenSync(t *testing.T) {
 		t.Errorf("Column len should decrease to 1, got %d", arch.Columns[1].len)
 	}
 
-	// Dodatkowe sprawdzenie spójności między strukturami
+	// Critical check: Did the data actually swap?
+	gotVal := *(*int32)(arch.Columns[1].GetElement(0))
+	if gotVal != val2 {
+		t.Errorf("Swap failed: expected val2 (20) at row 0, got %d", gotVal)
+	}
+
 	if arch.Columns[1].len != arch.len {
 		t.Errorf("Critical Sync Error: Archetype len (%d) != Column len (%d)",
 			arch.len, arch.Columns[1].len)
@@ -145,23 +135,33 @@ func TestArchetype_MultiColumnIntegrity(t *testing.T) {
 	addTestColumn[position](arch, posID)
 	addTestColumn[velocity](arch, velID)
 
-	// Case: Row integrity after swap
-	// Fill E0 and E1
+	// Data for two separate entities
 	p0, v0 := position{1, 1}, velocity{10, 10}
 	p1, v1 := position{2, 2}, velocity{20, 20}
-	arch.AddEntity(Entity(0), posID, unsafe.Pointer(&p0))
-	arch.Columns[velID].setData(0, unsafe.Pointer(&v0))
-	arch.AddEntity(Entity(1), posID, unsafe.Pointer(&p1))
-	arch.Columns[velID].setData(1, unsafe.Pointer(&v1))
 
-	arch.SwapRemoveEntity(0) // E1 moves to row 0
+	// 1. Setup Entity 0 at Row 0
+	row0 := arch.registerEntity(Entity(0))
+	arch.Columns[posID].setData(row0, unsafe.Pointer(&p0))
+	arch.Columns[velID].setData(row0, unsafe.Pointer(&v0))
 
-	// Case: Data isolation (E1 components must remain paired correctly)
+	// 2. Setup Entity 1 at Row 1
+	row1 := arch.registerEntity(Entity(1))
+	arch.Columns[posID].setData(row1, unsafe.Pointer(&p1))
+	arch.Columns[velID].setData(row1, unsafe.Pointer(&v1))
+
+	// 3. Swap-and-Pop: Remove Entity 0
+	// This moves Entity 1 from Row 1 to Row 0 across ALL columns
+	arch.SwapRemoveEntity(row0)
+
+	// 4. Case: Data isolation (E1 components must remain paired correctly at Row 0)
 	resP := *(*position)(arch.Columns[posID].GetElement(0))
 	resV := *(*velocity)(arch.Columns[velID].GetElement(0))
 
-	if resP != p1 || resV != v1 {
-		t.Errorf("multi-column integrity lost: row 0 has mismatched components %+v, %+v", resP, resV)
+	if resP != p1 {
+		t.Errorf("Position integrity lost: expected %+v, got %+v", p1, resP)
+	}
+	if resV != v1 {
+		t.Errorf("Velocity integrity lost: expected %+v, got %+v", v1, resV)
 	}
 }
 
@@ -215,33 +215,43 @@ func TestArchetype_Alignment(t *testing.T) {
 	arch.Columns[id].growTo(arch.cap)
 
 	val := OddStruct{A: 42}
-	arch.AddEntity(Entity(1), id, unsafe.Pointer(&val))
 
-	// Check if we can retrieve it without corruption
-	res := *(*OddStruct)(arch.Columns[id].GetElement(0))
+	// 1. Manually register and set data
+	row := arch.registerEntity(Entity(1))
+	arch.Columns[id].setData(row, unsafe.Pointer(&val))
+
+	// 2. Check if we can retrieve it without corruption
+	// GetElement must return the exact pointer for row 0
+	res := *(*OddStruct)(arch.Columns[id].GetElement(row))
 	if res.A != 42 {
 		t.Errorf("alignment or size issue: expected 42, got %d", res.A)
 	}
 }
 
 func TestArchetype_DataIntegrityAfterGrowth(t *testing.T) {
-	// 1. Setup z małym cap, żeby szybko wymusić grow
+	// 1. Setup with small capacity to force growth quickly
 	initCap := 2
 	mask := NewArchetypeMask(1)
 	arch := NewArchetype(mask, initCap)
 	addTestColumn[int32](arch, 1)
 
-	// 2. Dodajemy encje do pełna (0 i 1)
+	// 2. Add entities until full (0 and 1)
 	val0, val1 := int32(100), int32(200)
-	arch.AddEntity(Entity(0), 1, unsafe.Pointer(&val0))
-	arch.AddEntity(Entity(1), 1, unsafe.Pointer(&val1))
 
-	// 3. To wywoła growTo(4).
-	// Jeśli col.len nie było inkrementowane, growTo NIE SKOPIUJE val0 i val1!
+	row0 := arch.registerEntity(Entity(0))
+	arch.Columns[1].setData(row0, unsafe.Pointer(&val0))
+
+	row1 := arch.registerEntity(Entity(1))
+	arch.Columns[1].setData(row1, unsafe.Pointer(&val1))
+
+	// 3. This call triggers ensureCapacity() -> growTo(4).
+	// If col.len wasn't incremented in registerEntity,
+	// growTo WON'T COPY val0 and val1 to the new memory block!
 	val2 := int32(300)
-	arch.AddEntity(Entity(2), 1, unsafe.Pointer(&val2))
+	row2 := arch.registerEntity(Entity(2))
+	arch.Columns[1].setData(row2, unsafe.Pointer(&val2))
 
-	// 4. WERYFIKACJA: Czy dane z pierwszego bloku pamięci nadal tam są?
+	// 4. VERIFICATION: Is the data from the first memory block still there?
 	got0 := *(*int32)(arch.Columns[1].GetElement(0))
 	got1 := *(*int32)(arch.Columns[1].GetElement(1))
 	got2 := *(*int32)(arch.Columns[1].GetElement(2))

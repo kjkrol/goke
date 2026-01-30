@@ -1,19 +1,15 @@
 package core
 
-import (
-	"unsafe"
-)
-
 // Supports 256 unique component types
 type Archetype struct {
 	Mask     ArchetypeMask
 	entities []Entity
-	Columns  map[ComponentID]*Column
+	Columns  [MaxComponents]*Column
 	len      int
 	cap      int
 
-	edgesNext map[ComponentID]*Archetype
-	edgesPrev map[ComponentID]*Archetype
+	edgesNext [MaxComponents]*Archetype
+	edgesPrev [MaxComponents]*Archetype
 	initCap   int
 }
 
@@ -26,28 +22,12 @@ type EntityArchLink struct {
 
 func NewArchetype(mask ArchetypeMask, defaultArchetypeChunkSize int) *Archetype {
 	return &Archetype{
-		Mask:      mask,
-		entities:  make([]Entity, defaultArchetypeChunkSize),
-		Columns:   make(map[ComponentID]*Column),
-		len:       0,
-		cap:       defaultArchetypeChunkSize,
-		edgesNext: make(map[ComponentID]*Archetype),
-		edgesPrev: make(map[ComponentID]*Archetype),
-		initCap:   defaultArchetypeChunkSize,
+		Mask:     mask,
+		entities: make([]Entity, defaultArchetypeChunkSize),
+		len:      0,
+		cap:      defaultArchetypeChunkSize,
+		initCap:  defaultArchetypeChunkSize,
 	}
-}
-
-func (a *Archetype) AddEntity(entity Entity, compID ComponentID, data unsafe.Pointer) EntityArchLink {
-	row := a.registerEntity(entity)
-
-	for id, col := range a.Columns {
-		if id == compID {
-			col.setData(row, data)
-		} else {
-			col.zeroData(row)
-		}
-	}
-	return EntityArchLink{Arch: a, Row: row}
 }
 
 func (a *Archetype) SwapRemoveEntity(row ArchRow) (swapedEntity Entity, swaped bool) {
@@ -55,10 +35,13 @@ func (a *Archetype) SwapRemoveEntity(row ArchRow) (swapedEntity Entity, swaped b
 	entityToMove := a.entities[lastRow]
 
 	// 1. Swap data in all columns
-	for _, col := range a.Columns {
+	for id := range a.Mask.AllSet() {
+		col := a.Columns[id]
+
 		if row != lastRow {
 			col.copyData(row, lastRow)
 		}
+
 		col.zeroData(lastRow)
 		col.len--
 	}
@@ -79,8 +62,8 @@ func (a *Archetype) registerEntity(entity Entity) ArchRow {
 	a.ensureCapacity()
 	newIdx := a.len
 
-	for _, col := range a.Columns {
-		col.len++
+	for id := range a.Mask.AllSet() {
+		a.Columns[id].len++
 	}
 
 	a.entities[newIdx] = entity
@@ -103,9 +86,30 @@ func (a *Archetype) ensureCapacity() {
 	copy(newEntities, a.entities)
 	a.entities = newEntities
 
-	for _, col := range a.Columns {
-		col.growTo(newCap)
+	for id := range a.Mask.AllSet() {
+		a.Columns[id].growTo(newCap)
 	}
 
 	a.cap = newCap
+}
+
+// CountNextEdges returns the number of outgoing connections (adding a component).
+func (a *Archetype) CountNextEdges() int {
+	return countNonNull(a.edgesNext)
+}
+
+// CountPrevEdges returns the number of incoming connections (removing a component).
+func (a *Archetype) CountPrevEdges() int {
+	return countNonNull(a.edgesPrev)
+}
+
+// Internal helper to iterate through the fixed-size array
+func countNonNull(edges [MaskSize * 64]*Archetype) int {
+	count := 0
+	for _, edge := range edges {
+		if edge != nil {
+			count++
+		}
+	}
+	return count
 }

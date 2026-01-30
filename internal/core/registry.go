@@ -76,8 +76,8 @@ func (r *Registry) GetComponent(entity Entity, compID ComponentID) (unsafe.Point
 		return nil, fmt.Errorf("entity not found in registry")
 	}
 
-	col, exists := link.Arch.Columns[compID]
-	if !exists {
+	col := link.Arch.Columns[compID]
+	if col == nil {
 		return nil, fmt.Errorf("component not found in archetype")
 	}
 

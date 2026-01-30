@@ -5,9 +5,12 @@ import (
 	"math/bits"
 )
 
-const MaskSize = 4
+const (
+	MaskSize      = 4
+	MaxComponents = 256
+)
 
-// ArchetypeMask Should handle 4 * 64 types of components
+// ArchetypeMask Should handle 4 * 64 = 256 types of components
 type ArchetypeMask [MaskSize]uint64
 
 func NewArchetypeMask(componentIDs ...ComponentID) ArchetypeMask {

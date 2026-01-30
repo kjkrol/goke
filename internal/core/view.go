@@ -1,10 +1,10 @@
 package core
 
-const MaxComponents = 8
+const MaxColumns = 8
 
 type MatchedArch struct {
 	Entities *[]Entity
-	Columns  [MaxComponents]*Column
+	Columns  [MaxColumns]*Column
 	Len      *int
 }
 

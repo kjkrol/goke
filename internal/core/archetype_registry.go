@@ -138,8 +138,8 @@ func (r *ArchetypeRegistry) AllocateComponentMemory(entity Entity, compInfo Comp
 	} else {
 		// 2. Perform structural change (Archetype Transition)
 		// Check if we have a fast path in the Archetype-Graph
-		nextArch, ok := oldArch.edgesNext[compID]
-		if !ok {
+		nextArch := oldArch.edgesNext[compID]
+		if nextArch == nil {
 			// Slow path: create or get new archetype
 			newMask := oldArch.Mask.Set(compID)
 			nextArch = r.getOrRegister(newMask)
@@ -166,7 +166,7 @@ func (r *ArchetypeRegistry) UnAssign(entity Entity, compInfo ComponentInfo) {
 	compID := compInfo.ID
 
 	// FAST PATH (use Archetype-Graph)
-	if prevArch, ok := oldArch.edgesPrev[compID]; ok {
+	if prevArch := oldArch.edgesPrev[compID]; prevArch != nil {
 		if prevArch.Mask.IsEmpty() {
 			r.UnlinkEntity(entity)
 			return
@@ -236,7 +236,7 @@ func (r *ArchetypeRegistry) moveEntity(entity Entity, link EntityArchLink, newAr
 	newArchRow := newArch.registerEntity(entity)
 
 	for id, newCol := range newArch.Columns {
-		if oldCol, exists := oldArch.Columns[id]; exists {
+		if oldCol := oldArch.Columns[id]; oldCol != nil {
 			newCol.setData(newArchRow, oldCol.GetElement(oldArchRow))
 		}
 	}

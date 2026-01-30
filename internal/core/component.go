@@ -14,13 +14,12 @@ type ComponentInfo struct {
 
 type ComponentsRegistry struct {
 	typeToInfo map[reflect.Type]ComponentInfo
-	idToInfo   map[ComponentID]ComponentInfo
+	idToInfo   [MaxComponents]ComponentInfo
 }
 
 func NewComponentsRegistry() *ComponentsRegistry {
 	return &ComponentsRegistry{
 		typeToInfo: make(map[reflect.Type]ComponentInfo),
-		idToInfo:   make(map[ComponentID]ComponentInfo),
 	}
 }
 

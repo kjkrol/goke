@@ -12,9 +12,9 @@ type ViewBuilder struct {
 func NewViewBuilder(reg *Registry) *ViewBuilder {
 	return &ViewBuilder{
 		reg:             reg,
-		compIDs:         make([]ComponentID, 0, MaxComponents),
-		tagIDs:          make([]ComponentID, 0, MaxComponents),
-		excludedCompIDs: make([]ComponentID, 0, MaxComponents),
+		compIDs:         make([]ComponentID, 0, MaxColumns),
+		tagIDs:          make([]ComponentID, 0, MaxColumns),
+		excludedCompIDs: make([]ComponentID, 0, MaxColumns),
 	}
 }
 
