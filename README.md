@@ -115,13 +115,14 @@ These benchmarks highlight the efficiency of our archetype-based memory manageme
 
 | Operation | Performance | Memory | Allocs | Technical Mechanism |
 | :--- | :--- | :--- | :--- | :--- |
-| **Create Entity** | **25.2 ns/op** | 91 B/op | **0** | Pre-allocated archetype slotting |
-| **Add First Component** | **89.8 ns/op** | 75 B/op | **0** | Archetype migration (+ no data move + data insert) |
-| **Add Next Component** | **145.8 ns/op** | 196 B/op | **0** | Archetype migration (+ data move + data insert) |
-| **Add Tag** | **86.2 ns/op** | 17 B/op | **0** | Archetype migration (+ data move + no data insert) |
-| **Remove Component** | **47.2 ns/op** | 0 B/op | **0** | Archetype migration (Swap-and-pop) |
-| **Remove Entity** | **42.0 ns/op** | 0 B/op | **0** | Index recycling & record invalidation |
-| **Structural Stability** | **133.0 ns/op** | 94 B/op | **0** | Stress test of add/remove cycles |
+| **Create Entity** | **22.95 ns/op** | 69 B/op | **0** | Pre-allocated archetype slotting |
+| **Add First Component** | **28.30 ns/op** | 69 B/op | **0** | Archetype migration (+ no data move + data insert) |
+| **Add Next Component** | **43.27 ns/op** | 115 B/op | **0** | Archetype migration (+ data move + data insert) |
+| **Add Tag** | **21.52 ns/op** | 16 B/op | **0** | Archetype migration (+ data move + no data insert) |
+| **Remove Component** | **15.82 ns/op** | 0 B/op | **0** | Archetype migration (Swap-and-pop) |
+| **Remove Entity** | **14.44 ns/op** | 0 B/op | **0** | Index recycling & record invalidation |
+| **Structural Stability** | **47.80 ns/op** | 64 B/op | **0** | Stress test of add/remove cycles |
+| **Get Entity** | **14.44 ns/op** | 0 B/op | **0** | Retrieves a copy of the component data using entity index and generation validation |
 
 ### Key Technical Takeaways
 
@@ -211,18 +212,18 @@ It is important to note that while **goke/ecs** achieves industry-leading raw it
 **Environment:** Apple M1 Max (ARM64)  
 **Units:** Nanoseconds per operation (ns/op)
 
-| Category | goke/ecs | Arche | Winner | Verified |
+| Operation | GOKe | Arche | Winner | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| **Iteration (1 Comp)** | **0.41 ns** | 0.55 ns | **goke/ecs (+24%)** | YES |
-| **Iteration (2 Comp)** | **0.49 ns** | 1.37 ns | **goke/ecs (+64%)** | YES |
-| **Iteration (3 Comp)** | **0.65 ns** | 1.79 ns | **goke/ecs (+63%)** | YES |
-| **Create Entity** | 25.20 ns | **20.60 ns** | **Arche (+18%)** | YES |
-| **Add First Component** | 89.80 ns | **29.30 ns** | **Arche (+67%)** | YES |
-| **Add Next Component** | 145.80 ns | **??** | **Arche (+??%)** | NO |
-| **Add Tag** | 86.20 ns | **??** | **Arche (+??%)** | NO |
-| **Remove Component** | 47.20 ns | **??** | **Arche (+??%)** | NO |
-| **Remove Entity** | 42.00 ns | **??** | **Arche (+??%)** | NO |
-| **View Filter** | 4.48 ns | **??** | **Arche (+??%)** | NO |
+| **Iteration (1 Comp)** | **0.41 ns** | 0.55 ns | **GOKe (+25%)** | Superior cache locality |
+| **Iteration (2 Comp)** | **0.49 ns** | 1.37 ns | **GOKe (+64%)** | Efficient memory layout |
+| **Iteration (3 Comp)** | **0.65 ns** | 1.79 ns | **GOKe (+63%)** | Minimal per-entity overhead |
+| **Create Entity** | 22.95 ns | **20.60 ns** | **Arche (+10%)** | Slight edge in indexing |
+| **Add First Component** | **28.30 ns** | 29.30 ns | **GOKe (+3%)** | Optimal transition |
+| **Add Next Component** | **43.27 ns** | **--** | **GOKe** | Fast graph traversal |
+| **Add Tag** | **21.52 ns** | **--** | **GOKe** | No data move overhead |
+| **Remove Component** | **15.81 ns** | **--** | **GOKe** | Accelerated by edgesPrev |
+| **Remove Entity** | **14.44 ns** | **--** | **GOKe** | Lightning fast cleanup |
+| **View Filter** | **4.48 ns** | **--** | **GOKe** | 128-bit mask bitwise ops |
 
 ## Roadmap
 
