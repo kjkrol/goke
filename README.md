@@ -37,6 +37,38 @@ GOKe provides a professional-grade toolkit for high-performance simulation and g
 > 💡 **See it in action**: Check the `cmd` directory for practical, ready-to-run examples, including a concurrent dice game simulation demonstrating parallel systems and state management.
 
 
+---
+
+## 🚀 Use Cases: Why GOKe?
+
+GOKe is not just a game engine component; it is a **high-performance data orchestrator**. It excels in scenarios where you need to manage a massive number of objects with high-frequency updates while keeping the Go Garbage Collector (GC) quiet.
+
+### 🧬 High-Mass Simulations
+If your project involves millions of "agents" (e.g., crowd simulation, epidemiological models, or particle physics), GOKe’s **Linear SoA (Structure of Arrays)** layout is essential. It ensures that data is packed tightly in memory, allowing the CPU to process entities at sub-nanosecond speeds by minimizing cache misses.
+
+
+
+### ⚡ Latency-Critical Data Pipelines
+In fields like **FinTech** or **Real-time Telemetry**, unpredictable GC pauses can be a dealbreaker. Because GOKe achieves **zero allocations in the hot path**, it provides the deterministic performance required for processing streams of data (like order matching or sensor fusion) without sudden latency spikes.
+
+### 🤖 Complex State Management (Digital Twins)
+When building digital replicas of complex systems (factories, power grids, or IoT networks), you often have thousands of sensors with overlapping sets of properties. GOKe’s **Archetype-based filtering** allows you to query and update specific subsets of these sensors with $O(1)$ or near-$O(1)$ complexity.
+
+
+
+### 📐 Real-time Tooling & CAD
+For applications that require high-speed manipulation of large geometric datasets or scene graphs, GOKe offers a way to decouple data from logic. It allows you to run heavy analytical "Systems" over your data blocks at near-metal speeds.
+
+---
+
+### ⚖️ When NOT to use GOKe (Transparency)
+To ensure GOKe is the right tool for your project, consider these trade-offs:
+* **Small Data Sets:** If you only manage a few hundred objects, a simple slice of structs will be easier to maintain and fast enough.
+* **Deep Hierarchies:** ECS is designed for flat, high-speed iteration. If your data is naturally a deep tree (like a UI DOM), a classic tree structure might be more intuitive.
+* **High Structural Churn:** If you are adding/removing components from thousands of entities *every single frame*, the overhead of archetype migration might offset the iteration gains.
+
+---
+
 ## Core Architecture & "Mechanical Sympathy"
 
 GOKe is designed with an understanding of modern CPU constraints:
