@@ -1,10 +1,11 @@
-package ecs
+package benchmarks
 
 import (
 	"reflect"
 	"testing"
 
 	"github.com/kjkrol/goke/internal/core"
+	"github.com/kjkrol/goke/pkg/ecs"
 )
 
 const entitiesNumber = 1000
@@ -18,8 +19,8 @@ type Char struct{ V [32]float32 }
 type Elec struct{ V float64 }
 type Magn struct{ V float64 }
 
-func setupBenchmark(_ *testing.B, count int) (*Engine, []core.Entity) {
-	eng := NewEngine()
+func setupBenchmark(_ *testing.B, count int) (*ecs.Engine, []core.Entity) {
+	eng := ecs.NewEngine()
 	posTypeInfo := eng.RegisterComponentType(reflect.TypeFor[Pos]())
 	velTypeInfo := eng.RegisterComponentType(reflect.TypeFor[Vel]())
 	accTypeInfo := eng.RegisterComponentType(reflect.TypeFor[Acc]())
@@ -33,28 +34,28 @@ func setupBenchmark(_ *testing.B, count int) (*Engine, []core.Entity) {
 	for range count {
 		e := eng.CreateEntity()
 
-		if pos, err := AllocateComponentByInfo[Pos](eng, e, posTypeInfo); err == nil {
+		if pos, err := ecs.AllocateComponentByInfo[Pos](eng, e, posTypeInfo); err == nil {
 			*(*Pos)(pos) = Pos{1, 1}
 		}
-		if vel, err := AllocateComponentByInfo[Vel](eng, e, velTypeInfo); err == nil {
+		if vel, err := ecs.AllocateComponentByInfo[Vel](eng, e, velTypeInfo); err == nil {
 			*(*Vel)(vel) = Vel{1, 1}
 		}
-		if acc, err := AllocateComponentByInfo[Acc](eng, e, accTypeInfo); err == nil {
+		if acc, err := ecs.AllocateComponentByInfo[Acc](eng, e, accTypeInfo); err == nil {
 			*(*Acc)(acc) = Acc{1, 1}
 		}
-		if mass, err := AllocateComponentByInfo[Mass](eng, e, massTypeInfo); err == nil {
+		if mass, err := ecs.AllocateComponentByInfo[Mass](eng, e, massTypeInfo); err == nil {
 			*(*Mass)(mass) = Mass{}
 		}
-		if spin, err := AllocateComponentByInfo[Spin](eng, e, spinTypeInfo); err == nil {
+		if spin, err := ecs.AllocateComponentByInfo[Spin](eng, e, spinTypeInfo); err == nil {
 			*(*Spin)(spin) = Spin{}
 		}
-		if char, err := AllocateComponentByInfo[Char](eng, e, charTypeInfo); err == nil {
+		if char, err := ecs.AllocateComponentByInfo[Char](eng, e, charTypeInfo); err == nil {
 			*(*Char)(char) = Char{}
 		}
-		if elec, err := AllocateComponentByInfo[Elec](eng, e, elecTypeInfo); err == nil {
+		if elec, err := ecs.AllocateComponentByInfo[Elec](eng, e, elecTypeInfo); err == nil {
 			*(*Elec)(elec) = Elec{1}
 		}
-		if magn, err := AllocateComponentByInfo[Magn](eng, e, magnTypeInfo); err == nil {
+		if magn, err := ecs.AllocateComponentByInfo[Magn](eng, e, magnTypeInfo); err == nil {
 			*(*Magn)(magn) = Magn{1}
 		}
 		entities = append(entities, e)
@@ -67,7 +68,7 @@ func setupBenchmark(_ *testing.B, count int) (*Engine, []core.Entity) {
 func BenchmarkView0_All(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	view := NewView0(eng)
+	view := ecs.NewView0(eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -85,7 +86,7 @@ func BenchmarkView0_All(b *testing.B) {
 func BenchmarkView1_All(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	view1 := NewView1[Pos](eng)
+	view1 := ecs.NewView1[Pos](eng)
 
 	fn := func() {
 		for head := range view1.All() {
@@ -103,7 +104,7 @@ func BenchmarkView1_All(b *testing.B) {
 func BenchmarkView2_All(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	view2 := NewView2[Pos, Vel](eng)
+	view2 := ecs.NewView2[Pos, Vel](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -122,7 +123,7 @@ func BenchmarkView2_All(b *testing.B) {
 func BenchmarkView3_All(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	view3 := NewView3[Pos, Vel, Acc](eng)
+	view3 := ecs.NewView3[Pos, Vel, Acc](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -142,7 +143,7 @@ func BenchmarkView3_All(b *testing.B) {
 func BenchmarkView3WithTag_All(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	view := NewView3[Pos, Vel, Acc](eng, core.WithTag[Mass]())
+	view := ecs.NewView3[Pos, Vel, Acc](eng, core.WithTag[Mass]())
 
 	fn := func() {
 		for head := range view.All() {
@@ -160,7 +161,7 @@ func BenchmarkView3WithTag_All(b *testing.B) {
 func BenchmarkView4_All(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	view4 := NewView4[Pos, Vel, Acc, Mass](eng)
+	view4 := ecs.NewView4[Pos, Vel, Acc, Mass](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -181,7 +182,7 @@ func BenchmarkView4_All(b *testing.B) {
 func BenchmarkView5_All(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	view5 := NewView5[Pos, Vel, Acc, Mass, Spin](eng)
+	view5 := ecs.NewView5[Pos, Vel, Acc, Mass, Spin](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -203,7 +204,7 @@ func BenchmarkView5_All(b *testing.B) {
 func BenchmarkView6_All(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	view6 := NewView6[Pos, Vel, Acc, Mass, Spin, Char](eng)
+	view6 := ecs.NewView6[Pos, Vel, Acc, Mass, Spin, Char](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -223,7 +224,7 @@ func BenchmarkView6_All(b *testing.B) {
 func BenchmarkView7_All(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	view7 := NewView7[Pos, Vel, Acc, Mass, Spin, Char, Elec](eng)
+	view7 := ecs.NewView7[Pos, Vel, Acc, Mass, Spin, Char, Elec](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -243,7 +244,7 @@ func BenchmarkView7_All(b *testing.B) {
 func BenchmarkView8_All(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	view8 := NewView8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn](eng)
+	view8 := ecs.NewView8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -265,7 +266,7 @@ func BenchmarkView8_All(b *testing.B) {
 func BenchmarkView0_Filter100(b *testing.B) {
 	b.StopTimer()
 	eng, entities := setupBenchmark(b, entitiesNumber)
-	view3 := NewView0(eng)
+	view3 := ecs.NewView0(eng)
 	subset := entities[:100]
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
@@ -284,7 +285,7 @@ func BenchmarkView0_Filter100(b *testing.B) {
 func BenchmarkView3_Filter100(b *testing.B) {
 	b.StopTimer()
 	eng, entities := setupBenchmark(b, entitiesNumber)
-	view3 := NewView3[Pos, Vel, Acc](eng)
+	view3 := ecs.NewView3[Pos, Vel, Acc](eng)
 	subset := entities[:100]
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
@@ -307,7 +308,7 @@ func BenchmarkView3_Filter100(b *testing.B) {
 func BenchmarkView1_Values(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	view1 := NewView1[Pos](eng)
+	view1 := ecs.NewView1[Pos](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -326,7 +327,7 @@ func BenchmarkView1_Values(b *testing.B) {
 func BenchmarkView2_Values(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	view2 := NewView2[Pos, Vel](eng)
+	view2 := ecs.NewView2[Pos, Vel](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -345,7 +346,7 @@ func BenchmarkView2_Values(b *testing.B) {
 func BenchmarkView3_Values(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	view3 := NewView3[Pos, Vel, Acc](eng)
+	view3 := ecs.NewView3[Pos, Vel, Acc](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -365,7 +366,7 @@ func BenchmarkView3_Values(b *testing.B) {
 func BenchmarkView4_Values(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	view4 := NewView4[Pos, Vel, Acc, Mass](eng)
+	view4 := ecs.NewView4[Pos, Vel, Acc, Mass](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -385,7 +386,7 @@ func BenchmarkView4_Values(b *testing.B) {
 func BenchmarkView5_Values(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	view5 := NewView5[Pos, Vel, Acc, Mass, Spin](eng)
+	view5 := ecs.NewView5[Pos, Vel, Acc, Mass, Spin](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -405,7 +406,7 @@ func BenchmarkView5_Values(b *testing.B) {
 func BenchmarkView6_Values(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	view6 := NewView6[Pos, Vel, Acc, Mass, Spin, Char](eng)
+	view6 := ecs.NewView6[Pos, Vel, Acc, Mass, Spin, Char](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -425,7 +426,7 @@ func BenchmarkView6_Values(b *testing.B) {
 func BenchmarkView7_Values(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	view7 := NewView7[Pos, Vel, Acc, Mass, Spin, Char, Elec](eng)
+	view7 := ecs.NewView7[Pos, Vel, Acc, Mass, Spin, Char, Elec](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -445,7 +446,7 @@ func BenchmarkView7_Values(b *testing.B) {
 func BenchmarkView8_Values(b *testing.B) {
 	b.StopTimer()
 	eng, _ := setupBenchmark(b, entitiesNumber)
-	view8 := NewView8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn](eng)
+	view8 := ecs.NewView8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn](eng)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -467,7 +468,7 @@ func BenchmarkView8_Values(b *testing.B) {
 func BenchmarkView3_FilterValues100(b *testing.B) {
 	b.StopTimer()
 	eng, entities := setupBenchmark(b, entitiesNumber)
-	view3 := NewView3[Pos, Vel, Acc](eng)
+	view3 := ecs.NewView3[Pos, Vel, Acc](eng)
 	subset := entities[:100]
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.

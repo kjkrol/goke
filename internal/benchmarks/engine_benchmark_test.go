@@ -1,4 +1,4 @@
-package ecs_test
+package benchmarks
 
 import (
 	"testing"
