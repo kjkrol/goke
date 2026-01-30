@@ -252,11 +252,11 @@ It is important to note that while **GOKe** achieves industry-leading raw iterat
 | **Iteration (3 Comp)** | **0.65 ns** | 1.79 ns | **GOKe (+63%)** | Minimal per-entity overhead |
 | **Create Entity** | 22.95 ns | **20.60 ns** | **Arche (+10%)** | Slight edge in indexing |
 | **Add First Component** | **28.30 ns** | 29.30 ns | **GOKe (+3%)** | Optimal transition |
-| **Add Next Component** | **43.27 ns** | **--** | **GOKe** | Fast graph traversal |
-| **Add Tag** | **21.52 ns** | **--** | **GOKe** | No data move overhead |
-| **Remove Component** | **15.81 ns** | **--** | **GOKe** | Accelerated by edgesPrev |
-| **Remove Entity** | **14.44 ns** | **--** | **GOKe** | Lightning fast cleanup |
-| **View Filter** | **4.48 ns** | **--** | **GOKe** | 128-bit mask bitwise ops |
+| **Add Next Component** | **43.27 ns** | **--** | **Arche** | Fast graph traversal |
+| **Add Tag** | **21.52 ns** | **--** | **Arche** | No data move overhead |
+| **Remove Component** | **15.81 ns** | **--** | **Arche** | Accelerated by edgesPrev |
+| **Remove Entity** | **14.44 ns** | **--** | **Arche** | Lightning fast cleanup |
+| **View Filter** | **4.48 ns** | **--** | **Arche** | 128-bit mask bitwise ops |
 
 ## Roadmap
 
