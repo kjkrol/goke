@@ -12,18 +12,22 @@ import (
 
 type Dice struct{ Value int }
 type Player struct{ Bet int }
-type GameState struct {
-	Turn     int
-	Finished bool
-}
+
+// Winner is a tag component (empty struct) used to mark winning entities.
+type Winner struct{}
+
+// Global application state
+var gameFinished = false
+var turnCounter = 0
 
 func main() {
-	// Initialize the engine
+	// 1. Initialize the engine
 	engine := ecs.NewEngine()
 
-	// --- Entity & Component Setup ---
+	// Register component types (optimal for performance)
+	winnerType := ecs.RegisterComponent[Winner](engine)
 
-	// Setup dice entity
+	// 2. Setup Entities & Components
 	diceEnt := engine.CreateEntity()
 	ecs.SetComponent(engine, diceEnt, Dice{Value: 0})
 
@@ -34,81 +38,76 @@ func main() {
 	p2 := engine.CreateEntity()
 	ecs.SetComponent(engine, p2, Player{Bet: 0})
 
-	// Setup global game state entity
-	stateEnt := engine.CreateEntity()
-	ecs.SetComponent(engine, stateEnt, GameState{Turn: 0, Finished: false})
-
-	// --- Views ---
-	// Views are defined here to be captured by system closures
+	// 3. Define Views (for system filtering)
 	vDice := ecs.NewView1[Dice](engine)
 	vPlayers := ecs.NewView1[Player](engine)
+	vWinners := ecs.NewView1[Winner](engine)
 
-	// --- Systems Registration ---
+	// 4. Register Systems
 
-	// System 1: Roll the dice
+	// System A: Roll the dice
 	rollSys := engine.RegisterSystemFunc(func(cb *ecs.Commands, d time.Duration) {
 		for res := range vDice.Values() {
 			res.V1.Value = rand.Intn(6) + 1
 		}
 	})
 
-	// System 2: Players place their bets
+	// System B: Players place their bets
 	betSys := engine.RegisterSystemFunc(func(cb *ecs.Commands, d time.Duration) {
 		for res := range vPlayers.Values() {
 			res.V1.Bet = rand.Intn(6) + 1
 		}
 	})
 
-	// System 3: Judge the results and manage game state
+	// System C: Judge the results
 	judgeSys := engine.RegisterSystemFunc(func(cb *ecs.Commands, d time.Duration) {
-		// Access GameState via engine capture (closure)
-		s, _ := ecs.GetComponent[GameState](engine, stateEnt)
-		if s.Finished {
+		if gameFinished {
 			return
 		}
-		s.Turn++
+		turnCounter++
 
-		// Get current dice value
 		dice, _ := ecs.GetComponent[Dice](engine, diceEnt)
-		fmt.Printf("🎲 Turn %d | Dice Result: %d\n", s.Turn, dice.Value)
+		fmt.Printf("🎲 Turn %d | Dice Result: %d\n", turnCounter, dice.Value)
 
-		// Check all bets against the dice result
 		for res := range vPlayers.All() {
 			fmt.Printf("   Player %d bet: %d\n", res.Entity, res.V1.Bet)
 			if res.V1.Bet == dice.Value {
-				fmt.Printf("🏆 VICTORY! Player %d won the game!\n", res.Entity)
-				s.Finished = true
+				gameFinished = true
+				// Defer the assignment of the Winner tag to the next Sync point
+				ecs.AssignComponent(cb, res.Entity, winnerType, Winner{})
 			}
 		}
 	})
 
-	// --- Execution Plan ---
-
-	engine.SetExecutionPlan(func(ctx ecs.ExecutionContext, d time.Duration) {
-		// Order matters: roll and bet first
-		ctx.RunParallel(d, rollSys, betSys)
-		ctx.Sync() // Apply changes to components
-
-		// Then judge the state
-		ctx.Run(judgeSys, d)
-		ctx.Sync()
+	// System D: Display winners (Reactive System)
+	displayWinnerSys := engine.RegisterSystemFunc(func(cb *ecs.Commands, d time.Duration) {
+		for res := range vWinners.All() {
+			fmt.Printf("🏆 VICTORY! Entity %d is marked as a Winner!\n", res.Entity)
+		}
 	})
 
-	// --- Game Loop ---
+	// 5. Define Execution Plan
+	engine.SetExecutionPlan(func(ctx ecs.ExecutionContext, d time.Duration) {
+		// Run data updates in parallel
+		ctx.RunParallel(d, rollSys, betSys)
+		ctx.Sync()
 
-	fmt.Println("Starting the dice game simulation...")
-	for {
-		// Check exit condition
-		s, _ := ecs.GetComponent[GameState](engine, stateEnt)
-		if s.Finished {
-			break
-		}
+		// Run judgment logic
+		ctx.Run(judgeSys, d)
 
-		// Advance engine state
+		// Crucial: Sync applies the Winner tag from judgeSys
+		ctx.Sync()
+
+		// Now the display system will see the entities in vWinners
+		ctx.Run(displayWinnerSys, d)
+	})
+
+	// 6. Simulation Loop
+	fmt.Println("Starting GOKe Dice Game Simulation...")
+	for !gameFinished {
 		engine.Tick(16 * time.Millisecond)
-
-		// Small delay for console readability
 		time.Sleep(200 * time.Millisecond)
 	}
+
 	fmt.Println("Simulation ended.")
 }
