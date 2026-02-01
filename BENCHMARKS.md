@@ -24,7 +24,7 @@ These benchmarks highlight the efficiency of our archetype-based memory manageme
 | **Remove Component** | **15.82 ns/op** | 0 B/op | **0** | Archetype migration (Swap-and-pop) |
 | **Remove Entity** | **14.44 ns/op** | 0 B/op | **0** | Index recycling & record invalidation |
 | **Structural Stability** | **47.80 ns/op** | 64 B/op | **0** | Stress test of add/remove cycles |
-| **Get Entity Component** | **14.44 ns/op** | 0 B/op | **0** | Retrieves a copy of the component data using entity index and generation validation |
+| **Get Entity Component** | **3.46 ns/op** | 0 B/op | **0** | Retrieves a copy of the component data using entity index and generation validation |
 
 
 

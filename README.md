@@ -144,6 +144,21 @@ func main() {
 }
 ```
 
+### Explore Examples
+Check the [**examples/**](./examples) directory for complete, ready-to-run projects:
+
+* [**Mini Demo**](./examples/mini-demo) – The minimalist starter (same as above).
+* [**Simple Demo**](./examples/simple-demo) – A slightly more advanced introduction to the ECS lifecycle.
+* [**Parallel Demo**](./examples/parallel-demo) – **Advanced showcase**:
+    * Coordination of multiple systems.
+    * Concurrent execution using `RunParallel`.
+    * Handling structural changes via **Command Buffer** and explicit **Sync points**.
+
+To run any example:
+```bash
+go run ./examples/parallel-demo
+```
+
 <a id="architecture"></a>
 # 🏗️ Core Architecture & "Mechanical Sympathy"
 GOKe is designed with a deep understanding of modern CPU constraints. By shifting heavy computation to the initialization phase and aligning memory with hardware prefetching, the engine achieves deterministic, near-metal performance.
@@ -172,13 +187,19 @@ GOKe bypasses traditional bottlenecks like reflection and map lookups in the exe
 # ⏱️ Performance & Scalability
 > The engine is engineered for extreme scalability and deterministic performance. By utilizing a **Centralized Record System** (dense array lookup) instead of traditional hash maps, we have effectively decoupled both structural changes and query performance from the total entity count ($N$).
 
-For detailed performance metrics, hardware specifications, and comparison with other ECS engines, see [BENCHMARKS.md](./BENCHMARKS.md).
+GOKe delivers near-metal speeds by eliminating heap allocations and leveraging L1/L2 cache locality.
 
-## Key Performance Benchmarks
-* **Deterministic $O(1)$ Filtering**: Querying specific entities takes constant time (**~460ns**) regardless of whether the world contains 1,000 or 1,000,000 entities.
-* **Massive Iteration Throughput**: Thanks to SoA data locality, the engine achieves processing speeds of **~0.43 ns per entity**, operating at the limits of modern CPU cache efficiency.
-* **Zero-Allocation Hot Path**: After the initial pre-allocation, all core operations (creation, removal, iteration) incur **0 heap allocations**, eliminating Go GC stuttering.
-* **High-Speed Structural Changes**: Archetype migration uses direct `memmove` operations, allowing component additions in **~160ns** and tag assignments in **~86ns**.
+| Category | Operation | Performance | Allocs | Technical Mechanism |
+| :--- | :--- | :--- | :--- | :--- |
+| **Throughput** | **View Iteration** | **0.48 – 0.98 ns/ent** | **0** | Linear SoA (1-8 components) |
+| **Scalability** | **$O(1)$ Filter** | **4.48 ns/ent** | **0** | Centralized Record Lookup |
+| **Structural** | **Add Component** | **28.30 ns/op** | **0** | Archetype Migration (Insert) |
+| **Structural** | **Migrate Component** | **43.27 ns/op** | **0** | Archetype Move + Insert |
+| **Structural** | **Remove Entity** | **14.44 ns/op** | **0** | Index Recycling |
+| **Access** | **Get Component** | **3.46 ns/op** | **0** | Direct Generation Check |
+
+
+> 📊 **Deep Dive**: For a full breakdown of hardware specs, stress tests, and $O(N)$ vs $O(1)$ scaling charts, see [**BENCHMARKS.md**](./BENCHMARKS.md).
 
 ### Reproducing Results
 Run the suite on your own hardware:
