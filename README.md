@@ -1,11 +1,20 @@
-<p align="center">
-  <img src="assets/logo.png" alt="GOKe Logo" width="300">
-</p>
+# GOKe
 
 <p align="center">
-  <a href="https://pkg.go.dev/github.com/kjkrol/goke"><img src="https://img.shields.io/badge/GoDoc-Reference-007d9c?style=flat-square&logo=go" alt="GoDoc"></a>
-  <a href="https://go.dev"><img src="https://img.shields.io/badge/Go-1.23+-00ADD8?style=flat-square&logo=go" alt="Go Version"></a>
-  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="License"></a>
+  <img src="assets/logo.png" alt="GOKe Logo" width="300">
+  <br>
+    <a href="https://go.dev">
+    <img src="https://img.shields.io/badge/Go-1.23+-00ADD8?style=flat-square&logo=go" alt="Go Version">
+  </a>
+  <a href="https://pkg.go.dev/github.com/kjkrol/goke">
+    <img src="https://img.shields.io/badge/GoDoc-Reference-007d9c?style=flat-square&logo=go" alt="GoDoc">
+  </a>
+  <a href="https://opensource.org/licenses/MIT">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="License">
+  </a>
+  <a href="https://github.com/kjkrol/goke/actions">
+    <img src="https://github.com/kjkrol/goke/actions/workflows/go.yml/badge.svg" alt="Go Quality Check">
+  </a>
 </p>
 
 # GOKe
