@@ -24,6 +24,13 @@ func NewEntity(gen, index uint32) Entity {
 	return Entity(uint64(gen)<<GenerationShift | uint64(index))
 }
 
+func EntityFromUint64(v uint64) Entity {
+	index := uint32(v & IndexMask)
+	gen := uint32(v >> GenerationShift)
+
+	return NewEntity(gen, index)
+}
+
 func NewVirtualEntity(id uint32) Entity {
 	return NewEntity(0, id|VirtualEntityMask)
 }

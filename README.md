@@ -1,7 +1,7 @@
 # GOKe
 
 <p align="center">
-  <img src="assets/logo.png" alt="GOKe Logo" width="300">
+  <img src=".github/docs/img/logo.png" alt="GOKe Logo" width="300">
   <br>
     <a href="https://go.dev">
     <img src="https://img.shields.io/badge/Go-1.23+-00ADD8?style=flat-square&logo=go" alt="Go Version">
@@ -33,6 +33,8 @@
   <a href="#roadmap">Roadmap</a>
   &nbsp;&bull;&nbsp; 
   <a href="BENCHMARKS.md">Benchmarks</a>
+  &nbsp;&bull;&nbsp; 
+  <a href="#documentation">Documentation</a>
 </p>
 
 # 🚀 Use Cases: Why GOKe?
@@ -167,15 +169,15 @@ GOKe is designed with a deep understanding of modern CPU constraints. By shiftin
 The storage layer is engineered to maximize cache hits and minimize the work of the Go Garbage Collector.
 
 * **Archetype-Based Storage (SoA)**: Entities with the same component composition are stored in contiguous memory blocks (columns). This **Structure of Arrays** layout is L1/L2 Cache friendly, enabling hardware prefetching.
-* **Generation-based Recycling**: Entities are 64-bit IDs (32-bit Index / 32-bit Generation). This solves the **ABA problem** while allowing dense packing of internal storage.
-* **Archetype Masks**: Supports up to **128 unique component types** using fast, constant-time bitwise operations (2x64-bit bitsets).
+* **Generation-based Recycling**: Entities are 64-bit IDs (32-bit Index / 32-bit Generation). This prevents **entity aliasing** by ensuring that any stale references (handles) to a destroyed entity are correctly identified as invalid when the index is reused for a new entity.
+* **Archetype Masks**: Supports up to **128 unique component types** by default using fast, constant-time bitwise operations (2x64-bit bitsets). The mask size—and thus the component limit—can be increased at compile-time via build flags to suit larger projects.
 
 ## High-Throughput Access & Iteration
 GOKe bypasses traditional bottlenecks like reflection and map lookups in the execution phase.
 
 * **Flat Cache View**: Views pre-calculate direct pointers to component columns within archetypes during the initialization/warm-up phase. This **eliminates map lookups** and pointer chasing inside the hot loop.
 * **Zero-Overhead Iteration**: Powered by native `for range` over functions (`iter.Seq`), allowing the Go compiler to perform aggressive loop inlining.
-* **Deterministic $O(1)$ Filtering**: Querying specific entities via the **Centralized Record System** takes constant time (~462 ns) regardless of the total entity count ($N$) by bypassing hash map probing.
+* **Deterministic $O(1)$ Filtering**: Querying specific entities via the **Centralized Record System** takes constant time regardless of the total entity count ($N$) by bypassing hash map probing and utilizing direct index-to-record mapping.
 * **Hardware Prefetching Optimization**: View structures (Head/Tail) are strictly limited to a **maximum of 4 pointer fields**. Beyond this, CPU prefetching efficiency degrades; GOKe adheres to this limit to maintain maximal throughput.
 
 
@@ -223,8 +225,8 @@ Current development focus and planned improvements:
 
 GOKe is licensed under the MIT License. See the LICENSE [file](./LICENSE) for more details.
 
-# Documentation
-
-Detailed API documentation and examples are available on [pkg.go.dev](https://pkg.go.dev/github.com/kjkrol/goke).
-
-For a deep dive into the internal mechanics, check the `doc.go` files within the `ecs` packages.
+<a id="documentation"></a>
+# 📖 Documentation
+* **API Reference**: Detailed documentation and examples are available on [**pkg.go.dev**](https://pkg.go.dev/github.com/kjkrol/goke).
+* **Wiki & Guides**: For a step-by-step deep dive into building your first simulation, check the [**Getting Started with GOKe**](https://github.com/kjkrol/goke/wiki/Getting-Started-with-GOKe) guide.
+* **Internal Mechanics**: For a technical breakdown of the engine's core, check the `doc.go` files within the `ecs` packages.
