@@ -41,14 +41,18 @@
 
 GOKe is not just a game engine component; it is a **high-performance data orchestrator**. It excels in scenarios where you need to manage a massive number of objects with high-frequency updates while keeping the Go Garbage Collector (GC) quiet.
 
-
 ## 🎮 Gaming (Ebitengine)
-GOKe is a perfect companion for **Ebitengine** and other Go game frameworks. In game development, managing thousands of active objects (bullets, particles, NPCs) can quickly hit a CPU bottleneck due to pointer chasing and GC pressure. 
+
+GOKe is a perfect companion for **Ebitengine** and other Go game frameworks. In game development, managing thousands of active objects (bullets, particles, NPCs) can quickly hit a CPU bottleneck due to pointer chasing and GC pressure.
 
 By using GOKe with Ebitengine:
 * **Massive Sprite Batches**: You can update and filter thousands of game entities in a single tick and send them to the GPU buffer with minimal overhead.
-* **Decoupled Logic**: Keep your rendering logic in Ebitengine and your game state in GOKe's optimized archetypes.
-* **Deterministic Physics**: Run complex collision detection systems across all entities using `RunParallel` without worrying about state inconsistency.
+* **Decoupled Logic**: Keep your rendering logic in Ebitengine and your game state in GOKe's optimized archetypes, utilizing structures like **[Bucket Grid](https://github.com/kjkrol/gokg)**.
+* **Deterministic Physics**: Run complex collision detection systems across all entities using `RunParallel`.
+
+<img src=".github/docs/img/goke_ebitengine_demo.gif" width="400" alt="Goke Ebitengine Demo">
+<br>
+<sub><strong>Check out the full source code:</strong><br><a href="examples/ebiten-demo/main.go">ebiten-balls demo</a></sub>
 
 ## 🧬 High-Mass Simulations
 If your project involves millions of "agents" (e.g., crowd simulation, epidemiological models, or particle physics), GOKe’s **Linear SoA (Structure of Arrays)** layout is essential. It ensures that data is packed tightly in memory, allowing the CPU to process entities at sub-nanosecond speeds by minimizing cache misses.
@@ -149,12 +153,16 @@ func main() {
 ### Explore Examples
 Check the [**examples/**](./examples) directory for complete, ready-to-run projects:
 
-* [**Mini Demo**](./examples/mini-demo) – The minimalist starter (same as above).
-* [**Simple Demo**](./examples/simple-demo) – A slightly more advanced introduction to the ECS lifecycle.
-* [**Parallel Demo**](./examples/parallel-demo) – **Advanced showcase**:
+* [**Mini Demo**](./examples/mini-demo/main.go) – The minimalist starter (same as above).
+* [**Simple Demo**](./examples/simple-demo/main.go) – A slightly more advanced introduction to the ECS lifecycle.
+* [**Parallel Demo**](./examples/parallel-demo/main.go) – **Advanced showcase**:
     * Coordination of multiple systems.
     * Concurrent execution using `RunParallel`.
     * Handling structural changes via **Command Buffer** and explicit **Sync points**.
+* [**Ebiten Demo**](./examples/ebiten-demo/main.go) – **Graphics Integration & Spatial Physics**:
+    * Real-time rendering using **Ebitengine**.
+    * High-performance object management with `GOKg`.
+    * Custom physics pipeline: **Velocity Inversion** processed strictly before **Position Compensation** to ensure boundary stability.
 
 To run any example:
 ```bash
