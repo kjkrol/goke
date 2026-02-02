@@ -42,13 +42,28 @@
 GOKe is not just a game engine component; it is a **high-performance data orchestrator**. It excels in scenarios where you need to manage a massive number of objects with high-frequency updates while keeping the Go Garbage Collector (GC) quiet.
 
 
+<table>
+<tr style="border: none;">
+<td valign="top" style="border: none;">
+
 ## 🎮 Gaming (Ebitengine)
-GOKe is a perfect companion for **Ebitengine** and other Go game frameworks. In game development, managing thousands of active objects (bullets, particles, NPCs) can quickly hit a CPU bottleneck due to pointer chasing and GC pressure. 
+GOKe is a perfect companion for **Ebitengine** and other Go game frameworks. In game development, managing thousands of active objects (bullets, particles, NPCs) can quickly hit a CPU bottleneck due to pointer chasing and GC pressure.
 
 By using GOKe with Ebitengine:
 * **Massive Sprite Batches**: You can update and filter thousands of game entities in a single tick and send them to the GPU buffer with minimal overhead.
-* **Decoupled Logic**: Keep your rendering logic in Ebitengine and your game state in GOKe's optimized archetypes.
-* **Deterministic Physics**: Run complex collision detection systems across all entities using `RunParallel` without worrying about state inconsistency.
+* **Decoupled Logic**: Keep your rendering logic in Ebitengine and your game state in GOKe's optimized archetypes, utilizing structures like `space.Space2D[uint32]`.
+* **Deterministic Physics**: Run complex collision detection systems across all entities using `RunParallel`. Remember: **reverse velocity before compensation** (Step 1) to maintain stability.
+
+</td>
+<td valign="top" align="center" style="border: none; min-width: 400px;">
+
+![Goke Ebitengine Demo](.github/docs/img/goke_ebitengine_demo.gif)
+<br>
+<sub><strong>Check out the full source code:</strong><br><a href="examples/ebiten-balls/main.go">ebiten-balls demo</a></sub>
+
+</td>
+</tr>
+</table>
 
 ## 🧬 High-Mass Simulations
 If your project involves millions of "agents" (e.g., crowd simulation, epidemiological models, or particle physics), GOKe’s **Linear SoA (Structure of Arrays)** layout is essential. It ensures that data is packed tightly in memory, allowing the CPU to process entities at sub-nanosecond speeds by minimizing cache misses.
