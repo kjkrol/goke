@@ -1,7 +1,7 @@
-package ecs
+package goke
 
 import (
-	"github.com/kjkrol/goke/ecs/internal/core"
+	"github.com/kjkrol/goke/internal/core"
 )
 
 // ViewOption defines criteria for filtering entities in a query beyond

@@ -41,7 +41,7 @@ func NewSystemCommandBuffer() *SystemCommandBuffer {
 	}
 }
 
-// RecordAssign safely copies component data into the buffer's pool
+// AssignComponent safely copies component data into the buffer's pool
 func AssignComponent[T any](cb *SystemCommandBuffer, e Entity, info ComponentInfo, value T) {
 	size := int(unsafe.Sizeof(value))
 

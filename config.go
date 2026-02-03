@@ -1,4 +1,4 @@
-package ecs
+package goke
 
 // EngineOption defines a function signature for configuring the Engine.
 type EngineOption func(*EngineConfig)

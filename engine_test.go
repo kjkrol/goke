@@ -1,11 +1,10 @@
-package ecs_test
+package goke_test
 
 import (
-	"reflect"
 	"testing"
 	"time"
 
-	"github.com/kjkrol/goke/ecs"
+	"github.com/kjkrol/goke"
 )
 
 // components
@@ -22,43 +21,43 @@ type Discount struct {
 type Processed struct{}
 
 func TestECS_UseCase(t *testing.T) {
-	engine := ecs.NewEngine()
+	engine := goke.NewEngine()
 
-	processedTypeInfo := engine.RegisterComponentType(reflect.TypeFor[Processed]())
+	processedTypeInfo := goke.ComponentRegister[Processed](engine)
 
-	eA := engine.CreateEntity()
-	order, _ := ecs.AllocateComponent[Order](engine, eA)
+	eA := goke.EntityCreate(engine)
+	order, _ := goke.EntityAllocateComponent[Order](engine, eA)
 	*order = Order{ID: "ORD-001", Total: 100.0}
-	discount, _ := ecs.AllocateComponent[Discount](engine, eA)
+	discount, _ := goke.EntityAllocateComponent[Discount](engine, eA)
 	*discount = Discount{Percentage: 10.0}
 
-	eB := engine.CreateEntity()
-	order2, _ := ecs.AllocateComponent[Order](engine, eB)
+	eB := goke.EntityCreate(engine)
+	order2, _ := goke.EntityAllocateComponent[Order](engine, eB)
 	*order2 = Order{ID: "ORD-002", Total: 50.0}
 
-	query1 := ecs.NewView2[Order, Discount](engine)
+	query1 := goke.NewView2[Order, Discount](engine)
 	processedCount := 0
 
-	billingSystem := engine.RegisterSystemFunc(func(cb *ecs.Commands, d time.Duration) {
+	billingSystem := goke.SystemFuncRegister(engine, func(cb *goke.Commands, d time.Duration) {
 		for head := range query1.All() {
 			processedCount++
 			ord, disc := head.V1, head.V2
 			ord.Total = ord.Total * (1 - disc.Percentage/100)
-			ecs.AssignComponent(cb, head.Entity, processedTypeInfo, Processed{})
+			goke.CommandsAddComponent(cb, head.Entity, processedTypeInfo, Processed{})
 		}
 	})
-	query2 := ecs.NewView0(engine, ecs.WithTag[Processed](), ecs.WithTag[Order](), ecs.WithTag[Discount]())
-	cleanerSystem := engine.RegisterSystemFunc(func(cb *ecs.Commands, d time.Duration) {
+	query2 := goke.NewView0(engine, goke.WithTag[Processed](), goke.WithTag[Order](), goke.WithTag[Discount]())
+	cleanerSystem := goke.SystemFuncRegister(engine, func(cb *goke.Commands, d time.Duration) {
 		for entity := range query2.All() {
 			cb.RemoveEntity(entity)
 		}
 	})
 
-	engine.SetExecutionPlan(func(ctx ecs.ExecutionContext, d time.Duration) {
+	engine.SetExecutionPlan(func(ctx goke.ExecutionContext, d time.Duration) {
 		ctx.Run(billingSystem, d)
 
 		// test this stage
-		order, _ := ecs.GetComponent[Order](engine, eA)
+		order, _ := goke.EntityGetComponent[Order](engine, eA)
 		if order.Total != 90.0 {
 			t.Errorf("Discount has not been applied, Total: %v", order.Total)
 		}
@@ -75,13 +74,13 @@ func TestECS_UseCase(t *testing.T) {
 	}
 
 	// Entity A should be removed from Registry
-	_, err := ecs.GetComponent[Order](engine, eA)
+	_, err := goke.EntityGetComponent[Order](engine, eA)
 	if err == nil {
 		t.Error("Entity eA should have been removed from the registry")
 	}
 
 	// Entity B should still exist
-	_, errB := ecs.GetComponent[Order](engine, eB)
+	_, errB := goke.EntityGetComponent[Order](engine, eB)
 	if errB != nil {
 		t.Error("Entity eB should not have been removed")
 	}
