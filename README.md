@@ -151,24 +151,25 @@ func main() {
 ```
 
 ### Explore Examples
-Check the [**examples/**](./examples) directory for complete, ready-to-run projects:
+Check the [**examples/**](./examples) directory for complete, ready-to-run projects.
 
-* [**Mini Demo**](./examples/mini-demo/main.go) – The minimalist starter (same as above).
+> ⚠️ **IMPORTANT**:
+> **Setup Required**: To keep the core ECS engine lightweight and free of GUI dependencies, examples are managed as isolated modules. Before running them, you must initialize the workspace:
+> ```bash
+> make setup
+> ```
+
+* [**Mini Demo**](./examples/mini-demo/main.go) – The minimalist starter.
 * [**Simple Demo**](./examples/simple-demo/main.go) – A slightly more advanced introduction to the ECS lifecycle.
 * [**Parallel Demo**](./examples/parallel-demo/main.go) – **Advanced showcase**:
-    * Coordination of multiple systems.
-    * Concurrent execution using `RunParallel`.
-    * Handling structural changes via **Command Buffer** and explicit **Sync points**.
+  * Coordination of multiple systems.
+  * Concurrent execution using `RunParallel`.
+  * Handling structural changes via **Command Buffer** and explicit **Sync points**.
 * [**Ebiten Demo**](./examples/ebiten-demo/main.go) – **Graphics Integration & Spatial Physics**:
-    * Real-time rendering using **Ebitengine**.
-    * High-performance object management with `GOKg`.
-    * Custom physics pipeline: **Velocity Inversion** processed strictly before **Position Compensation** to ensure boundary stability.
-
-To run any example:
-```bash
-go run ./examples/parallel-demo
-```
-
+  * Real-time rendering using [Ebitengine](https://github.com/kjkrol/gokg).
+  * High-performance spatial management using [GOKg](https://github.com/kjkrol/gokg).
+  * Custom physics pipeline: **Velocity Inversion** is processed strictly before **Position Compensation** to ensure boundary stability.
+  * **Note**: Run `make` inside the example directory to fetch dependencies and start the demo.
 <a id="architecture"></a>
 # 🏗️ Core Architecture & "Mechanical Sympathy"
 GOKe is designed with a deep understanding of modern CPU constraints. By shifting heavy computation to the initialization phase and aligning memory with hardware prefetching, the engine achieves deterministic, near-metal performance.

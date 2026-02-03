@@ -30,5 +30,8 @@ cmd/wasm-demo/server.log
 *.swo
 .DS_Store
 
-# Go cache
+# Go
 .gocache
+go.work
+go.work.sum
+
