@@ -1,9 +1,9 @@
-package ecs
+package goke
 
 import (
 	"time"
 
-	"github.com/kjkrol/goke/ecs/internal/core"
+	"github.com/kjkrol/goke/internal/core"
 )
 
 type (
@@ -29,13 +29,42 @@ type (
 	}
 )
 
-func AssignComponent[T any](cb *Commands, e Entity, info core.ComponentInfo, value T) {
+func CommandsAddComponent[T any](cb *Commands, e Entity, info core.ComponentInfo, value T) {
 	core.AssignComponent(cb, e, info, value)
+}
+
+func CommandsRemoveComponent(cb *Commands, e Entity, compInfo ComponentInfo) {
+	cb.RemoveComponent(e, compInfo)
+}
+
+func CommandsCreateEntity(cb *Commands) Entity {
+	return cb.CreateEntity()
+}
+
+func CommandsRemoveEntity(cb *Commands, e Entity) {
+	cb.RemoveEntity(e)
 }
 
 // SystemFunc defines a function signature for stateless logic units.
 // It allows for quick system implementation without defining a dedicated struct.
 type SystemFunc func(cb *Commands, d time.Duration)
+
+// SystemRegister adds a stateful system to the engine. The system's Init method
+// will be called immediately.
+func SystemRegister(e *Engine, system System) {
+	system.Init(e)
+	e.scheduler.RegisterSystem(system)
+}
+
+// SystemFuncRegister adds a stateless, function-based system to the engine.
+func SystemFuncRegister(e *Engine, fn SystemFunc) System {
+	wrapper := &functionalSystem{updateFn: fn}
+	wrapper.Init(e)
+	e.scheduler.RegisterSystem(wrapper)
+	return wrapper
+}
+
+// ------------- helper struct -------------
 
 type functionalSystem struct {
 	updateFn SystemFunc

@@ -11,7 +11,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
-	"github.com/kjkrol/goke/ecs"
+	"github.com/kjkrol/goke"
 	"github.com/kjkrol/gokg/pkg/geom"
 	"github.com/kjkrol/gokg/pkg/plane"
 	"github.com/kjkrol/gokg/pkg/spatial"
@@ -25,7 +25,7 @@ const (
 	BucketCapacity = 1024
 	RectSize       = 7
 
-	// 2. Define a fixed physics time step (e.g., 120Hz for high precision)
+	// TargetTPS Define a fixed physics time step (e.g., 120Hz for high precision)
 	// This decouples physics simulation from the rendering framerate
 	TargetTPS   = 120
 	PhysicsStep = time.Second / TargetTPS
@@ -47,8 +47,8 @@ type Appearance struct {
 // --- Game Loop (Ebitengine Adapter) ---
 
 type Game struct {
-	engine           *ecs.Engine
-	renderView       *ecs.View2[Position, Appearance]
+	engine           *goke.Engine
+	renderView       *goke.View2[Position, Appearance]
 	accumulator      time.Duration
 	lastUpdate       time.Time
 	collisionCounter float64
@@ -89,7 +89,7 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	screen.Fill(color.RGBA{50, 50, 50, 255})
+	screen.Fill(color.RGBA{R: 50, G: 50, B: 50, A: 255})
 	for head := range g.renderView.All() {
 		aabb, app := head.V1, head.V2
 
@@ -132,17 +132,17 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 
 func main() {
 	// 1. Initialize GOKe Engine
-	engine := ecs.NewEngine()
+	engine := goke.NewEngine()
 
 	game := &Game{
 		engine:     engine,
-		renderView: ecs.NewView2[Position, Appearance](engine),
+		renderView: goke.NewView2[Position, Appearance](engine),
 	}
 
 	// 2. Register Components
-	ecs.RegisterComponent[Position](engine)
-	ecs.RegisterComponent[Velocity](engine)
-	ecs.RegisterComponent[Appearance](engine)
+	goke.ComponentRegister[Position](engine)
+	goke.ComponentRegister[Velocity](engine)
+	goke.ComponentRegister[Appearance](engine)
 
 	space := plane.NewToroidal2D[uint32](ScreenWidth, ScreenHeight)
 
@@ -158,13 +158,13 @@ func main() {
 	// 3. Define Systems
 
 	// System: Movement (Torus Topology)
-	moveView := ecs.NewView3[Position, Velocity, Appearance](engine)
-	moveSystem := engine.RegisterSystemFunc(func(cb *ecs.Commands, d time.Duration) {
+	moveView := goke.NewView3[Position, Velocity, Appearance](engine)
+	moveSystem := goke.SystemFuncRegister(engine, func(cb *goke.Commands, d time.Duration) {
 		dt := d.Seconds()
 		for head := range moveView.All() {
 			pos, vel := head.V1, head.V2
 			app := head.V3
-			app.Color = color.RGBA{255, 255, 255, 255}
+			app.Color = color.RGBA{R: 255, G: 255, B: 255, A: 255}
 			pos.accX += float64(vel.X) * dt
 			pos.accY += float64(vel.Y) * dt
 
@@ -187,20 +187,20 @@ func main() {
 		spatialIndex.Flush(func(a spatial.AABB) {})
 	})
 
-	collisionView := ecs.NewView3[Position, Velocity, Appearance](engine)
+	collisionView := goke.NewView3[Position, Velocity, Appearance](engine)
 	// System: Collision (Broad-phase using BucketGrid)
-	detectSystem := engine.RegisterSystemFunc(func(cb *ecs.Commands, d time.Duration) {
+	detectSystem := goke.SystemFuncRegister(engine, func(cb *goke.Commands, d time.Duration) {
 		for head := range collisionView.All() {
 			pos, vel, app := head.V1, head.V2, head.V3
 			spatialIndex.QueryRange(pos.AABB.AABB, func(otherID uint64) {
-				entity2 := ecs.Entity(otherID / 4) // TODO: fix gokg!!
+				entity2 := goke.Entity(otherID / 4) // TODO: fix gokg!!
 				if head.Entity.Index() < entity2.Index() {
-					pos2, _ := ecs.GetComponent[Position](engine, entity2)
-					vel2, _ := ecs.GetComponent[Velocity](engine, entity2)
-					app2, _ := ecs.GetComponent[Appearance](engine, entity2)
+					pos2, _ := goke.EntityGetComponent[Position](engine, entity2)
+					vel2, _ := goke.EntityGetComponent[Velocity](engine, entity2)
+					app2, _ := goke.EntityGetComponent[Appearance](engine, entity2)
 
-					app.Color = color.RGBA{255, 0, 0, 255}
-					app2.Color = color.RGBA{255, 0, 0, 255}
+					app.Color = color.RGBA{R: 255, A: 255}
+					app2.Color = color.RGBA{R: 255, A: 255}
 
 					resolveCollision(pos, vel, pos2, vel2, space)
 
@@ -211,9 +211,9 @@ func main() {
 	})
 
 	// 4. Execution Plan
-	engine.RegisterSystem(moveSystem)
-	engine.RegisterSystem(detectSystem)
-	engine.SetExecutionPlan(func(ctx ecs.ExecutionContext, d time.Duration) {
+	goke.SystemRegister(engine, moveSystem)
+	goke.SystemRegister(engine, detectSystem)
+	engine.SetExecutionPlan(func(ctx goke.ExecutionContext, d time.Duration) {
 		ctx.Run(moveSystem, d)
 		ctx.Sync()
 		ctx.Run(detectSystem, d)
@@ -232,7 +232,7 @@ func main() {
 	}
 }
 
-func spawnEntities(engine *ecs.Engine, spatialIndex *spatial.GridIndexManager) {
+func spawnEntities(engine *goke.Engine, spatialIndex *spatial.GridIndexManager) {
 	gridSize := math.Ceil(math.Sqrt(float64(EntityCount)))
 	cols := uint32(gridSize)
 
@@ -241,7 +241,7 @@ func spawnEntities(engine *ecs.Engine, spatialIndex *spatial.GridIndexManager) {
 	cellHeight := uint32(ScreenHeight / cols)
 
 	for i := 0; i < EntityCount; i++ {
-		e := engine.CreateEntity()
+		e := goke.EntityCreate(engine)
 
 		row := uint32(i) / cols
 		col := uint32(i) % cols
@@ -254,7 +254,7 @@ func spawnEntities(engine *ecs.Engine, spatialIndex *spatial.GridIndexManager) {
 		startPos := geom.NewVec(startX, startY)
 		aabb := plane.NewAABB(startPos, RectSize, RectSize)
 
-		ecs.SetComponent(engine, e, Position{
+		goke.EntityUpsertComponent(engine, e, Position{
 			AABB: aabb,
 			accX: 0,
 			accY: 0,
@@ -271,11 +271,11 @@ func spawnEntities(engine *ecs.Engine, spatialIndex *spatial.GridIndexManager) {
 			dx = -10
 		}
 
-		ecs.SetComponent(engine, e, Velocity{
+		goke.EntityUpsertComponent(engine, e, Velocity{
 			Vec: geom.NewVec[int32](dx, dy),
 		})
 
-		ecs.SetComponent(engine, e, Appearance{
+		goke.EntityUpsertComponent(engine, e, Appearance{
 			Color: color.RGBA{255, 255, 255, 255},
 		})
 
@@ -353,14 +353,4 @@ func resolveCollision(
 			space.Translate(&pos2.AABB, geom.NewVec[uint32](0, uint32(push)))
 		}
 	}
-}
-
-func getShift(v, s int32) int32 {
-	if v > 0 {
-		return s
-	}
-	if v < 0 {
-		return -s
-	}
-	return 0
 }
