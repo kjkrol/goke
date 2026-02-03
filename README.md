@@ -50,12 +50,26 @@ By using GOKe with Ebitengine:
 * **Decoupled Logic**: Keep your rendering logic in Ebitengine and your game state in GOKe's optimized archetypes, utilizing structures like **[Bucket Grid](https://github.com/kjkrol/gokg)**.
 * **Deterministic Physics**: Run complex collision detection systems across all entities using `RunParallel`.
 
-<img src=".github/docs/img/goke_ebitengine_demo.gif" width="400" alt="Goke Ebitengine Demo">
-<br>
-<sub>
-<strong>Check out the full source code:</strong> <a href="examples/ebiten-demo/main.go">ebiten-balls demo</a><br>
-<strong>Stats:</strong> 2048 colliding AABBs | 120Hz TPS | 30-90 collisions per physics frame<br>
-</sub>
+<table>
+  <tr>
+    <td valign="top" width="400">
+      <video src="https://github.com/user-attachments/assets/fa8d1aca-2060-466d-8204-9d6a7443d580" width="400" autoplay loop muted playsinline></video>
+      <br>
+      <sub>
+        <strong>Check out the full source code:</strong><br>
+        <a href="examples/ebiten-demo/main.go">ebiten-balls demo</a><br>
+        <strong>Stats:</strong> 2048 colliding AABBs | 120Hz TPS | 30-90 collisions per physics frame
+      </sub>
+    </td>
+    <td valign="top" width="400">
+      <video src="https://github.com/user-attachments/assets/f1ef2c0b-fb7b-478a-bc88-77faa48c0623" width="400" autoplay loop muted playsinline></video>
+      <br>
+      <sub>
+        <strong>Stats:</strong> 64 colliding AABBs | 120Hz TPS | 0.1-1 collisions per physics frame
+      </sub>
+    </td>
+  </tr>
+</table>
 
 ## 🧬 High-Mass Simulations
 If your project involves millions of "agents" (e.g., crowd simulation, epidemiological models, or particle physics), GOKe’s **Linear SoA (Structure of Arrays)** layout is essential. It ensures that data is packed tightly in memory, allowing the CPU to process entities at sub-nanosecond speeds by minimizing cache misses.
