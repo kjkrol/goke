@@ -66,7 +66,7 @@ func (r *Registry) RegisterComponentType(componentType reflect.Type) ComponentIn
 	return r.ComponentsRegistry.GetOrRegister(componentType)
 }
 
-func (r *Registry) GetComponent(entity Entity, compID ComponentID) (unsafe.Pointer, error) {
+func (r *Registry) ComponentGet(entity Entity, compID ComponentID) (unsafe.Pointer, error) {
 	if !r.EntityPool.IsValid(entity) {
 		return nil, fmt.Errorf("Invalid Entity")
 	}

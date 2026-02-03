@@ -120,7 +120,7 @@ func TestArchetypeRegistry_RemovalStrategy(t *testing.T) {
 		t.Fatalf("failed to assign component: %v", err)
 	}
 
-	// Case: UnAssigning the only component should trigger RemoveEntity
+	// Case: UnAssigning the only component should trigger EntityRemove
 	reg.UnAssign(e, posTypeInfo)
 
 	link, _ := reg.EntityLinkStore.Get(e)

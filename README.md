@@ -52,7 +52,10 @@ By using GOKe with Ebitengine:
 
 <img src=".github/docs/img/goke_ebitengine_demo.gif" width="400" alt="Goke Ebitengine Demo">
 <br>
-<sub><strong>Check out the full source code:</strong><br><a href="examples/ebiten-demo/main.go">ebiten-balls demo</a></sub>
+<sub>
+<strong>Check out the full source code:</strong> <a href="examples/ebiten-demo/main.go">ebiten-balls demo</a><br>
+<strong>Stats:</strong> 2048 colliding AABBs | 120Hz TPS | 30-90 collisions per physics frame<br>
+</sub>
 
 ## 🧬 High-Mass Simulations
 If your project involves millions of "agents" (e.g., crowd simulation, epidemiological models, or particle physics), GOKe’s **Linear SoA (Structure of Arrays)** layout is essential. It ensures that data is packed tightly in memory, allowing the CPU to process entities at sub-nanosecond speeds by minimizing cache misses.
@@ -103,10 +106,10 @@ GOKe provides a professional-grade toolkit for high-performance simulation and g
 package main
 
 import (
-    "fmt"
-    "time"
+  "fmt"
+  "time"
 
-    "github.com/kjkrol/goke/pkg/ecs"
+  "github.com/kjkrol/goke"
 )
 
 type Pos struct{ X, Y float32 }
@@ -114,39 +117,49 @@ type Vel struct{ X, Y float32 }
 type Acc struct{ X, Y float32 }
 
 func main() {
-    engine := ecs.NewEngine()
-    entity := engine.CreateEntity()
+  engine := goke.NewEngine()
+  entity := goke.EntityCreate(engine)
 
-    // 1. Setup Components (Standard or Fast Allocation)
-    ecs.SetComponent(engine, entity, Pos{X: 0, Y: 0})
-    
-    // Direct Access (Fastest): Returns a direct pointer to storage
-    acc, _ := ecs.AllocateComponent[Acc](engine, entity)
-    *acc = Acc{X: 0.1, Y: 0.1}
+  // --- Standard Assign (Reflective/Slower) ---
+  // ComponentSet involves an internal lookup and potential interface wrapping,
+  // which can increase overhead when called frequently for many entities.
+  goke.EntityUpsertComponent(engine, entity, Pos{X: 0, Y: 0})
+  goke.EntityUpsertComponent(engine, entity, Vel{X: 1, Y: 1})
 
-    // 2. Define View
-    view := ecs.NewView3[Pos, Vel, Acc](engine)
+  // --- Direct Access (Optimized/Fastest) ---
+  // AllocateComponent returns a direct pointer to the storage location.
+  // Assigning via pointer dereference avoids extra copies and redundant lookups.
+  ptr, _ := goke.EntityAllocateComponent[Acc](engine, entity)
+  *ptr = Acc{X: 0.1, Y: 0.1}
 
-    // 3. Register Functional Systems
-    moveSys := engine.RegisterSystemFunc(func(cb *ecs.Commands, d time.Duration) {
-        for head := range view.Values() {
-            p, v, a := head.V1, head.V2, head.V3
-            v.X += a.X; v.Y += a.Y
-            p.X += v.X; p.Y += v.Y
-        }
-    })
+  // Initialize view for Pos, Vel, and Acc components
+  view := goke.NewView3[Pos, Vel, Acc](engine)
 
-    // 4. Define Execution Plan
-    engine.SetExecutionPlan(func(ctx ecs.ExecutionContext, d time.Duration) {
-        ctx.Run(moveSys, d)
-        ctx.Sync()
-    })
+  // Define the movement system using the functional registration pattern
+  movementSystem := goke.SystemFuncRegister(engine, func(cb *goke.Commands, d time.Duration) {
+    // High-performance iteration utilizing Data Locality.
+    // Component data is processed in contiguous memory blocks (SoA layout).
+    for head := range view.Values() {
+      pos, vel, acc := head.V1, head.V2, head.V3
 
-    // 5. Run simulation
-    engine.Tick(time.Millisecond * 16)
-    
-    res, _ := ecs.GetComponent[Pos](engine, entity)
-    fmt.Printf("Final Position: %+v\n", res)
+      vel.X += acc.X
+      vel.Y += acc.Y
+      pos.X += vel.X
+      pos.Y += vel.Y
+    }
+  })
+
+  // Configure the engine's execution workflow and synchronization points
+  engine.SetExecutionPlan(func(ctx goke.ExecutionContext, d time.Duration) {
+    ctx.Run(movementSystem, d)
+    ctx.Sync() // Ensure all component updates are flushed and views are consistent
+  })
+
+  // Execute a single simulation step (standard 60 FPS tick)
+  engine.Tick(time.Millisecond * 16)
+
+  p, _ := goke.EntityGetComponent[Pos](engine, entity)
+  fmt.Printf("Final Position: {X: %.2f, Y: %.2f}\n", p.X, p.Y)
 }
 ```
 

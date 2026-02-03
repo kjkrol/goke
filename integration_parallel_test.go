@@ -12,14 +12,13 @@ The test verifies that:
  3. Post-parallel synchronization (Sync) correctly stabilizes the state for
     subsequent read operations.
 */
-package ecs_test
+package goke_test
 
 import (
-	"reflect"
 	"testing"
 	"time"
 
-	"github.com/kjkrol/goke/ecs"
+	"github.com/kjkrol/goke"
 )
 
 // --- Components (Disjoint sets) ---
@@ -29,13 +28,13 @@ type Health struct{ Current, Max float32 }
 
 // --- PhysicsSystem: Operates only on Motion data ---
 type PhysicsSystem struct {
-	query *ecs.View2[Position, Velocity]
+	query *goke.View2[Position, Velocity]
 }
 
-func (s *PhysicsSystem) Init(eng *ecs.Engine) {
-	s.query = ecs.NewView2[Position, Velocity](eng)
+func (s *PhysicsSystem) Init(eng *goke.Engine) {
+	s.query = goke.NewView2[Position, Velocity](eng)
 }
-func (s *PhysicsSystem) Update(reg ecs.Lookup, cb *ecs.Commands, d time.Duration) {
+func (s *PhysicsSystem) Update(reg goke.Lookup, cb *goke.Commands, d time.Duration) {
 	for head := range s.query.All() {
 		head.V1.X += head.V2.VX * float32(d.Seconds())
 		head.V1.Y += head.V2.VY * float32(d.Seconds())
@@ -44,13 +43,13 @@ func (s *PhysicsSystem) Update(reg ecs.Lookup, cb *ecs.Commands, d time.Duration
 
 // --- HealthSystem: Operates only on Health data ---
 type HealthSystem struct {
-	query *ecs.View1[Health]
+	query *goke.View1[Health]
 }
 
-func (s *HealthSystem) Init(eng *ecs.Engine) {
-	s.query = ecs.NewView1[Health](eng)
+func (s *HealthSystem) Init(eng *goke.Engine) {
+	s.query = goke.NewView1[Health](eng)
 }
-func (s *HealthSystem) Update(reg ecs.Lookup, cb *ecs.Commands, d time.Duration) {
+func (s *HealthSystem) Update(reg goke.Lookup, cb *goke.Commands, d time.Duration) {
 	for head := range s.query.All() {
 		if head.V1.Current < head.V1.Max {
 			head.V1.Current += 1.0 // Simple regen
@@ -64,31 +63,31 @@ func (s *HealthSystem) Update(reg ecs.Lookup, cb *ecs.Commands, d time.Duration)
 // the engine can process them in parallel without race conditions because
 // the systems access separate memory regions (columns).
 func TestECS_ParallelExecution_Disjoint(t *testing.T) {
-	eng := ecs.NewEngine()
+	eng := goke.NewEngine()
 
 	// 1. Setup
-	posInfo := eng.RegisterComponentType(reflect.TypeFor[Position]())
-	velInfo := eng.RegisterComponentType(reflect.TypeFor[Velocity]())
-	healthInfo := eng.RegisterComponentType(reflect.TypeFor[Health]())
+	posInfo := goke.ComponentRegister[Position](eng)
+	velInfo := goke.ComponentRegister[Velocity](eng)
+	healthInfo := goke.ComponentRegister[Health](eng)
 
 	phys := &PhysicsSystem{}
 	heal := &HealthSystem{}
-	eng.RegisterSystem(phys)
-	eng.RegisterSystem(heal)
+	goke.SystemRegister(eng, phys)
+	goke.SystemRegister(eng, heal)
 
 	// Create entities with ALL components
 	for range 1000 {
-		e := eng.CreateEntity()
-		pos, _ := ecs.AllocateComponentByInfo[Position](eng, e, posInfo)
+		e := goke.EntityCreate(eng)
+		pos, _ := goke.EntityAllocateComponentByInfo[Position](eng, e, posInfo)
 		*pos = Position{0, 0}
-		vel, _ := ecs.AllocateComponentByInfo[Velocity](eng, e, velInfo)
+		vel, _ := goke.EntityAllocateComponentByInfo[Velocity](eng, e, velInfo)
 		*vel = Velocity{10, 10}
-		hel, _ := ecs.AllocateComponentByInfo[Health](eng, e, healthInfo)
+		hel, _ := goke.EntityAllocateComponentByInfo[Health](eng, e, healthInfo)
 		*hel = Health{50, 100}
 	}
 
 	// 2. Execution Plan: Run Physics and Health in parallel
-	eng.SetExecutionPlan(func(ctx ecs.ExecutionContext, d time.Duration) {
+	eng.SetExecutionPlan(func(ctx goke.ExecutionContext, d time.Duration) {
 		ctx.RunParallel(d, phys, heal)
 		ctx.Sync()
 	})
@@ -97,7 +96,7 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	eng.Tick(time.Second) // Simulate 1 second
 
 	// 4. Verification
-	query := ecs.NewView2[Position, Health](eng)
+	query := goke.NewView2[Position, Health](eng)
 	count := 0
 	for head := range query.All() {
 		count++
