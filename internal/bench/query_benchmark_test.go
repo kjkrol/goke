@@ -20,41 +20,41 @@ type Magn struct{ V float64 }
 
 func setupBenchmark(_ *testing.B, count int) (*goke.Engine, []core.Entity) {
 	eng := goke.NewEngine()
-	posTypeInfo := goke.ComponentRegister[Pos](eng)
-	velTypeInfo := goke.ComponentRegister[Vel](eng)
-	accTypeInfo := goke.ComponentRegister[Acc](eng)
-	massTypeInfo := goke.ComponentRegister[Mass](eng)
-	spinTypeInfo := goke.ComponentRegister[Spin](eng)
-	charTypeInfo := goke.ComponentRegister[Char](eng)
-	elecTypeInfo := goke.ComponentRegister[Elec](eng)
-	magnTypeInfo := goke.ComponentRegister[Magn](eng)
+	posType := goke.ComponentRegister[Pos](eng)
+	velType := goke.ComponentRegister[Vel](eng)
+	accType := goke.ComponentRegister[Acc](eng)
+	massType := goke.ComponentRegister[Mass](eng)
+	spinType := goke.ComponentRegister[Spin](eng)
+	charType := goke.ComponentRegister[Char](eng)
+	elecType := goke.ComponentRegister[Elec](eng)
+	magnType := goke.ComponentRegister[Magn](eng)
 
 	var entities []core.Entity
 	for range count {
 		e := goke.EntityCreate(eng)
 
-		if pos, err := goke.EntityAllocateComponentByInfo[Pos](eng, e, posTypeInfo); err == nil {
+		if pos, err := goke.EntityEnsureComponent[Pos](eng, e, posType); err == nil {
 			*(*Pos)(pos) = Pos{1, 1}
 		}
-		if vel, err := goke.EntityAllocateComponentByInfo[Vel](eng, e, velTypeInfo); err == nil {
+		if vel, err := goke.EntityEnsureComponent[Vel](eng, e, velType); err == nil {
 			*(*Vel)(vel) = Vel{1, 1}
 		}
-		if acc, err := goke.EntityAllocateComponentByInfo[Acc](eng, e, accTypeInfo); err == nil {
+		if acc, err := goke.EntityEnsureComponent[Acc](eng, e, accType); err == nil {
 			*(*Acc)(acc) = Acc{1, 1}
 		}
-		if mass, err := goke.EntityAllocateComponentByInfo[Mass](eng, e, massTypeInfo); err == nil {
+		if mass, err := goke.EntityEnsureComponent[Mass](eng, e, massType); err == nil {
 			*(*Mass)(mass) = Mass{}
 		}
-		if spin, err := goke.EntityAllocateComponentByInfo[Spin](eng, e, spinTypeInfo); err == nil {
+		if spin, err := goke.EntityEnsureComponent[Spin](eng, e, spinType); err == nil {
 			*(*Spin)(spin) = Spin{}
 		}
-		if char, err := goke.EntityAllocateComponentByInfo[Char](eng, e, charTypeInfo); err == nil {
+		if char, err := goke.EntityEnsureComponent[Char](eng, e, charType); err == nil {
 			*(*Char)(char) = Char{}
 		}
-		if elec, err := goke.EntityAllocateComponentByInfo[Elec](eng, e, elecTypeInfo); err == nil {
+		if elec, err := goke.EntityEnsureComponent[Elec](eng, e, elecType); err == nil {
 			*(*Elec)(elec) = Elec{1}
 		}
-		if magn, err := goke.EntityAllocateComponentByInfo[Magn](eng, e, magnTypeInfo); err == nil {
+		if magn, err := goke.EntityEnsureComponent[Magn](eng, e, magnType); err == nil {
 			*(*Magn)(magn) = Magn{1}
 		}
 		entities = append(entities, e)

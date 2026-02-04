@@ -18,17 +18,17 @@ func TestView_WithTag_And_Without_Logic(t *testing.T) {
 
 	// Entity A: Only position
 	eA := goke.EntityCreate(eng)
-	goke.EntityAllocateComponentByInfo[position](eng, eA, positionType)
+	goke.EntityEnsureComponent[position](eng, eA, positionType)
 
 	// Entity B: position + velocity (Moving entity)
 	eB := goke.EntityCreate(eng)
-	goke.EntityAllocateComponentByInfo[position](eng, eB, positionType)
-	goke.EntityAllocateComponentByInfo[velocity](eng, eB, velocityType)
+	goke.EntityEnsureComponent[position](eng, eB, positionType)
+	goke.EntityEnsureComponent[velocity](eng, eB, velocityType)
 
 	// Entity C: position + complexComponent (Static named entity)
 	eC := goke.EntityCreate(eng)
-	goke.EntityAllocateComponentByInfo[position](eng, eC, positionType)
-	goke.EntityAllocateComponentByInfo[complexComponent](eng, eC, complexType)
+	goke.EntityEnsureComponent[position](eng, eC, positionType)
+	goke.EntityEnsureComponent[complexComponent](eng, eC, complexType)
 
 	// 2. Test: Filter Inclusion (WithTag) and Exclusion (Without)
 	t.Run("Inclusion and Exclusion Logic", func(t *testing.T) {

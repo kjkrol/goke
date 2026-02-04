@@ -20,20 +20,20 @@ func BenchmarkEngine_Structural(b *testing.B) {
 	)
 
 	// Pre-registering for "Turbo" performance in bench
-	posInfo := goke.ComponentRegister[Position3](engine)
-	velInfo := goke.ComponentRegister[Velocity3](engine)
-	tagInfo := goke.ComponentRegister[ProcessedTag](engine)
+	posType := goke.ComponentRegister[Position3](engine)
+	velType := goke.ComponentRegister[Velocity3](engine)
+	tagType := goke.ComponentRegister[ProcessedTag](engine)
 
 	// initialize archetypes
 	eStart1 := goke.EntityCreate(engine)
-	goke.EntityAllocateComponentByInfo[Velocity3](engine, eStart1, velInfo)
+	goke.EntityEnsureComponent[Velocity3](engine, eStart1, velType)
 
 	eStart2 := goke.EntityCreate(engine)
-	goke.EntityAllocateComponentByInfo[Position3](engine, eStart2, posInfo)
-	goke.EntityAllocateComponentByInfo[Velocity3](engine, eStart2, velInfo)
+	goke.EntityEnsureComponent[Position3](engine, eStart2, posType)
+	goke.EntityEnsureComponent[Velocity3](engine, eStart2, velType)
 
 	eStart3 := goke.EntityCreate(engine)
-	goke.EntityAllocateComponentByInfo[ProcessedTag](engine, eStart3, tagInfo)
+	goke.EntityEnsureComponent[ProcessedTag](engine, eStart3, tagType)
 
 	// --- 1. ENTITY CREATION & INITIALIZATION ---
 	// Tests EntityCreate
@@ -56,7 +56,7 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			v, _ := goke.EntityAllocateComponentByInfo[Velocity3](engine, entities[i], velInfo)
+			v, _ := goke.EntityEnsureComponent[Velocity3](engine, entities[i], velType)
 			*v = Velocity3{X: 10, Y: 10}
 		}
 	})
@@ -67,13 +67,13 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		entities := make([]goke.Entity, b.N)
 		for i := 0; i < b.N; i++ {
 			entities[i] = goke.EntityCreate(engine)
-			p, _ := goke.EntityAllocateComponentByInfo[Position3](engine, entities[i], posInfo)
+			p, _ := goke.EntityEnsureComponent[Position3](engine, entities[i], posType)
 			*p = Position3{X: 1}
 		}
 		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			v, _ := goke.EntityAllocateComponentByInfo[Velocity3](engine, entities[i], velInfo)
+			v, _ := goke.EntityEnsureComponent[Velocity3](engine, entities[i], velType)
 			*v = Velocity3{X: 10, Y: 10}
 		}
 	})
@@ -87,7 +87,7 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			goke.EntityAllocateComponentByInfo[ProcessedTag](engine, entities[i], tagInfo)
+			goke.EntityEnsureComponent[ProcessedTag](engine, entities[i], tagType)
 		}
 	})
 
@@ -96,12 +96,12 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		entities := make([]goke.Entity, b.N)
 		for i := 0; i < b.N; i++ {
 			entities[i] = goke.EntityCreate(engine)
-			goke.EntityAllocateComponentByInfo[Position3](engine, entities[i], posInfo)
+			goke.EntityEnsureComponent[Position3](engine, entities[i], posType)
 		}
 		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			engine.EntityRemoveComponentByID(entities[i], posInfo)
+			goke.EntityRemoveComponent(engine, entities[i], posType)
 		}
 	})
 
@@ -111,14 +111,14 @@ func BenchmarkEngine_Structural(b *testing.B) {
 	// This is the "Convenience Path" - slower but easier to use.
 	b.Run("Get_Component_Reflect", func(b *testing.B) {
 		e := goke.EntityCreate(engine)
-		p, _ := goke.EntityAllocateComponentByInfo[Position3](engine, e, posInfo)
+		p, _ := goke.EntityEnsureComponent[Position3](engine, e, posType)
 		*p = Position3{X: 1, Y: 2, Z: 3}
 
 		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			// Internally calls reflect.TypeFor[T]() and registry lookups
-			pos, err := goke.EntityGetComponent[Position3](engine, e)
+			pos, err := goke.EntityGetComponent[Position3](engine, e, posType)
 			if err == nil {
 				pos.X += 1.0
 			}
@@ -129,14 +129,14 @@ func BenchmarkEngine_Structural(b *testing.B) {
 	// This is the "Fast Path" - bypasses reflection and registry maps.
 	b.Run("Get_Component_Direct", func(b *testing.B) {
 		e := goke.EntityCreate(engine)
-		p, _ := goke.EntityAllocateComponentByInfo[Position3](engine, e, posInfo)
+		p, _ := goke.EntityEnsureComponent[Position3](engine, e, posType)
 		*p = Position3{X: 1, Y: 2, Z: 3}
 
 		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			// Uses the provided compInfo to jump straight to the correct column
-			pos, err := goke.EntityGetComponentByType[Position3](engine, e, posInfo)
+			pos, err := goke.EntityGetComponent[Position3](engine, e, posType)
 			if err == nil {
 				pos.X += 1.0
 			}
@@ -157,7 +157,7 @@ func BenchmarkEngine_Query(b *testing.B) {
 	count := 100000
 	for i := 0; i < count; i++ {
 		e := goke.EntityCreate(engine)
-		pos, _ := goke.EntityAllocateComponentByInfo[Position3](engine, e, posInfo)
+		pos, _ := goke.EntityEnsureComponent[Position3](engine, e, posInfo)
 		*pos = Position3{X: float64(i)}
 	}
 
@@ -187,7 +187,7 @@ func BenchmarkEngine_RemoveEntity_Clean(b *testing.B) {
 	entities := make([]goke.Entity, count)
 	for j := 0; j < count; j++ {
 		entities[j] = goke.EntityCreate(engine)
-		goke.EntityAllocateComponentByInfo[Position3](engine, entities[j], posInfo)
+		goke.EntityEnsureComponent[Position3](engine, entities[j], posInfo)
 	}
 
 	b.ResetTimer() // Exclude setup time from the results
@@ -204,7 +204,7 @@ func BenchmarkEngine_RemoveEntity_Clean(b *testing.B) {
 			b.StopTimer()
 			for j := 0; j < count; j++ {
 				entities[j] = goke.EntityCreate(engine)
-				goke.EntityAllocateComponentByInfo[Position3](engine, entities[j], posInfo)
+				goke.EntityEnsureComponent[Position3](engine, entities[j], posInfo)
 			}
 			b.StartTimer()
 		}
@@ -220,7 +220,7 @@ func BenchmarkEngine_AddRemove_Stability(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		e := goke.EntityCreate(engine)
-		p, _ := goke.EntityAllocateComponentByInfo[Position3](engine, e, posInfo)
+		p, _ := goke.EntityEnsureComponent[Position3](engine, e, posInfo)
 		*p = Position3{X: 1}
 
 		// Usuwamy co drugą, żeby wymusić swapowanie w archetypie

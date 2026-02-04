@@ -42,7 +42,7 @@ func NewSystemCommandBuffer() *SystemCommandBuffer {
 }
 
 // AssignComponent safely copies component data into the buffer's pool
-func AssignComponent[T any](cb *SystemCommandBuffer, e Entity, info ComponentInfo, value T) {
+func AddComponent[T any](cb *SystemCommandBuffer, e Entity, info ComponentInfo, value T) {
 	size := int(unsafe.Sizeof(value))
 
 	var ptr unsafe.Pointer
@@ -63,7 +63,7 @@ func AssignComponent[T any](cb *SystemCommandBuffer, e Entity, info ComponentInf
 	})
 }
 
-func (cb *SystemCommandBuffer) RemoveComponent(e Entity, compInfo ComponentInfo) {
+func RemoveComponent(cb *SystemCommandBuffer, e Entity, compInfo ComponentInfo) {
 	cb.commands = append(cb.commands, systemCommand{
 		cType:    cmdRemoveComponent,
 		entity:   e,
@@ -71,7 +71,7 @@ func (cb *SystemCommandBuffer) RemoveComponent(e Entity, compInfo ComponentInfo)
 	})
 }
 
-func (cb *SystemCommandBuffer) CreateEntity() Entity {
+func CreateEntity(cb *SystemCommandBuffer) Entity {
 	vEntity := NewVirtualEntity(cb.nextVirtualID)
 	cb.nextVirtualID++
 
@@ -82,7 +82,7 @@ func (cb *SystemCommandBuffer) CreateEntity() Entity {
 	return vEntity
 }
 
-func (cb *SystemCommandBuffer) RemoveEntity(e Entity) {
+func RemoveEntity(cb *SystemCommandBuffer, e Entity) {
 	cb.commands = append(cb.commands, systemCommand{
 		cType:  cmdRemoveEntity,
 		entity: e,

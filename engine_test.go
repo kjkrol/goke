@@ -23,33 +23,35 @@ type Processed struct{}
 func TestECS_UseCase(t *testing.T) {
 	engine := goke.NewEngine()
 
-	processedTypeInfo := goke.ComponentRegister[Processed](engine)
+	orderType := goke.ComponentRegister[Order](engine)
+	discountType := goke.ComponentRegister[Discount](engine)
+	processedType := goke.ComponentRegister[Processed](engine)
 
 	eA := goke.EntityCreate(engine)
-	order, _ := goke.EntityAllocateComponent[Order](engine, eA)
+	order, _ := goke.EntityEnsureComponent[Order](engine, eA, orderType)
 	*order = Order{ID: "ORD-001", Total: 100.0}
-	discount, _ := goke.EntityAllocateComponent[Discount](engine, eA)
+	discount, _ := goke.EntityEnsureComponent[Discount](engine, eA, discountType)
 	*discount = Discount{Percentage: 10.0}
 
 	eB := goke.EntityCreate(engine)
-	order2, _ := goke.EntityAllocateComponent[Order](engine, eB)
+	order2, _ := goke.EntityEnsureComponent[Order](engine, eB, orderType)
 	*order2 = Order{ID: "ORD-002", Total: 50.0}
 
 	query1 := goke.NewView2[Order, Discount](engine)
 	processedCount := 0
 
-	billingSystem := goke.SystemFuncRegister(engine, func(cb *goke.Commands, d time.Duration) {
+	billingSystem := goke.SystemFuncRegister(engine, func(cb *goke.Schedule, d time.Duration) {
 		for head := range query1.All() {
 			processedCount++
 			ord, disc := head.V1, head.V2
 			ord.Total = ord.Total * (1 - disc.Percentage/100)
-			goke.CommandsAddComponent(cb, head.Entity, processedTypeInfo, Processed{})
+			goke.ScheduleAddComponent(cb, head.Entity, processedType, Processed{})
 		}
 	})
 	query2 := goke.NewView0(engine, goke.WithTag[Processed](), goke.WithTag[Order](), goke.WithTag[Discount]())
-	cleanerSystem := goke.SystemFuncRegister(engine, func(cb *goke.Commands, d time.Duration) {
+	cleanerSystem := goke.SystemFuncRegister(engine, func(schedule *goke.Schedule, d time.Duration) {
 		for entity := range query2.All() {
-			cb.RemoveEntity(entity)
+			goke.ScheduleRemoveEntity(schedule, entity)
 		}
 	})
 
@@ -57,7 +59,7 @@ func TestECS_UseCase(t *testing.T) {
 		ctx.Run(billingSystem, d)
 
 		// test this stage
-		order, _ := goke.EntityGetComponent[Order](engine, eA)
+		order, _ := goke.EntityGetComponent[Order](engine, eA, orderType)
 		if order.Total != 90.0 {
 			t.Errorf("Discount has not been applied, Total: %v", order.Total)
 		}
@@ -74,13 +76,13 @@ func TestECS_UseCase(t *testing.T) {
 	}
 
 	// Entity A should be removed from Registry
-	_, err := goke.EntityGetComponent[Order](engine, eA)
+	_, err := goke.EntityGetComponent[Order](engine, eA, orderType)
 	if err == nil {
 		t.Error("Entity eA should have been removed from the registry")
 	}
 
 	// Entity B should still exist
-	_, errB := goke.EntityGetComponent[Order](engine, eB)
+	_, errB := goke.EntityGetComponent[Order](engine, eB, orderType)
 	if errB != nil {
 		t.Error("Entity eB should not have been removed")
 	}

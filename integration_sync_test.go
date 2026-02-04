@@ -24,7 +24,8 @@ import (
 type Task struct{ Completed bool }
 type Log struct{ Msg string }
 
-var logInfo goke.ComponentInfo
+var taskType goke.ComponentType
+var logType goke.ComponentType
 
 // --- Systems ---
 
@@ -36,10 +37,10 @@ func (s *WorkerSystem) Init(eng *goke.Engine) {
 	s.view = goke.NewView1[Task](eng)
 }
 
-func (s *WorkerSystem) Update(reg goke.Lookup, cb *goke.Commands, d time.Duration) {
+func (s *WorkerSystem) Update(lookup goke.Lookup, schedule *goke.Schedule, d time.Duration) {
 	for head := range s.view.All() {
 		msg := Log{Msg: "Done"}
-		goke.CommandsAddComponent(cb, head.Entity, logInfo, msg)
+		goke.ScheduleAddComponent(schedule, head.Entity, logType, msg)
 	}
 }
 
@@ -52,7 +53,7 @@ func (s *LoggerSystem) Init(eng *goke.Engine) {
 	s.view = goke.NewView1[Log](eng)
 }
 
-func (s *LoggerSystem) Update(reg goke.Lookup, cb *goke.Commands, d time.Duration) {
+func (s *LoggerSystem) Update(reg goke.Lookup, cb *goke.Schedule, d time.Duration) {
 	for range s.view.All() {
 		s.Found = true
 	}
@@ -66,7 +67,8 @@ func (s *LoggerSystem) Update(reg goke.Lookup, cb *goke.Commands, d time.Duratio
 func TestECS_SystemInteractions(t *testing.T) {
 
 	setupComponents := func(e *goke.Engine) {
-		logInfo = goke.ComponentRegister[Log](e)
+		taskType = goke.ComponentRegister[Task](e)
+		logType = goke.ComponentRegister[Log](e)
 	}
 
 	t.Run("Isolation: Logger should not see changes from Worker without Sync between them", func(t *testing.T) {
@@ -74,7 +76,7 @@ func TestECS_SystemInteractions(t *testing.T) {
 		setupComponents(engine)
 
 		e := goke.EntityCreate(engine)
-		task, _ := goke.EntityAllocateComponent[Task](engine, e)
+		task, _ := goke.EntityEnsureComponent[Task](engine, e, taskType)
 		*task = Task{Completed: false}
 
 		worker := &WorkerSystem{}
@@ -101,7 +103,7 @@ func TestECS_SystemInteractions(t *testing.T) {
 		setupComponents(engine)
 
 		e := goke.EntityCreate(engine)
-		task, _ := goke.EntityAllocateComponent[Task](engine, e)
+		task, _ := goke.EntityEnsureComponent[Task](engine, e, taskType)
 		*task = Task{Completed: false}
 
 		worker := &WorkerSystem{}

@@ -130,6 +130,12 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return ScreenWidth, ScreenHeight
 }
 
+var (
+	posType goke.ComponentType
+	velType goke.ComponentType
+	appType goke.ComponentType
+)
+
 func main() {
 	// 1. Initialize GOKe Engine
 	engine := goke.NewEngine()
@@ -140,9 +146,9 @@ func main() {
 	}
 
 	// 2. Register Components
-	goke.ComponentRegister[Position](engine)
-	goke.ComponentRegister[Velocity](engine)
-	goke.ComponentRegister[Appearance](engine)
+	posType = goke.ComponentRegister[Position](engine)
+	velType = goke.ComponentRegister[Velocity](engine)
+	appType = goke.ComponentRegister[Appearance](engine)
 
 	space := plane.NewToroidal2D[uint32](ScreenWidth, ScreenHeight)
 
@@ -159,7 +165,7 @@ func main() {
 
 	// System: Movement (Torus Topology)
 	moveView := goke.NewView3[Position, Velocity, Appearance](engine)
-	moveSystem := goke.SystemFuncRegister(engine, func(cb *goke.Commands, d time.Duration) {
+	moveSystem := goke.SystemFuncRegister(engine, func(cb *goke.Schedule, d time.Duration) {
 		dt := d.Seconds()
 		for head := range moveView.All() {
 			pos, vel := head.V1, head.V2
@@ -179,7 +185,7 @@ func main() {
 			}
 
 			if dx != 0 || dy != 0 {
-				delta := geom.NewVec[uint32](uint32(dx), uint32(dy))
+				delta := geom.NewVec(uint32(dx), uint32(dy))
 				space.Translate(&pos.AABB, delta)
 				spatialIndex.QueueUpdate(uint64(head.Entity), pos.AABB.AABB, true)
 			}
@@ -189,15 +195,15 @@ func main() {
 
 	collisionView := goke.NewView3[Position, Velocity, Appearance](engine)
 	// System: Collision (Broad-phase using BucketGrid)
-	detectSystem := goke.SystemFuncRegister(engine, func(cb *goke.Commands, d time.Duration) {
+	detectSystem := goke.SystemFuncRegister(engine, func(cb *goke.Schedule, d time.Duration) {
 		for head := range collisionView.All() {
 			pos, vel, app := head.V1, head.V2, head.V3
 			spatialIndex.QueryRange(pos.AABB.AABB, func(otherID uint64) {
 				entity2 := goke.Entity(otherID / 4) // TODO: fix gokg!!
 				if head.Entity.Index() < entity2.Index() {
-					pos2, _ := goke.EntityGetComponent[Position](engine, entity2)
-					vel2, _ := goke.EntityGetComponent[Velocity](engine, entity2)
-					app2, _ := goke.EntityGetComponent[Appearance](engine, entity2)
+					pos2, _ := goke.EntityGetComponent[Position](engine, entity2, posType)
+					vel2, _ := goke.EntityGetComponent[Velocity](engine, entity2, velType)
+					app2, _ := goke.EntityGetComponent[Appearance](engine, entity2, appType)
 
 					app.Color = color.RGBA{R: 255, A: 255}
 					app2.Color = color.RGBA{R: 255, A: 255}
@@ -254,30 +260,35 @@ func spawnEntities(engine *goke.Engine, spatialIndex *spatial.GridIndexManager) 
 		startPos := geom.NewVec(startX, startY)
 		aabb := plane.NewAABB(startPos, RectSize, RectSize)
 
-		goke.EntityUpsertComponent(engine, e, Position{
-			AABB: aabb,
-			accX: 0,
-			accY: 0,
-		})
+		if ptr, _ := goke.EntityEnsureComponent[Position](engine, e, posType); ptr != nil {
+			*ptr = Position{
+				AABB: aabb,
+				accX: 0,
+				accY: 0,
+			}
+		}
 
 		// Velocity initialization
 		dx := int32(rand.Int32N(401) - 200)
 		dy := int32(rand.Int32N(401) - 200)
 
-		// Unikaj bardzo małych prędkości, żeby nie stały w miejscu
 		if dx >= 0 && dx < 50 {
 			dx = 10
 		} else if dx < 0 && dx > -50 {
 			dx = -10
 		}
 
-		goke.EntityUpsertComponent(engine, e, Velocity{
-			Vec: geom.NewVec[int32](dx, dy),
-		})
+		if ptr, _ := goke.EntityEnsureComponent[Velocity](engine, e, velType); ptr != nil {
+			*ptr = Velocity{
+				Vec: geom.NewVec(dx, dy),
+			}
+		}
 
-		goke.EntityUpsertComponent(engine, e, Appearance{
-			Color: color.RGBA{255, 255, 255, 255},
-		})
+		if ptr, _ := goke.EntityEnsureComponent[Appearance](engine, e, appType); ptr != nil {
+			*ptr = Appearance{
+				Color: color.RGBA{255, 255, 255, 255},
+			}
+		}
 
 		spatialIndex.QueueInsert(uint64(e.Index()), aabb.AABB)
 	}
@@ -331,12 +342,12 @@ func resolveCollision(
 
 		if dx > 0 {
 			// Object 1 is to the right, so push it further right
-			space.Translate(&pos1.AABB, geom.NewVec[uint32](uint32(push), 0))
+			space.Translate(&pos1.AABB, geom.NewVec(uint32(push), 0))
 			// Casting -push to uint32 in Go acts like modulo subtraction (torus safe)
-			space.Translate(&pos2.AABB, geom.NewVec[uint32](uint32(-push), 0))
+			space.Translate(&pos2.AABB, geom.NewVec(uint32(-push), 0))
 		} else {
-			space.Translate(&pos1.AABB, geom.NewVec[uint32](uint32(-push), 0))
-			space.Translate(&pos2.AABB, geom.NewVec[uint32](uint32(push), 0))
+			space.Translate(&pos1.AABB, geom.NewVec(uint32(-push), 0))
+			space.Translate(&pos2.AABB, geom.NewVec(uint32(push), 0))
 		}
 	} else {
 		// Push along Y axis
@@ -346,11 +357,11 @@ func resolveCollision(
 		}
 
 		if dy > 0 {
-			space.Translate(&pos1.AABB, geom.NewVec[uint32](0, uint32(push)))
-			space.Translate(&pos2.AABB, geom.NewVec[uint32](0, uint32(-push)))
+			space.Translate(&pos1.AABB, geom.NewVec(0, uint32(push)))
+			space.Translate(&pos2.AABB, geom.NewVec(0, uint32(-push)))
 		} else {
-			space.Translate(&pos1.AABB, geom.NewVec[uint32](0, uint32(-push)))
-			space.Translate(&pos2.AABB, geom.NewVec[uint32](0, uint32(push)))
+			space.Translate(&pos1.AABB, geom.NewVec(0, uint32(-push)))
+			space.Translate(&pos2.AABB, geom.NewVec(0, uint32(push)))
 		}
 	}
 }

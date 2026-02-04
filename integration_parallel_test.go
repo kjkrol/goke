@@ -34,7 +34,7 @@ type PhysicsSystem struct {
 func (s *PhysicsSystem) Init(eng *goke.Engine) {
 	s.query = goke.NewView2[Position, Velocity](eng)
 }
-func (s *PhysicsSystem) Update(reg goke.Lookup, cb *goke.Commands, d time.Duration) {
+func (s *PhysicsSystem) Update(reg goke.Lookup, cb *goke.Schedule, d time.Duration) {
 	for head := range s.query.All() {
 		head.V1.X += head.V2.VX * float32(d.Seconds())
 		head.V1.Y += head.V2.VY * float32(d.Seconds())
@@ -49,7 +49,7 @@ type HealthSystem struct {
 func (s *HealthSystem) Init(eng *goke.Engine) {
 	s.query = goke.NewView1[Health](eng)
 }
-func (s *HealthSystem) Update(reg goke.Lookup, cb *goke.Commands, d time.Duration) {
+func (s *HealthSystem) Update(reg goke.Lookup, cb *goke.Schedule, d time.Duration) {
 	for head := range s.query.All() {
 		if head.V1.Current < head.V1.Max {
 			head.V1.Current += 1.0 // Simple regen
@@ -78,11 +78,11 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	// Create entities with ALL components
 	for range 1000 {
 		e := goke.EntityCreate(eng)
-		pos, _ := goke.EntityAllocateComponentByInfo[Position](eng, e, posInfo)
+		pos, _ := goke.EntityEnsureComponent[Position](eng, e, posInfo)
 		*pos = Position{0, 0}
-		vel, _ := goke.EntityAllocateComponentByInfo[Velocity](eng, e, velInfo)
+		vel, _ := goke.EntityEnsureComponent[Velocity](eng, e, velInfo)
 		*vel = Velocity{10, 10}
-		hel, _ := goke.EntityAllocateComponentByInfo[Health](eng, e, healthInfo)
+		hel, _ := goke.EntityEnsureComponent[Health](eng, e, healthInfo)
 		*hel = Health{50, 100}
 	}
 

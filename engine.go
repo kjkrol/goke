@@ -11,8 +11,8 @@ type (
 	Entity = core.Entity
 	// ComponentID is a unique integer identifier for a specific component type.
 	ComponentID = core.ComponentID
-	// ComponentInfo contains metadata about a component type, such as its ID and memory size.
-	ComponentInfo = core.ComponentInfo
+	// ComponentType contains metadata about a component type, such as its ID and memory size.
+	ComponentType = core.ComponentInfo
 
 	// ExecutionPlan defines the order and concurrency of system updates.
 	ExecutionPlan = core.ExecutionPlan
@@ -65,4 +65,29 @@ func (e *Engine) SetExecutionPlan(plan ExecutionPlan) {
 // with the given delta time.
 func (e *Engine) Tick(duration time.Duration) {
 	e.scheduler.Tick(duration)
+}
+
+// ---- Component ----
+
+// ComponentRegister ensures a component of type T is registered in the engine
+// and returns its metadata.
+func ComponentRegister[T any](eng *Engine) ComponentType {
+	return core.EnsureComponentRegistered[T](eng.registry.ComponentsRegistry)
+}
+
+// ---- System ----
+
+// SystemRegister adds a stateful system to the engine. The system's Init method
+// will be called immediately.
+func SystemRegister(e *Engine, system System) {
+	system.Init(e)
+	e.scheduler.RegisterSystem(system)
+}
+
+// SystemFuncRegister adds a stateless, function-based system to the engine.
+func SystemFuncRegister(e *Engine, fn SystemFunc) System {
+	wrapper := &functionalSystem{updateFn: fn}
+	wrapper.Init(e)
+	e.scheduler.RegisterSystem(wrapper)
+	return wrapper
 }
