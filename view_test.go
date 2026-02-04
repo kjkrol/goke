@@ -9,32 +9,32 @@ import (
 )
 
 func TestView_WithTag_And_Without_Logic(t *testing.T) {
-	eng := goke.NewEngine()
+	ecs := goke.New()
 	// 1. Setup Entities with different structural profiles
 
-	positionType := goke.ComponentRegister[position](eng)
-	velocityType := goke.ComponentRegister[velocity](eng)
-	complexType := goke.ComponentRegister[complexComponent](eng)
+	positionType := goke.RegisterComponentType[position](ecs)
+	velocityType := goke.RegisterComponentType[velocity](ecs)
+	complexType := goke.RegisterComponentType[complexComponent](ecs)
 
 	// Entity A: Only position
-	eA := goke.EntityCreate(eng)
-	goke.EntityAllocateComponentByInfo[position](eng, eA, positionType)
+	eA := goke.CreateEntity(ecs)
+	goke.EnsureComponent[position](ecs, eA, positionType)
 
 	// Entity B: position + velocity (Moving entity)
-	eB := goke.EntityCreate(eng)
-	goke.EntityAllocateComponentByInfo[position](eng, eB, positionType)
-	goke.EntityAllocateComponentByInfo[velocity](eng, eB, velocityType)
+	eB := goke.CreateEntity(ecs)
+	goke.EnsureComponent[position](ecs, eB, positionType)
+	goke.EnsureComponent[velocity](ecs, eB, velocityType)
 
 	// Entity C: position + complexComponent (Static named entity)
-	eC := goke.EntityCreate(eng)
-	goke.EntityAllocateComponentByInfo[position](eng, eC, positionType)
-	goke.EntityAllocateComponentByInfo[complexComponent](eng, eC, complexType)
+	eC := goke.CreateEntity(ecs)
+	goke.EnsureComponent[position](ecs, eC, positionType)
+	goke.EnsureComponent[complexComponent](ecs, eC, complexType)
 
 	// 2. Test: Filter Inclusion (WithTag) and Exclusion (Without)
 	t.Run("Inclusion and Exclusion Logic", func(t *testing.T) {
 		// Goal: Find entities that have 'position', but are NOT 'velocity' (not moving)
 		// Expected: eA and eC
-		view := goke.NewView0(eng,
+		view := goke.NewView0(ecs,
 			core.WithTag[position](),
 			core.Without[velocity](),
 		)
@@ -54,7 +54,7 @@ func TestView_WithTag_And_Without_Logic(t *testing.T) {
 	t.Run("Tag as Requirement", func(t *testing.T) {
 		// Goal: Find entities with 'position' AND 'complexComponent'
 		// Expected: eC only
-		view := goke.NewView0(eng,
+		view := goke.NewView0(ecs,
 			core.WithTag[position](),
 			core.WithTag[complexComponent](),
 		)
@@ -70,7 +70,7 @@ func TestView_WithTag_And_Without_Logic(t *testing.T) {
 	// 4. Test: Filter method on a manual slice
 	t.Run("Manual Slice Filtering", func(t *testing.T) {
 		// Goal: From a list of entities, filter out those that are 'complexComponent'
-		view := goke.NewView0(eng, core.Without[complexComponent]())
+		view := goke.NewView0(ecs, core.Without[complexComponent]())
 
 		input := []core.Entity{eA, eB, eC}
 		var result []core.Entity

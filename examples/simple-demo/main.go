@@ -17,30 +17,32 @@ type (
 )
 
 func main() {
-	engine := goke.NewEngine()
-	processedInfo := goke.ComponentRegister[Processed](engine)
+	ecs := goke.New()
+	processedType := goke.RegisterComponentType[Processed](ecs)
+	orderType := goke.RegisterComponentType[Order](ecs)
+	discountType := goke.RegisterComponentType[Discount](ecs)
 
 	// Initialize an entity with Order and Discount component data
-	entity := goke.EntityCreate(engine)
-	goke.EntityUpsertComponent(engine, entity, Order{ID: "ORD-99", Total: 200.0})
-	goke.EntityUpsertComponent(engine, entity, Discount{Percentage: 20.0})
-
+	entity := goke.CreateEntity(ecs)
+	*goke.EnsureComponent[Order](ecs, entity, orderType) = Order{ID: "ORD-99", Total: 200.0}
+	*goke.EnsureComponent[Discount](ecs, entity, discountType) = Discount{Percentage: 20.0}
+	
 	// Define the Billing System to calculate discounted totals for unprocessed orders
-	view := goke.NewView2[Order, Discount](engine, goke.Without[Processed]())
-	billing := goke.SystemFuncRegister(engine, func(cb *goke.Commands, d time.Duration) {
+	view := goke.NewView2[Order, Discount](ecs, goke.Without[Processed]())
+	billing := goke.RegisterSystemFunc(ecs, func(schedule *goke.Schedule, d time.Duration) {
 		for head := range view.All() {
 			ord, disc := head.V1, head.V2
 			ord.Total = ord.Total * (1 - disc.Percentage/100)
 
 			// Defer the assignment of the Processed tag to the next synchronization point
-			goke.CommandsAddComponent(cb, head.Entity, processedInfo, Processed{})
+			goke.ScheduleAddComponent(schedule, head.Entity, processedType, Processed{})
 		}
 	})
 
 	// Define the Teardown System to monitor simulation exit conditions
 	close := false
-	view2 := goke.NewView0(engine, goke.WithTag[Processed]())
-	teardownSystem := goke.SystemFuncRegister(engine, func(cb *goke.Commands, d time.Duration) {
+	view2 := goke.NewView0(ecs, goke.WithTag[Processed]())
+	teardownSystem := goke.RegisterSystemFunc(ecs, func(cb *goke.Schedule, d time.Duration) {
 		for e := range view2.Filter([]goke.Entity{entity}) {
 			_ = e
 			close = true
@@ -49,9 +51,9 @@ func main() {
 	})
 
 	// Configure the execution plan and define system dependencies
-	goke.SystemRegister(engine, billing)
-	goke.SystemRegister(engine, teardownSystem)
-	engine.SetExecutionPlan(func(ctx goke.ExecutionContext, d time.Duration) {
+	goke.RegisterSystem(ecs, billing)
+	goke.RegisterSystem(ecs, teardownSystem)
+	goke.Plan(ecs, func(ctx goke.ExecutionContext, d time.Duration) {
 		ctx.Run(billing, d)
 		ctx.Sync()
 		ctx.Run(teardownSystem, d)
@@ -59,12 +61,12 @@ func main() {
 	})
 
 	// Log the initial state before simulation begins
-	orderResult, _ := goke.EntityGetComponent[Order](engine, entity)
+	orderResult, _ := goke.GetComponent[Order](ecs, entity, orderType)
 	fmt.Printf("Order id: %v value: %v\n", orderResult.ID, orderResult.Total)
 
 	// Run the main simulation loop until the exit signal is received
 	for !close {
-		engine.Tick(time.Duration(time.Second))
+		goke.Tick(ecs, time.Second)
 		fmt.Printf("Order id: %v value with discount: %v\n", orderResult.ID, orderResult.Total)
 	}
 }
