@@ -47,7 +47,7 @@ type Appearance struct {
 // --- Game Loop (Ebitengine Adapter) ---
 
 type Game struct {
-	engine           *goke.Engine
+	ecs              *goke.ECS
 	renderView       *goke.View2[Position, Appearance]
 	accumulator      time.Duration
 	lastUpdate       time.Time
@@ -73,7 +73,7 @@ func (g *Game) Update() error {
 	// 4. Consume the accumulated time in fixed increments
 	// If the frame rate drops, this loop will "catch up" by running multiple ticks
 	for g.accumulator >= PhysicsStep {
-		g.engine.Tick(PhysicsStep)
+		goke.Tick(g.ecs, PhysicsStep)
 		g.accumulator -= PhysicsStep
 		g.ticks++
 	}
@@ -137,18 +137,18 @@ var (
 )
 
 func main() {
-	// 1. Initialize GOKe Engine
-	engine := goke.NewEngine()
+	// 1. Initialize GOKe ECS
+	ecs := goke.New()
 
 	game := &Game{
-		engine:     engine,
-		renderView: goke.NewView2[Position, Appearance](engine),
+		ecs:        ecs,
+		renderView: goke.NewView2[Position, Appearance](ecs),
 	}
 
 	// 2. Register Components
-	posType = goke.ComponentRegister[Position](engine)
-	velType = goke.ComponentRegister[Velocity](engine)
-	appType = goke.ComponentRegister[Appearance](engine)
+	posType = goke.RegisterComponentType[Position](ecs)
+	velType = goke.RegisterComponentType[Velocity](ecs)
+	appType = goke.RegisterComponentType[Appearance](ecs)
 
 	space := plane.NewToroidal2D[uint32](ScreenWidth, ScreenHeight)
 
@@ -164,8 +164,8 @@ func main() {
 	// 3. Define Systems
 
 	// System: Movement (Torus Topology)
-	moveView := goke.NewView3[Position, Velocity, Appearance](engine)
-	moveSystem := goke.SystemFuncRegister(engine, func(cb *goke.Schedule, d time.Duration) {
+	moveView := goke.NewView3[Position, Velocity, Appearance](ecs)
+	moveSystem := goke.RegisterSystemFunc(ecs, func(cb *goke.Schedule, d time.Duration) {
 		dt := d.Seconds()
 		for head := range moveView.All() {
 			pos, vel := head.V1, head.V2
@@ -193,17 +193,17 @@ func main() {
 		spatialIndex.Flush(func(a spatial.AABB) {})
 	})
 
-	collisionView := goke.NewView3[Position, Velocity, Appearance](engine)
+	collisionView := goke.NewView3[Position, Velocity, Appearance](ecs)
 	// System: Collision (Broad-phase using BucketGrid)
-	detectSystem := goke.SystemFuncRegister(engine, func(cb *goke.Schedule, d time.Duration) {
+	detectSystem := goke.RegisterSystemFunc(ecs, func(cb *goke.Schedule, d time.Duration) {
 		for head := range collisionView.All() {
 			pos, vel, app := head.V1, head.V2, head.V3
 			spatialIndex.QueryRange(pos.AABB.AABB, func(otherID uint64) {
 				entity2 := goke.Entity(otherID / 4) // TODO: fix gokg!!
 				if head.Entity.Index() < entity2.Index() {
-					pos2, _ := goke.EntityGetComponent[Position](engine, entity2, posType)
-					vel2, _ := goke.EntityGetComponent[Velocity](engine, entity2, velType)
-					app2, _ := goke.EntityGetComponent[Appearance](engine, entity2, appType)
+					pos2, _ := goke.GetComponent[Position](ecs, entity2, posType)
+					vel2, _ := goke.GetComponent[Velocity](ecs, entity2, velType)
+					app2, _ := goke.GetComponent[Appearance](ecs, entity2, appType)
 
 					app.Color = color.RGBA{R: 255, A: 255}
 					app2.Color = color.RGBA{R: 255, A: 255}
@@ -217,9 +217,9 @@ func main() {
 	})
 
 	// 4. Execution Plan
-	goke.SystemRegister(engine, moveSystem)
-	goke.SystemRegister(engine, detectSystem)
-	engine.SetExecutionPlan(func(ctx goke.ExecutionContext, d time.Duration) {
+	goke.RegisterSystem(ecs, moveSystem)
+	goke.RegisterSystem(ecs, detectSystem)
+	goke.Plan(ecs, func(ctx goke.ExecutionContext, d time.Duration) {
 		ctx.Run(moveSystem, d)
 		ctx.Sync()
 		ctx.Run(detectSystem, d)
@@ -227,7 +227,7 @@ func main() {
 	})
 
 	// 5. Spawn paricles
-	spawnEntities(engine, spatialIndex)
+	spawnEntities(ecs, spatialIndex)
 
 	// 6. Run Ebitengine
 	ebiten.SetWindowSize(ScreenWidth, ScreenHeight)
@@ -238,7 +238,7 @@ func main() {
 	}
 }
 
-func spawnEntities(engine *goke.Engine, spatialIndex *spatial.GridIndexManager) {
+func spawnEntities(ecs *goke.ECS, spatialIndex *spatial.GridIndexManager) {
 	gridSize := math.Ceil(math.Sqrt(float64(EntityCount)))
 	cols := uint32(gridSize)
 
@@ -247,7 +247,7 @@ func spawnEntities(engine *goke.Engine, spatialIndex *spatial.GridIndexManager) 
 	cellHeight := uint32(ScreenHeight / cols)
 
 	for i := 0; i < EntityCount; i++ {
-		e := goke.EntityCreate(engine)
+		e := goke.CreateEntity(ecs)
 
 		row := uint32(i) / cols
 		col := uint32(i) % cols
@@ -260,17 +260,15 @@ func spawnEntities(engine *goke.Engine, spatialIndex *spatial.GridIndexManager) 
 		startPos := geom.NewVec(startX, startY)
 		aabb := plane.NewAABB(startPos, RectSize, RectSize)
 
-		if ptr, _ := goke.EntityEnsureComponent[Position](engine, e, posType); ptr != nil {
-			*ptr = Position{
-				AABB: aabb,
-				accX: 0,
-				accY: 0,
-			}
+		*goke.EnsureComponent[Position](ecs, e, posType) = Position{
+			AABB: aabb,
+			accX: 0,
+			accY: 0,
 		}
 
 		// Velocity initialization
-		dx := int32(rand.Int32N(401) - 200)
-		dy := int32(rand.Int32N(401) - 200)
+		dx := rand.Int32N(401) - 200
+		dy := rand.Int32N(401) - 200
 
 		if dx >= 0 && dx < 50 {
 			dx = 10
@@ -278,16 +276,12 @@ func spawnEntities(engine *goke.Engine, spatialIndex *spatial.GridIndexManager) 
 			dx = -10
 		}
 
-		if ptr, _ := goke.EntityEnsureComponent[Velocity](engine, e, velType); ptr != nil {
-			*ptr = Velocity{
-				Vec: geom.NewVec(dx, dy),
-			}
+		*goke.EnsureComponent[Velocity](ecs, e, velType) = Velocity{
+			Vec: geom.NewVec(dx, dy),
 		}
 
-		if ptr, _ := goke.EntityEnsureComponent[Appearance](engine, e, appType); ptr != nil {
-			*ptr = Appearance{
-				Color: color.RGBA{255, 255, 255, 255},
-			}
+		*goke.EnsureComponent[Appearance](ecs, e, appType) = Appearance{
+			Color: color.RGBA{R: 255, G: 255, B: 255, A: 255},
 		}
 
 		spatialIndex.QueueInsert(uint64(e.Index()), aabb.AABB)

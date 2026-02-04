@@ -50,21 +50,23 @@ By using GOKe with Ebitengine:
 * **Decoupled Logic**: Keep your rendering logic in Ebitengine and your game state in GOKe's optimized archetypes, utilizing structures like **[Bucket Grid](https://github.com/kjkrol/gokg)**.
 * **Deterministic Physics**: Run complex collision detection systems across all entities using `RunParallel`.
 
-<table>
+<table align="center">
   <thead>
     <tr>
       <th style="text-align: left; vertical-align: top; width: 400px;">
         <video src="https://github.com/user-attachments/assets/fa8d1aca-2060-466d-8204-9d6a7443d580" width="400" autoplay loop muted playsinline></video>
         <br>
-        <sub>
-          <strong>Stats:</strong> 2048 colliding AABBs | 120Hz TPS | 30-90 collisions per physics frame
-        </sub>
+        <p align="center">
+          <sub><strong>Stats:</strong> 2048 colliding AABBs | 120 TPS | 0.1-1 collisions/tick</sub>
+        </p>
       </th>
       <th style="text-align: left; vertical-align: top; width: 400px;">
         <video src="https://github.com/user-attachments/assets/f1ef2c0b-fb7b-478a-bc88-77faa48c0623" width="400" autoplay loop muted playsinline></video>
         <br>
         <sub>
-          <strong>Stats:</strong> 64 colliding AABBs | 120Hz TPS | 0.1-1 collisions per physics frame
+          <p align="center">
+            <strong>Stats:</strong> 64 colliding AABBs | 120 TPS | 0.1-1 collisions/tick
+          </p>
         </sub>
       </th>
     </tr>
@@ -73,8 +75,7 @@ By using GOKe with Ebitengine:
     <tr>
       <td colspan="2" align="center">
         <sub>
-          <strong>Check out the full source code:</strong><br>
-          <a href="examples/ebiten-demo/main.go">ebiten-balls demo</a>
+          <strong>Check out the <a href="examples/ebiten-demo/main.go">full source code</a></strong>
         </sub>
       </td>
     </tr>
@@ -141,28 +142,33 @@ type Vel struct{ X, Y float32 }
 type Acc struct{ X, Y float32 }
 
 func main() {
-  engine := goke.NewEngine()
-  entity := goke.EntityCreate(engine)
+  // Initialize the ECS world.
+  // The ECS instance acts as the central coordinator for entities and systems.
+  ecs := goke.New()
 
-  // --- Standard Assign (Reflective/Slower) ---
-  // ComponentSet involves an internal lookup and potential interface wrapping,
-  // which can increase overhead when called frequently for many entities.
-  goke.EntityUpsertComponent(engine, entity, Pos{X: 0, Y: 0})
-  goke.EntityUpsertComponent(engine, entity, Vel{X: 1, Y: 1})
+  // Define component metadata.
+  // This binds Go types to internal descriptors, allowing the engine to 
+  // pre-calculate memory layouts and manage data in contiguous arrays.
+  posType := goke.RegisterComponentType[Pos](ecs)
+  velType := goke.RegisterComponentType[Vel](ecs)
+  accType := goke.RegisterComponentType[Acc](ecs)
 
-  // --- Direct Access (Optimized/Fastest) ---
-  // AllocateComponent returns a direct pointer to the storage location.
-  // Assigning via pointer dereference avoids extra copies and redundant lookups.
-  ptr, _ := goke.EntityAllocateComponent[Acc](engine, entity)
-  *ptr = Acc{X: 0.1, Y: 0.1}
+  entity := goke.CreateEntity(ecs)
+
+  // --- Component Assignment with In-Place Memory Access ---
+  // EnsureComponent acts as a high-performance Upsert. By returning a direct
+  // pointer to the component's slot in the archetype storage, it allows for
+  // in-place modification (*ptr = T{...}).
+  *goke.EnsureComponent[Pos](ecs, entity, posType) = Pos{X: 0, Y: 0}
+  *goke.EnsureComponent[Vel](ecs, entity, velType) = Vel{X: 1, Y: 1}
+  *goke.EnsureComponent[Acc](ecs, entity, accType) = Acc{X: 0.1, Y: 0.1}
 
   // Initialize view for Pos, Vel, and Acc components
-  view := goke.NewView3[Pos, Vel, Acc](engine)
+  view := goke.NewView3[Pos, Vel, Acc](ecs)
 
   // Define the movement system using the functional registration pattern
-  movementSystem := goke.SystemFuncRegister(engine, func(cb *goke.Commands, d time.Duration) {
-    // High-performance iteration utilizing Data Locality.
-    // Component data is processed in contiguous memory blocks (SoA layout).
+  movementSystem := goke.RegisterSystemFunc(ecs, func(schedule *goke.Schedule, d time.Duration) {
+    // SoA (Structure of Arrays) layout ensures CPU Cache friendliness.
     for head := range view.Values() {
       pos, vel, acc := head.V1, head.V2, head.V3
 
@@ -173,16 +179,16 @@ func main() {
     }
   })
 
-  // Configure the engine's execution workflow and synchronization points
-  engine.SetExecutionPlan(func(ctx goke.ExecutionContext, d time.Duration) {
+  // Configure the ECS's execution workflow and synchronization points
+  goke.Plan(ecs, func(ctx goke.ExecutionContext, d time.Duration) {
     ctx.Run(movementSystem, d)
     ctx.Sync() // Ensure all component updates are flushed and views are consistent
   })
 
-  // Execute a single simulation step (standard 60 FPS tick)
-  engine.Tick(time.Millisecond * 16)
+  // Execute a single simulation step (standard 120 TPS)
+  goke.Tick(ecs, time.Second/120)
 
-  p, _ := goke.EntityGetComponent[Pos](engine, entity)
+  p, _ := goke.GetComponent[Pos](ecs, entity, posType)
   fmt.Printf("Final Position: {X: %.2f, Y: %.2f}\n", p.X, p.Y)
 }
 ```

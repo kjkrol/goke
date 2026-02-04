@@ -23,10 +23,10 @@ type (
 	// data and a SystemCommandBuffer to request changes.
 	//
 	// Init is called once when the system is registered, providing access
-	// to the Engine instance for setup (e.g., pre-registering components or views).
+	// to the ECS instance for setup (e.g., pre-registering components or views).
 	System interface {
 		Update(Lookup, *Schedule, time.Duration)
-		Init(*Engine)
+		Init(*ECS)
 	}
 )
 
@@ -69,7 +69,7 @@ type functionalSystem struct {
 	updateFn SystemFunc
 }
 
-func (f *functionalSystem) Init(reg *Engine) {}
+func (f *functionalSystem) Init(*ECS) {}
 
 func (f *functionalSystem) Update(reg Lookup, cb *Schedule, d time.Duration) {
 	f.updateFn(cb, d)

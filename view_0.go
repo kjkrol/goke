@@ -10,8 +10,8 @@ type View0 struct {
 	*core2.View
 }
 
-func NewView0(eng *Engine, options ...core2.ViewOption) *View0 {
-	view := core2.NewView(eng.registry, options...)
+func NewView0(ecs *ECS, options ...core2.ViewOption) *View0 {
+	view := core2.NewView(ecs.registry, options...)
 	return &View0{View: view}
 }
 

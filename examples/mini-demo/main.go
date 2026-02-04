@@ -12,33 +12,33 @@ type Vel struct{ X, Y float32 }
 type Acc struct{ X, Y float32 }
 
 func main() {
-	engine := goke.NewEngine()
-	posType := goke.ComponentRegister[Pos](engine)
-	velType := goke.ComponentRegister[Vel](engine)
-	accType := goke.ComponentRegister[Acc](engine)
+	// Initialize the ECS world.
+	// The ECS instance acts as the central coordinator for entities and systems.
+	ecs := goke.New()
 
-	entity := goke.EntityCreate(engine)
+	// Define component metadata.
+	// This binds Go types to internal descriptors, allowing the engine to
+	// pre-calculate memory layouts and manage data in contiguous arrays.
+	posType := goke.RegisterComponentType[Pos](ecs)
+	velType := goke.RegisterComponentType[Vel](ecs)
+	accType := goke.RegisterComponentType[Acc](ecs)
 
-	// --- Direct Access (Optimized/Fastest) ---
-	// EntityEnsureComponent returns a direct pointer to the storage location.
-	// Assigning via pointer dereference avoids extra copies and redundant lookups.
-	if ptr, _ := goke.EntityEnsureComponent[Pos](engine, entity, posType); ptr != nil {
-		*ptr = Pos{X: 0, Y: 0}
-	}
-	if ptr, _ := goke.EntityEnsureComponent[Vel](engine, entity, velType); ptr != nil {
-		*ptr = Vel{X: 1, Y: 1}
-	}
-	if ptr, _ := goke.EntityEnsureComponent[Acc](engine, entity, accType); ptr != nil {
-		*ptr = Acc{X: 0.1, Y: 0.1}
-	}
+	entity := goke.CreateEntity(ecs)
+
+	// --- Component Assignment with In-Place Memory Access ---
+	// EnsureComponent acts as a high-performance Upsert. By returning a direct
+	// pointer to the component's slot in the archetype storage, it allows for
+	// in-place modification (*ptr = T{...}).
+	*goke.EnsureComponent[Pos](ecs, entity, posType) = Pos{X: 0, Y: 0}
+	*goke.EnsureComponent[Vel](ecs, entity, velType) = Vel{X: 1, Y: 1}
+	*goke.EnsureComponent[Acc](ecs, entity, accType) = Acc{X: 0.1, Y: 0.1}
 
 	// Initialize view for Pos, Vel, and Acc components
-	view := goke.NewView3[Pos, Vel, Acc](engine)
+	view := goke.NewView3[Pos, Vel, Acc](ecs)
 
 	// Define the movement system using the functional registration pattern
-	movementSystem := goke.SystemFuncRegister(engine, func(cb *goke.Schedule, d time.Duration) {
-		// High-performance iteration utilizing Data Locality.
-		// Component data is processed in contiguous memory blocks (SoA layout).
+	movementSystem := goke.RegisterSystemFunc(ecs, func(schedule *goke.Schedule, d time.Duration) {
+		// SoA (Structure of Arrays) layout ensures CPU Cache friendliness.
 		for head := range view.Values() {
 			pos, vel, acc := head.V1, head.V2, head.V3
 
@@ -49,15 +49,15 @@ func main() {
 		}
 	})
 
-	// Configure the engine's execution workflow and synchronization points
-	engine.SetExecutionPlan(func(ctx goke.ExecutionContext, d time.Duration) {
+	// Configure the ECS's execution workflow and synchronization points
+	goke.Plan(ecs, func(ctx goke.ExecutionContext, d time.Duration) {
 		ctx.Run(movementSystem, d)
 		ctx.Sync() // Ensure all component updates are flushed and views are consistent
 	})
 
-	// Execute a single simulation step (standard 60 FPS tick)
-	engine.Tick(time.Millisecond * 16)
+	// Execute a single simulation step (standard 120 TPS)
+	goke.Tick(ecs, time.Second/120)
 
-	p, _ := goke.EntityGetComponent[Pos](engine, entity, posType)
+	p, _ := goke.GetComponent[Pos](ecs, entity, posType)
 	fmt.Printf("Final Position: {X: %.2f, Y: %.2f}\n", p.X, p.Y)
 }

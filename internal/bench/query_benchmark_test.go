@@ -18,56 +18,41 @@ type Char struct{ V [32]float32 }
 type Elec struct{ V float64 }
 type Magn struct{ V float64 }
 
-func setupBenchmark(_ *testing.B, count int) (*goke.Engine, []core.Entity) {
-	eng := goke.NewEngine()
-	posType := goke.ComponentRegister[Pos](eng)
-	velType := goke.ComponentRegister[Vel](eng)
-	accType := goke.ComponentRegister[Acc](eng)
-	massType := goke.ComponentRegister[Mass](eng)
-	spinType := goke.ComponentRegister[Spin](eng)
-	charType := goke.ComponentRegister[Char](eng)
-	elecType := goke.ComponentRegister[Elec](eng)
-	magnType := goke.ComponentRegister[Magn](eng)
+func setupBenchmark(_ *testing.B, count int) (*goke.ECS, []core.Entity) {
+	ecs := goke.New()
+	posType := goke.RegisterComponentType[Pos](ecs)
+	velType := goke.RegisterComponentType[Vel](ecs)
+	accType := goke.RegisterComponentType[Acc](ecs)
+	massType := goke.RegisterComponentType[Mass](ecs)
+	spinType := goke.RegisterComponentType[Spin](ecs)
+	charType := goke.RegisterComponentType[Char](ecs)
+	elecType := goke.RegisterComponentType[Elec](ecs)
+	magnType := goke.RegisterComponentType[Magn](ecs)
 
 	var entities []core.Entity
 	for range count {
-		e := goke.EntityCreate(eng)
+		e := goke.CreateEntity(ecs)
 
-		if pos, err := goke.EntityEnsureComponent[Pos](eng, e, posType); err == nil {
-			*(*Pos)(pos) = Pos{1, 1}
-		}
-		if vel, err := goke.EntityEnsureComponent[Vel](eng, e, velType); err == nil {
-			*(*Vel)(vel) = Vel{1, 1}
-		}
-		if acc, err := goke.EntityEnsureComponent[Acc](eng, e, accType); err == nil {
-			*(*Acc)(acc) = Acc{1, 1}
-		}
-		if mass, err := goke.EntityEnsureComponent[Mass](eng, e, massType); err == nil {
-			*(*Mass)(mass) = Mass{}
-		}
-		if spin, err := goke.EntityEnsureComponent[Spin](eng, e, spinType); err == nil {
-			*(*Spin)(spin) = Spin{}
-		}
-		if char, err := goke.EntityEnsureComponent[Char](eng, e, charType); err == nil {
-			*(*Char)(char) = Char{}
-		}
-		if elec, err := goke.EntityEnsureComponent[Elec](eng, e, elecType); err == nil {
-			*(*Elec)(elec) = Elec{1}
-		}
-		if magn, err := goke.EntityEnsureComponent[Magn](eng, e, magnType); err == nil {
-			*(*Magn)(magn) = Magn{1}
-		}
+		*goke.EnsureComponent[Pos](ecs, e, posType) = Pos{1, 1}
+		*goke.EnsureComponent[Vel](ecs, e, velType) = Vel{1, 1}
+		*goke.EnsureComponent[Acc](ecs, e, accType) = Acc{1, 1}
+		*goke.EnsureComponent[Mass](ecs, e, massType) = Mass{}
+		*goke.EnsureComponent[Spin](ecs, e, spinType) = Spin{}
+		*goke.EnsureComponent[Char](ecs, e, charType) = Char{}
+		*goke.EnsureComponent[Elec](ecs, e, elecType) = Elec{1}
+		*goke.EnsureComponent[Magn](ecs, e, magnType) = Magn{1}
+
 		entities = append(entities, e)
 	}
-	return eng, entities
+	return ecs, entities
 }
 
-// --- Benchmarki Standardowe (All) ---
+// --- Benchmark All ---
 
 func BenchmarkView0_All(b *testing.B) {
 	b.StopTimer()
-	eng, _ := setupBenchmark(b, entitiesNumber)
-	view := goke.NewView0(eng)
+	ecs, _ := setupBenchmark(b, entitiesNumber)
+	view := goke.NewView0(ecs)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -84,8 +69,8 @@ func BenchmarkView0_All(b *testing.B) {
 
 func BenchmarkView1_All(b *testing.B) {
 	b.StopTimer()
-	eng, _ := setupBenchmark(b, entitiesNumber)
-	view1 := goke.NewView1[Pos](eng)
+	ecs, _ := setupBenchmark(b, entitiesNumber)
+	view1 := goke.NewView1[Pos](ecs)
 
 	fn := func() {
 		for head := range view1.All() {
@@ -102,8 +87,8 @@ func BenchmarkView1_All(b *testing.B) {
 
 func BenchmarkView2_All(b *testing.B) {
 	b.StopTimer()
-	eng, _ := setupBenchmark(b, entitiesNumber)
-	view2 := goke.NewView2[Pos, Vel](eng)
+	ecs, _ := setupBenchmark(b, entitiesNumber)
+	view2 := goke.NewView2[Pos, Vel](ecs)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -121,8 +106,8 @@ func BenchmarkView2_All(b *testing.B) {
 
 func BenchmarkView3_All(b *testing.B) {
 	b.StopTimer()
-	eng, _ := setupBenchmark(b, entitiesNumber)
-	view3 := goke.NewView3[Pos, Vel, Acc](eng)
+	ecs, _ := setupBenchmark(b, entitiesNumber)
+	view3 := goke.NewView3[Pos, Vel, Acc](ecs)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -141,8 +126,8 @@ func BenchmarkView3_All(b *testing.B) {
 
 func BenchmarkView3WithTag_All(b *testing.B) {
 	b.StopTimer()
-	eng, _ := setupBenchmark(b, entitiesNumber)
-	view := goke.NewView3[Pos, Vel, Acc](eng, core.WithTag[Mass]())
+	ecs, _ := setupBenchmark(b, entitiesNumber)
+	view := goke.NewView3[Pos, Vel, Acc](ecs, core.WithTag[Mass]())
 
 	fn := func() {
 		for head := range view.All() {
@@ -159,8 +144,8 @@ func BenchmarkView3WithTag_All(b *testing.B) {
 
 func BenchmarkView4_All(b *testing.B) {
 	b.StopTimer()
-	eng, _ := setupBenchmark(b, entitiesNumber)
-	view4 := goke.NewView4[Pos, Vel, Acc, Mass](eng)
+	ecs, _ := setupBenchmark(b, entitiesNumber)
+	view4 := goke.NewView4[Pos, Vel, Acc, Mass](ecs)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -180,8 +165,8 @@ func BenchmarkView4_All(b *testing.B) {
 
 func BenchmarkView5_All(b *testing.B) {
 	b.StopTimer()
-	eng, _ := setupBenchmark(b, entitiesNumber)
-	view5 := goke.NewView5[Pos, Vel, Acc, Mass, Spin](eng)
+	ecs, _ := setupBenchmark(b, entitiesNumber)
+	view5 := goke.NewView5[Pos, Vel, Acc, Mass, Spin](ecs)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -202,8 +187,8 @@ func BenchmarkView5_All(b *testing.B) {
 
 func BenchmarkView6_All(b *testing.B) {
 	b.StopTimer()
-	eng, _ := setupBenchmark(b, entitiesNumber)
-	view6 := goke.NewView6[Pos, Vel, Acc, Mass, Spin, Char](eng)
+	ecs, _ := setupBenchmark(b, entitiesNumber)
+	view6 := goke.NewView6[Pos, Vel, Acc, Mass, Spin, Char](ecs)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -222,8 +207,8 @@ func BenchmarkView6_All(b *testing.B) {
 
 func BenchmarkView7_All(b *testing.B) {
 	b.StopTimer()
-	eng, _ := setupBenchmark(b, entitiesNumber)
-	view7 := goke.NewView7[Pos, Vel, Acc, Mass, Spin, Char, Elec](eng)
+	ecs, _ := setupBenchmark(b, entitiesNumber)
+	view7 := goke.NewView7[Pos, Vel, Acc, Mass, Spin, Char, Elec](ecs)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -242,8 +227,8 @@ func BenchmarkView7_All(b *testing.B) {
 
 func BenchmarkView8_All(b *testing.B) {
 	b.StopTimer()
-	eng, _ := setupBenchmark(b, entitiesNumber)
-	view8 := goke.NewView8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn](eng)
+	ecs, _ := setupBenchmark(b, entitiesNumber)
+	view8 := goke.NewView8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn](ecs)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -260,12 +245,12 @@ func BenchmarkView8_All(b *testing.B) {
 	}
 }
 
-// --- Benchmarki Filtrowane ---
+// --- Benchmark Filter ---
 
 func BenchmarkView0_Filter100(b *testing.B) {
 	b.StopTimer()
-	eng, entities := setupBenchmark(b, entitiesNumber)
-	view3 := goke.NewView0(eng)
+	ecs, entities := setupBenchmark(b, entitiesNumber)
+	view3 := goke.NewView0(ecs)
 	subset := entities[:100]
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
@@ -283,8 +268,8 @@ func BenchmarkView0_Filter100(b *testing.B) {
 
 func BenchmarkView3_Filter100(b *testing.B) {
 	b.StopTimer()
-	eng, entities := setupBenchmark(b, entitiesNumber)
-	view3 := goke.NewView3[Pos, Vel, Acc](eng)
+	ecs, entities := setupBenchmark(b, entitiesNumber)
+	view3 := goke.NewView3[Pos, Vel, Acc](ecs)
 	subset := entities[:100]
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
@@ -302,12 +287,12 @@ func BenchmarkView3_Filter100(b *testing.B) {
 	}
 }
 
-// --- Benchmarki Pure All ---
+// --- Benchmark Values ---
 
 func BenchmarkView1_Values(b *testing.B) {
 	b.StopTimer()
-	eng, _ := setupBenchmark(b, entitiesNumber)
-	view1 := goke.NewView1[Pos](eng)
+	ecs, _ := setupBenchmark(b, entitiesNumber)
+	view1 := goke.NewView1[Pos](ecs)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -325,8 +310,8 @@ func BenchmarkView1_Values(b *testing.B) {
 
 func BenchmarkView2_Values(b *testing.B) {
 	b.StopTimer()
-	eng, _ := setupBenchmark(b, entitiesNumber)
-	view2 := goke.NewView2[Pos, Vel](eng)
+	ecs, _ := setupBenchmark(b, entitiesNumber)
+	view2 := goke.NewView2[Pos, Vel](ecs)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -344,8 +329,8 @@ func BenchmarkView2_Values(b *testing.B) {
 
 func BenchmarkView3_Values(b *testing.B) {
 	b.StopTimer()
-	eng, _ := setupBenchmark(b, entitiesNumber)
-	view3 := goke.NewView3[Pos, Vel, Acc](eng)
+	ecs, _ := setupBenchmark(b, entitiesNumber)
+	view3 := goke.NewView3[Pos, Vel, Acc](ecs)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -364,8 +349,8 @@ func BenchmarkView3_Values(b *testing.B) {
 
 func BenchmarkView4_Values(b *testing.B) {
 	b.StopTimer()
-	eng, _ := setupBenchmark(b, entitiesNumber)
-	view4 := goke.NewView4[Pos, Vel, Acc, Mass](eng)
+	ecs, _ := setupBenchmark(b, entitiesNumber)
+	view4 := goke.NewView4[Pos, Vel, Acc, Mass](ecs)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -384,8 +369,8 @@ func BenchmarkView4_Values(b *testing.B) {
 
 func BenchmarkView5_Values(b *testing.B) {
 	b.StopTimer()
-	eng, _ := setupBenchmark(b, entitiesNumber)
-	view5 := goke.NewView5[Pos, Vel, Acc, Mass, Spin](eng)
+	ecs, _ := setupBenchmark(b, entitiesNumber)
+	view5 := goke.NewView5[Pos, Vel, Acc, Mass, Spin](ecs)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -404,8 +389,8 @@ func BenchmarkView5_Values(b *testing.B) {
 
 func BenchmarkView6_Values(b *testing.B) {
 	b.StopTimer()
-	eng, _ := setupBenchmark(b, entitiesNumber)
-	view6 := goke.NewView6[Pos, Vel, Acc, Mass, Spin, Char](eng)
+	ecs, _ := setupBenchmark(b, entitiesNumber)
+	view6 := goke.NewView6[Pos, Vel, Acc, Mass, Spin, Char](ecs)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -424,8 +409,8 @@ func BenchmarkView6_Values(b *testing.B) {
 
 func BenchmarkView7_Values(b *testing.B) {
 	b.StopTimer()
-	eng, _ := setupBenchmark(b, entitiesNumber)
-	view7 := goke.NewView7[Pos, Vel, Acc, Mass, Spin, Char, Elec](eng)
+	ecs, _ := setupBenchmark(b, entitiesNumber)
+	view7 := goke.NewView7[Pos, Vel, Acc, Mass, Spin, Char, Elec](ecs)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -444,8 +429,8 @@ func BenchmarkView7_Values(b *testing.B) {
 
 func BenchmarkView8_Values(b *testing.B) {
 	b.StopTimer()
-	eng, _ := setupBenchmark(b, entitiesNumber)
-	view8 := goke.NewView8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn](eng)
+	ecs, _ := setupBenchmark(b, entitiesNumber)
+	view8 := goke.NewView8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn](ecs)
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
@@ -462,12 +447,12 @@ func BenchmarkView8_Values(b *testing.B) {
 	}
 }
 
-// --- Benchmarki FilterValues ---
+// --- Benchmark FilterValues ---
 
 func BenchmarkView3_FilterValues100(b *testing.B) {
 	b.StopTimer()
-	eng, entities := setupBenchmark(b, entitiesNumber)
-	view3 := goke.NewView3[Pos, Vel, Acc](eng)
+	ecs, entities := setupBenchmark(b, entitiesNumber)
+	view3 := goke.NewView3[Pos, Vel, Acc](ecs)
 	subset := entities[:100]
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.

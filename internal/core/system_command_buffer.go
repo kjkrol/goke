@@ -25,7 +25,7 @@ type systemCommand struct {
 
 const pageSize = 4096
 
-// Linear Allocator
+// SystemCommandBuffer as Linear Allocator
 type SystemCommandBuffer struct {
 	commands      []systemCommand
 	pages         [][]byte
@@ -41,7 +41,7 @@ func NewSystemCommandBuffer() *SystemCommandBuffer {
 	}
 }
 
-// AssignComponent safely copies component data into the buffer's pool
+// AddComponent safely copies component data into the buffer's pool
 func AddComponent[T any](cb *SystemCommandBuffer, e Entity, info ComponentInfo, value T) {
 	size := int(unsafe.Sizeof(value))
 
