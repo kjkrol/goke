@@ -12,23 +12,23 @@ func TestView_WithTag_And_Without_Logic(t *testing.T) {
 	ecs := goke.New()
 	// 1. Setup Entities with different structural profiles
 
-	positionType := goke.RegisterComponentType[position](ecs)
-	velocityType := goke.RegisterComponentType[velocity](ecs)
-	complexType := goke.RegisterComponentType[complexComponent](ecs)
+	positionDesc := goke.RegisterComponent[position](ecs)
+	velocityDesc := goke.RegisterComponent[velocity](ecs)
+	complexDesc := goke.RegisterComponent[complexComponent](ecs)
 
 	// Entity A: Only position
 	eA := goke.CreateEntity(ecs)
-	goke.EnsureComponent[position](ecs, eA, positionType)
+	goke.EnsureComponent[position](ecs, eA, positionDesc)
 
 	// Entity B: position + velocity (Moving entity)
 	eB := goke.CreateEntity(ecs)
-	goke.EnsureComponent[position](ecs, eB, positionType)
-	goke.EnsureComponent[velocity](ecs, eB, velocityType)
+	goke.EnsureComponent[position](ecs, eB, positionDesc)
+	goke.EnsureComponent[velocity](ecs, eB, velocityDesc)
 
 	// Entity C: position + complexComponent (Static named entity)
 	eC := goke.CreateEntity(ecs)
-	goke.EnsureComponent[position](ecs, eC, positionType)
-	goke.EnsureComponent[complexComponent](ecs, eC, complexType)
+	goke.EnsureComponent[position](ecs, eC, positionDesc)
+	goke.EnsureComponent[complexComponent](ecs, eC, complexDesc)
 
 	// 2. Test: Filter Inclusion (WithTag) and Exclusion (Without)
 	t.Run("Inclusion and Exclusion Logic", func(t *testing.T) {

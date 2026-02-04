@@ -20,20 +20,20 @@ func BenchmarkEngine_Structural(b *testing.B) {
 	)
 
 	// Pre-registering for "Turbo" performance in bench
-	posType := goke.RegisterComponentType[Position3](ecs)
-	velType := goke.RegisterComponentType[Velocity3](ecs)
-	tagType := goke.RegisterComponentType[ProcessedTag](ecs)
+	posDesc := goke.RegisterComponent[Position3](ecs)
+	velDesc := goke.RegisterComponent[Velocity3](ecs)
+	tagDesc := goke.RegisterComponent[ProcessedTag](ecs)
 
 	// initialize archetypes
 	eStart1 := goke.CreateEntity(ecs)
-	goke.EnsureComponent[Velocity3](ecs, eStart1, velType)
+	goke.EnsureComponent[Velocity3](ecs, eStart1, velDesc)
 
 	eStart2 := goke.CreateEntity(ecs)
-	goke.EnsureComponent[Position3](ecs, eStart2, posType)
-	goke.EnsureComponent[Velocity3](ecs, eStart2, velType)
+	goke.EnsureComponent[Position3](ecs, eStart2, posDesc)
+	goke.EnsureComponent[Velocity3](ecs, eStart2, velDesc)
 
 	eStart3 := goke.CreateEntity(ecs)
-	goke.EnsureComponent[ProcessedTag](ecs, eStart3, tagType)
+	goke.EnsureComponent[ProcessedTag](ecs, eStart3, tagDesc)
 
 	// --- 1. ENTITY CREATION & INITIALIZATION ---
 	// Tests CreateEntity
@@ -56,7 +56,7 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			*goke.EnsureComponent[Velocity3](ecs, entities[i], velType) = Velocity3{X: 10, Y: 10}
+			*goke.EnsureComponent[Velocity3](ecs, entities[i], velDesc) = Velocity3{X: 10, Y: 10}
 		}
 	})
 
@@ -66,12 +66,12 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		entities := make([]goke.Entity, b.N)
 		for i := 0; i < b.N; i++ {
 			entities[i] = goke.CreateEntity(ecs)
-			*goke.EnsureComponent[Position3](ecs, entities[i], posType) = Position3{X: 1}
+			*goke.EnsureComponent[Position3](ecs, entities[i], posDesc) = Position3{X: 1}
 		}
 		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			*goke.EnsureComponent[Velocity3](ecs, entities[i], velType) = Velocity3{X: 10, Y: 10}
+			*goke.EnsureComponent[Velocity3](ecs, entities[i], velDesc) = Velocity3{X: 10, Y: 10}
 		}
 	})
 
@@ -84,7 +84,7 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			goke.EnsureComponent[ProcessedTag](ecs, entities[i], tagType)
+			goke.EnsureComponent[ProcessedTag](ecs, entities[i], tagDesc)
 		}
 	})
 
@@ -93,12 +93,12 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		entities := make([]goke.Entity, b.N)
 		for i := 0; i < b.N; i++ {
 			entities[i] = goke.CreateEntity(ecs)
-			goke.EnsureComponent[Position3](ecs, entities[i], posType)
+			goke.EnsureComponent[Position3](ecs, entities[i], posDesc)
 		}
 		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			goke.RemoveComponent(ecs, entities[i], posType)
+			goke.RemoveComponent(ecs, entities[i], posDesc)
 		}
 	})
 
@@ -108,13 +108,13 @@ func BenchmarkEngine_Structural(b *testing.B) {
 	// This is the "Convenience Path" - slower but easier to use.
 	b.Run("Get_Component_Reflect", func(b *testing.B) {
 		e := goke.CreateEntity(ecs)
-		*goke.EnsureComponent[Position3](ecs, e, posType) = Position3{X: 1, Y: 2, Z: 3}
+		*goke.EnsureComponent[Position3](ecs, e, posDesc) = Position3{X: 1, Y: 2, Z: 3}
 
 		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			// Internally calls reflect.TypeFor[T]() and registry lookups
-			pos, err := goke.GetComponent[Position3](ecs, e, posType)
+			pos, err := goke.GetComponent[Position3](ecs, e, posDesc)
 			if err == nil {
 				pos.X += 1.0
 			}
@@ -125,13 +125,13 @@ func BenchmarkEngine_Structural(b *testing.B) {
 	// This is the "Fast Path" - bypasses reflection and registry maps.
 	b.Run("Get_Component_Direct", func(b *testing.B) {
 		e := goke.CreateEntity(ecs)
-		*goke.EnsureComponent[Position3](ecs, e, posType) = Position3{X: 1, Y: 2, Z: 3}
+		*goke.EnsureComponent[Position3](ecs, e, posDesc) = Position3{X: 1, Y: 2, Z: 3}
 
 		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			// Uses the provided compInfo to jump straight to the correct column
-			pos, err := goke.GetComponent[Position3](ecs, e, posType)
+			pos, err := goke.GetComponent[Position3](ecs, e, posDesc)
 			if err == nil {
 				pos.X += 1.0
 			}
@@ -147,12 +147,12 @@ func BenchmarkEngine_Query(b *testing.B) {
 		goke.WithFreeIndicesCap(100000),
 		goke.WithViewRegistryInitCap(64),
 	)
-	posInfo := goke.RegisterComponentType[Position3](ecs)
+	posType := goke.RegisterComponent[Position3](ecs)
 
 	count := 100000
 	for i := 0; i < count; i++ {
 		e := goke.CreateEntity(ecs)
-		*goke.EnsureComponent[Position3](ecs, e, posInfo) = Position3{X: float64(i)}
+		*goke.EnsureComponent[Position3](ecs, e, posType) = Position3{X: float64(i)}
 	}
 
 	view := goke.NewView1[Position3](ecs)
@@ -174,14 +174,14 @@ func BenchmarkEngine_RemoveEntity_Clean(b *testing.B) {
 		goke.WithDefaultArchetypeChunkSize(4096),
 		goke.WithFreeIndicesCap(count),
 	)
-	posInfo := goke.RegisterComponentType[Position3](ecs)
+	posDesc := goke.RegisterComponent[Position3](ecs)
 
 	// --- SETUP PHASE ---
 	// Pre-create entities outside the timed loop to isolate the cost of removal
 	entities := make([]goke.Entity, count)
 	for j := 0; j < count; j++ {
 		entities[j] = goke.CreateEntity(ecs)
-		goke.EnsureComponent[Position3](ecs, entities[j], posInfo)
+		goke.EnsureComponent[Position3](ecs, entities[j], posDesc)
 	}
 
 	b.ResetTimer() // Exclude setup time from the results
@@ -198,7 +198,7 @@ func BenchmarkEngine_RemoveEntity_Clean(b *testing.B) {
 			b.StopTimer()
 			for j := 0; j < count; j++ {
 				entities[j] = goke.CreateEntity(ecs)
-				goke.EnsureComponent[Position3](ecs, entities[j], posInfo)
+				goke.EnsureComponent[Position3](ecs, entities[j], posDesc)
 			}
 			b.StartTimer()
 		}
@@ -209,12 +209,12 @@ func BenchmarkEngine_RemoveEntity_Clean(b *testing.B) {
 
 func BenchmarkEngine_AddRemove_Stability(b *testing.B) {
 	ecs := goke.New(goke.WithInitialEntityCap(1024))
-	posInfo := goke.RegisterComponentType[Position3](ecs)
+	posDesc := goke.RegisterComponent[Position3](ecs)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		e := goke.CreateEntity(ecs)
-		*goke.EnsureComponent[Position3](ecs, e, posInfo) = Position3{X: 1}
+		*goke.EnsureComponent[Position3](ecs, e, posDesc) = Position3{X: 1}
 
 		// Usuwamy co drugą, żeby wymusić swapowanie w archetypie
 		if i%2 == 0 {

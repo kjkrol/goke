@@ -20,25 +20,27 @@ type Winner struct{}
 var gameFinished = false
 var turnCounter = 0
 
+var winnerDesc, diceDesc, playerDesc goke.ComponentDesc
+
 func main() {
 	// 1. Initialize the ecs
 	ecs := goke.New()
 
-	// Register component types (optimal for performance)
-	winnerType := goke.RegisterComponentType[Winner](ecs)
-	diceType := goke.RegisterComponentType[Dice](ecs)
-	playerType := goke.RegisterComponentType[Player](ecs)
+	// Register component types
+	winnerDesc = goke.RegisterComponent[Winner](ecs)
+	diceDesc = goke.RegisterComponent[Dice](ecs)
+	playerDesc = goke.RegisterComponent[Player](ecs)
 
 	// 2. Setup Entities & Components
 	diceEnt := goke.CreateEntity(ecs)
-	*goke.EnsureComponent[Dice](ecs, diceEnt, diceType) = Dice{Value: 0}
+	*goke.EnsureComponent[Dice](ecs, diceEnt, diceDesc) = Dice{Value: 0}
 
 	// Setup player entities
 	p1 := goke.CreateEntity(ecs)
-	*goke.EnsureComponent[Player](ecs, p1, playerType) = Player{Bet: 0}
+	*goke.EnsureComponent[Player](ecs, p1, playerDesc) = Player{Bet: 0}
 
 	p2 := goke.CreateEntity(ecs)
-	*goke.EnsureComponent[Player](ecs, p2, playerType) = Player{Bet: 0}
+	*goke.EnsureComponent[Player](ecs, p2, playerDesc) = Player{Bet: 0}
 
 	// 3. Define Views (for system filtering)
 	vDice := goke.NewView1[Dice](ecs)
@@ -68,7 +70,7 @@ func main() {
 		}
 		turnCounter++
 
-		dice, _ := goke.GetComponent[Dice](ecs, diceEnt, diceType)
+		dice, _ := goke.GetComponent[Dice](ecs, diceEnt, diceDesc)
 		fmt.Printf("🎲 Turn %d | Dice Result: %d\n", turnCounter, dice.Value)
 
 		for res := range vPlayers.All() {
@@ -76,7 +78,7 @@ func main() {
 			if res.V1.Bet == dice.Value {
 				gameFinished = true
 				// Defer the assignment of the Winner tag to the next Sync point
-				goke.ScheduleAddComponent(schedule, res.Entity, winnerType, Winner{})
+				goke.ScheduleAddComponent(schedule, res.Entity, winnerDesc, Winner{})
 			}
 		}
 	})
@@ -93,13 +95,10 @@ func main() {
 		// Run data updates in parallel
 		ctx.RunParallel(d, rollSys, betSys)
 		ctx.Sync()
-
 		// Run judgment logic
 		ctx.Run(judgeSys, d)
-
 		// Crucial: Sync applies the Winner tag from judgeSys
 		ctx.Sync()
-
 		// Now the display system will see the entities in vWinners
 		ctx.Run(displayWinnerSys, d)
 	})

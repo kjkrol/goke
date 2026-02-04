@@ -131,13 +131,12 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 }
 
 var (
-	posType goke.ComponentType
-	velType goke.ComponentType
-	appType goke.ComponentType
+	posDesc goke.ComponentDesc
+	velDesc goke.ComponentDesc
+	appDesc goke.ComponentDesc
 )
 
 func main() {
-	// 1. Initialize GOKe ECS
 	ecs := goke.New()
 
 	game := &Game{
@@ -146,9 +145,9 @@ func main() {
 	}
 
 	// 2. Register Components
-	posType = goke.RegisterComponentType[Position](ecs)
-	velType = goke.RegisterComponentType[Velocity](ecs)
-	appType = goke.RegisterComponentType[Appearance](ecs)
+	posDesc = goke.RegisterComponent[Position](ecs)
+	velDesc = goke.RegisterComponent[Velocity](ecs)
+	appDesc = goke.RegisterComponent[Appearance](ecs)
 
 	space := plane.NewToroidal2D[uint32](ScreenWidth, ScreenHeight)
 
@@ -201,9 +200,9 @@ func main() {
 			spatialIndex.QueryRange(pos.AABB.AABB, func(otherID uint64) {
 				entity2 := goke.Entity(otherID / 4) // TODO: fix gokg!!
 				if head.Entity.Index() < entity2.Index() {
-					pos2, _ := goke.GetComponent[Position](ecs, entity2, posType)
-					vel2, _ := goke.GetComponent[Velocity](ecs, entity2, velType)
-					app2, _ := goke.GetComponent[Appearance](ecs, entity2, appType)
+					pos2, _ := goke.GetComponent[Position](ecs, entity2, posDesc)
+					vel2, _ := goke.GetComponent[Velocity](ecs, entity2, velDesc)
+					app2, _ := goke.GetComponent[Appearance](ecs, entity2, appDesc)
 
 					app.Color = color.RGBA{R: 255, A: 255}
 					app2.Color = color.RGBA{R: 255, A: 255}
@@ -260,7 +259,7 @@ func spawnEntities(ecs *goke.ECS, spatialIndex *spatial.GridIndexManager) {
 		startPos := geom.NewVec(startX, startY)
 		aabb := plane.NewAABB(startPos, RectSize, RectSize)
 
-		*goke.EnsureComponent[Position](ecs, e, posType) = Position{
+		*goke.EnsureComponent[Position](ecs, e, posDesc) = Position{
 			AABB: aabb,
 			accX: 0,
 			accY: 0,
@@ -276,11 +275,11 @@ func spawnEntities(ecs *goke.ECS, spatialIndex *spatial.GridIndexManager) {
 			dx = -10
 		}
 
-		*goke.EnsureComponent[Velocity](ecs, e, velType) = Velocity{
+		*goke.EnsureComponent[Velocity](ecs, e, velDesc) = Velocity{
 			Vec: geom.NewVec(dx, dy),
 		}
 
-		*goke.EnsureComponent[Appearance](ecs, e, appType) = Appearance{
+		*goke.EnsureComponent[Appearance](ecs, e, appDesc) = Appearance{
 			Color: color.RGBA{R: 255, G: 255, B: 255, A: 255},
 		}
 

@@ -66,9 +66,9 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	ecs := goke.New()
 
 	// 1. Setup
-	posInfo := goke.RegisterComponentType[Position](ecs)
-	velInfo := goke.RegisterComponentType[Velocity](ecs)
-	healthInfo := goke.RegisterComponentType[Health](ecs)
+	posDesc := goke.RegisterComponent[Position](ecs)
+	velDesc := goke.RegisterComponent[Velocity](ecs)
+	healthDesc := goke.RegisterComponent[Health](ecs)
 
 	phys := &PhysicsSystem{}
 	heal := &HealthSystem{}
@@ -78,9 +78,9 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	// Create entities with ALL components
 	for range 1000 {
 		e := goke.CreateEntity(ecs)
-		*goke.EnsureComponent[Position](ecs, e, posInfo) = Position{0, 0}
-		*goke.EnsureComponent[Velocity](ecs, e, velInfo) = Velocity{10, 10}
-		*goke.EnsureComponent[Health](ecs, e, healthInfo) = Health{50, 100}
+		*goke.EnsureComponent[Position](ecs, e, posDesc) = Position{0, 0}
+		*goke.EnsureComponent[Velocity](ecs, e, velDesc) = Velocity{10, 10}
+		*goke.EnsureComponent[Health](ecs, e, healthDesc) = Health{50, 100}
 	}
 
 	// 2. Execution Plan: Run Physics and Health in parallel

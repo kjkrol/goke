@@ -50,24 +50,18 @@ By using GOKe with Ebitengine:
 * **Decoupled Logic**: Keep your rendering logic in Ebitengine and your game state in GOKe's optimized archetypes, utilizing structures like **[Bucket Grid](https://github.com/kjkrol/gokg)**.
 * **Deterministic Physics**: Run complex collision detection systems across all entities using `RunParallel`.
 
-<table align="center">
+<table>
   <thead>
     <tr>
       <th style="text-align: left; vertical-align: top; width: 400px;">
         <video src="https://github.com/user-attachments/assets/fa8d1aca-2060-466d-8204-9d6a7443d580" width="400" autoplay loop muted playsinline></video>
         <br>
-        <p align="center">
           <sub><strong>Stats:</strong> 2048 colliding AABBs | 120 TPS | 0.1-1 collisions/tick</sub>
-        </p>
       </th>
       <th style="text-align: left; vertical-align: top; width: 400px;">
         <video src="https://github.com/user-attachments/assets/f1ef2c0b-fb7b-478a-bc88-77faa48c0623" width="400" autoplay loop muted playsinline></video>
         <br>
-        <sub>
-          <p align="center">
-            <strong>Stats:</strong> 64 colliding AABBs | 120 TPS | 0.1-1 collisions/tick
-          </p>
-        </sub>
+        <sub><strong>Stats:</strong> 64 colliding AABBs | 120 TPS | 0.1-1 collisions/tick</sub>
       </th>
     </tr>
   </thead>
@@ -83,16 +77,24 @@ By using GOKe with Ebitengine:
 </table>
 
 ## 🧬 High-Mass Simulations
-If your project involves millions of "agents" (e.g., crowd simulation, epidemiological models, or particle physics), GOKe’s **Linear SoA (Structure of Arrays)** layout is essential. It ensures that data is packed tightly in memory, allowing the CPU to process entities at sub-nanosecond speeds by minimizing cache misses.
+If your project involves millions of "agents" (e.g., crowd simulation, epidemiological models, or particle physics),
+GOKe’s **Linear SoA (Structure of Arrays)** layout is essential. It ensures that data is packed tightly in memory,
+allowing the CPU to process entities at sub-nanosecond speeds by minimizing cache misses.
 
 ## ⚡ Latency-Critical Data Pipelines
-In fields like **FinTech** or **Real-time Telemetry**, unpredictable GC pauses can be a dealbreaker. Because GOKe achieves **zero allocations in the hot path**, it provides the deterministic performance required for processing streams of data (like order matching or sensor fusion) without sudden latency spikes.
+In fields like **FinTech** or **Real-time Telemetry**, unpredictable GC pauses can be a dealbreaker.
+Because GOKe achieves **zero allocations in the hot path**, it provides the deterministic performance required for 
+processing streams of data (like order matching or sensor fusion) without sudden latency spikes.
 
 ## 🤖 Complex State Management (Digital Twins)
-When building digital replicas of complex systems (factories, power grids, or IoT networks), you often have thousands of sensors with overlapping sets of properties. GOKe’s **Archetype-based filtering** allows you to query and update specific subsets of these sensors with $O(1)$ or near-$O(1)$ complexity.
+When building digital replicas of complex systems (factories, power grids, or IoT networks),
+you often have thousands of sensors with overlapping sets of properties. GOKe’s **Archetype-based filtering** allows 
+you to query and update specific subsets of these sensors with $O(1)$ or near - $O(1)$ complexity.
 
 ## 📐 Real-time Tooling & CAD
-For applications that require high-speed manipulation of large geometric datasets or scene graphs, GOKe offers a way to decouple data from logic. It allows you to run heavy analytical "Systems" over your data blocks at near-metal speeds.
+For applications that require high-speed manipulation of large geometric datasets or scene graphs, GOKe offers 
+a way to decouple data from logic. It allows you to run heavy analytical "Systems" over your data blocks 
+at near-metal speeds.
 
 ## ⚖️ When NOT to use GOKe
 To ensure GOKe is the right tool for your project, consider these trade-offs:
@@ -119,7 +121,7 @@ GOKe provides a professional-grade toolkit for high-performance simulation and g
 * **Command Buffer**: Thread-safe structural changes (Create/Remove/Add/Unassign) are buffered and applied during synchronization points to maintain state consistency.
 * **Flexible Systems**: Supporting both stateless **Functional Systems** (closures) and **Stateful Systems** (structs) with full `Init/Update` lifecycles.
 * **Advanced Execution Planning**: Deterministic scheduling with `RunParallel` support to utilize multi-core processors while maintaining control via explicit `Sync()` points.
-* **Low-Level Access**: Use `AllocateComponent` for direct `*T` pointers to archetype storage or `AllocateComponentByInfo` to bypass reflection entirely.
+* **Low-Level Access**: Use `EnsureComponentfor` direct `*T` pointers and zero-copy in-place upserts, or `SafeEnsureComponent` for error-aware assignments.
 
 > 💡 **See it in action**: Check the `cmd` directory for practical, ready-to-run examples, including a concurrent dice game simulation demonstrating parallel systems and state management.
 
@@ -147,11 +149,11 @@ func main() {
   ecs := goke.New()
 
   // Define component metadata.
-  // This binds Go types to internal descriptors, allowing the engine to 
+  // This binds Go types to internal descriptors, allowing the engine to
   // pre-calculate memory layouts and manage data in contiguous arrays.
-  posType := goke.RegisterComponentType[Pos](ecs)
-  velType := goke.RegisterComponentType[Vel](ecs)
-  accType := goke.RegisterComponentType[Acc](ecs)
+  posDesc := goke.RegisterComponent[Pos](ecs)
+  velDesc := goke.RegisterComponent[Vel](ecs)
+  accDesc := goke.RegisterComponent[Acc](ecs)
 
   entity := goke.CreateEntity(ecs)
 
@@ -159,9 +161,9 @@ func main() {
   // EnsureComponent acts as a high-performance Upsert. By returning a direct
   // pointer to the component's slot in the archetype storage, it allows for
   // in-place modification (*ptr = T{...}).
-  *goke.EnsureComponent[Pos](ecs, entity, posType) = Pos{X: 0, Y: 0}
-  *goke.EnsureComponent[Vel](ecs, entity, velType) = Vel{X: 1, Y: 1}
-  *goke.EnsureComponent[Acc](ecs, entity, accType) = Acc{X: 0.1, Y: 0.1}
+  *goke.EnsureComponent[Pos](ecs, entity, posDesc) = Pos{X: 0, Y: 0}
+  *goke.EnsureComponent[Vel](ecs, entity, velDesc) = Vel{X: 1, Y: 1}
+  *goke.EnsureComponent[Acc](ecs, entity, accDesc) = Acc{X: 0.1, Y: 0.1}
 
   // Initialize view for Pos, Vel, and Acc components
   view := goke.NewView3[Pos, Vel, Acc](ecs)
@@ -188,7 +190,7 @@ func main() {
   // Execute a single simulation step (standard 120 TPS)
   goke.Tick(ecs, time.Second/120)
 
-  p, _ := goke.GetComponent[Pos](ecs, entity, posType)
+  p, _ := goke.GetComponent[Pos](ecs, entity, posDesc)
   fmt.Printf("Final Position: {X: %.2f, Y: %.2f}\n", p.X, p.Y)
 }
 ```

@@ -34,14 +34,14 @@ type (
 // The component is initialized with the provided value. If the entity
 // already has this component, the existing data will be overwritten
 // when the schedule is applied.
-func ScheduleAddComponent[T any](schedule *Schedule, e Entity, compType ComponentType, value T) {
-	core.AddComponent(schedule, e, compType, value)
+func ScheduleAddComponent[T any](schedule *Schedule, e Entity, compDesc ComponentDesc, value T) {
+	core.AddComponent(schedule, e, compDesc, value)
 }
 
 // ScheduleRemoveComponent queues the removal of a component from an entity.
 // This operation is ignored if the entity does not have the specified component.
-func ScheduleRemoveComponent(schedule *Schedule, e Entity, compType ComponentType) {
-	core.RemoveComponent(schedule, e, compType)
+func ScheduleRemoveComponent(schedule *Schedule, e Entity, compDesc ComponentDesc) {
+	core.RemoveComponent(schedule, e, compDesc)
 }
 
 // ScheduleCreateEntity queues the creation of a new entity.

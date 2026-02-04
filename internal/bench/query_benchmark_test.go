@@ -20,27 +20,27 @@ type Magn struct{ V float64 }
 
 func setupBenchmark(_ *testing.B, count int) (*goke.ECS, []core.Entity) {
 	ecs := goke.New()
-	posType := goke.RegisterComponentType[Pos](ecs)
-	velType := goke.RegisterComponentType[Vel](ecs)
-	accType := goke.RegisterComponentType[Acc](ecs)
-	massType := goke.RegisterComponentType[Mass](ecs)
-	spinType := goke.RegisterComponentType[Spin](ecs)
-	charType := goke.RegisterComponentType[Char](ecs)
-	elecType := goke.RegisterComponentType[Elec](ecs)
-	magnType := goke.RegisterComponentType[Magn](ecs)
+	posDesc := goke.RegisterComponent[Pos](ecs)
+	velDesc := goke.RegisterComponent[Vel](ecs)
+	accDesc := goke.RegisterComponent[Acc](ecs)
+	massDesc := goke.RegisterComponent[Mass](ecs)
+	spinDesc := goke.RegisterComponent[Spin](ecs)
+	charDesc := goke.RegisterComponent[Char](ecs)
+	elecDesc := goke.RegisterComponent[Elec](ecs)
+	magnDesc := goke.RegisterComponent[Magn](ecs)
 
 	var entities []core.Entity
 	for range count {
 		e := goke.CreateEntity(ecs)
 
-		*goke.EnsureComponent[Pos](ecs, e, posType) = Pos{1, 1}
-		*goke.EnsureComponent[Vel](ecs, e, velType) = Vel{1, 1}
-		*goke.EnsureComponent[Acc](ecs, e, accType) = Acc{1, 1}
-		*goke.EnsureComponent[Mass](ecs, e, massType) = Mass{}
-		*goke.EnsureComponent[Spin](ecs, e, spinType) = Spin{}
-		*goke.EnsureComponent[Char](ecs, e, charType) = Char{}
-		*goke.EnsureComponent[Elec](ecs, e, elecType) = Elec{1}
-		*goke.EnsureComponent[Magn](ecs, e, magnType) = Magn{1}
+		*goke.EnsureComponent[Pos](ecs, e, posDesc) = Pos{1, 1}
+		*goke.EnsureComponent[Vel](ecs, e, velDesc) = Vel{1, 1}
+		*goke.EnsureComponent[Acc](ecs, e, accDesc) = Acc{1, 1}
+		*goke.EnsureComponent[Mass](ecs, e, massDesc) = Mass{}
+		*goke.EnsureComponent[Spin](ecs, e, spinDesc) = Spin{}
+		*goke.EnsureComponent[Char](ecs, e, charDesc) = Char{}
+		*goke.EnsureComponent[Elec](ecs, e, elecDesc) = Elec{1}
+		*goke.EnsureComponent[Magn](ecs, e, magnDesc) = Magn{1}
 
 		entities = append(entities, e)
 	}

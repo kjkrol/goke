@@ -24,8 +24,8 @@ import (
 type Task struct{ Completed bool }
 type Log struct{ Msg string }
 
-var taskType goke.ComponentType
-var logType goke.ComponentType
+var taskDesc goke.ComponentDesc
+var logDesc goke.ComponentDesc
 
 // --- Systems ---
 
@@ -40,7 +40,7 @@ func (s *WorkerSystem) Init(eng *goke.ECS) {
 func (s *WorkerSystem) Update(lookup goke.Lookup, schedule *goke.Schedule, duration time.Duration) {
 	for head := range s.view.All() {
 		msg := Log{Msg: "Done"}
-		goke.ScheduleAddComponent(schedule, head.Entity, logType, msg)
+		goke.ScheduleAddComponent(schedule, head.Entity, logDesc, msg)
 	}
 }
 
@@ -67,8 +67,8 @@ func (s *LoggerSystem) Update(lookup goke.Lookup, schedule *goke.Schedule, durat
 func TestECS_SystemInteractions(t *testing.T) {
 
 	setupComponents := func(e *goke.ECS) {
-		taskType = goke.RegisterComponentType[Task](e)
-		logType = goke.RegisterComponentType[Log](e)
+		taskDesc = goke.RegisterComponent[Task](e)
+		logDesc = goke.RegisterComponent[Log](e)
 	}
 
 	t.Run("Isolation: Logger should not see changes from Worker without Sync between them", func(t *testing.T) {
@@ -76,7 +76,7 @@ func TestECS_SystemInteractions(t *testing.T) {
 		setupComponents(ecs)
 
 		e := goke.CreateEntity(ecs)
-		*goke.EnsureComponent[Task](ecs, e, taskType) = Task{Completed: false}
+		*goke.EnsureComponent[Task](ecs, e, taskDesc) = Task{Completed: false}
 
 		worker := &WorkerSystem{}
 		logger := &LoggerSystem{}
@@ -102,7 +102,7 @@ func TestECS_SystemInteractions(t *testing.T) {
 		setupComponents(ecs)
 
 		e := goke.CreateEntity(ecs)
-		*goke.EnsureComponent[Task](ecs, e, taskType) = Task{Completed: false}
+		*goke.EnsureComponent[Task](ecs, e, taskDesc) = Task{Completed: false}
 
 		worker := &WorkerSystem{}
 		logger := &LoggerSystem{}

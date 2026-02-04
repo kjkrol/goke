@@ -12,8 +12,8 @@ type (
 	Entity = core.Entity
 	// ComponentID is a unique integer identifier for a specific component type.
 	ComponentID = core.ComponentID
-	// ComponentType contains metadata about a component type, such as its ID and memory size.
-	ComponentType = core.ComponentInfo
+	// ComponentDesc is a component descriptor; it contains metadata about a component type, such as its ID and memory size.
+	ComponentDesc = core.ComponentInfo
 
 	ECSConfig = core.RegistryConfig
 	// ExecutionContext provides methods to run systems (parallel or sync) within a plan.
@@ -74,8 +74,8 @@ func RemoveEntity(ecs *ECS, entity Entity) bool {
 // It functions as a zero-copy upsert: if the component exists, it returns a pointer
 // to the existing data; otherwise, it allocates new memory.
 // Returns an error if the entity does not exist or the allocation fails.
-func SafeEnsureComponent[T any](ecs *ECS, entity Entity, compType ComponentType) (*T, error) {
-	ptr, err := ecs.registry.AllocateByID(entity, compType)
+func SafeEnsureComponent[T any](ecs *ECS, entity Entity, compDesc ComponentDesc) (*T, error) {
+	ptr, err := ecs.registry.AllocateByID(entity, compDesc)
 	if err != nil {
 		return nil, err
 	}
@@ -87,8 +87,8 @@ func SafeEnsureComponent[T any](ecs *ECS, entity Entity, compType ComponentType)
 //
 // Note: This function panics if the operation fails (e.g., if the entity is invalid).
 // Use SafeEnsureComponent if you need to handle these errors gracefully.
-func EnsureComponent[T any](ecs *ECS, entity Entity, compType ComponentType) *T {
-	ptr, err := SafeEnsureComponent[T](ecs, entity, compType)
+func EnsureComponent[T any](ecs *ECS, entity Entity, compDesc ComponentDesc) *T {
+	ptr, err := SafeEnsureComponent[T](ecs, entity, compDesc)
 	if err != nil {
 		panic(fmt.Sprintf("goke: failed to ensure component: %v", err))
 	}
@@ -96,8 +96,8 @@ func EnsureComponent[T any](ecs *ECS, entity Entity, compType ComponentType) *T 
 }
 
 // GetComponent returns a typed pointer to an entity's component of type T.
-func GetComponent[T any](ecs *ECS, entity Entity, compType ComponentType) (*T, error) {
-	data, err := ecs.registry.ComponentGet(entity, compType.ID)
+func GetComponent[T any](ecs *ECS, entity Entity, compDesc ComponentDesc) (*T, error) {
+	data, err := ecs.registry.ComponentGet(entity, compDesc.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -106,15 +106,15 @@ func GetComponent[T any](ecs *ECS, entity Entity, compType ComponentType) (*T, e
 }
 
 // RemoveComponent removes a component from an entity using its ComponentInfo.
-func RemoveComponent(ecs *ECS, entity Entity, compType ComponentType) error {
-	return ecs.registry.UnassignByID(entity, compType)
+func RemoveComponent(ecs *ECS, entity Entity, compDesc ComponentDesc) error {
+	return ecs.registry.UnassignByID(entity, compDesc)
 }
 
 // ---- E[C]S Component ----
 
-// RegisterComponentType ensures a component of type T is registered in the ecs
+// RegisterComponent ensures a component of type T is registered in the ecs
 // and returns its metadata.
-func RegisterComponentType[T any](ecs *ECS) ComponentType {
+func RegisterComponent[T any](ecs *ECS) ComponentDesc {
 	return core.EnsureComponentRegistered[T](ecs.registry.ComponentsRegistry)
 }
 

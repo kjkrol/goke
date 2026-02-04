@@ -16,17 +16,19 @@ type (
 	Processed struct{}
 )
 
+var processedDesc, orderDesc, discountDesc goke.ComponentDesc
+
 func main() {
 	ecs := goke.New()
-	processedType := goke.RegisterComponentType[Processed](ecs)
-	orderType := goke.RegisterComponentType[Order](ecs)
-	discountType := goke.RegisterComponentType[Discount](ecs)
+	processedDesc = goke.RegisterComponent[Processed](ecs)
+	orderDesc = goke.RegisterComponent[Order](ecs)
+	discountDesc = goke.RegisterComponent[Discount](ecs)
 
 	// Initialize an entity with Order and Discount component data
 	entity := goke.CreateEntity(ecs)
-	*goke.EnsureComponent[Order](ecs, entity, orderType) = Order{ID: "ORD-99", Total: 200.0}
-	*goke.EnsureComponent[Discount](ecs, entity, discountType) = Discount{Percentage: 20.0}
-	
+	*goke.EnsureComponent[Order](ecs, entity, orderDesc) = Order{ID: "ORD-99", Total: 200.0}
+	*goke.EnsureComponent[Discount](ecs, entity, discountDesc) = Discount{Percentage: 20.0}
+
 	// Define the Billing System to calculate discounted totals for unprocessed orders
 	view := goke.NewView2[Order, Discount](ecs, goke.Without[Processed]())
 	billing := goke.RegisterSystemFunc(ecs, func(schedule *goke.Schedule, d time.Duration) {
@@ -35,7 +37,7 @@ func main() {
 			ord.Total = ord.Total * (1 - disc.Percentage/100)
 
 			// Defer the assignment of the Processed tag to the next synchronization point
-			goke.ScheduleAddComponent(schedule, head.Entity, processedType, Processed{})
+			goke.ScheduleAddComponent(schedule, head.Entity, processedDesc, Processed{})
 		}
 	})
 
@@ -61,7 +63,7 @@ func main() {
 	})
 
 	// Log the initial state before simulation begins
-	orderResult, _ := goke.GetComponent[Order](ecs, entity, orderType)
+	orderResult, _ := goke.GetComponent[Order](ecs, entity, orderDesc)
 	fmt.Printf("Order id: %v value: %v\n", orderResult.ID, orderResult.Total)
 
 	// Run the main simulation loop until the exit signal is received
