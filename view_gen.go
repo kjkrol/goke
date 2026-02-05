@@ -11,8 +11,8 @@ type View1[T1 any] struct {
 	*core.View
 }
 
-func NewView1[T1 any](eng *ECS, options ...ViewOption) *View1[T1] {
-	viewBuilder := core.NewViewBuilder(eng.registry)
+func NewView1[T1 any](ecs *ECS, options ...ViewOption) *View1[T1] {
+	viewBuilder := core.NewViewBuilder(ecs.registry)
 	core.OnCompType[T1](viewBuilder)
 
 	for _, opt := range options {
@@ -146,8 +146,8 @@ type View2[T1, T2 any] struct {
 	*core.View
 }
 
-func NewView2[T1, T2 any](eng *ECS, options ...ViewOption) *View2[T1, T2] {
-	viewBuilder := core.NewViewBuilder(eng.registry)
+func NewView2[T1, T2 any](ecs *ECS, options ...ViewOption) *View2[T1, T2] {
+	viewBuilder := core.NewViewBuilder(ecs.registry)
 	core.OnCompType[T1](viewBuilder)
 	core.OnCompType[T2](viewBuilder)
 
@@ -288,8 +288,8 @@ type View3[T1, T2, T3 any] struct {
 	*core.View
 }
 
-func NewView3[T1, T2, T3 any](eng *ECS, options ...ViewOption) *View3[T1, T2, T3] {
-	viewBuilder := core.NewViewBuilder(eng.registry)
+func NewView3[T1, T2, T3 any](ecs *ECS, options ...ViewOption) *View3[T1, T2, T3] {
+	viewBuilder := core.NewViewBuilder(ecs.registry)
 	core.OnCompType[T1](viewBuilder)
 	core.OnCompType[T2](viewBuilder)
 	core.OnCompType[T3](viewBuilder)
@@ -437,8 +437,8 @@ type View4[T1, T2, T3, T4 any] struct {
 	*core.View
 }
 
-func NewView4[T1, T2, T3, T4 any](eng *ECS, options ...ViewOption) *View4[T1, T2, T3, T4] {
-	viewBuilder := core.NewViewBuilder(eng.registry)
+func NewView4[T1, T2, T3, T4 any](ecs *ECS, options ...ViewOption) *View4[T1, T2, T3, T4] {
+	viewBuilder := core.NewViewBuilder(ecs.registry)
 	core.OnCompType[T1](viewBuilder)
 	core.OnCompType[T2](viewBuilder)
 	core.OnCompType[T3](viewBuilder)
@@ -598,8 +598,8 @@ type View5[T1, T2, T3, T4, T5 any] struct {
 	*core.View
 }
 
-func NewView5[T1, T2, T3, T4, T5 any](eng *ECS, options ...ViewOption) *View5[T1, T2, T3, T4, T5] {
-	viewBuilder := core.NewViewBuilder(eng.registry)
+func NewView5[T1, T2, T3, T4, T5 any](ecs *ECS, options ...ViewOption) *View5[T1, T2, T3, T4, T5] {
+	viewBuilder := core.NewViewBuilder(ecs.registry)
 	core.OnCompType[T1](viewBuilder)
 	core.OnCompType[T2](viewBuilder)
 	core.OnCompType[T3](viewBuilder)
@@ -771,8 +771,8 @@ type View6[T1, T2, T3, T4, T5, T6 any] struct {
 	*core.View
 }
 
-func NewView6[T1, T2, T3, T4, T5, T6 any](eng *ECS, options ...ViewOption) *View6[T1, T2, T3, T4, T5, T6] {
-	viewBuilder := core.NewViewBuilder(eng.registry)
+func NewView6[T1, T2, T3, T4, T5, T6 any](ecs *ECS, options ...ViewOption) *View6[T1, T2, T3, T4, T5, T6] {
+	viewBuilder := core.NewViewBuilder(ecs.registry)
 	core.OnCompType[T1](viewBuilder)
 	core.OnCompType[T2](viewBuilder)
 	core.OnCompType[T3](viewBuilder)
@@ -951,8 +951,8 @@ type View7[T1, T2, T3, T4, T5, T6, T7 any] struct {
 	*core.View
 }
 
-func NewView7[T1, T2, T3, T4, T5, T6, T7 any](eng *ECS, options ...ViewOption) *View7[T1, T2, T3, T4, T5, T6, T7] {
-	viewBuilder := core.NewViewBuilder(eng.registry)
+func NewView7[T1, T2, T3, T4, T5, T6, T7 any](ecs *ECS, options ...ViewOption) *View7[T1, T2, T3, T4, T5, T6, T7] {
+	viewBuilder := core.NewViewBuilder(ecs.registry)
 	core.OnCompType[T1](viewBuilder)
 	core.OnCompType[T2](viewBuilder)
 	core.OnCompType[T3](viewBuilder)
@@ -1138,8 +1138,8 @@ type View8[T1, T2, T3, T4, T5, T6, T7, T8 any] struct {
 	*core.View
 }
 
-func NewView8[T1, T2, T3, T4, T5, T6, T7, T8 any](eng *ECS, options ...ViewOption) *View8[T1, T2, T3, T4, T5, T6, T7, T8] {
-	viewBuilder := core.NewViewBuilder(eng.registry)
+func NewView8[T1, T2, T3, T4, T5, T6, T7, T8 any](ecs *ECS, options ...ViewOption) *View8[T1, T2, T3, T4, T5, T6, T7, T8] {
+	viewBuilder := core.NewViewBuilder(ecs.registry)
 	core.OnCompType[T1](viewBuilder)
 	core.OnCompType[T2](viewBuilder)
 	core.OnCompType[T3](viewBuilder)

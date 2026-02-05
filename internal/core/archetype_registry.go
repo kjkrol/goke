@@ -51,8 +51,13 @@ func (r *ArchetypeRegistry) All() []*Archetype {
 }
 
 func (r *ArchetypeRegistry) AddEntity(entity Entity) {
-	row := r.rootArch.registerEntity(entity)
-	r.EntityLinkStore.Update(entity, r.rootArch, row)
+	r.addEntity(entity, r.rootArch)
+}
+
+func (r *ArchetypeRegistry) addEntity(entity Entity, arch *Archetype) ArchRow {
+	row := arch.registerEntity(entity)
+	r.EntityLinkStore.Update(entity, arch, row)
+	return row
 }
 
 func (r *ArchetypeRegistry) UnlinkEntity(entity Entity) {

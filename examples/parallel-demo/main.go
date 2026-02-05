@@ -32,15 +32,19 @@ func main() {
 	playerDesc = goke.RegisterComponent[Player](ecs)
 
 	// 2. Setup Entities & Components
-	diceEnt := goke.CreateEntity(ecs)
-	*goke.EnsureComponent[Dice](ecs, diceEnt, diceDesc) = Dice{Value: 0}
+	diceBlueprint := goke.NewBlueprint1[Dice](ecs)
+
+	diceEnt, dice := diceBlueprint.Create()
+	*dice = Dice{Value: 0}
 
 	// Setup player entities
-	p1 := goke.CreateEntity(ecs)
-	*goke.EnsureComponent[Player](ecs, p1, playerDesc) = Player{Bet: 0}
+	playerBlueprint := goke.NewBlueprint1[Player](ecs)
 
-	p2 := goke.CreateEntity(ecs)
-	*goke.EnsureComponent[Player](ecs, p2, playerDesc) = Player{Bet: 0}
+	_, player1 := playerBlueprint.Create()
+	*player1 = Player{Bet: 0}
+
+	_, player2 := playerBlueprint.Create()
+	*player2 = Player{Bet: 0}
 
 	// 3. Define Views (for system filtering)
 	vDice := goke.NewView1[Dice](ecs)

@@ -112,7 +112,7 @@ func RemoveComponent(ecs *ECS, entity Entity, compDesc ComponentDesc) error {
 
 // ---- E[C]S Component ----
 
-// RegisterComponent ensures a component of type T is registered in the ecs
+// RegisterComponent ensures a component of type T is registered in the ECS
 // and returns its metadata.
 func RegisterComponent[T any](ecs *ECS) ComponentDesc {
 	return core.EnsureComponentRegistered[T](ecs.registry.ComponentsRegistry)
@@ -120,14 +120,14 @@ func RegisterComponent[T any](ecs *ECS) ComponentDesc {
 
 // ---- EC[S] System ----
 
-// RegisterSystem adds a stateful system to the ecs. The system's Init method
+// RegisterSystem adds a stateful system to the ECS. The system's Init method
 // will be called immediately.
 func RegisterSystem(ecs *ECS, system System) {
 	system.Init(ecs)
 	ecs.scheduler.RegisterSystem(system)
 }
 
-// RegisterSystemFunc adds a stateless, function-based system to the ecs.
+// RegisterSystemFunc adds a stateless, function-based system to the ECS.
 func RegisterSystemFunc(ecs *ECS, fn SystemFunc) System {
 	wrapper := &functionalSystem{updateFn: fn}
 	wrapper.Init(ecs)
@@ -135,9 +135,9 @@ func RegisterSystemFunc(ecs *ECS, fn SystemFunc) System {
 	return wrapper
 }
 
-// ECS
+// ---- ECS ----
 
-// Plan defines the logic for each ecs tick (how systems are orchestrated).
+// Plan defines the logic for each ECS tick (how systems are orchestrated).
 func Plan(ecs *ECS, plan ExecutionPlan) {
 	ecs.scheduler.SetExecutionPlan(plan)
 }

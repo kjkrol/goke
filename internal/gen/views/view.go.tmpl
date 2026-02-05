@@ -3,8 +3,8 @@ type View{{.N}}[{{.AllTParams}} any] struct {
 	*core.View
 }
 
-func NewView{{.N}}[{{.AllTParams}} any](eng *Engine, options ...ViewOption) *View{{.N}}[{{.AllTParams}}] {
-	viewBuilder := core.NewViewBuilder(eng.registry)
+func NewView{{.N}}[{{.AllTParams}} any](ecs *ECS, options ...ViewOption) *View{{.N}}[{{.AllTParams}}] {
+	viewBuilder := core.NewViewBuilder(ecs.registry)
 	{{range .Indices}}core.OnCompType[T{{additions . 1}}](viewBuilder)
 	{{end}}
 	for _, opt := range options {

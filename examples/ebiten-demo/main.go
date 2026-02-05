@@ -245,8 +245,9 @@ func spawnEntities(ecs *goke.ECS, spatialIndex *spatial.GridIndexManager) {
 	cellWidth := uint32(ScreenWidth / cols)
 	cellHeight := uint32(ScreenHeight / cols)
 
+	blueprint := goke.NewBlueprint3[Position, Velocity, Appearance](ecs)
 	for i := 0; i < EntityCount; i++ {
-		e := goke.CreateEntity(ecs)
+		entity, position, velocity, appearance := blueprint.Create()
 
 		row := uint32(i) / cols
 		col := uint32(i) % cols
@@ -259,7 +260,7 @@ func spawnEntities(ecs *goke.ECS, spatialIndex *spatial.GridIndexManager) {
 		startPos := geom.NewVec(startX, startY)
 		aabb := plane.NewAABB(startPos, RectSize, RectSize)
 
-		*goke.EnsureComponent[Position](ecs, e, posDesc) = Position{
+		*position = Position{
 			AABB: aabb,
 			accX: 0,
 			accY: 0,
@@ -275,15 +276,15 @@ func spawnEntities(ecs *goke.ECS, spatialIndex *spatial.GridIndexManager) {
 			dx = -10
 		}
 
-		*goke.EnsureComponent[Velocity](ecs, e, velDesc) = Velocity{
+		*velocity = Velocity{
 			Vec: geom.NewVec(dx, dy),
 		}
 
-		*goke.EnsureComponent[Appearance](ecs, e, appDesc) = Appearance{
+		*appearance = Appearance{
 			Color: color.RGBA{R: 255, G: 255, B: 255, A: 255},
 		}
 
-		spatialIndex.QueueInsert(uint64(e.Index()), aabb.AABB)
+		spatialIndex.QueueInsert(uint64(entity.Index()), aabb.AABB)
 	}
 	spatialIndex.Flush(func(a spatial.AABB) {})
 }

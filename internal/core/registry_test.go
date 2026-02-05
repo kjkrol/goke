@@ -17,10 +17,10 @@ func TestViewReactivity(t *testing.T) {
 
 	// 2. Initialize View BEFORE creating any matching entities
 	// This view looks for entities having both Position AND TagA
-	view := NewViewBuilder(reg).
-		OnType(posTypeInfo.ID).
-		OnTag(tagTypeInfo.ID).
-		Build()
+	builder := NewViewBuilder(reg)
+	builder.WithComp(posTypeInfo.ID)
+	builder.WithTag(tagTypeInfo.ID)
+	view := builder.Build()
 
 	// Initial check: The view should be empty because no archetypes exist yet
 	if len(view.Baked) != 0 {

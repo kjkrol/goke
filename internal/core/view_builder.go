@@ -3,44 +3,30 @@ package core
 import "fmt"
 
 type ViewBuilder struct {
-	reg             *Registry
-	compIDs         []ComponentID
-	tagIDs          []ComponentID
+	*BlueprintBuilder
 	excludedCompIDs []ComponentID
 }
 
 func NewViewBuilder(reg *Registry) *ViewBuilder {
 	return &ViewBuilder{
-		reg:             reg,
-		compIDs:         make([]ComponentID, 0, MaxColumns),
-		tagIDs:          make([]ComponentID, 0, MaxColumns),
-		excludedCompIDs: make([]ComponentID, 0, MaxColumns),
+		BlueprintBuilder: NewBlueprintBuilder(reg),
+		excludedCompIDs:  make([]ComponentID, 0, MaxColumns),
 	}
 }
 
 func OnCompType[T any](b *ViewBuilder) {
 	compInfo := EnsureComponentRegistered[T](b.reg.ComponentsRegistry)
-	b.OnType(compInfo.ID)
+	b.WithComp(compInfo.ID)
 }
 
 func OnTagType[T any](b *ViewBuilder) {
 	compInfo := EnsureComponentRegistered[T](b.reg.ComponentsRegistry)
-	b.OnTag(compInfo.ID)
+	b.WithTag(compInfo.ID)
 }
 
 func OnCompExcludeType[T any](b *ViewBuilder) {
 	compInfo := EnsureComponentRegistered[T](b.reg.ComponentsRegistry)
 	b.OnExcludeType(compInfo.ID)
-}
-
-func (b *ViewBuilder) OnType(id ComponentID) *ViewBuilder {
-	b.compIDs = append(b.compIDs, id)
-	return b
-}
-
-func (b *ViewBuilder) OnTag(id ComponentID) *ViewBuilder {
-	b.tagIDs = append(b.tagIDs, id)
-	return b
 }
 
 func (b *ViewBuilder) OnExcludeType(id ComponentID) *ViewBuilder {
