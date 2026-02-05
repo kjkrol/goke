@@ -11,14 +11,18 @@ type View1[T1 any] struct {
 	*core.View
 }
 
-func NewView1[T1 any](ecs *ECS, options ...ViewOption) *View1[T1] {
-	viewBuilder := core.NewViewBuilder(ecs.registry)
-	core.OnCompType[T1](viewBuilder)
+func NewView1[T1 any](ecs *ECS, opts ...BlueprintOption) *View1[T1] {
+	blueprint := core.NewBlueprint(ecs.registry)
 
-	for _, opt := range options {
-		opt(viewBuilder)
+	comp1Info := core.EnsureComponentRegistered[T1](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp1Info.ID)
+
+	for _, opt := range opts {
+		opt(blueprint)
 	}
-	return &View1[T1]{View: viewBuilder.Build()}
+
+	view := core.NewView(blueprint, ecs.registry)
+	return &View1[T1]{View: view}
 }
 
 // --- Head/Tail ---
@@ -146,15 +150,21 @@ type View2[T1, T2 any] struct {
 	*core.View
 }
 
-func NewView2[T1, T2 any](ecs *ECS, options ...ViewOption) *View2[T1, T2] {
-	viewBuilder := core.NewViewBuilder(ecs.registry)
-	core.OnCompType[T1](viewBuilder)
-	core.OnCompType[T2](viewBuilder)
+func NewView2[T1, T2 any](ecs *ECS, opts ...BlueprintOption) *View2[T1, T2] {
+	blueprint := core.NewBlueprint(ecs.registry)
 
-	for _, opt := range options {
-		opt(viewBuilder)
+	comp1Info := core.EnsureComponentRegistered[T1](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp1Info.ID)
+
+	comp2Info := core.EnsureComponentRegistered[T2](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp2Info.ID)
+
+	for _, opt := range opts {
+		opt(blueprint)
 	}
-	return &View2[T1, T2]{View: viewBuilder.Build()}
+
+	view := core.NewView(blueprint, ecs.registry)
+	return &View2[T1, T2]{View: view}
 }
 
 // --- Head/Tail ---
@@ -288,16 +298,24 @@ type View3[T1, T2, T3 any] struct {
 	*core.View
 }
 
-func NewView3[T1, T2, T3 any](ecs *ECS, options ...ViewOption) *View3[T1, T2, T3] {
-	viewBuilder := core.NewViewBuilder(ecs.registry)
-	core.OnCompType[T1](viewBuilder)
-	core.OnCompType[T2](viewBuilder)
-	core.OnCompType[T3](viewBuilder)
+func NewView3[T1, T2, T3 any](ecs *ECS, opts ...BlueprintOption) *View3[T1, T2, T3] {
+	blueprint := core.NewBlueprint(ecs.registry)
 
-	for _, opt := range options {
-		opt(viewBuilder)
+	comp1Info := core.EnsureComponentRegistered[T1](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp1Info.ID)
+
+	comp2Info := core.EnsureComponentRegistered[T2](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp2Info.ID)
+
+	comp3Info := core.EnsureComponentRegistered[T3](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp3Info.ID)
+
+	for _, opt := range opts {
+		opt(blueprint)
 	}
-	return &View3[T1, T2, T3]{View: viewBuilder.Build()}
+
+	view := core.NewView(blueprint, ecs.registry)
+	return &View3[T1, T2, T3]{View: view}
 }
 
 // --- Head/Tail ---
@@ -437,17 +455,27 @@ type View4[T1, T2, T3, T4 any] struct {
 	*core.View
 }
 
-func NewView4[T1, T2, T3, T4 any](ecs *ECS, options ...ViewOption) *View4[T1, T2, T3, T4] {
-	viewBuilder := core.NewViewBuilder(ecs.registry)
-	core.OnCompType[T1](viewBuilder)
-	core.OnCompType[T2](viewBuilder)
-	core.OnCompType[T3](viewBuilder)
-	core.OnCompType[T4](viewBuilder)
+func NewView4[T1, T2, T3, T4 any](ecs *ECS, opts ...BlueprintOption) *View4[T1, T2, T3, T4] {
+	blueprint := core.NewBlueprint(ecs.registry)
 
-	for _, opt := range options {
-		opt(viewBuilder)
+	comp1Info := core.EnsureComponentRegistered[T1](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp1Info.ID)
+
+	comp2Info := core.EnsureComponentRegistered[T2](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp2Info.ID)
+
+	comp3Info := core.EnsureComponentRegistered[T3](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp3Info.ID)
+
+	comp4Info := core.EnsureComponentRegistered[T4](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp4Info.ID)
+
+	for _, opt := range opts {
+		opt(blueprint)
 	}
-	return &View4[T1, T2, T3, T4]{View: viewBuilder.Build()}
+
+	view := core.NewView(blueprint, ecs.registry)
+	return &View4[T1, T2, T3, T4]{View: view}
 }
 
 // --- Head/Tail ---
@@ -598,18 +626,30 @@ type View5[T1, T2, T3, T4, T5 any] struct {
 	*core.View
 }
 
-func NewView5[T1, T2, T3, T4, T5 any](ecs *ECS, options ...ViewOption) *View5[T1, T2, T3, T4, T5] {
-	viewBuilder := core.NewViewBuilder(ecs.registry)
-	core.OnCompType[T1](viewBuilder)
-	core.OnCompType[T2](viewBuilder)
-	core.OnCompType[T3](viewBuilder)
-	core.OnCompType[T4](viewBuilder)
-	core.OnCompType[T5](viewBuilder)
+func NewView5[T1, T2, T3, T4, T5 any](ecs *ECS, opts ...BlueprintOption) *View5[T1, T2, T3, T4, T5] {
+	blueprint := core.NewBlueprint(ecs.registry)
 
-	for _, opt := range options {
-		opt(viewBuilder)
+	comp1Info := core.EnsureComponentRegistered[T1](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp1Info.ID)
+
+	comp2Info := core.EnsureComponentRegistered[T2](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp2Info.ID)
+
+	comp3Info := core.EnsureComponentRegistered[T3](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp3Info.ID)
+
+	comp4Info := core.EnsureComponentRegistered[T4](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp4Info.ID)
+
+	comp5Info := core.EnsureComponentRegistered[T5](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp5Info.ID)
+
+	for _, opt := range opts {
+		opt(blueprint)
 	}
-	return &View5[T1, T2, T3, T4, T5]{View: viewBuilder.Build()}
+
+	view := core.NewView(blueprint, ecs.registry)
+	return &View5[T1, T2, T3, T4, T5]{View: view}
 }
 
 // --- Head/Tail ---
@@ -771,19 +811,33 @@ type View6[T1, T2, T3, T4, T5, T6 any] struct {
 	*core.View
 }
 
-func NewView6[T1, T2, T3, T4, T5, T6 any](ecs *ECS, options ...ViewOption) *View6[T1, T2, T3, T4, T5, T6] {
-	viewBuilder := core.NewViewBuilder(ecs.registry)
-	core.OnCompType[T1](viewBuilder)
-	core.OnCompType[T2](viewBuilder)
-	core.OnCompType[T3](viewBuilder)
-	core.OnCompType[T4](viewBuilder)
-	core.OnCompType[T5](viewBuilder)
-	core.OnCompType[T6](viewBuilder)
+func NewView6[T1, T2, T3, T4, T5, T6 any](ecs *ECS, opts ...BlueprintOption) *View6[T1, T2, T3, T4, T5, T6] {
+	blueprint := core.NewBlueprint(ecs.registry)
 
-	for _, opt := range options {
-		opt(viewBuilder)
+	comp1Info := core.EnsureComponentRegistered[T1](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp1Info.ID)
+
+	comp2Info := core.EnsureComponentRegistered[T2](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp2Info.ID)
+
+	comp3Info := core.EnsureComponentRegistered[T3](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp3Info.ID)
+
+	comp4Info := core.EnsureComponentRegistered[T4](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp4Info.ID)
+
+	comp5Info := core.EnsureComponentRegistered[T5](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp5Info.ID)
+
+	comp6Info := core.EnsureComponentRegistered[T6](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp6Info.ID)
+
+	for _, opt := range opts {
+		opt(blueprint)
 	}
-	return &View6[T1, T2, T3, T4, T5, T6]{View: viewBuilder.Build()}
+
+	view := core.NewView(blueprint, ecs.registry)
+	return &View6[T1, T2, T3, T4, T5, T6]{View: view}
 }
 
 // --- Head/Tail ---
@@ -951,20 +1005,36 @@ type View7[T1, T2, T3, T4, T5, T6, T7 any] struct {
 	*core.View
 }
 
-func NewView7[T1, T2, T3, T4, T5, T6, T7 any](ecs *ECS, options ...ViewOption) *View7[T1, T2, T3, T4, T5, T6, T7] {
-	viewBuilder := core.NewViewBuilder(ecs.registry)
-	core.OnCompType[T1](viewBuilder)
-	core.OnCompType[T2](viewBuilder)
-	core.OnCompType[T3](viewBuilder)
-	core.OnCompType[T4](viewBuilder)
-	core.OnCompType[T5](viewBuilder)
-	core.OnCompType[T6](viewBuilder)
-	core.OnCompType[T7](viewBuilder)
+func NewView7[T1, T2, T3, T4, T5, T6, T7 any](ecs *ECS, opts ...BlueprintOption) *View7[T1, T2, T3, T4, T5, T6, T7] {
+	blueprint := core.NewBlueprint(ecs.registry)
 
-	for _, opt := range options {
-		opt(viewBuilder)
+	comp1Info := core.EnsureComponentRegistered[T1](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp1Info.ID)
+
+	comp2Info := core.EnsureComponentRegistered[T2](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp2Info.ID)
+
+	comp3Info := core.EnsureComponentRegistered[T3](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp3Info.ID)
+
+	comp4Info := core.EnsureComponentRegistered[T4](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp4Info.ID)
+
+	comp5Info := core.EnsureComponentRegistered[T5](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp5Info.ID)
+
+	comp6Info := core.EnsureComponentRegistered[T6](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp6Info.ID)
+
+	comp7Info := core.EnsureComponentRegistered[T7](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp7Info.ID)
+
+	for _, opt := range opts {
+		opt(blueprint)
 	}
-	return &View7[T1, T2, T3, T4, T5, T6, T7]{View: viewBuilder.Build()}
+
+	view := core.NewView(blueprint, ecs.registry)
+	return &View7[T1, T2, T3, T4, T5, T6, T7]{View: view}
 }
 
 // --- Head/Tail ---
@@ -1138,21 +1208,39 @@ type View8[T1, T2, T3, T4, T5, T6, T7, T8 any] struct {
 	*core.View
 }
 
-func NewView8[T1, T2, T3, T4, T5, T6, T7, T8 any](ecs *ECS, options ...ViewOption) *View8[T1, T2, T3, T4, T5, T6, T7, T8] {
-	viewBuilder := core.NewViewBuilder(ecs.registry)
-	core.OnCompType[T1](viewBuilder)
-	core.OnCompType[T2](viewBuilder)
-	core.OnCompType[T3](viewBuilder)
-	core.OnCompType[T4](viewBuilder)
-	core.OnCompType[T5](viewBuilder)
-	core.OnCompType[T6](viewBuilder)
-	core.OnCompType[T7](viewBuilder)
-	core.OnCompType[T8](viewBuilder)
+func NewView8[T1, T2, T3, T4, T5, T6, T7, T8 any](ecs *ECS, opts ...BlueprintOption) *View8[T1, T2, T3, T4, T5, T6, T7, T8] {
+	blueprint := core.NewBlueprint(ecs.registry)
 
-	for _, opt := range options {
-		opt(viewBuilder)
+	comp1Info := core.EnsureComponentRegistered[T1](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp1Info.ID)
+
+	comp2Info := core.EnsureComponentRegistered[T2](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp2Info.ID)
+
+	comp3Info := core.EnsureComponentRegistered[T3](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp3Info.ID)
+
+	comp4Info := core.EnsureComponentRegistered[T4](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp4Info.ID)
+
+	comp5Info := core.EnsureComponentRegistered[T5](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp5Info.ID)
+
+	comp6Info := core.EnsureComponentRegistered[T6](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp6Info.ID)
+
+	comp7Info := core.EnsureComponentRegistered[T7](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp7Info.ID)
+
+	comp8Info := core.EnsureComponentRegistered[T8](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp8Info.ID)
+
+	for _, opt := range opts {
+		opt(blueprint)
 	}
-	return &View8[T1, T2, T3, T4, T5, T6, T7, T8]{View: viewBuilder.Build()}
+
+	view := core.NewView(blueprint, ecs.registry)
+	return &View8[T1, T2, T3, T4, T5, T6, T7, T8]{View: view}
 }
 
 // --- Head/Tail ---

@@ -3,20 +3,24 @@ package goke
 import (
 	"iter"
 
-	core2 "github.com/kjkrol/goke/internal/core"
+	"github.com/kjkrol/goke/internal/core"
 )
 
 type View0 struct {
-	*core2.View
+	*core.View
 }
 
-func NewView0(ecs *ECS, options ...core2.ViewOption) *View0 {
-	view := core2.NewView(ecs.registry, options...)
+func NewView0(ecs *ECS, opts ...BlueprintOption) *View0 {
+	blueprint := core.NewBlueprint(ecs.registry)
+	for _, opt := range opts {
+		opt(blueprint)
+	}
+	view := core.NewView(blueprint, ecs.registry)
 	return &View0{View: view}
 }
 
-func (v *View0) All() iter.Seq[core2.Entity] {
-	return func(yield func(core2.Entity) bool) {
+func (v *View0) All() iter.Seq[core.Entity] {
+	return func(yield func(core.Entity) bool) {
 		for i := range v.Baked {
 			b := &v.Baked[i]
 			for j := 0; j < *b.Len; j++ {
@@ -28,9 +32,9 @@ func (v *View0) All() iter.Seq[core2.Entity] {
 	}
 }
 
-func (v *View0) Filter(selected []Entity) iter.Seq[core2.Entity] {
+func (v *View0) Filter(selected []Entity) iter.Seq[core.Entity] {
 	links := v.Reg.ArchetypeRegistry.EntityLinkStore
-	return func(yield func(core2.Entity) bool) {
+	return func(yield func(core.Entity) bool) {
 		for _, e := range selected {
 			link, ok := links.Get(e)
 			if !ok {

@@ -4,8 +4,18 @@ import (
 	"github.com/kjkrol/goke/internal/core"
 )
 
-type BlueprintOption = core.BlueprintOption
+type BlueprintOption func(*core.Blueprint)
 
-func Tag[T any]() BlueprintOption {
-	return core.WithBlueprintTag[T]()
+func Include[T any]() BlueprintOption {
+	return func(b *core.Blueprint) {
+		compInfo := core.EnsureComponentRegistered[T](b.Reg.ComponentsRegistry)
+		b.WithTag(compInfo.ID)
+	}
+}
+
+func Exclude[T any]() BlueprintOption {
+	return func(b *core.Blueprint) {
+		compInfo := core.EnsureComponentRegistered[T](b.Reg.ComponentsRegistry)
+		b.ExcludeType(compInfo.ID)
+	}
 }

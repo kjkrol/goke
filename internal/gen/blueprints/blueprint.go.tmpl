@@ -8,26 +8,26 @@ import (
 {{ range $n := .Range }}
 // Blueprint{{ $n }} obsługuje {{ $n }} komponentów
 type Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $n }}, {{ end }}{{ end }}] struct {
-    blueprint *core.Blueprint
+    blueprint *core.ArchetypeEntryBlueprint
 }
 
 func NewBlueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $n }}, {{ end }}{{ end }}](
     ecs *ECS,
     opts ...BlueprintOption,
 ) *Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}] {
-    builder := core.NewBlueprintBuilder(ecs.registry)
+    blueprint := core.NewBlueprint(ecs.registry)
 
     {{ range $i := (seq 1 $n) }}
     comp{{ $i }}Info := core.EnsureComponentRegistered[T{{ $i }}](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp{{ $i }}Info.ID)
+    blueprint.WithComp(comp{{ $i }}Info.ID)
     {{- end }}
 
     for _, opt := range opts {
-        opt(builder)
+        opt(blueprint)
     }
 
     return &Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]{
-        blueprint: builder.Build(),
+        blueprint: core.NewArchetypeEntry(blueprint),
     }
 }
 

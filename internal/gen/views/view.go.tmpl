@@ -3,14 +3,18 @@ type View{{.N}}[{{.AllTParams}} any] struct {
 	*core.View
 }
 
-func NewView{{.N}}[{{.AllTParams}} any](ecs *ECS, options ...ViewOption) *View{{.N}}[{{.AllTParams}}] {
-	viewBuilder := core.NewViewBuilder(ecs.registry)
-	{{range .Indices}}core.OnCompType[T{{additions . 1}}](viewBuilder)
+func NewView{{.N}}[{{.AllTParams}} any](ecs *ECS, opts ...BlueprintOption) *View{{.N}}[{{.AllTParams}}] {
+	blueprint := core.NewBlueprint(ecs.registry)
+	{{range .Indices}}
+	comp{{additions . 1}}Info := core.EnsureComponentRegistered[T{{additions . 1}}](ecs.registry.ComponentsRegistry)
+	blueprint.WithComp(comp{{additions . 1}}Info.ID)
 	{{end}}
-	for _, opt := range options {
-		opt(viewBuilder)
+    for _, opt := range opts {
+		opt(blueprint)
 	}
-	return &View{{.N}}[{{.AllTParams}}]{View: viewBuilder.Build()}
+
+	view := core.NewView(blueprint, ecs.registry)
+	return &View{{.N}}[{{.AllTParams}}]{View: view}
 }
 
 // --- Head/Tail ---
@@ -79,9 +83,9 @@ func (q *View{{.N}}[{{.AllTParams}}]) Filter(selected []Entity) {{.AllSeqType}} 
 			}
 			arch := link.Arch
 			if arch == nil || !q.View.Matches(arch.Mask) { continue }
-			if arch != lastArch { 
+			if arch != lastArch {
 				for i := 0; i < {{.N}}; i++ { cols[i] = arch.Columns[q.CompIDs[i]] }
-				lastArch = arch 
+				lastArch = arch
 			}
 			idx := uintptr(link.Row)
 			head := Head{{.N}}[{{.HTParams}}]{
@@ -138,9 +142,9 @@ func (q *View{{.N}}[{{.AllTParams}}]) FilterValues(selected []Entity) {{.PureSeq
 			}
 			arch := link.Arch
 			if arch == nil || !q.View.Matches(arch.Mask) { continue }
-			if arch != lastArch { 
+			if arch != lastArch {
 				for i := 0; i < {{.N}}; i++ { cols[i] = arch.Columns[q.CompIDs[i]] }
-				lastArch = arch 
+				lastArch = arch
 			}
 			idx := uintptr(link.Row)
 			vhead := VHead{{.N}}[{{.PHTParams}}]{

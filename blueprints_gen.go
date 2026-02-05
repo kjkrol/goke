@@ -8,25 +8,25 @@ import (
 
 // Blueprint1 obsługuje 1 komponentów
 type Blueprint1[T1 any] struct {
-    blueprint *core.Blueprint
+    blueprint *core.ArchetypeEntryBlueprint
 }
 
 func NewBlueprint1[T1 any](
     ecs *ECS,
     opts ...BlueprintOption,
 ) *Blueprint1[T1] {
-    builder := core.NewBlueprintBuilder(ecs.registry)
+    blueprint := core.NewBlueprint(ecs.registry)
 
     
     comp1Info := core.EnsureComponentRegistered[T1](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp1Info.ID)
+    blueprint.WithComp(comp1Info.ID)
 
     for _, opt := range opts {
-        opt(builder)
+        opt(blueprint)
     }
 
     return &Blueprint1[T1]{
-        blueprint: builder.Build(),
+        blueprint: core.NewArchetypeEntry(blueprint),
     }
 }
 
@@ -37,27 +37,27 @@ func (b *Blueprint1[T1]) Create() (Entity, *T1) {
 
 // Blueprint2 obsługuje 2 komponentów
 type Blueprint2[T1 any, T2 any] struct {
-    blueprint *core.Blueprint
+    blueprint *core.ArchetypeEntryBlueprint
 }
 
 func NewBlueprint2[T1 any, T2 any](
     ecs *ECS,
     opts ...BlueprintOption,
 ) *Blueprint2[T1, T2] {
-    builder := core.NewBlueprintBuilder(ecs.registry)
+    blueprint := core.NewBlueprint(ecs.registry)
 
     
     comp1Info := core.EnsureComponentRegistered[T1](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp1Info.ID)
+    blueprint.WithComp(comp1Info.ID)
     comp2Info := core.EnsureComponentRegistered[T2](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp2Info.ID)
+    blueprint.WithComp(comp2Info.ID)
 
     for _, opt := range opts {
-        opt(builder)
+        opt(blueprint)
     }
 
     return &Blueprint2[T1, T2]{
-        blueprint: builder.Build(),
+        blueprint: core.NewArchetypeEntry(blueprint),
     }
 }
 
@@ -68,29 +68,29 @@ func (b *Blueprint2[T1, T2]) Create() (Entity, *T1, *T2) {
 
 // Blueprint3 obsługuje 3 komponentów
 type Blueprint3[T1 any, T2 any, T3 any] struct {
-    blueprint *core.Blueprint
+    blueprint *core.ArchetypeEntryBlueprint
 }
 
 func NewBlueprint3[T1 any, T2 any, T3 any](
     ecs *ECS,
     opts ...BlueprintOption,
 ) *Blueprint3[T1, T2, T3] {
-    builder := core.NewBlueprintBuilder(ecs.registry)
+    blueprint := core.NewBlueprint(ecs.registry)
 
     
     comp1Info := core.EnsureComponentRegistered[T1](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp1Info.ID)
+    blueprint.WithComp(comp1Info.ID)
     comp2Info := core.EnsureComponentRegistered[T2](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp2Info.ID)
+    blueprint.WithComp(comp2Info.ID)
     comp3Info := core.EnsureComponentRegistered[T3](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp3Info.ID)
+    blueprint.WithComp(comp3Info.ID)
 
     for _, opt := range opts {
-        opt(builder)
+        opt(blueprint)
     }
 
     return &Blueprint3[T1, T2, T3]{
-        blueprint: builder.Build(),
+        blueprint: core.NewArchetypeEntry(blueprint),
     }
 }
 
@@ -101,31 +101,31 @@ func (b *Blueprint3[T1, T2, T3]) Create() (Entity, *T1, *T2, *T3) {
 
 // Blueprint4 obsługuje 4 komponentów
 type Blueprint4[T1 any, T2 any, T3 any, T4 any] struct {
-    blueprint *core.Blueprint
+    blueprint *core.ArchetypeEntryBlueprint
 }
 
 func NewBlueprint4[T1 any, T2 any, T3 any, T4 any](
     ecs *ECS,
     opts ...BlueprintOption,
 ) *Blueprint4[T1, T2, T3, T4] {
-    builder := core.NewBlueprintBuilder(ecs.registry)
+    blueprint := core.NewBlueprint(ecs.registry)
 
     
     comp1Info := core.EnsureComponentRegistered[T1](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp1Info.ID)
+    blueprint.WithComp(comp1Info.ID)
     comp2Info := core.EnsureComponentRegistered[T2](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp2Info.ID)
+    blueprint.WithComp(comp2Info.ID)
     comp3Info := core.EnsureComponentRegistered[T3](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp3Info.ID)
+    blueprint.WithComp(comp3Info.ID)
     comp4Info := core.EnsureComponentRegistered[T4](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp4Info.ID)
+    blueprint.WithComp(comp4Info.ID)
 
     for _, opt := range opts {
-        opt(builder)
+        opt(blueprint)
     }
 
     return &Blueprint4[T1, T2, T3, T4]{
-        blueprint: builder.Build(),
+        blueprint: core.NewArchetypeEntry(blueprint),
     }
 }
 
@@ -136,33 +136,33 @@ func (b *Blueprint4[T1, T2, T3, T4]) Create() (Entity, *T1, *T2, *T3, *T4) {
 
 // Blueprint5 obsługuje 5 komponentów
 type Blueprint5[T1 any, T2 any, T3 any, T4 any, T5 any] struct {
-    blueprint *core.Blueprint
+    blueprint *core.ArchetypeEntryBlueprint
 }
 
 func NewBlueprint5[T1 any, T2 any, T3 any, T4 any, T5 any](
     ecs *ECS,
     opts ...BlueprintOption,
 ) *Blueprint5[T1, T2, T3, T4, T5] {
-    builder := core.NewBlueprintBuilder(ecs.registry)
+    blueprint := core.NewBlueprint(ecs.registry)
 
     
     comp1Info := core.EnsureComponentRegistered[T1](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp1Info.ID)
+    blueprint.WithComp(comp1Info.ID)
     comp2Info := core.EnsureComponentRegistered[T2](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp2Info.ID)
+    blueprint.WithComp(comp2Info.ID)
     comp3Info := core.EnsureComponentRegistered[T3](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp3Info.ID)
+    blueprint.WithComp(comp3Info.ID)
     comp4Info := core.EnsureComponentRegistered[T4](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp4Info.ID)
+    blueprint.WithComp(comp4Info.ID)
     comp5Info := core.EnsureComponentRegistered[T5](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp5Info.ID)
+    blueprint.WithComp(comp5Info.ID)
 
     for _, opt := range opts {
-        opt(builder)
+        opt(blueprint)
     }
 
     return &Blueprint5[T1, T2, T3, T4, T5]{
-        blueprint: builder.Build(),
+        blueprint: core.NewArchetypeEntry(blueprint),
     }
 }
 
@@ -173,35 +173,35 @@ func (b *Blueprint5[T1, T2, T3, T4, T5]) Create() (Entity, *T1, *T2, *T3, *T4, *
 
 // Blueprint6 obsługuje 6 komponentów
 type Blueprint6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any] struct {
-    blueprint *core.Blueprint
+    blueprint *core.ArchetypeEntryBlueprint
 }
 
 func NewBlueprint6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any](
     ecs *ECS,
     opts ...BlueprintOption,
 ) *Blueprint6[T1, T2, T3, T4, T5, T6] {
-    builder := core.NewBlueprintBuilder(ecs.registry)
+    blueprint := core.NewBlueprint(ecs.registry)
 
     
     comp1Info := core.EnsureComponentRegistered[T1](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp1Info.ID)
+    blueprint.WithComp(comp1Info.ID)
     comp2Info := core.EnsureComponentRegistered[T2](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp2Info.ID)
+    blueprint.WithComp(comp2Info.ID)
     comp3Info := core.EnsureComponentRegistered[T3](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp3Info.ID)
+    blueprint.WithComp(comp3Info.ID)
     comp4Info := core.EnsureComponentRegistered[T4](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp4Info.ID)
+    blueprint.WithComp(comp4Info.ID)
     comp5Info := core.EnsureComponentRegistered[T5](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp5Info.ID)
+    blueprint.WithComp(comp5Info.ID)
     comp6Info := core.EnsureComponentRegistered[T6](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp6Info.ID)
+    blueprint.WithComp(comp6Info.ID)
 
     for _, opt := range opts {
-        opt(builder)
+        opt(blueprint)
     }
 
     return &Blueprint6[T1, T2, T3, T4, T5, T6]{
-        blueprint: builder.Build(),
+        blueprint: core.NewArchetypeEntry(blueprint),
     }
 }
 
@@ -212,37 +212,37 @@ func (b *Blueprint6[T1, T2, T3, T4, T5, T6]) Create() (Entity, *T1, *T2, *T3, *T
 
 // Blueprint7 obsługuje 7 komponentów
 type Blueprint7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any] struct {
-    blueprint *core.Blueprint
+    blueprint *core.ArchetypeEntryBlueprint
 }
 
 func NewBlueprint7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any](
     ecs *ECS,
     opts ...BlueprintOption,
 ) *Blueprint7[T1, T2, T3, T4, T5, T6, T7] {
-    builder := core.NewBlueprintBuilder(ecs.registry)
+    blueprint := core.NewBlueprint(ecs.registry)
 
     
     comp1Info := core.EnsureComponentRegistered[T1](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp1Info.ID)
+    blueprint.WithComp(comp1Info.ID)
     comp2Info := core.EnsureComponentRegistered[T2](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp2Info.ID)
+    blueprint.WithComp(comp2Info.ID)
     comp3Info := core.EnsureComponentRegistered[T3](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp3Info.ID)
+    blueprint.WithComp(comp3Info.ID)
     comp4Info := core.EnsureComponentRegistered[T4](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp4Info.ID)
+    blueprint.WithComp(comp4Info.ID)
     comp5Info := core.EnsureComponentRegistered[T5](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp5Info.ID)
+    blueprint.WithComp(comp5Info.ID)
     comp6Info := core.EnsureComponentRegistered[T6](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp6Info.ID)
+    blueprint.WithComp(comp6Info.ID)
     comp7Info := core.EnsureComponentRegistered[T7](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp7Info.ID)
+    blueprint.WithComp(comp7Info.ID)
 
     for _, opt := range opts {
-        opt(builder)
+        opt(blueprint)
     }
 
     return &Blueprint7[T1, T2, T3, T4, T5, T6, T7]{
-        blueprint: builder.Build(),
+        blueprint: core.NewArchetypeEntry(blueprint),
     }
 }
 
@@ -253,39 +253,39 @@ func (b *Blueprint7[T1, T2, T3, T4, T5, T6, T7]) Create() (Entity, *T1, *T2, *T3
 
 // Blueprint8 obsługuje 8 komponentów
 type Blueprint8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any] struct {
-    blueprint *core.Blueprint
+    blueprint *core.ArchetypeEntryBlueprint
 }
 
 func NewBlueprint8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any](
     ecs *ECS,
     opts ...BlueprintOption,
 ) *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8] {
-    builder := core.NewBlueprintBuilder(ecs.registry)
+    blueprint := core.NewBlueprint(ecs.registry)
 
     
     comp1Info := core.EnsureComponentRegistered[T1](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp1Info.ID)
+    blueprint.WithComp(comp1Info.ID)
     comp2Info := core.EnsureComponentRegistered[T2](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp2Info.ID)
+    blueprint.WithComp(comp2Info.ID)
     comp3Info := core.EnsureComponentRegistered[T3](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp3Info.ID)
+    blueprint.WithComp(comp3Info.ID)
     comp4Info := core.EnsureComponentRegistered[T4](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp4Info.ID)
+    blueprint.WithComp(comp4Info.ID)
     comp5Info := core.EnsureComponentRegistered[T5](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp5Info.ID)
+    blueprint.WithComp(comp5Info.ID)
     comp6Info := core.EnsureComponentRegistered[T6](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp6Info.ID)
+    blueprint.WithComp(comp6Info.ID)
     comp7Info := core.EnsureComponentRegistered[T7](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp7Info.ID)
+    blueprint.WithComp(comp7Info.ID)
     comp8Info := core.EnsureComponentRegistered[T8](ecs.registry.ComponentsRegistry)
-    builder.WithComp(comp8Info.ID)
+    blueprint.WithComp(comp8Info.ID)
 
     for _, opt := range opts {
-        opt(builder)
+        opt(blueprint)
     }
 
     return &Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]{
-        blueprint: builder.Build(),
+        blueprint: core.NewArchetypeEntry(blueprint),
     }
 }
 

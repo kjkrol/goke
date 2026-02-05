@@ -35,8 +35,8 @@ func TestView_WithTag_And_Without_Logic(t *testing.T) {
 		// Goal: Find entities that have 'position', but are NOT 'velocity' (not moving)
 		// Expected: eA and eC
 		view := goke.NewView0(ecs,
-			core.WithTag[position](),
-			core.Without[velocity](),
+			goke.Include[position](),
+			goke.Exclude[velocity](),
 		)
 
 		found := make(map[core.Entity]bool)
@@ -55,8 +55,8 @@ func TestView_WithTag_And_Without_Logic(t *testing.T) {
 		// Goal: Find entities with 'position' AND 'complexComponent'
 		// Expected: eC only
 		view := goke.NewView0(ecs,
-			core.WithTag[position](),
-			core.WithTag[complexComponent](),
+			goke.Include[position](),
+			goke.Include[complexComponent](),
 		)
 
 		count := 0
@@ -70,7 +70,7 @@ func TestView_WithTag_And_Without_Logic(t *testing.T) {
 	// 4. Test: Filter method on a manual slice
 	t.Run("Manual Slice Filtering", func(t *testing.T) {
 		// Goal: From a list of entities, filter out those that are 'complexComponent'
-		view := goke.NewView0(ecs, core.Without[complexComponent]())
+		view := goke.NewView0(ecs, goke.Exclude[complexComponent]())
 
 		input := []core.Entity{eA, eB, eC}
 		var result []core.Entity

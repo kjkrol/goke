@@ -127,7 +127,7 @@ func BenchmarkView3_All(b *testing.B) {
 func BenchmarkView3WithTag_All(b *testing.B) {
 	b.StopTimer()
 	ecs, _ := setupBenchmark(b, entitiesNumber)
-	view := goke.NewView3[Pos, Vel, Acc](ecs, core.WithTag[Mass]())
+	view := goke.NewView3[Pos, Vel, Acc](ecs, goke.Include[Mass]())
 
 	fn := func() {
 		for head := range view.All() {

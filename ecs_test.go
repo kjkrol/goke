@@ -45,7 +45,7 @@ func TestECS_UseCase(t *testing.T) {
 			goke.ScheduleAddComponent(cb, head.Entity, processedDesc, Processed{})
 		}
 	})
-	query2 := goke.NewView0(ecs, goke.WithTag[Processed](), goke.WithTag[Order](), goke.WithTag[Discount]())
+	query2 := goke.NewView0(ecs, goke.Include[Processed](), goke.Include[Order](), goke.Include[Discount]())
 	cleanerSystem := goke.RegisterSystemFunc(ecs, func(schedule *goke.Schedule, d time.Duration) {
 		for entity := range query2.All() {
 			goke.ScheduleRemoveEntity(schedule, entity)

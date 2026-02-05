@@ -1,5 +1,7 @@
 package core
 
+import "fmt"
+
 const MaxColumns = 8
 
 type MatchedArch struct {
@@ -15,6 +17,37 @@ type View struct {
 	CompIDs     []ComponentID
 	matched     []*Archetype
 	Baked       []MatchedArch
+}
+
+// View factory based on Functional Options pattern
+func NewView(blueprint *Blueprint, reg *Registry) *View {
+	var mask ArchetypeMask
+	var excludedMask ArchetypeMask
+
+	for _, id := range blueprint.compIDs {
+		mask = mask.Set(id)
+	}
+
+	for _, id := range blueprint.tagIDs {
+		mask = mask.Set(id)
+	}
+
+	for _, id := range blueprint.exCompIDs {
+		if mask.IsSet(id) {
+			panic(fmt.Sprintf("ECS View Error: Component ID %d cannot be both REQUIRED and EXCLUDED", id))
+		}
+		excludedMask = excludedMask.Set(id)
+	}
+
+	v := &View{
+		Reg:         reg,
+		includeMask: mask,
+		excludeMask: excludedMask,
+		CompIDs:     blueprint.compIDs,
+	}
+	v.Reindex()
+	v.Reg.ViewRegistry.Register(v)
+	return v
 }
 
 func (v *View) Reindex() {
