@@ -10,7 +10,6 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/kjkrol/goke"
 	"github.com/kjkrol/gokg/pkg/geom"
 	"github.com/kjkrol/gokg/pkg/plane"
@@ -21,15 +20,22 @@ import (
 const (
 	ScreenWidth    = 1024
 	ScreenHeight   = 1024
-	EntityCount    = 2048
-	BucketCapacity = 1024
-	RectSize       = 7
+	EntityCount    = 2048 * 4
+	BucketCapacity = 16
+	RectSize       = 2
 
 	// TargetTPS Define a fixed physics time step (e.g., 120Hz for high precision)
 	// This decouples physics simulation from the rendering framerate
-	TargetTPS   = 120
+	TargetTPS   = 60
 	PhysicsStep = time.Second / TargetTPS
 )
+
+var spatialGridConfig = spatial.GridIndexConfig{
+	Resolution:       spatial.Size1024x1024,
+	BucketResolution: spatial.Size8x8,
+	BucketCapacity:   BucketCapacity,
+	OpsBufferSize:    EntityCount,
+}
 
 // --- Components ---
 
@@ -57,6 +63,14 @@ type Game struct {
 	lastTPSUpdate    time.Time // Timer for resetting the counter
 }
 
+var pixelImage *ebiten.Image
+
+func init() {
+	// Tworzymy teksturę 1x1
+	pixelImage = ebiten.NewImage(RectSize, RectSize)
+	pixelImage.Fill(color.White)
+}
+
 func (g *Game) Update() error {
 	// 1. Calculate the real time elapsed since the last update (Delta Time)
 	now := time.Now()
@@ -72,10 +86,18 @@ func (g *Game) Update() error {
 
 	// 4. Consume the accumulated time in fixed increments
 	// If the frame rate drops, this loop will "catch up" by running multiple ticks
-	for g.accumulator >= PhysicsStep {
+	maxSteps := 5 // Nie symuluj więcej niż 5 kroków na klatkę, nawet jak laguje
+	steps := 0
+	for g.accumulator >= PhysicsStep && steps < maxSteps {
 		goke.Tick(g.ecs, PhysicsStep)
 		g.accumulator -= PhysicsStep
 		g.ticks++
+		steps++
+	}
+	// Jeśli po 5 krokach nadal mamy "dług", po prostu go odpuszczamy,
+	// żeby gra zwolniła (slow-motion), a nie klatkowała.
+	if g.accumulator > PhysicsStep {
+		g.accumulator = 0
 	}
 	// --- CALCULATE ACTUAL PHYSICS TPS ONCE PER SECOND ---
 	if time.Since(g.lastTPSUpdate) >= time.Second {
@@ -89,27 +111,61 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
+
 	screen.Fill(color.RGBA{R: 50, G: 50, B: 50, A: 255})
+
+	// Opcje rysowania, alokujemy raz, żeby nie śmiecić pamięci
+	op := &ebiten.DrawImageOptions{}
+
 	for head := range g.renderView.All() {
 		aabb, app := head.V1, head.V2
 
-		x := float32(aabb.TopLeft.X)
-		y := float32(aabb.TopLeft.Y)
-		w := float32(aabb.BottomRight.X - aabb.TopLeft.X)
-		h := float32(aabb.BottomRight.Y - aabb.TopLeft.Y)
+		// Resetujemy opcje (geoM - macierz transformacji)
+		op.GeoM.Reset()
 
-		vector.FillRect(screen, x, y, w, h, app.Color, true)
+		// Skalowanie (width, height)
+		w := float64(aabb.BottomRight.X - aabb.TopLeft.X)
+		h := float64(aabb.BottomRight.Y - aabb.TopLeft.Y)
+		op.GeoM.Scale(w, h)
 
+		// Przesunięcie (pozycja X, Y)
+		op.GeoM.Translate(float64(aabb.TopLeft.X), float64(aabb.TopLeft.Y))
+
+		// Kolorowanie
+		op.ColorScale.Reset()
+		op.ColorScale.ScaleWithColor(app.Color)
+
+		// To jest BARDZO szybkie (batching na GPU)
+		screen.DrawImage(pixelImage, op)
+
+		// Uwaga: Obsługę "fragmentów" torusa pomijam dla czytelności,
+		// ale analogicznie używasz DrawImage zamiast FillRect.
 		aabb.AABB.VisitFragments(func(pos plane.FragPosition, box geom.AABB[uint32]) bool {
-			x := float32(box.TopLeft.X)
-			y := float32(box.TopLeft.Y)
-			w := float32(box.BottomRight.X - box.TopLeft.X)
-			h := float32(box.BottomRight.Y - box.TopLeft.Y)
-
-			vector.FillRect(screen, x, y, w, h, app.Color, true)
 			return true
 		})
 	}
+
+	// screen.Fill(color.RGBA{R: 50, G: 50, B: 50, A: 255})
+	// for head := range g.renderView.All() {
+	// 	aabb, app := head.V1, head.V2
+
+	// 	x := float32(aabb.TopLeft.X)
+	// 	y := float32(aabb.TopLeft.Y)
+	// 	w := float32(aabb.BottomRight.X - aabb.TopLeft.X)
+	// 	h := float32(aabb.BottomRight.Y - aabb.TopLeft.Y)
+
+	// 	vector.FillRect(screen, x, y, w, h, app.Color, true)
+
+	// 	aabb.AABB.VisitFragments(func(pos plane.FragPosition, box geom.AABB[uint32]) bool {
+	// 		x := float32(box.TopLeft.X)
+	// 		y := float32(box.TopLeft.Y)
+	// 		w := float32(box.BottomRight.X - box.TopLeft.X)
+	// 		h := float32(box.BottomRight.Y - box.TopLeft.Y)
+
+	// 		vector.FillRect(screen, x, y, w, h, app.Color, true)
+	// 		return true
+	// 	})
+	// }
 
 	avgCollisionsPerTick := float64(0)
 	if g.physicsTPS > 0 {
@@ -151,11 +207,7 @@ func main() {
 
 	space := plane.NewToroidal2D[uint32](ScreenWidth, ScreenHeight)
 
-	spatialIndex, err := spatial.NewGridIndexManager(space, spatial.GridIndexConfig{
-		Resolution:       spatial.Size1024x1024,
-		BucketResolution: spatial.Size32x32,
-		BucketCapacity:   BucketCapacity,
-	})
+	spatialIndex, err := spatial.NewGridIndexManager(space, spatialGridConfig)
 	if err != nil {
 		log.Fatalf("Failed to create bucket grid: %v", err)
 	}
