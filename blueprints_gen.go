@@ -2,27 +2,56 @@
 package goke
 
 import (
-   "github.com/kjkrol/goke/internal/core"
+    "fmt"
+
+    "github.com/kjkrol/goke/internal/core"
 )
 
-
-// Blueprint1 obsługuje 1 komponentów
+// Blueprint1 defines a static template (recipe) for the mass construction 
+// of entities with a predefined set of 1 stateful components. It allows 
+// for precise memory layout planning before allocation, which is essential 
+// for high-performance data access patterns.
+//
+// For example, a Blueprint1 could be used to define complex actors that 
+// require exactly 1 distinct data structures to be stored contiguously, 
+// ensuring optimal data locality and cache efficiency.
 type Blueprint1[T1 any] struct {
     blueprint *core.ArchetypeEntryBlueprint
 }
 
+// NewBlueprint1 initializes a new template for a specific combination of 1 components.
+// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the 
+// template with any number of stateless components (Tags). Tags do not occupy 
+// space in the data columns but allow for precise population filtering within Views.
+//
+// By using a static definition, archetype metadata is registered once, 
+// enabling rapid entity spawning with minimal memory management overhead.
+//
+// This constructor panics if component registration fails or if there are 
+// configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint1[T1 any](
     ecs *ECS,
     opts ...BlueprintOption,
 ) *Blueprint1[T1] {
     blueprint := core.NewBlueprint(ecs.registry)
+    reg := ecs.registry.ComponentsRegistry
 
+    // mustAdd ensures that component registration and blueprint assignment
+    // are successful. Panics immediately on failure to support fail-fast startup.
+    mustAdd := func(info core.ComponentInfo) {
+        if err := blueprint.WithComp(info); err != nil {
+            panic(fmt.Sprintf("goke: blueprint1 init failed: %v", err))
+        }
+    }
+
+    mustAdd(core.EnsureComponentRegistered[T1](reg))
     
-    comp1Info := core.EnsureComponentRegistered[T1](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp1Info.ID)
 
+    // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
     for _, opt := range opts {
-        opt(blueprint)
+        if err := opt(blueprint); err != nil {
+            panic(fmt.Sprintf("goke: blueprint1 option failed: %v", err))
+        }
     }
 
     return &Blueprint1[T1]{
@@ -30,30 +59,72 @@ func NewBlueprint1[T1 any](
     }
 }
 
+// Create instantiates a new entity based on the blueprint's static configuration.
+// It returns the unique Entity identifier along with direct pointers to the 
+// newly allocated memory for each of the 1 stateful components.
+//
+// The resulting entity is created with the full set of predefined Tags 
+// (stateless components) configured via BlueprintOptions, making it 
+// immediately discoverable by relevant Views and Filters.
+//
+// Example usage for Blueprint1:
+//
+//    entity, v1 := blueprint.Create()
+//    *v1 = T1{ /* initialize */ }
+//
+// These pointers allow for immediate initialization of the entity's state 
+// without the need for additional lookups, ensuring a highly efficient 
+// construction process.
 func (b *Blueprint1[T1]) Create() (Entity, *T1) {
     entity, ptrs := b.blueprint.Create()
     return entity, (*T1)(ptrs[0])
 }
-
-// Blueprint2 obsługuje 2 komponentów
+// Blueprint2 defines a static template (recipe) for the mass construction 
+// of entities with a predefined set of 2 stateful components. It allows 
+// for precise memory layout planning before allocation, which is essential 
+// for high-performance data access patterns.
+//
+// For example, a Blueprint2 could be used to define complex actors that 
+// require exactly 2 distinct data structures to be stored contiguously, 
+// ensuring optimal data locality and cache efficiency.
 type Blueprint2[T1 any, T2 any] struct {
     blueprint *core.ArchetypeEntryBlueprint
 }
 
+// NewBlueprint2 initializes a new template for a specific combination of 2 components.
+// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the 
+// template with any number of stateless components (Tags). Tags do not occupy 
+// space in the data columns but allow for precise population filtering within Views.
+//
+// By using a static definition, archetype metadata is registered once, 
+// enabling rapid entity spawning with minimal memory management overhead.
+//
+// This constructor panics if component registration fails or if there are 
+// configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint2[T1 any, T2 any](
     ecs *ECS,
     opts ...BlueprintOption,
 ) *Blueprint2[T1, T2] {
     blueprint := core.NewBlueprint(ecs.registry)
+    reg := ecs.registry.ComponentsRegistry
 
+    // mustAdd ensures that component registration and blueprint assignment
+    // are successful. Panics immediately on failure to support fail-fast startup.
+    mustAdd := func(info core.ComponentInfo) {
+        if err := blueprint.WithComp(info); err != nil {
+            panic(fmt.Sprintf("goke: blueprint2 init failed: %v", err))
+        }
+    }
+
+    mustAdd(core.EnsureComponentRegistered[T1](reg))
+    mustAdd(core.EnsureComponentRegistered[T2](reg))
     
-    comp1Info := core.EnsureComponentRegistered[T1](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp1Info.ID)
-    comp2Info := core.EnsureComponentRegistered[T2](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp2Info.ID)
 
+    // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
     for _, opt := range opts {
-        opt(blueprint)
+        if err := opt(blueprint); err != nil {
+            panic(fmt.Sprintf("goke: blueprint2 option failed: %v", err))
+        }
     }
 
     return &Blueprint2[T1, T2]{
@@ -61,32 +132,74 @@ func NewBlueprint2[T1 any, T2 any](
     }
 }
 
+// Create instantiates a new entity based on the blueprint's static configuration.
+// It returns the unique Entity identifier along with direct pointers to the 
+// newly allocated memory for each of the 2 stateful components.
+//
+// The resulting entity is created with the full set of predefined Tags 
+// (stateless components) configured via BlueprintOptions, making it 
+// immediately discoverable by relevant Views and Filters.
+//
+// Example usage for Blueprint2:
+//
+//    entity, v1, v2 := blueprint.Create()
+//    *v1 = T1{ /* initialize */ }
+//    *v2 = T2{ /* initialize */ }
+//
+// These pointers allow for immediate initialization of the entity's state 
+// without the need for additional lookups, ensuring a highly efficient 
+// construction process.
 func (b *Blueprint2[T1, T2]) Create() (Entity, *T1, *T2) {
     entity, ptrs := b.blueprint.Create()
     return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1])
 }
-
-// Blueprint3 obsługuje 3 komponentów
+// Blueprint3 defines a static template (recipe) for the mass construction 
+// of entities with a predefined set of 3 stateful components. It allows 
+// for precise memory layout planning before allocation, which is essential 
+// for high-performance data access patterns.
+//
+// For example, a Blueprint3 could be used to define complex actors that 
+// require exactly 3 distinct data structures to be stored contiguously, 
+// ensuring optimal data locality and cache efficiency.
 type Blueprint3[T1 any, T2 any, T3 any] struct {
     blueprint *core.ArchetypeEntryBlueprint
 }
 
+// NewBlueprint3 initializes a new template for a specific combination of 3 components.
+// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the 
+// template with any number of stateless components (Tags). Tags do not occupy 
+// space in the data columns but allow for precise population filtering within Views.
+//
+// By using a static definition, archetype metadata is registered once, 
+// enabling rapid entity spawning with minimal memory management overhead.
+//
+// This constructor panics if component registration fails or if there are 
+// configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint3[T1 any, T2 any, T3 any](
     ecs *ECS,
     opts ...BlueprintOption,
 ) *Blueprint3[T1, T2, T3] {
     blueprint := core.NewBlueprint(ecs.registry)
+    reg := ecs.registry.ComponentsRegistry
 
+    // mustAdd ensures that component registration and blueprint assignment
+    // are successful. Panics immediately on failure to support fail-fast startup.
+    mustAdd := func(info core.ComponentInfo) {
+        if err := blueprint.WithComp(info); err != nil {
+            panic(fmt.Sprintf("goke: blueprint3 init failed: %v", err))
+        }
+    }
+
+    mustAdd(core.EnsureComponentRegistered[T1](reg))
+    mustAdd(core.EnsureComponentRegistered[T2](reg))
+    mustAdd(core.EnsureComponentRegistered[T3](reg))
     
-    comp1Info := core.EnsureComponentRegistered[T1](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp1Info.ID)
-    comp2Info := core.EnsureComponentRegistered[T2](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp2Info.ID)
-    comp3Info := core.EnsureComponentRegistered[T3](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp3Info.ID)
 
+    // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
     for _, opt := range opts {
-        opt(blueprint)
+        if err := opt(blueprint); err != nil {
+            panic(fmt.Sprintf("goke: blueprint3 option failed: %v", err))
+        }
     }
 
     return &Blueprint3[T1, T2, T3]{
@@ -94,34 +207,76 @@ func NewBlueprint3[T1 any, T2 any, T3 any](
     }
 }
 
+// Create instantiates a new entity based on the blueprint's static configuration.
+// It returns the unique Entity identifier along with direct pointers to the 
+// newly allocated memory for each of the 3 stateful components.
+//
+// The resulting entity is created with the full set of predefined Tags 
+// (stateless components) configured via BlueprintOptions, making it 
+// immediately discoverable by relevant Views and Filters.
+//
+// Example usage for Blueprint3:
+//
+//    entity, v1, v2, v3 := blueprint.Create()
+//    *v1 = T1{ /* initialize */ }
+//    *v2 = T2{ /* initialize */ }
+//    *v3 = T3{ /* initialize */ }
+//
+// These pointers allow for immediate initialization of the entity's state 
+// without the need for additional lookups, ensuring a highly efficient 
+// construction process.
 func (b *Blueprint3[T1, T2, T3]) Create() (Entity, *T1, *T2, *T3) {
     entity, ptrs := b.blueprint.Create()
     return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1]), (*T3)(ptrs[2])
 }
-
-// Blueprint4 obsługuje 4 komponentów
+// Blueprint4 defines a static template (recipe) for the mass construction 
+// of entities with a predefined set of 4 stateful components. It allows 
+// for precise memory layout planning before allocation, which is essential 
+// for high-performance data access patterns.
+//
+// For example, a Blueprint4 could be used to define complex actors that 
+// require exactly 4 distinct data structures to be stored contiguously, 
+// ensuring optimal data locality and cache efficiency.
 type Blueprint4[T1 any, T2 any, T3 any, T4 any] struct {
     blueprint *core.ArchetypeEntryBlueprint
 }
 
+// NewBlueprint4 initializes a new template for a specific combination of 4 components.
+// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the 
+// template with any number of stateless components (Tags). Tags do not occupy 
+// space in the data columns but allow for precise population filtering within Views.
+//
+// By using a static definition, archetype metadata is registered once, 
+// enabling rapid entity spawning with minimal memory management overhead.
+//
+// This constructor panics if component registration fails or if there are 
+// configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint4[T1 any, T2 any, T3 any, T4 any](
     ecs *ECS,
     opts ...BlueprintOption,
 ) *Blueprint4[T1, T2, T3, T4] {
     blueprint := core.NewBlueprint(ecs.registry)
+    reg := ecs.registry.ComponentsRegistry
 
+    // mustAdd ensures that component registration and blueprint assignment
+    // are successful. Panics immediately on failure to support fail-fast startup.
+    mustAdd := func(info core.ComponentInfo) {
+        if err := blueprint.WithComp(info); err != nil {
+            panic(fmt.Sprintf("goke: blueprint4 init failed: %v", err))
+        }
+    }
+
+    mustAdd(core.EnsureComponentRegistered[T1](reg))
+    mustAdd(core.EnsureComponentRegistered[T2](reg))
+    mustAdd(core.EnsureComponentRegistered[T3](reg))
+    mustAdd(core.EnsureComponentRegistered[T4](reg))
     
-    comp1Info := core.EnsureComponentRegistered[T1](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp1Info.ID)
-    comp2Info := core.EnsureComponentRegistered[T2](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp2Info.ID)
-    comp3Info := core.EnsureComponentRegistered[T3](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp3Info.ID)
-    comp4Info := core.EnsureComponentRegistered[T4](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp4Info.ID)
 
+    // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
     for _, opt := range opts {
-        opt(blueprint)
+        if err := opt(blueprint); err != nil {
+            panic(fmt.Sprintf("goke: blueprint4 option failed: %v", err))
+        }
     }
 
     return &Blueprint4[T1, T2, T3, T4]{
@@ -129,36 +284,78 @@ func NewBlueprint4[T1 any, T2 any, T3 any, T4 any](
     }
 }
 
+// Create instantiates a new entity based on the blueprint's static configuration.
+// It returns the unique Entity identifier along with direct pointers to the 
+// newly allocated memory for each of the 4 stateful components.
+//
+// The resulting entity is created with the full set of predefined Tags 
+// (stateless components) configured via BlueprintOptions, making it 
+// immediately discoverable by relevant Views and Filters.
+//
+// Example usage for Blueprint4:
+//
+//    entity, v1, v2, v3, v4 := blueprint.Create()
+//    *v1 = T1{ /* initialize */ }
+//    *v2 = T2{ /* initialize */ }
+//    *v3 = T3{ /* initialize */ }
+//    *v4 = T4{ /* initialize */ }
+//
+// These pointers allow for immediate initialization of the entity's state 
+// without the need for additional lookups, ensuring a highly efficient 
+// construction process.
 func (b *Blueprint4[T1, T2, T3, T4]) Create() (Entity, *T1, *T2, *T3, *T4) {
     entity, ptrs := b.blueprint.Create()
     return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1]), (*T3)(ptrs[2]), (*T4)(ptrs[3])
 }
-
-// Blueprint5 obsługuje 5 komponentów
+// Blueprint5 defines a static template (recipe) for the mass construction 
+// of entities with a predefined set of 5 stateful components. It allows 
+// for precise memory layout planning before allocation, which is essential 
+// for high-performance data access patterns.
+//
+// For example, a Blueprint5 could be used to define complex actors that 
+// require exactly 5 distinct data structures to be stored contiguously, 
+// ensuring optimal data locality and cache efficiency.
 type Blueprint5[T1 any, T2 any, T3 any, T4 any, T5 any] struct {
     blueprint *core.ArchetypeEntryBlueprint
 }
 
+// NewBlueprint5 initializes a new template for a specific combination of 5 components.
+// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the 
+// template with any number of stateless components (Tags). Tags do not occupy 
+// space in the data columns but allow for precise population filtering within Views.
+//
+// By using a static definition, archetype metadata is registered once, 
+// enabling rapid entity spawning with minimal memory management overhead.
+//
+// This constructor panics if component registration fails or if there are 
+// configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint5[T1 any, T2 any, T3 any, T4 any, T5 any](
     ecs *ECS,
     opts ...BlueprintOption,
 ) *Blueprint5[T1, T2, T3, T4, T5] {
     blueprint := core.NewBlueprint(ecs.registry)
+    reg := ecs.registry.ComponentsRegistry
 
+    // mustAdd ensures that component registration and blueprint assignment
+    // are successful. Panics immediately on failure to support fail-fast startup.
+    mustAdd := func(info core.ComponentInfo) {
+        if err := blueprint.WithComp(info); err != nil {
+            panic(fmt.Sprintf("goke: blueprint5 init failed: %v", err))
+        }
+    }
+
+    mustAdd(core.EnsureComponentRegistered[T1](reg))
+    mustAdd(core.EnsureComponentRegistered[T2](reg))
+    mustAdd(core.EnsureComponentRegistered[T3](reg))
+    mustAdd(core.EnsureComponentRegistered[T4](reg))
+    mustAdd(core.EnsureComponentRegistered[T5](reg))
     
-    comp1Info := core.EnsureComponentRegistered[T1](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp1Info.ID)
-    comp2Info := core.EnsureComponentRegistered[T2](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp2Info.ID)
-    comp3Info := core.EnsureComponentRegistered[T3](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp3Info.ID)
-    comp4Info := core.EnsureComponentRegistered[T4](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp4Info.ID)
-    comp5Info := core.EnsureComponentRegistered[T5](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp5Info.ID)
 
+    // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
     for _, opt := range opts {
-        opt(blueprint)
+        if err := opt(blueprint); err != nil {
+            panic(fmt.Sprintf("goke: blueprint5 option failed: %v", err))
+        }
     }
 
     return &Blueprint5[T1, T2, T3, T4, T5]{
@@ -166,38 +363,80 @@ func NewBlueprint5[T1 any, T2 any, T3 any, T4 any, T5 any](
     }
 }
 
+// Create instantiates a new entity based on the blueprint's static configuration.
+// It returns the unique Entity identifier along with direct pointers to the 
+// newly allocated memory for each of the 5 stateful components.
+//
+// The resulting entity is created with the full set of predefined Tags 
+// (stateless components) configured via BlueprintOptions, making it 
+// immediately discoverable by relevant Views and Filters.
+//
+// Example usage for Blueprint5:
+//
+//    entity, v1, v2, v3, v4, v5 := blueprint.Create()
+//    *v1 = T1{ /* initialize */ }
+//    *v2 = T2{ /* initialize */ }
+//    *v3 = T3{ /* initialize */ }
+//    *v4 = T4{ /* initialize */ }
+//    *v5 = T5{ /* initialize */ }
+//
+// These pointers allow for immediate initialization of the entity's state 
+// without the need for additional lookups, ensuring a highly efficient 
+// construction process.
 func (b *Blueprint5[T1, T2, T3, T4, T5]) Create() (Entity, *T1, *T2, *T3, *T4, *T5) {
     entity, ptrs := b.blueprint.Create()
     return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1]), (*T3)(ptrs[2]), (*T4)(ptrs[3]), (*T5)(ptrs[4])
 }
-
-// Blueprint6 obsługuje 6 komponentów
+// Blueprint6 defines a static template (recipe) for the mass construction 
+// of entities with a predefined set of 6 stateful components. It allows 
+// for precise memory layout planning before allocation, which is essential 
+// for high-performance data access patterns.
+//
+// For example, a Blueprint6 could be used to define complex actors that 
+// require exactly 6 distinct data structures to be stored contiguously, 
+// ensuring optimal data locality and cache efficiency.
 type Blueprint6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any] struct {
     blueprint *core.ArchetypeEntryBlueprint
 }
 
+// NewBlueprint6 initializes a new template for a specific combination of 6 components.
+// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the 
+// template with any number of stateless components (Tags). Tags do not occupy 
+// space in the data columns but allow for precise population filtering within Views.
+//
+// By using a static definition, archetype metadata is registered once, 
+// enabling rapid entity spawning with minimal memory management overhead.
+//
+// This constructor panics if component registration fails or if there are 
+// configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any](
     ecs *ECS,
     opts ...BlueprintOption,
 ) *Blueprint6[T1, T2, T3, T4, T5, T6] {
     blueprint := core.NewBlueprint(ecs.registry)
+    reg := ecs.registry.ComponentsRegistry
 
+    // mustAdd ensures that component registration and blueprint assignment
+    // are successful. Panics immediately on failure to support fail-fast startup.
+    mustAdd := func(info core.ComponentInfo) {
+        if err := blueprint.WithComp(info); err != nil {
+            panic(fmt.Sprintf("goke: blueprint6 init failed: %v", err))
+        }
+    }
+
+    mustAdd(core.EnsureComponentRegistered[T1](reg))
+    mustAdd(core.EnsureComponentRegistered[T2](reg))
+    mustAdd(core.EnsureComponentRegistered[T3](reg))
+    mustAdd(core.EnsureComponentRegistered[T4](reg))
+    mustAdd(core.EnsureComponentRegistered[T5](reg))
+    mustAdd(core.EnsureComponentRegistered[T6](reg))
     
-    comp1Info := core.EnsureComponentRegistered[T1](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp1Info.ID)
-    comp2Info := core.EnsureComponentRegistered[T2](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp2Info.ID)
-    comp3Info := core.EnsureComponentRegistered[T3](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp3Info.ID)
-    comp4Info := core.EnsureComponentRegistered[T4](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp4Info.ID)
-    comp5Info := core.EnsureComponentRegistered[T5](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp5Info.ID)
-    comp6Info := core.EnsureComponentRegistered[T6](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp6Info.ID)
 
+    // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
     for _, opt := range opts {
-        opt(blueprint)
+        if err := opt(blueprint); err != nil {
+            panic(fmt.Sprintf("goke: blueprint6 option failed: %v", err))
+        }
     }
 
     return &Blueprint6[T1, T2, T3, T4, T5, T6]{
@@ -205,40 +444,82 @@ func NewBlueprint6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any](
     }
 }
 
+// Create instantiates a new entity based on the blueprint's static configuration.
+// It returns the unique Entity identifier along with direct pointers to the 
+// newly allocated memory for each of the 6 stateful components.
+//
+// The resulting entity is created with the full set of predefined Tags 
+// (stateless components) configured via BlueprintOptions, making it 
+// immediately discoverable by relevant Views and Filters.
+//
+// Example usage for Blueprint6:
+//
+//    entity, v1, v2, v3, v4, v5, v6 := blueprint.Create()
+//    *v1 = T1{ /* initialize */ }
+//    *v2 = T2{ /* initialize */ }
+//    *v3 = T3{ /* initialize */ }
+//    *v4 = T4{ /* initialize */ }
+//    *v5 = T5{ /* initialize */ }
+//    *v6 = T6{ /* initialize */ }
+//
+// These pointers allow for immediate initialization of the entity's state 
+// without the need for additional lookups, ensuring a highly efficient 
+// construction process.
 func (b *Blueprint6[T1, T2, T3, T4, T5, T6]) Create() (Entity, *T1, *T2, *T3, *T4, *T5, *T6) {
     entity, ptrs := b.blueprint.Create()
     return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1]), (*T3)(ptrs[2]), (*T4)(ptrs[3]), (*T5)(ptrs[4]), (*T6)(ptrs[5])
 }
-
-// Blueprint7 obsługuje 7 komponentów
+// Blueprint7 defines a static template (recipe) for the mass construction 
+// of entities with a predefined set of 7 stateful components. It allows 
+// for precise memory layout planning before allocation, which is essential 
+// for high-performance data access patterns.
+//
+// For example, a Blueprint7 could be used to define complex actors that 
+// require exactly 7 distinct data structures to be stored contiguously, 
+// ensuring optimal data locality and cache efficiency.
 type Blueprint7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any] struct {
     blueprint *core.ArchetypeEntryBlueprint
 }
 
+// NewBlueprint7 initializes a new template for a specific combination of 7 components.
+// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the 
+// template with any number of stateless components (Tags). Tags do not occupy 
+// space in the data columns but allow for precise population filtering within Views.
+//
+// By using a static definition, archetype metadata is registered once, 
+// enabling rapid entity spawning with minimal memory management overhead.
+//
+// This constructor panics if component registration fails or if there are 
+// configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any](
     ecs *ECS,
     opts ...BlueprintOption,
 ) *Blueprint7[T1, T2, T3, T4, T5, T6, T7] {
     blueprint := core.NewBlueprint(ecs.registry)
+    reg := ecs.registry.ComponentsRegistry
 
+    // mustAdd ensures that component registration and blueprint assignment
+    // are successful. Panics immediately on failure to support fail-fast startup.
+    mustAdd := func(info core.ComponentInfo) {
+        if err := blueprint.WithComp(info); err != nil {
+            panic(fmt.Sprintf("goke: blueprint7 init failed: %v", err))
+        }
+    }
+
+    mustAdd(core.EnsureComponentRegistered[T1](reg))
+    mustAdd(core.EnsureComponentRegistered[T2](reg))
+    mustAdd(core.EnsureComponentRegistered[T3](reg))
+    mustAdd(core.EnsureComponentRegistered[T4](reg))
+    mustAdd(core.EnsureComponentRegistered[T5](reg))
+    mustAdd(core.EnsureComponentRegistered[T6](reg))
+    mustAdd(core.EnsureComponentRegistered[T7](reg))
     
-    comp1Info := core.EnsureComponentRegistered[T1](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp1Info.ID)
-    comp2Info := core.EnsureComponentRegistered[T2](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp2Info.ID)
-    comp3Info := core.EnsureComponentRegistered[T3](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp3Info.ID)
-    comp4Info := core.EnsureComponentRegistered[T4](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp4Info.ID)
-    comp5Info := core.EnsureComponentRegistered[T5](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp5Info.ID)
-    comp6Info := core.EnsureComponentRegistered[T6](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp6Info.ID)
-    comp7Info := core.EnsureComponentRegistered[T7](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp7Info.ID)
 
+    // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
     for _, opt := range opts {
-        opt(blueprint)
+        if err := opt(blueprint); err != nil {
+            panic(fmt.Sprintf("goke: blueprint7 option failed: %v", err))
+        }
     }
 
     return &Blueprint7[T1, T2, T3, T4, T5, T6, T7]{
@@ -246,42 +527,84 @@ func NewBlueprint7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any](
     }
 }
 
+// Create instantiates a new entity based on the blueprint's static configuration.
+// It returns the unique Entity identifier along with direct pointers to the 
+// newly allocated memory for each of the 7 stateful components.
+//
+// The resulting entity is created with the full set of predefined Tags 
+// (stateless components) configured via BlueprintOptions, making it 
+// immediately discoverable by relevant Views and Filters.
+//
+// Example usage for Blueprint7:
+//
+//    entity, v1, v2, v3, v4, v5, v6, v7 := blueprint.Create()
+//    *v1 = T1{ /* initialize */ }
+//    *v2 = T2{ /* initialize */ }
+//    *v3 = T3{ /* initialize */ }
+//    *v4 = T4{ /* initialize */ }
+//    *v5 = T5{ /* initialize */ }
+//    *v6 = T6{ /* initialize */ }
+//    *v7 = T7{ /* initialize */ }
+//
+// These pointers allow for immediate initialization of the entity's state 
+// without the need for additional lookups, ensuring a highly efficient 
+// construction process.
 func (b *Blueprint7[T1, T2, T3, T4, T5, T6, T7]) Create() (Entity, *T1, *T2, *T3, *T4, *T5, *T6, *T7) {
     entity, ptrs := b.blueprint.Create()
     return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1]), (*T3)(ptrs[2]), (*T4)(ptrs[3]), (*T5)(ptrs[4]), (*T6)(ptrs[5]), (*T7)(ptrs[6])
 }
-
-// Blueprint8 obsługuje 8 komponentów
+// Blueprint8 defines a static template (recipe) for the mass construction 
+// of entities with a predefined set of 8 stateful components. It allows 
+// for precise memory layout planning before allocation, which is essential 
+// for high-performance data access patterns.
+//
+// For example, a Blueprint8 could be used to define complex actors that 
+// require exactly 8 distinct data structures to be stored contiguously, 
+// ensuring optimal data locality and cache efficiency.
 type Blueprint8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any] struct {
     blueprint *core.ArchetypeEntryBlueprint
 }
 
+// NewBlueprint8 initializes a new template for a specific combination of 8 components.
+// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the 
+// template with any number of stateless components (Tags). Tags do not occupy 
+// space in the data columns but allow for precise population filtering within Views.
+//
+// By using a static definition, archetype metadata is registered once, 
+// enabling rapid entity spawning with minimal memory management overhead.
+//
+// This constructor panics if component registration fails or if there are 
+// configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any](
     ecs *ECS,
     opts ...BlueprintOption,
 ) *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8] {
     blueprint := core.NewBlueprint(ecs.registry)
+    reg := ecs.registry.ComponentsRegistry
 
+    // mustAdd ensures that component registration and blueprint assignment
+    // are successful. Panics immediately on failure to support fail-fast startup.
+    mustAdd := func(info core.ComponentInfo) {
+        if err := blueprint.WithComp(info); err != nil {
+            panic(fmt.Sprintf("goke: blueprint8 init failed: %v", err))
+        }
+    }
+
+    mustAdd(core.EnsureComponentRegistered[T1](reg))
+    mustAdd(core.EnsureComponentRegistered[T2](reg))
+    mustAdd(core.EnsureComponentRegistered[T3](reg))
+    mustAdd(core.EnsureComponentRegistered[T4](reg))
+    mustAdd(core.EnsureComponentRegistered[T5](reg))
+    mustAdd(core.EnsureComponentRegistered[T6](reg))
+    mustAdd(core.EnsureComponentRegistered[T7](reg))
+    mustAdd(core.EnsureComponentRegistered[T8](reg))
     
-    comp1Info := core.EnsureComponentRegistered[T1](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp1Info.ID)
-    comp2Info := core.EnsureComponentRegistered[T2](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp2Info.ID)
-    comp3Info := core.EnsureComponentRegistered[T3](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp3Info.ID)
-    comp4Info := core.EnsureComponentRegistered[T4](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp4Info.ID)
-    comp5Info := core.EnsureComponentRegistered[T5](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp5Info.ID)
-    comp6Info := core.EnsureComponentRegistered[T6](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp6Info.ID)
-    comp7Info := core.EnsureComponentRegistered[T7](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp7Info.ID)
-    comp8Info := core.EnsureComponentRegistered[T8](ecs.registry.ComponentsRegistry)
-    blueprint.WithComp(comp8Info.ID)
 
+    // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
     for _, opt := range opts {
-        opt(blueprint)
+        if err := opt(blueprint); err != nil {
+            panic(fmt.Sprintf("goke: blueprint8 option failed: %v", err))
+        }
     }
 
     return &Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]{
@@ -289,6 +612,29 @@ func NewBlueprint8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 an
     }
 }
 
+// Create instantiates a new entity based on the blueprint's static configuration.
+// It returns the unique Entity identifier along with direct pointers to the 
+// newly allocated memory for each of the 8 stateful components.
+//
+// The resulting entity is created with the full set of predefined Tags 
+// (stateless components) configured via BlueprintOptions, making it 
+// immediately discoverable by relevant Views and Filters.
+//
+// Example usage for Blueprint8:
+//
+//    entity, v1, v2, v3, v4, v5, v6, v7, v8 := blueprint.Create()
+//    *v1 = T1{ /* initialize */ }
+//    *v2 = T2{ /* initialize */ }
+//    *v3 = T3{ /* initialize */ }
+//    *v4 = T4{ /* initialize */ }
+//    *v5 = T5{ /* initialize */ }
+//    *v6 = T6{ /* initialize */ }
+//    *v7 = T7{ /* initialize */ }
+//    *v8 = T8{ /* initialize */ }
+//
+// These pointers allow for immediate initialization of the entity's state 
+// without the need for additional lookups, ensuring a highly efficient 
+// construction process.
 func (b *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]) Create() (Entity, *T1, *T2, *T3, *T4, *T5, *T6, *T7, *T8) {
     entity, ptrs := b.blueprint.Create()
     return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1]), (*T3)(ptrs[2]), (*T4)(ptrs[3]), (*T5)(ptrs[4]), (*T6)(ptrs[5]), (*T7)(ptrs[6]), (*T8)(ptrs[7])

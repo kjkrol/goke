@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"math/bits"
 	"reflect"
 	"unsafe"
 )
@@ -31,12 +32,39 @@ func NewArchetypeRegistry(
 	}
 
 	rootMask := ArchetypeMask{}
-	reg.rootArch = NewArchetype(rootMask, reg.defaultArchetypeChunkSize)
+	reg.rootArch = &Archetype{}
+	reg.InitArchetype(reg.rootArch, rootMask, reg.defaultArchetypeChunkSize)
 
 	reg.archetypeMap[rootMask] = reg.rootArch
 	reg.archetypes = append(reg.archetypes, reg.rootArch)
 
 	return reg
+}
+
+func (r *ArchetypeRegistry) InitArchetype(arch *Archetype, mask ArchetypeMask, defaultArchetypeChunkSize int) {
+	// Pre-calculate active IDs to avoid bitmask scanning in hot loops
+	var activeIDs [MaxComponents]ComponentID
+	counter := 0
+	for i, word := range mask {
+		for word != 0 {
+			bitPos := bits.TrailingZeros64(word)
+			id := ComponentID(i*64 + bitPos)
+			if r.componentsRegistry.idToInfo[id].Size > 0 {
+				activeIDs[counter] = id
+				counter++
+			}
+			word &= word - 1
+		}
+	}
+
+	*arch = Archetype{
+		Mask:      mask,
+		entities:  make([]Entity, defaultArchetypeChunkSize),
+		activeIDs: activeIDs[:counter],
+		len:       0,
+		cap:       defaultArchetypeChunkSize,
+		initCap:   defaultArchetypeChunkSize,
+	}
 }
 
 func (r *ArchetypeRegistry) Get(mask ArchetypeMask) *Archetype {
@@ -89,36 +117,45 @@ func (r *ArchetypeRegistry) AllocateComponentMemory(entity Entity, compInfo Comp
 		return nil, ErrEntityNotFound
 	}
 
-	oldArch := backLink.Arch
+	currentArch := backLink.Arch
 	var targetRow ArchRow
 	var targetArch *Archetype
 
 	// 1. If component already exists, just return the address
-	if oldArch.Mask.IsSet(compID) {
+	if currentArch.Mask.IsSet(compID) {
 		targetRow = backLink.Row
-		targetArch = oldArch
+		targetArch = currentArch
 	} else {
 		// 2. Perform structural change (Archetype Transition)
 		// Check if we have a fast path in the Archetype-Graph
-		nextArch := oldArch.edgesNext[compID]
-		if nextArch == nil {
-			// Slow path: create or get new archetype
-			newMask := oldArch.Mask.Set(compID)
-			nextArch = r.getOrRegister(newMask)
-
-			// Link in the graph
-			oldArch.edgesNext[compID] = nextArch
-			nextArch.edgesPrev[compID] = oldArch
-		}
-
+		r.ensureNextEdge(compID, currentArch, &targetArch)
 		// Move existing data to the new archetype
-		targetRow = r.moveEntity(entity, backLink, nextArch)
-		targetArch = nextArch
+		targetRow = r.moveEntity(entity, backLink, targetArch)
+	}
+
+	if compInfo.Size == 0 {
+		return nil, nil
 	}
 
 	// 3. Calculate and return the direct pointer
 	column := targetArch.Columns[compID]
 	return unsafe.Add(column.Data, uintptr(targetRow)*column.ItemSize), nil
+}
+
+func (r *ArchetypeRegistry) ensureNextEdge(compID ComponentID, oldArch *Archetype, nextArch **Archetype) {
+	if nextEdge := oldArch.edgesNext[compID]; nextEdge != nil {
+		*nextArch = nextEdge
+		return
+	}
+
+	// Slow path: create or get new archetype
+	newMask := oldArch.Mask.Set(compID)
+	r.getOrRegister(newMask, nextArch)
+
+	// Link in the graph
+	actualNext := *nextArch
+	oldArch.edgesNext[compID] = actualNext
+	actualNext.edgesPrev[compID] = oldArch
 }
 
 func (r *ArchetypeRegistry) UnAssign(entity Entity, compInfo ComponentInfo) {
@@ -152,7 +189,8 @@ func (r *ArchetypeRegistry) UnAssign(entity Entity, compInfo ComponentInfo) {
 		return
 	}
 
-	newArch := r.getOrRegister(newMask)
+	var newArch *Archetype = &Archetype{}
+	r.getOrRegister(newMask, &newArch)
 
 	// register edges on Archetype-Graph
 	oldArch.edgesPrev[compID] = newArch
@@ -164,18 +202,25 @@ func (r *ArchetypeRegistry) UnAssign(entity Entity, compInfo ComponentInfo) {
 
 // --------------------------------------------------------------
 
-func (r *ArchetypeRegistry) getOrRegister(mask ArchetypeMask) *Archetype {
-	if arch, ok := r.archetypeMap[mask]; ok {
-		return arch
+func (r *ArchetypeRegistry) getOrRegister(mask ArchetypeMask, arch **Archetype) {
+	if found, ok := r.archetypeMap[mask]; ok {
+		*arch = found
+		return
 	}
 
-	arch := NewArchetype(mask, r.defaultArchetypeChunkSize)
+	*arch = &Archetype{}
+	actualArch := *arch
+	r.InitArchetype(actualArch, mask, r.defaultArchetypeChunkSize)
 	initCapacity := r.defaultArchetypeChunkSize
 
 	for id := range mask.AllSet() {
 		info := r.componentsRegistry.idToInfo[id]
+		// tags should not have columns
+		if info.Size == 0 {
+			continue
+		}
 		slice := reflect.MakeSlice(reflect.SliceOf(info.Type), initCapacity, initCapacity)
-		arch.Columns[id] = &Column{
+		actualArch.Columns[id] = &Column{
 			Data:     slice.UnsafePointer(),
 			dataType: info.Type,
 			ItemSize: info.Size,
@@ -184,10 +229,9 @@ func (r *ArchetypeRegistry) getOrRegister(mask ArchetypeMask) *Archetype {
 		}
 	}
 
-	r.archetypeMap[mask] = arch
-	r.archetypes = append(r.archetypes, arch)
-	r.viewRegistry.OnArchetypeCreated(arch)
-	return arch
+	r.archetypeMap[mask] = actualArch
+	r.archetypes = append(r.archetypes, actualArch)
+	r.viewRegistry.OnArchetypeCreated(actualArch)
 }
 
 // --------------------------------------------------------------

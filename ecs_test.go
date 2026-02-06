@@ -1,6 +1,7 @@
 package goke_test
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -24,15 +25,18 @@ func TestECS_UseCase(t *testing.T) {
 	ecs := goke.New()
 
 	orderDesc := goke.RegisterComponent[Order](ecs)
-	discountDesc := goke.RegisterComponent[Discount](ecs)
+	_ = goke.RegisterComponent[Discount](ecs)
 	processedDesc := goke.RegisterComponent[Processed](ecs)
 
-	eA := goke.CreateEntity(ecs)
-	*goke.EnsureComponent[Order](ecs, eA, orderDesc) = Order{ID: "ORD-001", Total: 100.0}
-	*goke.EnsureComponent[Discount](ecs, eA, discountDesc) = Discount{Percentage: 10.0}
+	blueprint1 := goke.NewBlueprint2[Order, Discount](ecs)
 
-	eB := goke.CreateEntity(ecs)
-	*goke.EnsureComponent[Order](ecs, eB, orderDesc) = Order{ID: "ORD-002", Total: 50.0}
+	eA, order, discount := blueprint1.Create()
+	*order = Order{ID: "ORD-001", Total: 100.0}
+	*discount = Discount{Percentage: 10.0}
+
+	blueprint2 := goke.NewBlueprint1[Order](ecs)
+	eB, order := blueprint2.Create()
+	*order = Order{ID: "ORD-002", Total: 50.0}
 
 	query1 := goke.NewView2[Order, Discount](ecs)
 	processedCount := 0
@@ -83,4 +87,39 @@ func TestECS_UseCase(t *testing.T) {
 	if errB != nil {
 		t.Error("Entity eB should not have been removed")
 	}
+}
+
+func TestECS_GetComponent_TypeSafety(t *testing.T) {
+	ecs := goke.New()
+
+	posDesc := goke.RegisterComponent[Position](ecs)
+	_ = goke.RegisterComponent[Velocity](ecs)
+
+	blueprint := goke.NewBlueprint1[Position](ecs)
+	e, pos := blueprint.Create()
+	*pos = Position{X: 10, Y: 20}
+
+	t.Run("Should fail when requesting wrong type for valid ID", func(t *testing.T) {
+		_, err := goke.GetComponent[Velocity](ecs, e, posDesc)
+
+		if err == nil {
+			t.Fatal("Expected error due to type mismatch, but got nil")
+		}
+
+		expectedMsg := "type mismatch"
+		if !strings.Contains(err.Error(), expectedMsg) {
+			t.Errorf("Expected error message to contain %q, got: %v", expectedMsg, err)
+		}
+	})
+
+	t.Run("Should succeed when type matches descriptor", func(t *testing.T) {
+		p, err := goke.GetComponent[Position](ecs, e, posDesc)
+
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		if p.X != 10 || p.Y != 20 {
+			t.Errorf("Data corruption: expected {10, 20}, got %+v", p)
+		}
+	})
 }

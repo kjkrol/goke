@@ -12,7 +12,7 @@ const entitiesNumber = 1000
 type Pos struct{ X, Y float32 }
 type Vel struct{ X, Y float32 }
 type Acc struct{ X, Y float32 }
-type Mass struct{} // TAG
+type Mass struct{ M float32 }
 type Spin struct{ S [32]float32 }
 type Char struct{ V [32]float32 }
 type Elec struct{ V float64 }
@@ -20,27 +20,28 @@ type Magn struct{ V float64 }
 
 func setupBenchmark(_ *testing.B, count int) (*goke.ECS, []core.Entity) {
 	ecs := goke.New()
-	posDesc := goke.RegisterComponent[Pos](ecs)
-	velDesc := goke.RegisterComponent[Vel](ecs)
-	accDesc := goke.RegisterComponent[Acc](ecs)
-	massDesc := goke.RegisterComponent[Mass](ecs)
-	spinDesc := goke.RegisterComponent[Spin](ecs)
-	charDesc := goke.RegisterComponent[Char](ecs)
-	elecDesc := goke.RegisterComponent[Elec](ecs)
-	magnDesc := goke.RegisterComponent[Magn](ecs)
+	_ = goke.RegisterComponent[Pos](ecs)
+	_ = goke.RegisterComponent[Vel](ecs)
+	_ = goke.RegisterComponent[Acc](ecs)
+	_ = goke.RegisterComponent[Mass](ecs)
+	_ = goke.RegisterComponent[Spin](ecs)
+	_ = goke.RegisterComponent[Char](ecs)
+	_ = goke.RegisterComponent[Elec](ecs)
+	_ = goke.RegisterComponent[Magn](ecs)
 
 	var entities []core.Entity
+	blueprint := goke.NewBlueprint8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn](ecs)
 	for range count {
-		e := goke.CreateEntity(ecs)
+		e, pos, vel, acc, mass, spin, char, elec, magn := blueprint.Create()
 
-		*goke.EnsureComponent[Pos](ecs, e, posDesc) = Pos{1, 1}
-		*goke.EnsureComponent[Vel](ecs, e, velDesc) = Vel{1, 1}
-		*goke.EnsureComponent[Acc](ecs, e, accDesc) = Acc{1, 1}
-		*goke.EnsureComponent[Mass](ecs, e, massDesc) = Mass{}
-		*goke.EnsureComponent[Spin](ecs, e, spinDesc) = Spin{}
-		*goke.EnsureComponent[Char](ecs, e, charDesc) = Char{}
-		*goke.EnsureComponent[Elec](ecs, e, elecDesc) = Elec{1}
-		*goke.EnsureComponent[Magn](ecs, e, magnDesc) = Magn{1}
+		*pos = Pos{1, 1}
+		*vel = Vel{1, 1}
+		*acc = Acc{1, 1}
+		*mass = Mass{}
+		*spin = Spin{}
+		*char = Char{}
+		*elec = Elec{1}
+		*magn = Magn{1}
 
 		entities = append(entities, e)
 	}
@@ -212,10 +213,11 @@ func BenchmarkView7_All(b *testing.B) {
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
-		for head, _ := range view7.All() {
-			pos, vel, acc := head.V1, head.V2, head.V3
+		for head, tail := range view7.All() {
+			pos, vel, acc, char := head.V1, head.V2, head.V3, tail.V6
 			vel.X += acc.X
 			pos.X += vel.X
+			_ = char
 		}
 	}
 

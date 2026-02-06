@@ -16,22 +16,13 @@ func addTestColumn[T any](a *Archetype, id ComponentID) {
 	a.Columns[id].growTo(a.cap)
 }
 
-// Helper to verify if memory at pointer is zeroed
-func isMemoryZeroed(ptr unsafe.Pointer, size uintptr) bool {
-	bytes := unsafe.Slice((*byte)(ptr), size)
-	for _, b := range bytes {
-		if b != 0 {
-			return false
-		}
-	}
-	return true
-}
-
 // Scenario 1: Capacity & Growth
 func TestArchetype_CapacityAndGrowth(t *testing.T) {
 	initCapacity := 128
 	mask := NewArchetypeMask(1)
-	arch := NewArchetype(mask, initCapacity)
+	var arch *Archetype = &Archetype{}
+	archReg := setupTestRegistry()
+	archReg.InitArchetype(arch, mask, initCapacity)
 	addTestColumn[position](arch, 1)
 
 	// Case: Initial capacity
@@ -56,7 +47,9 @@ func TestArchetype_CapacityAndGrowth(t *testing.T) {
 // Scenario 2: Manual Registration & Data Setting
 func TestArchetype_ManualRegistration(t *testing.T) {
 	mask := NewArchetypeMask(1, 2)
-	arch := NewArchetype(mask, 128)
+	var arch *Archetype = &Archetype{}
+	archReg := setupTestRegistry()
+	archReg.InitArchetype(arch, mask, 128)
 	compID1, compID2 := ComponentID(1), ComponentID(2)
 	addTestColumn[position](arch, compID1)
 	addTestColumn[velocity](arch, compID2)
@@ -81,7 +74,9 @@ func TestArchetype_ManualRegistration(t *testing.T) {
 // Scenario 3: Swap-and-Pop Logic
 func TestArchetype_SwapRemoveWithLenSync(t *testing.T) {
 	mask := NewArchetypeMask(1)
-	arch := NewArchetype(mask, 10)
+	var arch *Archetype = &Archetype{}
+	archReg := setupTestRegistry()
+	archReg.InitArchetype(arch, mask, 10)
 	addTestColumn[int32](arch, 1)
 
 	val1, val2 := int32(10), int32(20)
@@ -128,12 +123,17 @@ func TestArchetype_SwapRemoveWithLenSync(t *testing.T) {
 
 // Scenario 4: Multi-Column Integrity
 func TestArchetype_MultiColumnIntegrity(t *testing.T) {
-	mask := NewArchetypeMask(1, 2)
+	archReg := setupTestRegistry()
+	positionInfo := EnsureComponentRegistered[position](archReg.componentsRegistry)
+	velocityInfo := EnsureComponentRegistered[velocity](archReg.componentsRegistry)
+	mask := NewArchetypeMask(positionInfo.ID, velocityInfo.ID)
 	initCapacity := 128
-	arch := NewArchetype(mask, initCapacity)
-	posID, velID := ComponentID(1), ComponentID(2)
-	addTestColumn[position](arch, posID)
-	addTestColumn[velocity](arch, velID)
+
+	var arch *Archetype = &Archetype{}
+	archReg.InitArchetype(arch, mask, initCapacity)
+
+	addTestColumn[position](arch, positionInfo.ID)
+	addTestColumn[velocity](arch, velocityInfo.ID)
 
 	// Data for two separate entities
 	p0, v0 := position{1, 1}, velocity{10, 10}
@@ -141,21 +141,21 @@ func TestArchetype_MultiColumnIntegrity(t *testing.T) {
 
 	// 1. Setup Entity 0 at Row 0
 	row0 := arch.registerEntity(Entity(0))
-	arch.Columns[posID].setData(row0, unsafe.Pointer(&p0))
-	arch.Columns[velID].setData(row0, unsafe.Pointer(&v0))
+	arch.Columns[positionInfo.ID].setData(row0, unsafe.Pointer(&p0))
+	arch.Columns[velocityInfo.ID].setData(row0, unsafe.Pointer(&v0))
 
 	// 2. Setup Entity 1 at Row 1
 	row1 := arch.registerEntity(Entity(1))
-	arch.Columns[posID].setData(row1, unsafe.Pointer(&p1))
-	arch.Columns[velID].setData(row1, unsafe.Pointer(&v1))
+	arch.Columns[positionInfo.ID].setData(row1, unsafe.Pointer(&p1))
+	arch.Columns[velocityInfo.ID].setData(row1, unsafe.Pointer(&v1))
 
 	// 3. Swap-and-Pop: Remove Entity 0
 	// This moves Entity 1 from Row 1 to Row 0 across ALL columns
 	arch.SwapRemoveEntity(row0)
 
 	// 4. Case: Data isolation (E1 components must remain paired correctly at Row 0)
-	resP := *(*position)(arch.Columns[posID].GetElement(0))
-	resV := *(*velocity)(arch.Columns[velID].GetElement(0))
+	resP := *(*position)(arch.Columns[positionInfo.ID].GetElement(0))
+	resV := *(*velocity)(arch.Columns[velocityInfo.ID].GetElement(0))
 
 	if resP != p1 {
 		t.Errorf("Position integrity lost: expected %+v, got %+v", p1, resP)
@@ -170,7 +170,9 @@ func TestArchetype_EdgeCases(t *testing.T) {
 	// Case: Columnless Archetype Operations
 	t.Run("Columnless operations", func(t *testing.T) {
 		initCapacity := 128
-		arch := NewArchetype(ArchetypeMask{}, initCapacity)
+		var arch *Archetype = &Archetype{}
+		archReg := setupTestRegistry()
+		archReg.InitArchetype(arch, ArchetypeMask{}, initCapacity)
 		arch.registerEntity(Entity(100))
 		if arch.len != 1 {
 			t.Fatal("failed to register entity in columnless archetype")
@@ -184,7 +186,11 @@ func TestArchetype_EdgeCases(t *testing.T) {
 	// Case: Remove from single-entity archetype
 	t.Run("Single-entity remove", func(t *testing.T) {
 		initCapacity := 128
-		arch := NewArchetype(NewArchetypeMask(1), initCapacity)
+
+		var arch *Archetype = &Archetype{}
+		archReg := setupTestRegistry()
+		archReg.InitArchetype(arch, NewArchetypeMask(1), initCapacity)
+
 		addTestColumn[int32](arch, 1)
 		arch.registerEntity(Entity(5))
 
@@ -204,7 +210,11 @@ func TestArchetype_Alignment(t *testing.T) {
 
 	mask := NewArchetypeMask(1)
 	initCapacity := 128
-	arch := NewArchetype(mask, initCapacity)
+
+	var arch *Archetype = &Archetype{}
+	archReg := setupTestRegistry()
+	archReg.InitArchetype(arch, mask, initCapacity)
+
 	id := ComponentID(1)
 
 	info := reflect.TypeFor[OddStruct]()
@@ -232,7 +242,10 @@ func TestArchetype_DataIntegrityAfterGrowth(t *testing.T) {
 	// 1. Setup with small capacity to force growth quickly
 	initCap := 2
 	mask := NewArchetypeMask(1)
-	arch := NewArchetype(mask, initCap)
+
+	var arch *Archetype = &Archetype{}
+	archReg := setupTestRegistry()
+	archReg.InitArchetype(arch, mask, initCap)
 	addTestColumn[int32](arch, 1)
 
 	// 2. Add entities until full (0 and 1)
@@ -268,7 +281,9 @@ func TestArchetype_DataIntegrityAfterGrowth(t *testing.T) {
 }
 
 func TestArchetype_RegisterAndSetData(t *testing.T) {
-	arch := NewArchetype(NewArchetypeMask(1), 2) // Cap = 2
+	var arch *Archetype = &Archetype{}
+	archReg := setupTestRegistry()
+	archReg.InitArchetype(arch, NewArchetypeMask(1), 2) // Cap = 2
 	addTestColumn[int32](arch, 1)
 
 	// Wypełniamy
@@ -289,7 +304,9 @@ func TestArchetype_RegisterAndSetData(t *testing.T) {
 }
 
 func TestArchetype_RemoveLastEntityLenSync(t *testing.T) {
-	arch := NewArchetype(NewArchetypeMask(1), 5)
+	var arch *Archetype = &Archetype{}
+	archReg := setupTestRegistry()
+	archReg.InitArchetype(arch, NewArchetypeMask(1), 5) // Cap = 2
 	addTestColumn[int32](arch, 1)
 
 	arch.registerEntity(Entity(1)) // len = 1

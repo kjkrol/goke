@@ -49,7 +49,6 @@ func (r *Registry) AllocateByID(entity Entity, compInfo ComponentInfo) (unsafe.P
 		return nil, fmt.Errorf("invalid entity")
 	}
 
-	// Calling the new method we discussed for ArchetypeRegistry
 	return r.ArchetypeRegistry.AllocateComponentMemory(entity, compInfo)
 }
 

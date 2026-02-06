@@ -18,7 +18,7 @@ func TestViewReactivity(t *testing.T) {
 	// 2. Initialize View BEFORE creating any matching entities
 	// This view looks for entities having both Position AND TagA
 	blueprint := NewBlueprint(reg)
-	blueprint.WithComp(posTypeInfo.ID)
+	blueprint.WithComp(posTypeInfo)
 	blueprint.WithTag(tagTypeInfo.ID)
 	view := NewView(blueprint, reg)
 
@@ -34,8 +34,7 @@ func TestViewReactivity(t *testing.T) {
 	// which should notify the ViewRegistry
 	posPtr, _ := reg.AllocateByID(e1, posTypeInfo)
 	*(*Position)(posPtr) = Position{X: 10, Y: 20}
-	tagPtr, _ := reg.AllocateByID(e1, tagTypeInfo)
-	*(*TagA)(tagPtr) = TagA{}
+	_, _ = reg.AllocateByID(e1, tagTypeInfo)
 
 	// 4. Verification: Did the View receive the new archetype?
 	if len(view.Baked) == 0 {

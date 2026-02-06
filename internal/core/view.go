@@ -14,7 +14,7 @@ type View struct {
 	Reg         *Registry
 	includeMask ArchetypeMask
 	excludeMask ArchetypeMask
-	CompIDs     []ComponentID
+	CompInfos   []ComponentInfo
 	matched     []*Archetype
 	Baked       []MatchedArch
 }
@@ -24,8 +24,8 @@ func NewView(blueprint *Blueprint, reg *Registry) *View {
 	var mask ArchetypeMask
 	var excludedMask ArchetypeMask
 
-	for _, id := range blueprint.compIDs {
-		mask = mask.Set(id)
+	for _, info := range blueprint.compInfos {
+		mask = mask.Set(info.ID)
 	}
 
 	for _, id := range blueprint.tagIDs {
@@ -43,7 +43,7 @@ func NewView(blueprint *Blueprint, reg *Registry) *View {
 		Reg:         reg,
 		includeMask: mask,
 		excludeMask: excludedMask,
-		CompIDs:     blueprint.compIDs,
+		CompInfos:   blueprint.compInfos,
 	}
 	v.Reindex()
 	v.Reg.ViewRegistry.Register(v)
@@ -69,8 +69,8 @@ func (v *View) AddArchetype(arch *Archetype) {
 		Entities: &arch.entities,
 		Len:      &arch.len,
 	}
-	for i, id := range v.CompIDs {
-		mArch.Columns[i] = arch.Columns[id]
+	for i, info := range v.CompInfos {
+		mArch.Columns[i] = arch.Columns[info.ID]
 	}
 	v.Baked = append(v.Baked, mArch)
 }
