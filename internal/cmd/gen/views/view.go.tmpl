@@ -74,11 +74,11 @@ func (v *View{{.N}}[{{.AllTParams}}]) All() iter.Seq2[
     ) bool) {
         for i := range v.Baked {
             b := &v.Baked[i]
-            {{range .Indices}}p{{additions . 1}}, s{{additions . 1}} := b.Columns[{{.}}].Data, b.Columns[{{.}}].ItemSize
+            {{range .Indices}}p{{additions . 1}}, s{{additions . 1}} := b.GetData({{.}}), b.GetItemSize({{.}})
             {{end}}
-            for j := 0; j < *b.Len; j++ {
+            for j := 0; j < b.GetLen(); j++ {
                 head := struct { Entity Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
-                    Entity: (*b.Entities)[j],
+                    Entity: (b.GetEntities())[j],
                     {{- range .HIndices}}V{{additions . 1}}: (*T{{additions . 1}})(p{{additions . 1}}),{{end}}
                 }
                 {{if .HasTail}}
@@ -184,9 +184,9 @@ func (v *View{{.N}}[{{.AllTParams}}]) Values() iter.Seq2[
     ) bool) {
         for i := range v.Baked {
             b := &v.Baked[i]
-            {{range .Indices}}p{{additions . 1}}, s{{additions . 1}} := b.Columns[{{.}}].Data, b.Columns[{{.}}].ItemSize
+            {{range .Indices}}p{{additions . 1}}, s{{additions . 1}} := b.GetData({{.}}), b.GetItemSize({{.}})
             {{end}}
-            for j := 0; j < *b.Len; j++ {
+            for j := 0; j < b.GetLen(); j++ {
                 vhead := struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
                     {{- range .PHIndices}}V{{additions . 1}}: (*T{{additions . 1}})(p{{additions . 1}}),{{end}}
                 }

@@ -1,13 +1,56 @@
 package core
 
-import "fmt"
+import (
+	"fmt"
+	"unsafe"
+)
 
 const MaxColumns = 8
 
 type MatchedArch struct {
-	Entities *[]Entity
-	Columns  [MaxColumns]*Column
-	Len      *int
+	base        uintptr
+	offEntities uintptr
+	offLen      uintptr
+
+	colDataPtrs     [MaxColumns]uintptr
+	colItemSizePtrs [MaxColumns]uintptr
+}
+
+func (v *View) AddArchetype(arch *Archetype) {
+	mArch := MatchedArch{
+		base:        uintptr(unsafe.Pointer(arch)),
+		offEntities: unsafe.Offsetof(arch.entities),
+		offLen:      unsafe.Offsetof(arch.len),
+	}
+
+	for i, info := range v.CompInfos {
+		if i >= MaxColumns {
+			break
+		}
+
+		col := arch.Columns[info.ID]
+		if col != nil {
+			mArch.colDataPtrs[i] = uintptr(unsafe.Pointer(&col.Data))
+			mArch.colItemSizePtrs[i] = uintptr(unsafe.Pointer(&col.ItemSize))
+		}
+	}
+	v.Baked = append(v.Baked, mArch)
+}
+
+func (m *MatchedArch) GetEntities() []Entity {
+	return *(*[]Entity)(unsafe.Pointer(m.base + m.offEntities))
+}
+
+func (m *MatchedArch) GetData(idx int) unsafe.Pointer {
+	return *(*unsafe.Pointer)(unsafe.Pointer(m.colDataPtrs[idx]))
+}
+
+func (m *MatchedArch) GetItemSize(idx int) uintptr {
+	return *(*uintptr)(unsafe.Pointer(m.colItemSizePtrs[idx]))
+}
+
+func (m *MatchedArch) GetLen() int {
+	return *(*int)(unsafe.Pointer(m.base + m.offLen))
 }
 
 type View struct {
@@ -56,17 +99,6 @@ func (v *View) Reindex() {
 			v.AddArchetype(arch)
 		}
 	}
-}
-
-func (v *View) AddArchetype(arch *Archetype) {
-	mArch := MatchedArch{
-		Entities: &arch.entities,
-		Len:      &arch.len,
-	}
-	for i, info := range v.CompInfos {
-		mArch.Columns[i] = arch.Columns[info.ID]
-	}
-	v.Baked = append(v.Baked, mArch)
 }
 
 func (v *View) Matches(archMask ArchetypeMask) bool {

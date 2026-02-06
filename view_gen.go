@@ -84,14 +84,14 @@ func (v *View1[T1]) All() iter.Seq2[
 	) bool) {
 		for i := range v.Baked {
 			b := &v.Baked[i]
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
+			p1, s1 := b.GetData(0), b.GetItemSize(0)
 
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.GetLen(); j++ {
 				head := struct {
 					Entity Entity
 					V1     *T1
 				}{
-					Entity: (*b.Entities)[j], V1: (*T1)(p1),
+					Entity: (b.GetEntities())[j], V1: (*T1)(p1),
 				}
 
 				tail := struct{}{}
@@ -198,9 +198,9 @@ func (v *View1[T1]) Values() iter.Seq2[
 	) bool) {
 		for i := range v.Baked {
 			b := &v.Baked[i]
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
+			p1, s1 := b.GetData(0), b.GetItemSize(0)
 
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.GetLen(); j++ {
 				vhead := struct{ V1 *T1 }{V1: (*T1)(p1)}
 
 				vtail := struct{}{}
@@ -350,16 +350,16 @@ func (v *View2[T1, T2]) All() iter.Seq2[
 	) bool) {
 		for i := range v.Baked {
 			b := &v.Baked[i]
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
+			p1, s1 := b.GetData(0), b.GetItemSize(0)
+			p2, s2 := b.GetData(1), b.GetItemSize(1)
 
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.GetLen(); j++ {
 				head := struct {
 					Entity Entity
 					V1     *T1
 					V2     *T2
 				}{
-					Entity: (*b.Entities)[j], V1: (*T1)(p1), V2: (*T2)(p2),
+					Entity: (b.GetEntities())[j], V1: (*T1)(p1), V2: (*T2)(p2),
 				}
 
 				tail := struct{}{}
@@ -481,10 +481,10 @@ func (v *View2[T1, T2]) Values() iter.Seq2[
 	) bool) {
 		for i := range v.Baked {
 			b := &v.Baked[i]
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
+			p1, s1 := b.GetData(0), b.GetItemSize(0)
+			p2, s2 := b.GetData(1), b.GetItemSize(1)
 
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.GetLen(); j++ {
 				vhead := struct {
 					V1 *T1
 					V2 *T2
@@ -652,18 +652,18 @@ func (v *View3[T1, T2, T3]) All() iter.Seq2[
 	) bool) {
 		for i := range v.Baked {
 			b := &v.Baked[i]
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
-			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
+			p1, s1 := b.GetData(0), b.GetItemSize(0)
+			p2, s2 := b.GetData(1), b.GetItemSize(1)
+			p3, s3 := b.GetData(2), b.GetItemSize(2)
 
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.GetLen(); j++ {
 				head := struct {
 					Entity Entity
 					V1     *T1
 					V2     *T2
 					V3     *T3
 				}{
-					Entity: (*b.Entities)[j], V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3),
+					Entity: (b.GetEntities())[j], V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3),
 				}
 
 				tail := struct{}{}
@@ -791,11 +791,11 @@ func (v *View3[T1, T2, T3]) Values() iter.Seq2[
 	) bool) {
 		for i := range v.Baked {
 			b := &v.Baked[i]
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
-			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
+			p1, s1 := b.GetData(0), b.GetItemSize(0)
+			p2, s2 := b.GetData(1), b.GetItemSize(1)
+			p3, s3 := b.GetData(2), b.GetItemSize(2)
 
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.GetLen(); j++ {
 				vhead := struct {
 					V1 *T1
 					V2 *T2
@@ -970,19 +970,19 @@ func (v *View4[T1, T2, T3, T4]) All() iter.Seq2[
 	) bool) {
 		for i := range v.Baked {
 			b := &v.Baked[i]
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
-			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
-			p4, s4 := b.Columns[3].Data, b.Columns[3].ItemSize
+			p1, s1 := b.GetData(0), b.GetItemSize(0)
+			p2, s2 := b.GetData(1), b.GetItemSize(1)
+			p3, s3 := b.GetData(2), b.GetItemSize(2)
+			p4, s4 := b.GetData(3), b.GetItemSize(3)
 
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.GetLen(); j++ {
 				head := struct {
 					Entity Entity
 					V1     *T1
 					V2     *T2
 					V3     *T3
 				}{
-					Entity: (*b.Entities)[j], V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3),
+					Entity: (b.GetEntities())[j], V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3),
 				}
 
 				tail := struct{ V4 *T4 }{V4: (*T4)(p4)}
@@ -1113,12 +1113,12 @@ func (v *View4[T1, T2, T3, T4]) Values() iter.Seq2[
 	) bool) {
 		for i := range v.Baked {
 			b := &v.Baked[i]
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
-			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
-			p4, s4 := b.Columns[3].Data, b.Columns[3].ItemSize
+			p1, s1 := b.GetData(0), b.GetItemSize(0)
+			p2, s2 := b.GetData(1), b.GetItemSize(1)
+			p3, s3 := b.GetData(2), b.GetItemSize(2)
+			p4, s4 := b.GetData(3), b.GetItemSize(3)
 
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.GetLen(); j++ {
 				vhead := struct {
 					V1 *T1
 					V2 *T2
@@ -1306,20 +1306,20 @@ func (v *View5[T1, T2, T3, T4, T5]) All() iter.Seq2[
 	) bool) {
 		for i := range v.Baked {
 			b := &v.Baked[i]
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
-			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
-			p4, s4 := b.Columns[3].Data, b.Columns[3].ItemSize
-			p5, s5 := b.Columns[4].Data, b.Columns[4].ItemSize
+			p1, s1 := b.GetData(0), b.GetItemSize(0)
+			p2, s2 := b.GetData(1), b.GetItemSize(1)
+			p3, s3 := b.GetData(2), b.GetItemSize(2)
+			p4, s4 := b.GetData(3), b.GetItemSize(3)
+			p5, s5 := b.GetData(4), b.GetItemSize(4)
 
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.GetLen(); j++ {
 				head := struct {
 					Entity Entity
 					V1     *T1
 					V2     *T2
 					V3     *T3
 				}{
-					Entity: (*b.Entities)[j], V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3),
+					Entity: (b.GetEntities())[j], V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3),
 				}
 
 				tail := struct {
@@ -1464,13 +1464,13 @@ func (v *View5[T1, T2, T3, T4, T5]) Values() iter.Seq2[
 	) bool) {
 		for i := range v.Baked {
 			b := &v.Baked[i]
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
-			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
-			p4, s4 := b.Columns[3].Data, b.Columns[3].ItemSize
-			p5, s5 := b.Columns[4].Data, b.Columns[4].ItemSize
+			p1, s1 := b.GetData(0), b.GetItemSize(0)
+			p2, s2 := b.GetData(1), b.GetItemSize(1)
+			p3, s3 := b.GetData(2), b.GetItemSize(2)
+			p4, s4 := b.GetData(3), b.GetItemSize(3)
+			p5, s5 := b.GetData(4), b.GetItemSize(4)
 
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.GetLen(); j++ {
 				vhead := struct {
 					V1 *T1
 					V2 *T2
@@ -1664,21 +1664,21 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq2[
 	) bool) {
 		for i := range v.Baked {
 			b := &v.Baked[i]
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
-			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
-			p4, s4 := b.Columns[3].Data, b.Columns[3].ItemSize
-			p5, s5 := b.Columns[4].Data, b.Columns[4].ItemSize
-			p6, s6 := b.Columns[5].Data, b.Columns[5].ItemSize
+			p1, s1 := b.GetData(0), b.GetItemSize(0)
+			p2, s2 := b.GetData(1), b.GetItemSize(1)
+			p3, s3 := b.GetData(2), b.GetItemSize(2)
+			p4, s4 := b.GetData(3), b.GetItemSize(3)
+			p5, s5 := b.GetData(4), b.GetItemSize(4)
+			p6, s6 := b.GetData(5), b.GetItemSize(5)
 
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.GetLen(); j++ {
 				head := struct {
 					Entity Entity
 					V1     *T1
 					V2     *T2
 					V3     *T3
 				}{
-					Entity: (*b.Entities)[j], V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3),
+					Entity: (b.GetEntities())[j], V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3),
 				}
 
 				tail := struct {
@@ -1834,14 +1834,14 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Values() iter.Seq2[
 	) bool) {
 		for i := range v.Baked {
 			b := &v.Baked[i]
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
-			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
-			p4, s4 := b.Columns[3].Data, b.Columns[3].ItemSize
-			p5, s5 := b.Columns[4].Data, b.Columns[4].ItemSize
-			p6, s6 := b.Columns[5].Data, b.Columns[5].ItemSize
+			p1, s1 := b.GetData(0), b.GetItemSize(0)
+			p2, s2 := b.GetData(1), b.GetItemSize(1)
+			p3, s3 := b.GetData(2), b.GetItemSize(2)
+			p4, s4 := b.GetData(3), b.GetItemSize(3)
+			p5, s5 := b.GetData(4), b.GetItemSize(4)
+			p6, s6 := b.GetData(5), b.GetItemSize(5)
 
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.GetLen(); j++ {
 				vhead := struct {
 					V1 *T1
 					V2 *T2
@@ -2052,22 +2052,22 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) All() iter.Seq2[
 	) bool) {
 		for i := range v.Baked {
 			b := &v.Baked[i]
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
-			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
-			p4, s4 := b.Columns[3].Data, b.Columns[3].ItemSize
-			p5, s5 := b.Columns[4].Data, b.Columns[4].ItemSize
-			p6, s6 := b.Columns[5].Data, b.Columns[5].ItemSize
-			p7, s7 := b.Columns[6].Data, b.Columns[6].ItemSize
+			p1, s1 := b.GetData(0), b.GetItemSize(0)
+			p2, s2 := b.GetData(1), b.GetItemSize(1)
+			p3, s3 := b.GetData(2), b.GetItemSize(2)
+			p4, s4 := b.GetData(3), b.GetItemSize(3)
+			p5, s5 := b.GetData(4), b.GetItemSize(4)
+			p6, s6 := b.GetData(5), b.GetItemSize(5)
+			p7, s7 := b.GetData(6), b.GetItemSize(6)
 
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.GetLen(); j++ {
 				head := struct {
 					Entity Entity
 					V1     *T1
 					V2     *T2
 					V3     *T3
 				}{
-					Entity: (*b.Entities)[j], V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3),
+					Entity: (b.GetEntities())[j], V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3),
 				}
 
 				tail := struct {
@@ -2230,15 +2230,15 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Values() iter.Seq2[
 	) bool) {
 		for i := range v.Baked {
 			b := &v.Baked[i]
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
-			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
-			p4, s4 := b.Columns[3].Data, b.Columns[3].ItemSize
-			p5, s5 := b.Columns[4].Data, b.Columns[4].ItemSize
-			p6, s6 := b.Columns[5].Data, b.Columns[5].ItemSize
-			p7, s7 := b.Columns[6].Data, b.Columns[6].ItemSize
+			p1, s1 := b.GetData(0), b.GetItemSize(0)
+			p2, s2 := b.GetData(1), b.GetItemSize(1)
+			p3, s3 := b.GetData(2), b.GetItemSize(2)
+			p4, s4 := b.GetData(3), b.GetItemSize(3)
+			p5, s5 := b.GetData(4), b.GetItemSize(4)
+			p6, s6 := b.GetData(5), b.GetItemSize(5)
+			p7, s7 := b.GetData(6), b.GetItemSize(6)
 
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.GetLen(); j++ {
 				vhead := struct {
 					V1 *T1
 					V2 *T2
@@ -2458,23 +2458,23 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) All() iter.Seq2[
 	) bool) {
 		for i := range v.Baked {
 			b := &v.Baked[i]
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
-			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
-			p4, s4 := b.Columns[3].Data, b.Columns[3].ItemSize
-			p5, s5 := b.Columns[4].Data, b.Columns[4].ItemSize
-			p6, s6 := b.Columns[5].Data, b.Columns[5].ItemSize
-			p7, s7 := b.Columns[6].Data, b.Columns[6].ItemSize
-			p8, s8 := b.Columns[7].Data, b.Columns[7].ItemSize
+			p1, s1 := b.GetData(0), b.GetItemSize(0)
+			p2, s2 := b.GetData(1), b.GetItemSize(1)
+			p3, s3 := b.GetData(2), b.GetItemSize(2)
+			p4, s4 := b.GetData(3), b.GetItemSize(3)
+			p5, s5 := b.GetData(4), b.GetItemSize(4)
+			p6, s6 := b.GetData(5), b.GetItemSize(5)
+			p7, s7 := b.GetData(6), b.GetItemSize(6)
+			p8, s8 := b.GetData(7), b.GetItemSize(7)
 
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.GetLen(); j++ {
 				head := struct {
 					Entity Entity
 					V1     *T1
 					V2     *T2
 					V3     *T3
 				}{
-					Entity: (*b.Entities)[j], V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3),
+					Entity: (b.GetEntities())[j], V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3),
 				}
 
 				tail := struct {
@@ -2644,16 +2644,16 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Values() iter.Seq2[
 	) bool) {
 		for i := range v.Baked {
 			b := &v.Baked[i]
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
-			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
-			p4, s4 := b.Columns[3].Data, b.Columns[3].ItemSize
-			p5, s5 := b.Columns[4].Data, b.Columns[4].ItemSize
-			p6, s6 := b.Columns[5].Data, b.Columns[5].ItemSize
-			p7, s7 := b.Columns[6].Data, b.Columns[6].ItemSize
-			p8, s8 := b.Columns[7].Data, b.Columns[7].ItemSize
+			p1, s1 := b.GetData(0), b.GetItemSize(0)
+			p2, s2 := b.GetData(1), b.GetItemSize(1)
+			p3, s3 := b.GetData(2), b.GetItemSize(2)
+			p4, s4 := b.GetData(3), b.GetItemSize(3)
+			p5, s5 := b.GetData(4), b.GetItemSize(4)
+			p6, s6 := b.GetData(5), b.GetItemSize(5)
+			p7, s7 := b.GetData(6), b.GetItemSize(6)
+			p8, s8 := b.GetData(7), b.GetItemSize(7)
 
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.GetLen(); j++ {
 				vhead := struct {
 					V1 *T1
 					V2 *T2

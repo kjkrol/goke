@@ -23,8 +23,8 @@ func (v *View0) All() iter.Seq[core.Entity] {
 	return func(yield func(core.Entity) bool) {
 		for i := range v.Baked {
 			b := &v.Baked[i]
-			for j := 0; j < *b.Len; j++ {
-				if !yield((*b.Entities)[j]) {
+			for j := 0; j < b.GetLen(); j++ {
+				if !yield((b.GetEntities())[j]) {
 					return
 				}
 			}
