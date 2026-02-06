@@ -1,5 +1,5 @@
-//go:generate go run internal/gen/views/main.go
-//go:generate go run internal/gen/blueprints/main.go
+//go:generate go run internal/cmd/gen/views/main.go
+//go:generate go run internal/cmd/gen/blueprints/main.go
 package goke
 
 // This file triggers the generation of type-safe ECS views and blueprints.

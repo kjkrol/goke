@@ -21,7 +21,7 @@ const (
 	ScreenWidth    = 1024
 	ScreenHeight   = 1024
 	EntityCount    = 2048 * 4
-	BucketCapacity = 16
+	BucketCapacity = 32
 	RectSize       = 2
 
 	// TargetTPS Define a fixed physics time step (e.g., 120Hz for high precision)
@@ -32,7 +32,7 @@ const (
 
 var spatialGridConfig = spatial.GridIndexConfig{
 	Resolution:       spatial.Size1024x1024,
-	BucketResolution: spatial.Size8x8,
+	BucketResolution: spatial.Size32x32,
 	BucketCapacity:   BucketCapacity,
 	OpsBufferSize:    EntityCount,
 }
@@ -66,7 +66,6 @@ type Game struct {
 var pixelImage *ebiten.Image
 
 func init() {
-	// Tworzymy teksturę 1x1
 	pixelImage = ebiten.NewImage(RectSize, RectSize)
 	pixelImage.Fill(color.White)
 }
