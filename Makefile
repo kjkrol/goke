@@ -1,7 +1,7 @@
 GO       = go
 GOROOT  := $(shell go env GOROOT)
 
-BENCH_COUNT ?= 10
+BENCH_COUNT ?= 4
 
 .PHONY: setup
 setup:
