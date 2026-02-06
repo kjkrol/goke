@@ -15,7 +15,6 @@ type View struct {
 	includeMask ArchetypeMask
 	excludeMask ArchetypeMask
 	CompInfos   []ComponentInfo
-	matched     []*Archetype
 	Baked       []MatchedArch
 }
 
@@ -51,16 +50,11 @@ func NewView(blueprint *Blueprint, reg *Registry) *View {
 }
 
 func (v *View) Reindex() {
-	v.matched = v.matched[:0]
+	v.Baked = v.Baked[:0]
 	for _, arch := range v.Reg.ArchetypeRegistry.All() {
 		if v.Matches(arch.Mask) {
-			v.matched = append(v.matched, arch)
+			v.AddArchetype(arch)
 		}
-	}
-
-	v.Baked = v.Baked[:0]
-	for _, arch := range v.matched {
-		v.AddArchetype(arch)
 	}
 }
 

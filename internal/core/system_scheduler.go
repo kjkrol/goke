@@ -104,7 +104,9 @@ func (s *SystemScheduler) applyBufferCommands(cb *SystemCommandBuffer) error {
 			if err != nil {
 				return fmt.Errorf("failed to allocate ID for target %d: %w", target, err)
 			}
-			memmove(ptr, cmd.dataPtr, cmd.compInfo.Size)
+			if ptr != nil {
+				memmove(ptr, cmd.dataPtr, cmd.compInfo.Size)
+			}
 		case cmdRemoveComponent:
 			s.register.UnassignByID(target, cmd.compInfo)
 		case cmdRemoveEntity:
