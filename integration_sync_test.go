@@ -75,8 +75,9 @@ func TestECS_SystemInteractions(t *testing.T) {
 		ecs := goke.New()
 		setupComponents(ecs)
 
-		e := goke.CreateEntity(ecs)
-		*goke.EnsureComponent[Task](ecs, e, taskDesc) = Task{Completed: false}
+		blueprint := goke.NewBlueprint1[Task](ecs)
+		_, task := blueprint.Create()
+		*task = Task{Completed: false}
 
 		worker := &WorkerSystem{}
 		logger := &LoggerSystem{}
@@ -101,8 +102,9 @@ func TestECS_SystemInteractions(t *testing.T) {
 		ecs := goke.New()
 		setupComponents(ecs)
 
-		e := goke.CreateEntity(ecs)
-		*goke.EnsureComponent[Task](ecs, e, taskDesc) = Task{Completed: false}
+		blueprint := goke.NewBlueprint1[Task](ecs)
+		_, task := blueprint.Create()
+		*task = Task{Completed: false}
 
 		worker := &WorkerSystem{}
 		logger := &LoggerSystem{}

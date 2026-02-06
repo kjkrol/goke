@@ -25,12 +25,16 @@ func main() {
 	discountDesc = goke.RegisterComponent[Discount](ecs)
 
 	// Initialize an entity with Order and Discount component data
-	entity := goke.CreateEntity(ecs)
-	*goke.EnsureComponent[Order](ecs, entity, orderDesc) = Order{ID: "ORD-99", Total: 200.0}
-	*goke.EnsureComponent[Discount](ecs, entity, discountDesc) = Discount{Percentage: 20.0}
+	blueprint := goke.NewBlueprint2[Order, Discount](ecs)
+	entity, order, discount := blueprint.Create()
+	*order = Order{ID: "ORD-99", Total: 200.0}
+	*discount = Discount{Percentage: 20.0}
+	// entity := goke.CreateEntity(ecs)
+	// *goke.EnsureComponent[Order](ecs, entity, orderDesc) = Order{ID: "ORD-99", Total: 200.0}
+	// *goke.EnsureComponent[Discount](ecs, entity, discountDesc) = Discount{Percentage: 20.0}
 
 	// Define the Billing System to calculate discounted totals for unprocessed orders
-	view := goke.NewView2[Order, Discount](ecs, goke.Without[Processed]())
+	view := goke.NewView2[Order, Discount](ecs, goke.Exclude[Processed]())
 	billing := goke.RegisterSystemFunc(ecs, func(schedule *goke.Schedule, d time.Duration) {
 		for head := range view.All() {
 			ord, disc := head.V1, head.V2
@@ -43,7 +47,7 @@ func main() {
 
 	// Define the Teardown System to monitor simulation exit conditions
 	close := false
-	view2 := goke.NewView0(ecs, goke.WithTag[Processed]())
+	view2 := goke.NewView0(ecs, goke.Include[Processed]())
 	teardownSystem := goke.RegisterSystemFunc(ecs, func(cb *goke.Schedule, d time.Duration) {
 		for e := range view2.Filter([]goke.Entity{entity}) {
 			_ = e

@@ -1,0 +1,258 @@
+{{- /* File: view.go.tmpl */ -}}
+// --------------- View{{.N}} ---------------
+
+// View{{.N}} provides a type-safe iterator and access layer for entities that 
+// possess exactly {{.N}} specific stateful components. It acts as a specialized 
+// window into the ECS world, filtering archetypes that satisfy the required 
+// component mask and any additional constraints defined via BlueprintOptions.
+//
+// By leveraging pre-calculated component offsets, View{{.N}} enables 
+// O(1) access to component data during iteration, making it the primary 
+// tool for implementing high-performance systems and logic loops.
+type View{{.N}}[{{.AllTParams}} any] struct {
+    *core.View
+}
+
+// NewView{{.N}} initializes a query for exactly {{.N}} components.
+// It panics if the component registration fails, if there are duplicate 
+// components, or if options (like Exclude) create a logical contradiction.
+// 
+// This ensures that the View is valid and ready for high-performance 
+// iteration immediately after creation.
+func NewView{{.N}}[{{.AllTParams}} any](ecs *ECS, opts ...BlueprintOption) *View{{.N}}[{{.AllTParams}}] {
+    blueprint := core.NewBlueprint(ecs.registry)
+    reg := ecs.registry.ComponentsRegistry
+
+    // mustAdd validates that the required component can be part of the view.
+    // Panics on failure to ensure fail-fast behavior at startup.
+    mustAdd := func(info core.ComponentInfo) {
+        if err := blueprint.WithComp(info); err != nil {
+            panic(fmt.Sprintf("goke: view{{.N}} init failed: %v", err))
+        }
+    }
+
+    {{range .Indices}}
+    mustAdd(core.EnsureComponentRegistered[T{{additions . 1}}](reg))
+    {{end}}
+
+    // Apply dynamic options (Include/Exclude) and panic on any configuration error.
+    for _, opt := range opts {
+        if err := opt(blueprint); err != nil {
+            panic(fmt.Sprintf("goke: view{{.N}} option failed: %v", err))
+        }
+    }
+
+    view := core.NewView(blueprint, ecs.registry)
+    return &View{{.N}}[{{.AllTParams}}]{View: view}
+}
+
+// All returns an iterator (iter.Seq2) that yields the unique Entity identifier 
+// and a tuple of pointers to its {{.N}} components. This is designed for use 
+// in range loops, providing a clean, idiomatic Go way to process data while 
+// maintaining maximum cache efficiency.
+//
+// The iteration is performed archetype by archetype, ensuring that data is 
+// accessed contiguously in memory, which significantly reduces CPU cache misses.
+//
+// Example usage:
+//    for head, {{if .HasTail}}tail{{else}}_{{end}} := range view{{.N}}.All() {
+//        entity := head.Entity
+//        v1 := head.V1
+//        {{- if .HasTail }}
+//        v{{.N}} := tail.V{{.N}}
+//        {{- else if gt .N 1 }}
+//        v{{.N}} := head.V{{.N}}
+//        {{- end }}
+//    }
+func (v *View{{.N}}[{{.AllTParams}}]) All() iter.Seq2[
+    struct { Entity Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
+    {{if .HasTail}}struct { {{range .TIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
+] {
+    return func(yield func(
+        struct { Entity Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
+        {{if .HasTail}}struct { {{range .TIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
+    ) bool) {
+        for i := range v.Baked {
+            b := &v.Baked[i]
+            {{range .Indices}}p{{additions . 1}}, s{{additions . 1}} := b.Columns[{{.}}].Data, b.Columns[{{.}}].ItemSize
+            {{end}}
+            for j := 0; j < *b.Len; j++ {
+                head := struct { Entity Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
+                    Entity: (*b.Entities)[j],
+                    {{- range .HIndices}}V{{additions . 1}}: (*T{{additions . 1}})(p{{additions . 1}}),{{end}}
+                }
+                {{if .HasTail}}
+                tail := struct { {{range .TIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
+                    {{- range .TIndices}}V{{additions . 1}}: (*T{{additions . 1}})(p{{additions . 1}}),{{end}}
+                }
+                {{else}}
+                tail := struct{}{}
+                {{end}}
+                if !yield(head, tail) { return }
+                {{range .Indices}}p{{additions . 1}} = unsafe.Add(p{{additions . 1}}, s{{additions . 1}})
+                {{end}}
+            }
+        }
+    }
+}
+
+// Filter returns an iterator (iter.Seq2) that yields only the entities 
+// specified in the selected slice, provided they match the View's archetype 
+// constraints. It is optimized for scenarios where a subset of entities 
+// is pre-determined (e.g., via spatial partitioning or sorted results) 
+// but requires high-speed access to their component data.
+//
+// The iterator performs an internal validation for each entity to ensure 
+// it still belongs to an archetype compatible with this View, preventing 
+// invalid memory access if the entity's composition has changed.
+//
+// Example usage:
+//    selected := []Entity{e1, e5, e10}
+//    for head, {{if .HasTail}}tail{{else}}_{{end}} := range view{{.N}}.Filter(selected) {
+//        entity := head.Entity
+//        v1 := head.V1
+//        {{- if .HasTail}}
+//        {{- range $i, $idx := .TIndices }}{{ if eq (additions $idx 1) $.N }}
+//        v{{$.N}} := tail.V{{$.N}}
+//        {{- end }}{{ end }}
+//        {{- else if gt .N 1 }}
+//        {{- range $i, $idx := .HIndices }}{{ if eq (additions $idx 1) $.N }}
+//        v{{$.N}} := head.V{{$.N}}
+//        {{- end }}{{ end }}
+//        {{- end }}
+//    }
+func (v *View{{.N}}[{{.AllTParams}}]) Filter(selected []Entity) iter.Seq2[
+    struct { Entity Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
+    {{if .HasTail}}struct { {{range .TIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
+] {
+    links := v.Reg.ArchetypeRegistry.EntityLinkStore
+    return func(yield func(
+        struct { Entity Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
+        {{if .HasTail}}struct { {{range .TIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
+    ) bool) {
+        var lastArch *core.Archetype; var cols [{{.N}}]*core.Column
+        for _, e := range selected {
+            link, ok := links.Get(e); if !ok { continue }
+            arch := link.Arch
+            if arch == nil || !v.View.Matches(arch.Mask) { continue }
+            if arch != lastArch {
+                for i := 0; i < {{.N}}; i++ { cols[i] = arch.Columns[v.CompInfos[i].ID] }
+                lastArch = arch
+            }
+            idx := uintptr(link.Row)
+            head := struct { Entity Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
+                Entity: e,
+                {{- range .HIndices}}V{{additions . 1}}: (*T{{additions . 1}})(unsafe.Add(cols[{{.}}].Data, idx*cols[{{.}}].ItemSize)),{{end}}
+            }
+            {{if .HasTail}}
+            tail := struct { {{range .TIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
+                {{- range .TIndices}}V{{additions . 1}}: (*T{{additions . 1}})(unsafe.Add(cols[{{.}}].Data, idx*cols[{{.}}].ItemSize)),{{end}}
+            }
+            {{else}}
+            tail := struct{}{}
+            {{end}}
+            if !yield(head, tail) { return }
+        }
+    }
+}
+
+// Values returns a performance-critical iterator (iter.Seq2) that yields only 
+// component pointers, grouped into anonymous head and tail structures. 
+// This method is specifically designed for high-throughput data processing 
+// where the Entity identifier is not required.
+//
+// By omitting the Entity ID, this method minimizes stack pressure and 
+// register usage, focusing purely on data-driven transformation.
+//
+// Example usage:
+//    for head, {{if .HasVTail}}tail{{else}}_{{end}} := range view{{.N}}.Values() {
+//        v1 := head.V1
+//        {{- if le .N 4 }}{{ if gt .N 1 }}
+//        v{{.N}} := head.V{{.N}}
+{{- end }}{{ end }}
+//        {{- if .HasVTail }}
+//        v{{.N}} := tail.V{{.N}}
+//        {{- end }}
+//    }
+func (v *View{{.N}}[{{.AllTParams}}]) Values() iter.Seq2[
+    struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
+    {{if .HasVTail}}struct { {{range .PTIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
+] {
+    return func(yield func(
+        struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
+        {{if .HasVTail}}struct { {{range .PTIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
+    ) bool) {
+        for i := range v.Baked {
+            b := &v.Baked[i]
+            {{range .Indices}}p{{additions . 1}}, s{{additions . 1}} := b.Columns[{{.}}].Data, b.Columns[{{.}}].ItemSize
+            {{end}}
+            for j := 0; j < *b.Len; j++ {
+                vhead := struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
+                    {{- range .PHIndices}}V{{additions . 1}}: (*T{{additions . 1}})(p{{additions . 1}}),{{end}}
+                }
+                {{if .HasVTail}}
+                vtail := struct { {{range .PTIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
+                    {{- range .PTIndices}}V{{additions . 1}}: (*T{{additions . 1}})(p{{additions . 1}}),{{end}}
+                }
+                {{else}}
+                vtail := struct{}{}
+                {{end}}
+                if !yield(vhead, vtail) { return }
+                {{range .Indices}}p{{additions . 1}} = unsafe.Add(p{{additions . 1}}, s{{additions . 1}})
+                {{end}}
+            }
+        }
+    }
+}
+
+// FilterValues returns an iterator (iter.Seq2) that yields component pointers 
+// for a pre-selected subset of entities, skipping the Entity identifier.
+// It is optimized for cases where the entity list is already known (e.g., from spatial partitioning).
+//
+// Like the Values method, it uses anonymous structures to ensure the Go compiler 
+// can perform aggressive register allocation by avoiding Entity ID overhead.
+//
+// Example usage:
+//    selected := []Entity{e1, e5, e10}
+//    for head, {{if .HasVTail}}tail{{else}}_{{end}} := range view{{.N}}.FilterValues(selected) {
+//        v1 := head.V1
+//        {{- if le .N 4 }}{{ if gt .N 1 }}
+//        v{{.N}} := head.V{{.N}}
+{{- end }}{{ end }}
+//        {{- if .HasVTail }}
+//        v{{.N}} := tail.V{{.N}}
+//        {{- end }}
+//    }
+func (v *View{{.N}}[{{.AllTParams}}]) FilterValues(selected []Entity) iter.Seq2[
+    struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
+    {{if .HasVTail}}struct { {{range .PTIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
+] {
+    links := v.Reg.ArchetypeRegistry.EntityLinkStore
+    return func(yield func(
+        struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
+        {{if .HasVTail}}struct { {{range .PTIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
+    ) bool) {
+        var lastArch *core.Archetype; var cols [{{.N}}]*core.Column
+        for _, e := range selected {
+            link, ok := links.Get(e); if !ok { continue }
+            arch := link.Arch
+            if arch == nil || !v.View.Matches(arch.Mask) { continue }
+            if arch != lastArch {
+                for i := 0; i < {{.N}}; i++ { cols[i] = arch.Columns[v.CompInfos[i].ID] }
+                lastArch = arch
+            }
+            idx := uintptr(link.Row)
+            vhead := struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
+                {{- range .PHIndices}}V{{additions . 1}}: (*T{{additions . 1}})(unsafe.Add(cols[{{.}}].Data, idx*cols[{{.}}].ItemSize)),{{end}}
+            }
+            {{if .HasVTail}}
+            vtail := struct { {{range .PTIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
+                {{- range .PTIndices}}V{{additions . 1}}: (*T{{additions . 1}})(unsafe.Add(cols[{{.}}].Data, idx*cols[{{.}}].ItemSize)),{{end}}
+            }
+            {{else}}
+            vtail := struct{}{}
+            {{end}}
+            if !yield(vhead, vtail) { return }
+        }
+    }
+}

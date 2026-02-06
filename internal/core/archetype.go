@@ -1,7 +1,5 @@
 package core
 
-import "math/bits"
-
 type Archetype struct {
 	Mask     ArchetypeMask
 	entities []Entity
@@ -18,28 +16,6 @@ type Archetype struct {
 }
 
 type ArchRow uint32
-
-func NewArchetype(mask ArchetypeMask, defaultArchetypeChunkSize int) *Archetype {
-	// Pre-calculate active IDs to avoid bitmask scanning in hot loops
-	activeIDs := make([]ComponentID, 0, mask.Count())
-	for i, word := range mask {
-		for word != 0 {
-			bitPos := bits.TrailingZeros64(word)
-			id := ComponentID(i*64 + bitPos)
-			activeIDs = append(activeIDs, id)
-			word &= word - 1
-		}
-	}
-
-	return &Archetype{
-		Mask:      mask,
-		entities:  make([]Entity, defaultArchetypeChunkSize),
-		activeIDs: activeIDs,
-		len:       0,
-		cap:       defaultArchetypeChunkSize,
-		initCap:   defaultArchetypeChunkSize,
-	}
-}
 
 func (a *Archetype) SwapRemoveEntity(row ArchRow) (swapedEntity Entity, swaped bool) {
 	lastRow := ArchRow(a.len - 1)

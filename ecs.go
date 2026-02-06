@@ -2,6 +2,7 @@ package goke
 
 import (
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/kjkrol/goke/internal/core"
@@ -58,28 +59,10 @@ func New(opts ...ECSOption) *ECS {
 
 // ---- [E]CS Entity ----
 
-// CreateEntity spawns a new entity within the registry and returns its identifier.
-// The entity will have no components assigned initially.
-func CreateEntity(ecs *ECS) Entity {
-	return ecs.registry.CreateEntity()
-}
-
 // RemoveEntity destroys an entity and recycles its ID. All associated
 // components are removed and memory is reclaimed. Returns true if the entity existed.
 func RemoveEntity(ecs *ECS, entity Entity) bool {
 	return ecs.registry.RemoveEntity(entity)
-}
-
-// SafeEnsureComponent attempts to return a direct pointer to the entity's component data.
-// It functions as a zero-copy upsert: if the component exists, it returns a pointer
-// to the existing data; otherwise, it allocates new memory.
-// Returns an error if the entity does not exist or the allocation fails.
-func SafeEnsureComponent[T any](ecs *ECS, entity Entity, compDesc ComponentDesc) (*T, error) {
-	ptr, err := ecs.registry.AllocateByID(entity, compDesc)
-	if err != nil {
-		return nil, err
-	}
-	return (*T)(ptr), nil
 }
 
 // EnsureComponent returns a direct pointer to the entity's component data,
@@ -95,13 +78,34 @@ func EnsureComponent[T any](ecs *ECS, entity Entity, compDesc ComponentDesc) *T 
 	return ptr
 }
 
-// GetComponent returns a typed pointer to an entity's component of type T.
-func GetComponent[T any](ecs *ECS, entity Entity, compDesc ComponentDesc) (*T, error) {
-	data, err := ecs.registry.ComponentGet(entity, compDesc.ID)
+// SafeEnsureComponent attempts to return a direct pointer to the entity's component data.
+// It functions as a zero-copy upsert: if the component exists, it returns a pointer
+// to the existing data; otherwise, it allocates new memory.
+// Returns an error if the entity does not exist or the allocation fails.
+func SafeEnsureComponent[T any](ecs *ECS, entity Entity, compDesc ComponentDesc) (*T, error) {
+	requestedType := reflect.TypeFor[T]()
+	if requestedType != compDesc.Type {
+		return nil, fmt.Errorf("type mismatch: component ID %d is registered as %v, but requested as %v",
+			compDesc.ID, compDesc.Type, requestedType)
+	}
+	ptr, err := ecs.registry.AllocateByID(entity, compDesc)
 	if err != nil {
 		return nil, err
 	}
+	return (*T)(ptr), nil
+}
 
+// GetComponent returns a typed pointer to an entity's component of type T.
+func GetComponent[T any](ecs *ECS, entity Entity, compDesc ComponentDesc) (*T, error) {
+	data, err := ecs.registry.ComponentGet(entity, compDesc.ID)
+	requestedType := reflect.TypeFor[T]()
+	if requestedType != compDesc.Type {
+		return nil, fmt.Errorf("type mismatch: component ID %d is registered as %v, but requested as %v",
+			compDesc.ID, compDesc.Type, requestedType)
+	}
+	if err != nil {
+		return nil, err
+	}
 	return (*T)(data), nil
 }
 
@@ -112,7 +116,7 @@ func RemoveComponent(ecs *ECS, entity Entity, compDesc ComponentDesc) error {
 
 // ---- E[C]S Component ----
 
-// RegisterComponent ensures a component of type T is registered in the ecs
+// RegisterComponent ensures a component of type T is registered in the ECS
 // and returns its metadata.
 func RegisterComponent[T any](ecs *ECS) ComponentDesc {
 	return core.EnsureComponentRegistered[T](ecs.registry.ComponentsRegistry)
@@ -120,14 +124,14 @@ func RegisterComponent[T any](ecs *ECS) ComponentDesc {
 
 // ---- EC[S] System ----
 
-// RegisterSystem adds a stateful system to the ecs. The system's Init method
+// RegisterSystem adds a stateful system to the ECS. The system's Init method
 // will be called immediately.
 func RegisterSystem(ecs *ECS, system System) {
 	system.Init(ecs)
 	ecs.scheduler.RegisterSystem(system)
 }
 
-// RegisterSystemFunc adds a stateless, function-based system to the ecs.
+// RegisterSystemFunc adds a stateless, function-based system to the ECS.
 func RegisterSystemFunc(ecs *ECS, fn SystemFunc) System {
 	wrapper := &functionalSystem{updateFn: fn}
 	wrapper.Init(ecs)
@@ -135,9 +139,9 @@ func RegisterSystemFunc(ecs *ECS, fn SystemFunc) System {
 	return wrapper
 }
 
-// ECS
+// ---- ECS ----
 
-// Plan defines the logic for each ecs tick (how systems are orchestrated).
+// Plan defines the logic for each ECS tick (how systems are orchestrated).
 func Plan(ecs *ECS, plan ExecutionPlan) {
 	ecs.scheduler.SetExecutionPlan(plan)
 }
