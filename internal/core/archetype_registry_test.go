@@ -12,8 +12,8 @@ func TestArchetypeRegistry_FastPath(t *testing.T) {
 	posTypeInfo := reg.componentsRegistry.GetOrRegister(reflect.TypeFor[position]())
 	posData := position{10, 20}
 
-	reg.AddEntity(e1)
-	reg.AddEntity(e2)
+	reg.AddEntity(e1, RootArchetypeId)
+	reg.AddEntity(e2, RootArchetypeId)
 
 	// First assignment: Should build the graph edge (Slow Path)
 	if ptr, err := reg.AllocateComponentMemory(e1, posTypeInfo); err == nil {
@@ -21,12 +21,13 @@ func TestArchetypeRegistry_FastPath(t *testing.T) {
 	}
 
 	arch1, _ := reg.EntityLinkStore.Get(e1)
-	if arch1.Arch == reg.rootArch {
+	if arch1.ArchId == RootArchetypeId {
 		t.Fatal("entity E1 should have moved from rootArch")
 	}
 
 	// Case: Verify edge was cached in rootArch
-	if nextEdge := reg.rootArch.edgesNext[posTypeInfo.ID]; nextEdge == nil {
+	rootArch := &reg.Archetypes[RootArchetypeId]
+	if nextEdge := rootArch.edgesNext[posTypeInfo.ID]; nextEdge == RootArchetypeId {
 		t.Fatal("fast path edge was not cached in rootArch")
 	}
 
@@ -36,19 +37,18 @@ func TestArchetypeRegistry_FastPath(t *testing.T) {
 	}
 	arch2, _ := reg.EntityLinkStore.Get(e2)
 
-	if arch1.Arch != arch2.Arch {
+	if arch1.ArchId != arch2.ArchId {
 		t.Error("E1 and E2 should share the same archetype instance via graph edges")
 	}
 }
 
-// 2. Bidirectional Cycle
 // 2. Bidirectional Cycle
 func TestArchetypeRegistry_CycleConsistency(t *testing.T) {
 	reg := setupTestRegistry()
 	e := Entity(10)
 	posTypeInfo := reg.componentsRegistry.GetOrRegister(reflect.TypeFor[position]())
 
-	reg.AddEntity(e)
+	reg.AddEntity(e, RootArchetypeId)
 
 	// Root -> +Pos -> ArchA
 	// Passing a valid pointer to avoid panic in column.setData
@@ -58,12 +58,13 @@ func TestArchetypeRegistry_CycleConsistency(t *testing.T) {
 	}
 	linkA, _ := reg.EntityLinkStore.Get(e)
 
-	if linkA.Arch == nil || linkA.Arch == reg.rootArch {
+	if linkA.ArchId == NullArchetypeId || linkA.ArchId == RootArchetypeId {
 		t.Fatal("entity failed to move to a new archetype")
 	}
 
 	// Case: Verify back-link exists in the graph
-	if linkA.Arch.edgesPrev[posTypeInfo.ID] != reg.rootArch {
+	linkAArch := &reg.Archetypes[linkA.ArchId]
+	if linkAArch.edgesPrev[posTypeInfo.ID] != RootArchetypeId {
 		t.Error("bidirectional link (edgesPrev) from ArchA to Root not established")
 	}
 }
@@ -79,8 +80,8 @@ func TestArchetypeRegistry_GraphBranching(t *testing.T) {
 	pData := position{x: 1, y: 1}
 	vData := velocity{vx: 10, vy: 10}
 
-	reg.AddEntity(e1)
-	reg.AddEntity(e2)
+	reg.AddEntity(e1, RootArchetypeId)
+	reg.AddEntity(e2, RootArchetypeId)
 
 	// Branching from Root to two different archetypes
 	// Use actual pointers instead of nil
@@ -92,12 +93,13 @@ func TestArchetypeRegistry_GraphBranching(t *testing.T) {
 	}
 
 	// Case: Root should have 2 independent outgoing edges
-	if count := reg.rootArch.CountNextEdges(); count != 2 {
+	rootArch := &reg.Archetypes[RootArchetypeId]
+	if count := rootArch.CountNextEdges(); count != 2 {
 		t.Errorf("expected 2 outgoing edges from Root, got %d", count)
 	}
 
-	archPos := reg.rootArch.edgesNext[posTypeInfo.ID]
-	archVel := reg.rootArch.edgesNext[velTypeInfo.ID]
+	archPos := rootArch.edgesNext[posTypeInfo.ID]
+	archVel := rootArch.edgesNext[velTypeInfo.ID]
 
 	if archPos == archVel {
 		t.Error("different components must lead to distinct archetypes")
@@ -111,7 +113,7 @@ func TestArchetypeRegistry_RemovalStrategy(t *testing.T) {
 	posTypeInfo := reg.componentsRegistry.GetOrRegister(reflect.TypeFor[position]())
 	pData := position{x: 1, y: 1}
 
-	reg.AddEntity(e)
+	reg.AddEntity(e, RootArchetypeId)
 
 	// Validating if Assign works with the new error-returning signature
 	if ptr, err := reg.AllocateComponentMemory(e, posTypeInfo); err == nil {
@@ -125,8 +127,9 @@ func TestArchetypeRegistry_RemovalStrategy(t *testing.T) {
 
 	link, _ := reg.EntityLinkStore.Get(e)
 
-	if link.Arch != nil {
-		t.Errorf("entity should be removed (arch == nil), but still linked to archetype with mask: %v", link.Arch.Mask)
+	if link.ArchId != NullArchetypeId {
+		linkArch := &reg.Archetypes[link.ArchId]
+		t.Errorf("entity should be removed (arch == nil), but still linked to archetype with mask: %v", linkArch.Mask)
 	}
 }
 
@@ -138,7 +141,7 @@ func TestArchetypeRegistry_OverwriteIdempotency(t *testing.T) {
 	p1 := position{1, 1}
 	p2 := position{2, 2}
 
-	reg.AddEntity(e)
+	reg.AddEntity(e, RootArchetypeId)
 	if ptr, err := reg.AllocateComponentMemory(e, posTypeInfo); err == nil {
 		*(*position)(ptr) = p1
 	}
@@ -152,11 +155,12 @@ func TestArchetypeRegistry_OverwriteIdempotency(t *testing.T) {
 
 	linkAfter, _ := reg.EntityLinkStore.Get(e)
 
-	if linkBefore.Arch != linkAfter.Arch || linkBefore.Row != linkAfter.Row {
+	if linkBefore.ArchId != linkAfter.ArchId || linkBefore.Row != linkAfter.Row {
 		t.Error("re-assigning same component should not move entity in graph")
 	}
 
-	gotData := *(*position)(linkAfter.Arch.Columns[posTypeInfo.ID].GetElement(linkAfter.Row))
+	linkAfterArch := &reg.Archetypes[linkAfter.ArchId]
+	gotData := *(*position)(linkAfterArch.Columns[posTypeInfo.ID].GetElement(linkAfter.Row))
 	if gotData != p2 {
 		t.Errorf("data update failed: got %+v, want %+v", gotData, p2)
 	}
@@ -170,16 +174,16 @@ func TestArchetypeRegistry_SwapPopIntegrity(t *testing.T) {
 	pData := position{x: 1, y: 1}
 
 	// Fix: replace nil with pointer in all Assign calls
-	reg.AddEntity(e0)
+	reg.AddEntity(e0, RootArchetypeId)
 	if ptr, err := reg.AllocateComponentMemory(e0, posTypeInfo); err == nil {
 		*(*position)(ptr) = pData
 	}
 
-	reg.AddEntity(e1)
+	reg.AddEntity(e1, RootArchetypeId)
 	if ptr, err := reg.AllocateComponentMemory(e1, posTypeInfo); err == nil {
 		*(*position)(ptr) = pData
 	}
-	reg.AddEntity(e2)
+	reg.AddEntity(e2, RootArchetypeId)
 	if ptr, err := reg.AllocateComponentMemory(e2, posTypeInfo); err == nil {
 		*(*position)(ptr) = pData
 	}
@@ -206,7 +210,7 @@ func setupTestRegistry() *ArchetypeRegistry {
 func TestArchetypeRegistry_AssignValidation(t *testing.T) {
 	reg := setupTestRegistry()
 	e := Entity(1)
-	reg.AddEntity(e)
+	reg.AddEntity(e, RootArchetypeId)
 	type void struct{}
 	voidTypeInfo := reg.componentsRegistry.GetOrRegister(reflect.TypeFor[void]())
 	posTypeInfo := reg.componentsRegistry.GetOrRegister(reflect.TypeFor[position]())

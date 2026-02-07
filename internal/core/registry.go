@@ -27,9 +27,14 @@ func NewRegistry(cfg RegistryConfig) *Registry {
 	}
 }
 
+// CreateEntity allocates a new empty entity in the registry.
+//
+// Deprecated: This method should not be used directly in the public API.
+// To ensure consistent state and proper component initialization,
+// entities should be created through a ArchetypeEntryBlueprint instead.
 func (r *Registry) CreateEntity() Entity {
 	entity := r.EntityPool.Next()
-	r.ArchetypeRegistry.AddEntity(entity)
+	r.ArchetypeRegistry.AddEntity(entity, RootArchetypeId)
 	return entity
 }
 
@@ -75,7 +80,8 @@ func (r *Registry) ComponentGet(entity Entity, compID ComponentID) (unsafe.Point
 		return nil, fmt.Errorf("entity not found in registry")
 	}
 
-	col := link.Arch.Columns[compID]
+	arch := &r.ArchetypeRegistry.Archetypes[link.ArchId]
+	col := arch.Columns[compID]
 	if col == nil {
 		return nil, fmt.Errorf("component not found in archetype")
 	}

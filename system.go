@@ -44,14 +44,6 @@ func ScheduleRemoveComponent(schedule *Schedule, e Entity, compDesc ComponentDes
 	core.RemoveComponent(schedule, e, compDesc)
 }
 
-// ScheduleCreateEntity queues the creation of a new entity.
-// It returns a "virtual" Entity handle that can be used within the same
-// schedule to add components to the newly created entity before it is
-// officially spawned in the world.
-func ScheduleCreateEntity(schedule *Schedule) Entity {
-	return core.CreateEntity(schedule)
-}
-
 // ScheduleRemoveEntity queues the destruction of an entity and all its
 // associated components. Any pending operations on this entity in the
 // same schedule will be discarded.

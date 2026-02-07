@@ -111,9 +111,6 @@ func (s *SystemScheduler) applyBufferCommands(cb *SystemCommandBuffer) error {
 			s.register.UnassignByID(target, cmd.compInfo)
 		case cmdRemoveEntity:
 			s.register.RemoveEntity(cmd.entity)
-		case cmdCreateEntity:
-			realID := s.register.CreateEntity()
-			vMap[cmd.entity] = realID
 		}
 	}
 	cb.reset()

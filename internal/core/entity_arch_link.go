@@ -1,7 +1,7 @@
 package core
 
 type EntityArchLink struct {
-	Arch       *Archetype
+	ArchId     ArchetypeId
 	Row        ArchRow
 	Generation uint32
 }
@@ -26,21 +26,21 @@ func (s *EntityLinkStore) Get(entity Entity) (EntityArchLink, bool) {
 	link := s.links[index]
 
 	// Safety check: compare generations
-	if link.Arch == nil || link.Generation != entity.Generation() {
+	if link.ArchId == NullArchetypeId || link.Generation != entity.Generation() {
 		return EntityArchLink{}, false
 	}
 
 	return link, true
 }
 
-func (s *EntityLinkStore) Update(entity Entity, arch *Archetype, row ArchRow) {
+func (s *EntityLinkStore) Update(entity Entity, archId ArchetypeId, row ArchRow) {
 	index := entity.Index()
 	if index >= uint32(len(s.links)) {
 		s.grow(index + 1)
 	}
 	// Store both the location AND the current generation
 	s.links[index] = EntityArchLink{
-		Arch:       arch,
+		ArchId:     archId,
 		Row:        row,
 		Generation: entity.Generation(),
 	}
@@ -56,7 +56,7 @@ func (s *EntityLinkStore) Clear(entity Entity) {
 	// If they don't, it means this entity is already gone or replaced.
 	if s.links[index].Generation == entity.Generation() {
 		s.links[index] = EntityArchLink{
-			Arch:       nil,
+			ArchId:     NullArchetypeId,
 			Row:        0,
 			Generation: 0, // Reset to 0 to prevent any stale handle matches
 		}

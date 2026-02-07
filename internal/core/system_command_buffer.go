@@ -11,7 +11,6 @@ const (
 	cmdAssignComponent commandType = iota
 	cmdRemoveComponent
 	cmdRemoveEntity
-	cmdCreateEntity
 )
 
 type systemCommand struct {
@@ -69,17 +68,6 @@ func RemoveComponent(cb *SystemCommandBuffer, e Entity, compInfo ComponentInfo) 
 		entity:   e,
 		compInfo: compInfo,
 	})
-}
-
-func CreateEntity(cb *SystemCommandBuffer) Entity {
-	vEntity := NewVirtualEntity(cb.nextVirtualID)
-	cb.nextVirtualID++
-
-	cb.commands = append(cb.commands, systemCommand{
-		cType:  cmdCreateEntity,
-		entity: vEntity,
-	})
-	return vEntity
 }
 
 func RemoveEntity(cb *SystemCommandBuffer, e Entity) {

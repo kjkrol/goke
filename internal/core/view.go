@@ -51,7 +51,9 @@ func NewView(blueprint *Blueprint, reg *Registry) *View {
 
 func (v *View) Reindex() {
 	v.Baked = v.Baked[:0]
-	for _, arch := range v.Reg.ArchetypeRegistry.All() {
+	arches := v.Reg.ArchetypeRegistry.Archetypes
+	for i := range len(arches) {
+		arch := &arches[i]
 		if v.Matches(arch.Mask) {
 			v.AddArchetype(arch)
 		}

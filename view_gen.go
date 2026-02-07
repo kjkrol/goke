@@ -146,7 +146,7 @@ func (v *View1[T1]) Filter(selected []Entity) iter.Seq2[
 			if !ok {
 				continue
 			}
-			arch := link.Arch
+			arch := &v.Reg.ArchetypeRegistry.Archetypes[link.ArchId]
 			if arch == nil || !v.View.Matches(arch.Mask) {
 				continue
 			}
@@ -246,7 +246,7 @@ func (v *View1[T1]) FilterValues(selected []Entity) iter.Seq2[
 			if !ok {
 				continue
 			}
-			arch := link.Arch
+			arch := &v.Reg.ArchetypeRegistry.Archetypes[link.ArchId]
 			if arch == nil || !v.View.Matches(arch.Mask) {
 				continue
 			}
@@ -421,7 +421,7 @@ func (v *View2[T1, T2]) Filter(selected []Entity) iter.Seq2[
 			if !ok {
 				continue
 			}
-			arch := link.Arch
+			arch := &v.Reg.ArchetypeRegistry.Archetypes[link.ArchId]
 			if arch == nil || !v.View.Matches(arch.Mask) {
 				continue
 			}
@@ -541,7 +541,7 @@ func (v *View2[T1, T2]) FilterValues(selected []Entity) iter.Seq2[
 			if !ok {
 				continue
 			}
-			arch := link.Arch
+			arch := &v.Reg.ArchetypeRegistry.Archetypes[link.ArchId]
 			if arch == nil || !v.View.Matches(arch.Mask) {
 				continue
 			}
@@ -728,7 +728,7 @@ func (v *View3[T1, T2, T3]) Filter(selected []Entity) iter.Seq2[
 			if !ok {
 				continue
 			}
-			arch := link.Arch
+			arch := &v.Reg.ArchetypeRegistry.Archetypes[link.ArchId]
 			if arch == nil || !v.View.Matches(arch.Mask) {
 				continue
 			}
@@ -856,7 +856,7 @@ func (v *View3[T1, T2, T3]) FilterValues(selected []Entity) iter.Seq2[
 			if !ok {
 				continue
 			}
-			arch := link.Arch
+			arch := &v.Reg.ArchetypeRegistry.Archetypes[link.ArchId]
 			if arch == nil || !v.View.Matches(arch.Mask) {
 				continue
 			}
@@ -1048,7 +1048,7 @@ func (v *View4[T1, T2, T3, T4]) Filter(selected []Entity) iter.Seq2[
 			if !ok {
 				continue
 			}
-			arch := link.Arch
+			arch := &v.Reg.ArchetypeRegistry.Archetypes[link.ArchId]
 			if arch == nil || !v.View.Matches(arch.Mask) {
 				continue
 			}
@@ -1183,7 +1183,7 @@ func (v *View4[T1, T2, T3, T4]) FilterValues(selected []Entity) iter.Seq2[
 			if !ok {
 				continue
 			}
-			arch := link.Arch
+			arch := &v.Reg.ArchetypeRegistry.Archetypes[link.ArchId]
 			if arch == nil || !v.View.Matches(arch.Mask) {
 				continue
 			}
@@ -1395,7 +1395,7 @@ func (v *View5[T1, T2, T3, T4, T5]) Filter(selected []Entity) iter.Seq2[
 			if !ok {
 				continue
 			}
-			arch := link.Arch
+			arch := &v.Reg.ArchetypeRegistry.Archetypes[link.ArchId]
 			if arch == nil || !v.View.Matches(arch.Mask) {
 				continue
 			}
@@ -1537,7 +1537,7 @@ func (v *View5[T1, T2, T3, T4, T5]) FilterValues(selected []Entity) iter.Seq2[
 			if !ok {
 				continue
 			}
-			arch := link.Arch
+			arch := &v.Reg.ArchetypeRegistry.Archetypes[link.ArchId]
 			if arch == nil || !v.View.Matches(arch.Mask) {
 				continue
 			}
@@ -1758,7 +1758,7 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Filter(selected []Entity) iter.Seq2[
 			if !ok {
 				continue
 			}
-			arch := link.Arch
+			arch := &v.Reg.ArchetypeRegistry.Archetypes[link.ArchId]
 			if arch == nil || !v.View.Matches(arch.Mask) {
 				continue
 			}
@@ -1918,7 +1918,7 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) FilterValues(selected []Entity) iter.Seq
 			if !ok {
 				continue
 			}
-			arch := link.Arch
+			arch := &v.Reg.ArchetypeRegistry.Archetypes[link.ArchId]
 			if arch == nil || !v.View.Matches(arch.Mask) {
 				continue
 			}
@@ -2151,7 +2151,7 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Filter(selected []Entity) iter.Seq2[
 			if !ok {
 				continue
 			}
-			arch := link.Arch
+			arch := &v.Reg.ArchetypeRegistry.Archetypes[link.ArchId]
 			if arch == nil || !v.View.Matches(arch.Mask) {
 				continue
 			}
@@ -2319,7 +2319,7 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) FilterValues(selected []Entity) iter
 			if !ok {
 				continue
 			}
-			arch := link.Arch
+			arch := &v.Reg.ArchetypeRegistry.Archetypes[link.ArchId]
 			if arch == nil || !v.View.Matches(arch.Mask) {
 				continue
 			}
@@ -2562,7 +2562,7 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Filter(selected []Entity) iter.S
 			if !ok {
 				continue
 			}
-			arch := link.Arch
+			arch := &v.Reg.ArchetypeRegistry.Archetypes[link.ArchId]
 			if arch == nil || !v.View.Matches(arch.Mask) {
 				continue
 			}
@@ -2738,7 +2738,7 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) FilterValues(selected []Entity) 
 			if !ok {
 				continue
 			}
-			arch := link.Arch
+			arch := &v.Reg.ArchetypeRegistry.Archetypes[link.ArchId]
 			if arch == nil || !v.View.Matches(arch.Mask) {
 				continue
 			}

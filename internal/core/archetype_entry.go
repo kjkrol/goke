@@ -8,7 +8,7 @@ type ArchetypeEntryBlueprint struct {
 	reg       *Registry
 	mask      ArchetypeMask
 	CompInfos []ComponentInfo
-	Arch      *Archetype
+	ArchId    ArchetypeId
 }
 
 func NewArchetypeEntry(blueprint *Blueprint) *ArchetypeEntryBlueprint {
@@ -22,23 +22,23 @@ func NewArchetypeEntry(blueprint *Blueprint) *ArchetypeEntryBlueprint {
 		mask = mask.Set(tag)
 	}
 
-	var arch *Archetype = &Archetype{}
-	blueprint.Reg.ArchetypeRegistry.getOrRegister(mask, &arch)
+	archId := blueprint.Reg.ArchetypeRegistry.getOrRegister(mask)
 
 	return &ArchetypeEntryBlueprint{
 		reg:       blueprint.Reg,
 		mask:      mask,
 		CompInfos: blueprint.compInfos,
-		Arch:      arch,
+		ArchId:    archId,
 	}
 }
 
 func (b *ArchetypeEntryBlueprint) Create() (Entity, [ArchetypeEntryCap]unsafe.Pointer) {
 	entity := b.reg.EntityPool.Next()
-	row := b.reg.ArchetypeRegistry.addEntity(entity, b.Arch)
+	row := b.reg.ArchetypeRegistry.AddEntity(entity, b.ArchId)
+	arch := b.reg.ArchetypeRegistry.Archetypes[b.ArchId]
 	var ptrs [ArchetypeEntryCap]unsafe.Pointer
 	for i, info := range b.CompInfos {
-		column := b.Arch.Columns[info.ID]
+		column := arch.Columns[info.ID]
 		ptrs[i] = unsafe.Add(column.Data, uintptr(row)*column.ItemSize)
 	}
 	return entity, ptrs

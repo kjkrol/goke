@@ -133,7 +133,7 @@ func (v *View{{.N}}[{{.AllTParams}}]) Filter(selected []Entity) iter.Seq2[
         var lastArch *core.Archetype; var cols [{{.N}}]*core.Column
         for _, e := range selected {
             link, ok := links.Get(e); if !ok { continue }
-            arch := link.Arch
+            arch := &v.Reg.ArchetypeRegistry.Archetypes[link.ArchId]
             if arch == nil || !v.View.Matches(arch.Mask) { continue }
             if arch != lastArch {
                 for i := 0; i < {{.N}}; i++ { cols[i] = arch.Columns[v.CompInfos[i].ID] }
@@ -235,7 +235,7 @@ func (v *View{{.N}}[{{.AllTParams}}]) FilterValues(selected []Entity) iter.Seq2[
         var lastArch *core.Archetype; var cols [{{.N}}]*core.Column
         for _, e := range selected {
             link, ok := links.Get(e); if !ok { continue }
-            arch := link.Arch
+            arch := &v.Reg.ArchetypeRegistry.Archetypes[link.ArchId]
             if arch == nil || !v.View.Matches(arch.Mask) { continue }
             if arch != lastArch {
                 for i := 0; i < {{.N}}; i++ { cols[i] = arch.Columns[v.CompInfos[i].ID] }

@@ -1,7 +1,22 @@
 package core
 
+// ArchetypeId represents a unique identifier within the archetype registry.
+//
+// Special values:
+//   - 0: Indicates a non-existent archetype (Null Archetype).
+//   - 1: Represents the Root Archetype, acting as the entry point of the graph.
+//
+// Archetypes are organized in a graph structure, where nodes are connected
+// through edges (e.g., adding or removing components) to facilitate
+// efficient entity transitions.
+type ArchetypeId int
+
+const NullArchetypeId = ArchetypeId(0)
+const RootArchetypeId = ArchetypeId(1)
+
 type Archetype struct {
 	Mask     ArchetypeMask
+	Id       ArchetypeId
 	entities []Entity
 	Columns  [MaxComponents]*Column
 	// Cached IDs of active components for high-speed iteration
@@ -11,8 +26,8 @@ type Archetype struct {
 	cap     int
 	initCap int
 
-	edgesNext [MaxComponents]*Archetype
-	edgesPrev [MaxComponents]*Archetype
+	edgesNext [MaxComponents]ArchetypeId
+	edgesPrev [MaxComponents]ArchetypeId
 }
 
 type ArchRow uint32
@@ -83,17 +98,17 @@ func (a *Archetype) ensureCapacity() {
 
 // CountNextEdges remains as is (or use a stored counter if needed)
 func (a *Archetype) CountNextEdges() int {
-	return countNonNull(a.edgesNext)
+	return countNonZeros(a.edgesNext)
 }
 
 func (a *Archetype) CountPrevEdges() int {
-	return countNonNull(a.edgesPrev)
+	return countNonZeros(a.edgesPrev)
 }
 
-func countNonNull(edges [MaxComponents]*Archetype) int {
+func countNonZeros(edges [MaxComponents]ArchetypeId) int {
 	count := 0
 	for _, edge := range edges {
-		if edge != nil {
+		if edge != 0 {
 			count++
 		}
 	}

@@ -40,7 +40,7 @@ func (v *View0) Filter(selected []Entity) iter.Seq[core.Entity] {
 			if !ok {
 				continue
 			}
-			arch := link.Arch
+			arch := &v.Reg.ArchetypeRegistry.Archetypes[link.ArchId]
 
 			if arch == nil || !v.Matches(arch.Mask) {
 				continue
