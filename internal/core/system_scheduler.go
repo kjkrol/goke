@@ -21,8 +21,8 @@ type SystemScheduler struct {
 	plan     ExecutionPlan
 }
 
-func NewScheduler(register *Registry) *SystemScheduler {
-	return &SystemScheduler{
+func NewScheduler(register *Registry) SystemScheduler {
+	return SystemScheduler{
 		register: register,
 		buffers:  make(map[System]*SystemCommandBuffer),
 		systems:  make([]System, 0),
@@ -105,7 +105,7 @@ func (s *SystemScheduler) applyBufferCommands(cb *SystemCommandBuffer) error {
 				return fmt.Errorf("failed to allocate ID for target %d: %w", target, err)
 			}
 			if ptr != nil {
-				memmove(ptr, cmd.dataPtr, cmd.compInfo.Size)
+				copyMemory(ptr, cmd.dataPtr, cmd.compInfo.Size)
 			}
 		case cmdRemoveComponent:
 			s.register.UnassignByID(target, cmd.compInfo)

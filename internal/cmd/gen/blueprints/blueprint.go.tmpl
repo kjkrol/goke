@@ -36,8 +36,8 @@ func NewBlueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $
     ecs *ECS,
     opts ...BlueprintOption,
 ) *Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}] {
-    blueprint := core.NewBlueprint(ecs.registry)
-    reg := ecs.registry.ComponentsRegistry
+    registry := ecs.registry
+    blueprint := core.NewBlueprint(registry)
 
     // mustAdd ensures that component registration and blueprint assignment
     // are successful. Panics immediately on failure to support fail-fast startup.
@@ -48,7 +48,7 @@ func NewBlueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $
     }
 
     {{ range $i := (seq 1 $n) -}}
-    mustAdd(core.EnsureComponentRegistered[T{{ $i }}](reg))
+    mustAdd(core.EnsureComponentRegistered[T{{ $i }}](&registry.ComponentsRegistry))
     {{ end }}
 
     // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.

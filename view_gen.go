@@ -29,27 +29,39 @@ type View1[T1 any] struct {
 // This ensures that the View is valid and ready for high-performance
 // iteration immediately after creation.
 func NewView1[T1 any](ecs *ECS, opts ...BlueprintOption) *View1[T1] {
-	blueprint := core.NewBlueprint(ecs.registry)
-	reg := ecs.registry.ComponentsRegistry
+	registry := ecs.registry
+	blueprint := core.NewBlueprint(registry)
+	componentsRegistry := &registry.ComponentsRegistry
 
-	// mustAdd validates that the required component can be part of the view.
-	// Panics on failure to ensure fail-fast behavior at startup.
+	// Helper: Validates that the required component can be part of the view.
 	mustAdd := func(info core.ComponentInfo) {
 		if err := blueprint.WithComp(info); err != nil {
 			panic(fmt.Sprintf("goke: view1 init failed: %v", err))
 		}
 	}
 
-	mustAdd(core.EnsureComponentRegistered[T1](reg))
+	// 1. Resolve Component Infos (Type -> ID)
 
-	// Apply dynamic options (Include/Exclude) and panic on any configuration error.
+	info1 := core.EnsureComponentRegistered[T1](componentsRegistry)
+
+	// 2. Add to Blueprint (Build Mask)
+
+	mustAdd(info1)
+
+	// 3. Apply dynamic options (Include/Exclude)
 	for _, opt := range opts {
 		if err := opt(blueprint); err != nil {
 			panic(fmt.Sprintf("goke: view1 option failed: %v", err))
 		}
 	}
 
-	view := core.NewView(blueprint, ecs.registry)
+	// 4. Define Rigid Layout (Slice Literal - Zero Allocation Overhead)
+	// This guarantees that T1 is at index 0, T2 at index 1, etc.
+	layout := []core.ComponentInfo{
+		info1,
+	}
+
+	view := core.NewView(blueprint, layout, registry)
 	return &View1[T1]{View: view}
 }
 
@@ -70,35 +82,51 @@ func NewView1[T1 any](ecs *ECS, opts ...BlueprintOption) *View1[T1] {
 //	}
 func (v *View1[T1]) All() iter.Seq2[
 	struct {
-		Entity Entity
+		Entity core.Entity
 		V1     *T1
 	},
 	struct{},
 ] {
 	return func(yield func(
 		struct {
-			Entity Entity
+			Entity core.Entity
 			V1     *T1
 		},
 		struct{},
 	) bool) {
+		// Entity size is constant
+		strideEntity := unsafe.Sizeof(core.Entity(0))
+
 		for i := range v.Baked {
 			b := &v.Baked[i]
+
+			// 1. Setup Entity Pointer
+			pEntity := b.EntityColumn.Data
+
+			// 2. Setup Component Pointers
 			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
 
+			// Death Loop (Pointer Arithmetic)
 			for j := 0; j < *b.Len; j++ {
+
+				// Construct Head
 				head := struct {
-					Entity Entity
+					Entity core.Entity
 					V1     *T1
 				}{
-					Entity: (*b.Entities)[j], V1: (*T1)(p1),
+					Entity: *(*core.Entity)(pEntity), V1: (*T1)(p1),
 				}
+
+				// Construct Tail
 
 				tail := struct{}{}
 
 				if !yield(head, tail) {
 					return
 				}
+
+				// Increment Pointers
+				pEntity = unsafe.Add(pEntity, strideEntity)
 				p1 = unsafe.Add(p1, s1)
 
 			}
@@ -152,7 +180,7 @@ func (v *View1[T1]) Filter(selected []Entity) iter.Seq2[
 			}
 			if arch != lastArch {
 				for i := 0; i < 1; i++ {
-					cols[i] = arch.Columns[v.CompInfos[i].ID]
+					cols[i] = arch.GetColumn(v.Layout[i].ID)
 				}
 				lastArch = arch
 			}
@@ -252,7 +280,7 @@ func (v *View1[T1]) FilterValues(selected []Entity) iter.Seq2[
 			}
 			if arch != lastArch {
 				for i := 0; i < 1; i++ {
-					cols[i] = arch.Columns[v.CompInfos[i].ID]
+					cols[i] = arch.GetColumn(v.Layout[i].ID)
 				}
 				lastArch = arch
 			}
@@ -289,29 +317,43 @@ type View2[T1, T2 any] struct {
 // This ensures that the View is valid and ready for high-performance
 // iteration immediately after creation.
 func NewView2[T1, T2 any](ecs *ECS, opts ...BlueprintOption) *View2[T1, T2] {
-	blueprint := core.NewBlueprint(ecs.registry)
-	reg := ecs.registry.ComponentsRegistry
+	registry := ecs.registry
+	blueprint := core.NewBlueprint(registry)
+	componentsRegistry := &registry.ComponentsRegistry
 
-	// mustAdd validates that the required component can be part of the view.
-	// Panics on failure to ensure fail-fast behavior at startup.
+	// Helper: Validates that the required component can be part of the view.
 	mustAdd := func(info core.ComponentInfo) {
 		if err := blueprint.WithComp(info); err != nil {
 			panic(fmt.Sprintf("goke: view2 init failed: %v", err))
 		}
 	}
 
-	mustAdd(core.EnsureComponentRegistered[T1](reg))
+	// 1. Resolve Component Infos (Type -> ID)
 
-	mustAdd(core.EnsureComponentRegistered[T2](reg))
+	info1 := core.EnsureComponentRegistered[T1](componentsRegistry)
 
-	// Apply dynamic options (Include/Exclude) and panic on any configuration error.
+	info2 := core.EnsureComponentRegistered[T2](componentsRegistry)
+
+	// 2. Add to Blueprint (Build Mask)
+
+	mustAdd(info1)
+
+	mustAdd(info2)
+
+	// 3. Apply dynamic options (Include/Exclude)
 	for _, opt := range opts {
 		if err := opt(blueprint); err != nil {
 			panic(fmt.Sprintf("goke: view2 option failed: %v", err))
 		}
 	}
 
-	view := core.NewView(blueprint, ecs.registry)
+	// 4. Define Rigid Layout (Slice Literal - Zero Allocation Overhead)
+	// This guarantees that T1 is at index 0, T2 at index 1, etc.
+	layout := []core.ComponentInfo{
+		info1, info2,
+	}
+
+	view := core.NewView(blueprint, layout, registry)
 	return &View2[T1, T2]{View: view}
 }
 
@@ -334,7 +376,7 @@ func NewView2[T1, T2 any](ecs *ECS, opts ...BlueprintOption) *View2[T1, T2] {
 //	}
 func (v *View2[T1, T2]) All() iter.Seq2[
 	struct {
-		Entity Entity
+		Entity core.Entity
 		V1     *T1
 		V2     *T2
 	},
@@ -342,31 +384,47 @@ func (v *View2[T1, T2]) All() iter.Seq2[
 ] {
 	return func(yield func(
 		struct {
-			Entity Entity
+			Entity core.Entity
 			V1     *T1
 			V2     *T2
 		},
 		struct{},
 	) bool) {
+		// Entity size is constant
+		strideEntity := unsafe.Sizeof(core.Entity(0))
+
 		for i := range v.Baked {
 			b := &v.Baked[i]
+
+			// 1. Setup Entity Pointer
+			pEntity := b.EntityColumn.Data
+
+			// 2. Setup Component Pointers
 			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
 			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
 
+			// Death Loop (Pointer Arithmetic)
 			for j := 0; j < *b.Len; j++ {
+
+				// Construct Head
 				head := struct {
-					Entity Entity
+					Entity core.Entity
 					V1     *T1
 					V2     *T2
 				}{
-					Entity: (*b.Entities)[j], V1: (*T1)(p1), V2: (*T2)(p2),
+					Entity: *(*core.Entity)(pEntity), V1: (*T1)(p1), V2: (*T2)(p2),
 				}
+
+				// Construct Tail
 
 				tail := struct{}{}
 
 				if !yield(head, tail) {
 					return
 				}
+
+				// Increment Pointers
+				pEntity = unsafe.Add(pEntity, strideEntity)
 				p1 = unsafe.Add(p1, s1)
 				p2 = unsafe.Add(p2, s2)
 
@@ -427,7 +485,7 @@ func (v *View2[T1, T2]) Filter(selected []Entity) iter.Seq2[
 			}
 			if arch != lastArch {
 				for i := 0; i < 2; i++ {
-					cols[i] = arch.Columns[v.CompInfos[i].ID]
+					cols[i] = arch.GetColumn(v.Layout[i].ID)
 				}
 				lastArch = arch
 			}
@@ -547,7 +605,7 @@ func (v *View2[T1, T2]) FilterValues(selected []Entity) iter.Seq2[
 			}
 			if arch != lastArch {
 				for i := 0; i < 2; i++ {
-					cols[i] = arch.Columns[v.CompInfos[i].ID]
+					cols[i] = arch.GetColumn(v.Layout[i].ID)
 				}
 				lastArch = arch
 			}
@@ -587,31 +645,47 @@ type View3[T1, T2, T3 any] struct {
 // This ensures that the View is valid and ready for high-performance
 // iteration immediately after creation.
 func NewView3[T1, T2, T3 any](ecs *ECS, opts ...BlueprintOption) *View3[T1, T2, T3] {
-	blueprint := core.NewBlueprint(ecs.registry)
-	reg := ecs.registry.ComponentsRegistry
+	registry := ecs.registry
+	blueprint := core.NewBlueprint(registry)
+	componentsRegistry := &registry.ComponentsRegistry
 
-	// mustAdd validates that the required component can be part of the view.
-	// Panics on failure to ensure fail-fast behavior at startup.
+	// Helper: Validates that the required component can be part of the view.
 	mustAdd := func(info core.ComponentInfo) {
 		if err := blueprint.WithComp(info); err != nil {
 			panic(fmt.Sprintf("goke: view3 init failed: %v", err))
 		}
 	}
 
-	mustAdd(core.EnsureComponentRegistered[T1](reg))
+	// 1. Resolve Component Infos (Type -> ID)
 
-	mustAdd(core.EnsureComponentRegistered[T2](reg))
+	info1 := core.EnsureComponentRegistered[T1](componentsRegistry)
 
-	mustAdd(core.EnsureComponentRegistered[T3](reg))
+	info2 := core.EnsureComponentRegistered[T2](componentsRegistry)
 
-	// Apply dynamic options (Include/Exclude) and panic on any configuration error.
+	info3 := core.EnsureComponentRegistered[T3](componentsRegistry)
+
+	// 2. Add to Blueprint (Build Mask)
+
+	mustAdd(info1)
+
+	mustAdd(info2)
+
+	mustAdd(info3)
+
+	// 3. Apply dynamic options (Include/Exclude)
 	for _, opt := range opts {
 		if err := opt(blueprint); err != nil {
 			panic(fmt.Sprintf("goke: view3 option failed: %v", err))
 		}
 	}
 
-	view := core.NewView(blueprint, ecs.registry)
+	// 4. Define Rigid Layout (Slice Literal - Zero Allocation Overhead)
+	// This guarantees that T1 is at index 0, T2 at index 1, etc.
+	layout := []core.ComponentInfo{
+		info1, info2, info3,
+	}
+
+	view := core.NewView(blueprint, layout, registry)
 	return &View3[T1, T2, T3]{View: view}
 }
 
@@ -634,7 +708,7 @@ func NewView3[T1, T2, T3 any](ecs *ECS, opts ...BlueprintOption) *View3[T1, T2, 
 //	}
 func (v *View3[T1, T2, T3]) All() iter.Seq2[
 	struct {
-		Entity Entity
+		Entity core.Entity
 		V1     *T1
 		V2     *T2
 		V3     *T3
@@ -643,34 +717,50 @@ func (v *View3[T1, T2, T3]) All() iter.Seq2[
 ] {
 	return func(yield func(
 		struct {
-			Entity Entity
+			Entity core.Entity
 			V1     *T1
 			V2     *T2
 			V3     *T3
 		},
 		struct{},
 	) bool) {
+		// Entity size is constant
+		strideEntity := unsafe.Sizeof(core.Entity(0))
+
 		for i := range v.Baked {
 			b := &v.Baked[i]
+
+			// 1. Setup Entity Pointer
+			pEntity := b.EntityColumn.Data
+
+			// 2. Setup Component Pointers
 			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
 			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
 			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
 
+			// Death Loop (Pointer Arithmetic)
 			for j := 0; j < *b.Len; j++ {
+
+				// Construct Head
 				head := struct {
-					Entity Entity
+					Entity core.Entity
 					V1     *T1
 					V2     *T2
 					V3     *T3
 				}{
-					Entity: (*b.Entities)[j], V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3),
+					Entity: *(*core.Entity)(pEntity), V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3),
 				}
+
+				// Construct Tail
 
 				tail := struct{}{}
 
 				if !yield(head, tail) {
 					return
 				}
+
+				// Increment Pointers
+				pEntity = unsafe.Add(pEntity, strideEntity)
 				p1 = unsafe.Add(p1, s1)
 				p2 = unsafe.Add(p2, s2)
 				p3 = unsafe.Add(p3, s3)
@@ -734,7 +824,7 @@ func (v *View3[T1, T2, T3]) Filter(selected []Entity) iter.Seq2[
 			}
 			if arch != lastArch {
 				for i := 0; i < 3; i++ {
-					cols[i] = arch.Columns[v.CompInfos[i].ID]
+					cols[i] = arch.GetColumn(v.Layout[i].ID)
 				}
 				lastArch = arch
 			}
@@ -862,7 +952,7 @@ func (v *View3[T1, T2, T3]) FilterValues(selected []Entity) iter.Seq2[
 			}
 			if arch != lastArch {
 				for i := 0; i < 3; i++ {
-					cols[i] = arch.Columns[v.CompInfos[i].ID]
+					cols[i] = arch.GetColumn(v.Layout[i].ID)
 				}
 				lastArch = arch
 			}
@@ -903,33 +993,51 @@ type View4[T1, T2, T3, T4 any] struct {
 // This ensures that the View is valid and ready for high-performance
 // iteration immediately after creation.
 func NewView4[T1, T2, T3, T4 any](ecs *ECS, opts ...BlueprintOption) *View4[T1, T2, T3, T4] {
-	blueprint := core.NewBlueprint(ecs.registry)
-	reg := ecs.registry.ComponentsRegistry
+	registry := ecs.registry
+	blueprint := core.NewBlueprint(registry)
+	componentsRegistry := &registry.ComponentsRegistry
 
-	// mustAdd validates that the required component can be part of the view.
-	// Panics on failure to ensure fail-fast behavior at startup.
+	// Helper: Validates that the required component can be part of the view.
 	mustAdd := func(info core.ComponentInfo) {
 		if err := blueprint.WithComp(info); err != nil {
 			panic(fmt.Sprintf("goke: view4 init failed: %v", err))
 		}
 	}
 
-	mustAdd(core.EnsureComponentRegistered[T1](reg))
+	// 1. Resolve Component Infos (Type -> ID)
 
-	mustAdd(core.EnsureComponentRegistered[T2](reg))
+	info1 := core.EnsureComponentRegistered[T1](componentsRegistry)
 
-	mustAdd(core.EnsureComponentRegistered[T3](reg))
+	info2 := core.EnsureComponentRegistered[T2](componentsRegistry)
 
-	mustAdd(core.EnsureComponentRegistered[T4](reg))
+	info3 := core.EnsureComponentRegistered[T3](componentsRegistry)
 
-	// Apply dynamic options (Include/Exclude) and panic on any configuration error.
+	info4 := core.EnsureComponentRegistered[T4](componentsRegistry)
+
+	// 2. Add to Blueprint (Build Mask)
+
+	mustAdd(info1)
+
+	mustAdd(info2)
+
+	mustAdd(info3)
+
+	mustAdd(info4)
+
+	// 3. Apply dynamic options (Include/Exclude)
 	for _, opt := range opts {
 		if err := opt(blueprint); err != nil {
 			panic(fmt.Sprintf("goke: view4 option failed: %v", err))
 		}
 	}
 
-	view := core.NewView(blueprint, ecs.registry)
+	// 4. Define Rigid Layout (Slice Literal - Zero Allocation Overhead)
+	// This guarantees that T1 is at index 0, T2 at index 1, etc.
+	layout := []core.ComponentInfo{
+		info1, info2, info3, info4,
+	}
+
+	view := core.NewView(blueprint, layout, registry)
 	return &View4[T1, T2, T3, T4]{View: view}
 }
 
@@ -952,7 +1060,7 @@ func NewView4[T1, T2, T3, T4 any](ecs *ECS, opts ...BlueprintOption) *View4[T1, 
 //	}
 func (v *View4[T1, T2, T3, T4]) All() iter.Seq2[
 	struct {
-		Entity Entity
+		Entity core.Entity
 		V1     *T1
 		V2     *T2
 		V3     *T3
@@ -961,35 +1069,51 @@ func (v *View4[T1, T2, T3, T4]) All() iter.Seq2[
 ] {
 	return func(yield func(
 		struct {
-			Entity Entity
+			Entity core.Entity
 			V1     *T1
 			V2     *T2
 			V3     *T3
 		},
 		struct{ V4 *T4 },
 	) bool) {
+		// Entity size is constant
+		strideEntity := unsafe.Sizeof(core.Entity(0))
+
 		for i := range v.Baked {
 			b := &v.Baked[i]
+
+			// 1. Setup Entity Pointer
+			pEntity := b.EntityColumn.Data
+
+			// 2. Setup Component Pointers
 			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
 			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
 			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
 			p4, s4 := b.Columns[3].Data, b.Columns[3].ItemSize
 
+			// Death Loop (Pointer Arithmetic)
 			for j := 0; j < *b.Len; j++ {
+
+				// Construct Head
 				head := struct {
-					Entity Entity
+					Entity core.Entity
 					V1     *T1
 					V2     *T2
 					V3     *T3
 				}{
-					Entity: (*b.Entities)[j], V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3),
+					Entity: *(*core.Entity)(pEntity), V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3),
 				}
+
+				// Construct Tail
 
 				tail := struct{ V4 *T4 }{V4: (*T4)(p4)}
 
 				if !yield(head, tail) {
 					return
 				}
+
+				// Increment Pointers
+				pEntity = unsafe.Add(pEntity, strideEntity)
 				p1 = unsafe.Add(p1, s1)
 				p2 = unsafe.Add(p2, s2)
 				p3 = unsafe.Add(p3, s3)
@@ -1054,7 +1178,7 @@ func (v *View4[T1, T2, T3, T4]) Filter(selected []Entity) iter.Seq2[
 			}
 			if arch != lastArch {
 				for i := 0; i < 4; i++ {
-					cols[i] = arch.Columns[v.CompInfos[i].ID]
+					cols[i] = arch.GetColumn(v.Layout[i].ID)
 				}
 				lastArch = arch
 			}
@@ -1189,7 +1313,7 @@ func (v *View4[T1, T2, T3, T4]) FilterValues(selected []Entity) iter.Seq2[
 			}
 			if arch != lastArch {
 				for i := 0; i < 4; i++ {
-					cols[i] = arch.Columns[v.CompInfos[i].ID]
+					cols[i] = arch.GetColumn(v.Layout[i].ID)
 				}
 				lastArch = arch
 			}
@@ -1231,35 +1355,55 @@ type View5[T1, T2, T3, T4, T5 any] struct {
 // This ensures that the View is valid and ready for high-performance
 // iteration immediately after creation.
 func NewView5[T1, T2, T3, T4, T5 any](ecs *ECS, opts ...BlueprintOption) *View5[T1, T2, T3, T4, T5] {
-	blueprint := core.NewBlueprint(ecs.registry)
-	reg := ecs.registry.ComponentsRegistry
+	registry := ecs.registry
+	blueprint := core.NewBlueprint(registry)
+	componentsRegistry := &registry.ComponentsRegistry
 
-	// mustAdd validates that the required component can be part of the view.
-	// Panics on failure to ensure fail-fast behavior at startup.
+	// Helper: Validates that the required component can be part of the view.
 	mustAdd := func(info core.ComponentInfo) {
 		if err := blueprint.WithComp(info); err != nil {
 			panic(fmt.Sprintf("goke: view5 init failed: %v", err))
 		}
 	}
 
-	mustAdd(core.EnsureComponentRegistered[T1](reg))
+	// 1. Resolve Component Infos (Type -> ID)
 
-	mustAdd(core.EnsureComponentRegistered[T2](reg))
+	info1 := core.EnsureComponentRegistered[T1](componentsRegistry)
 
-	mustAdd(core.EnsureComponentRegistered[T3](reg))
+	info2 := core.EnsureComponentRegistered[T2](componentsRegistry)
 
-	mustAdd(core.EnsureComponentRegistered[T4](reg))
+	info3 := core.EnsureComponentRegistered[T3](componentsRegistry)
 
-	mustAdd(core.EnsureComponentRegistered[T5](reg))
+	info4 := core.EnsureComponentRegistered[T4](componentsRegistry)
 
-	// Apply dynamic options (Include/Exclude) and panic on any configuration error.
+	info5 := core.EnsureComponentRegistered[T5](componentsRegistry)
+
+	// 2. Add to Blueprint (Build Mask)
+
+	mustAdd(info1)
+
+	mustAdd(info2)
+
+	mustAdd(info3)
+
+	mustAdd(info4)
+
+	mustAdd(info5)
+
+	// 3. Apply dynamic options (Include/Exclude)
 	for _, opt := range opts {
 		if err := opt(blueprint); err != nil {
 			panic(fmt.Sprintf("goke: view5 option failed: %v", err))
 		}
 	}
 
-	view := core.NewView(blueprint, ecs.registry)
+	// 4. Define Rigid Layout (Slice Literal - Zero Allocation Overhead)
+	// This guarantees that T1 is at index 0, T2 at index 1, etc.
+	layout := []core.ComponentInfo{
+		info1, info2, info3, info4, info5,
+	}
+
+	view := core.NewView(blueprint, layout, registry)
 	return &View5[T1, T2, T3, T4, T5]{View: view}
 }
 
@@ -1282,7 +1426,7 @@ func NewView5[T1, T2, T3, T4, T5 any](ecs *ECS, opts ...BlueprintOption) *View5[
 //	}
 func (v *View5[T1, T2, T3, T4, T5]) All() iter.Seq2[
 	struct {
-		Entity Entity
+		Entity core.Entity
 		V1     *T1
 		V2     *T2
 		V3     *T3
@@ -1294,7 +1438,7 @@ func (v *View5[T1, T2, T3, T4, T5]) All() iter.Seq2[
 ] {
 	return func(yield func(
 		struct {
-			Entity Entity
+			Entity core.Entity
 			V1     *T1
 			V2     *T2
 			V3     *T3
@@ -1304,23 +1448,36 @@ func (v *View5[T1, T2, T3, T4, T5]) All() iter.Seq2[
 			V5 *T5
 		},
 	) bool) {
+		// Entity size is constant
+		strideEntity := unsafe.Sizeof(core.Entity(0))
+
 		for i := range v.Baked {
 			b := &v.Baked[i]
+
+			// 1. Setup Entity Pointer
+			pEntity := b.EntityColumn.Data
+
+			// 2. Setup Component Pointers
 			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
 			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
 			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
 			p4, s4 := b.Columns[3].Data, b.Columns[3].ItemSize
 			p5, s5 := b.Columns[4].Data, b.Columns[4].ItemSize
 
+			// Death Loop (Pointer Arithmetic)
 			for j := 0; j < *b.Len; j++ {
+
+				// Construct Head
 				head := struct {
-					Entity Entity
+					Entity core.Entity
 					V1     *T1
 					V2     *T2
 					V3     *T3
 				}{
-					Entity: (*b.Entities)[j], V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3),
+					Entity: *(*core.Entity)(pEntity), V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3),
 				}
+
+				// Construct Tail
 
 				tail := struct {
 					V4 *T4
@@ -1330,6 +1487,9 @@ func (v *View5[T1, T2, T3, T4, T5]) All() iter.Seq2[
 				if !yield(head, tail) {
 					return
 				}
+
+				// Increment Pointers
+				pEntity = unsafe.Add(pEntity, strideEntity)
 				p1 = unsafe.Add(p1, s1)
 				p2 = unsafe.Add(p2, s2)
 				p3 = unsafe.Add(p3, s3)
@@ -1401,7 +1561,7 @@ func (v *View5[T1, T2, T3, T4, T5]) Filter(selected []Entity) iter.Seq2[
 			}
 			if arch != lastArch {
 				for i := 0; i < 5; i++ {
-					cols[i] = arch.Columns[v.CompInfos[i].ID]
+					cols[i] = arch.GetColumn(v.Layout[i].ID)
 				}
 				lastArch = arch
 			}
@@ -1543,7 +1703,7 @@ func (v *View5[T1, T2, T3, T4, T5]) FilterValues(selected []Entity) iter.Seq2[
 			}
 			if arch != lastArch {
 				for i := 0; i < 5; i++ {
-					cols[i] = arch.Columns[v.CompInfos[i].ID]
+					cols[i] = arch.GetColumn(v.Layout[i].ID)
 				}
 				lastArch = arch
 			}
@@ -1585,37 +1745,59 @@ type View6[T1, T2, T3, T4, T5, T6 any] struct {
 // This ensures that the View is valid and ready for high-performance
 // iteration immediately after creation.
 func NewView6[T1, T2, T3, T4, T5, T6 any](ecs *ECS, opts ...BlueprintOption) *View6[T1, T2, T3, T4, T5, T6] {
-	blueprint := core.NewBlueprint(ecs.registry)
-	reg := ecs.registry.ComponentsRegistry
+	registry := ecs.registry
+	blueprint := core.NewBlueprint(registry)
+	componentsRegistry := &registry.ComponentsRegistry
 
-	// mustAdd validates that the required component can be part of the view.
-	// Panics on failure to ensure fail-fast behavior at startup.
+	// Helper: Validates that the required component can be part of the view.
 	mustAdd := func(info core.ComponentInfo) {
 		if err := blueprint.WithComp(info); err != nil {
 			panic(fmt.Sprintf("goke: view6 init failed: %v", err))
 		}
 	}
 
-	mustAdd(core.EnsureComponentRegistered[T1](reg))
+	// 1. Resolve Component Infos (Type -> ID)
 
-	mustAdd(core.EnsureComponentRegistered[T2](reg))
+	info1 := core.EnsureComponentRegistered[T1](componentsRegistry)
 
-	mustAdd(core.EnsureComponentRegistered[T3](reg))
+	info2 := core.EnsureComponentRegistered[T2](componentsRegistry)
 
-	mustAdd(core.EnsureComponentRegistered[T4](reg))
+	info3 := core.EnsureComponentRegistered[T3](componentsRegistry)
 
-	mustAdd(core.EnsureComponentRegistered[T5](reg))
+	info4 := core.EnsureComponentRegistered[T4](componentsRegistry)
 
-	mustAdd(core.EnsureComponentRegistered[T6](reg))
+	info5 := core.EnsureComponentRegistered[T5](componentsRegistry)
 
-	// Apply dynamic options (Include/Exclude) and panic on any configuration error.
+	info6 := core.EnsureComponentRegistered[T6](componentsRegistry)
+
+	// 2. Add to Blueprint (Build Mask)
+
+	mustAdd(info1)
+
+	mustAdd(info2)
+
+	mustAdd(info3)
+
+	mustAdd(info4)
+
+	mustAdd(info5)
+
+	mustAdd(info6)
+
+	// 3. Apply dynamic options (Include/Exclude)
 	for _, opt := range opts {
 		if err := opt(blueprint); err != nil {
 			panic(fmt.Sprintf("goke: view6 option failed: %v", err))
 		}
 	}
 
-	view := core.NewView(blueprint, ecs.registry)
+	// 4. Define Rigid Layout (Slice Literal - Zero Allocation Overhead)
+	// This guarantees that T1 is at index 0, T2 at index 1, etc.
+	layout := []core.ComponentInfo{
+		info1, info2, info3, info4, info5, info6,
+	}
+
+	view := core.NewView(blueprint, layout, registry)
 	return &View6[T1, T2, T3, T4, T5, T6]{View: view}
 }
 
@@ -1638,7 +1820,7 @@ func NewView6[T1, T2, T3, T4, T5, T6 any](ecs *ECS, opts ...BlueprintOption) *Vi
 //	}
 func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq2[
 	struct {
-		Entity Entity
+		Entity core.Entity
 		V1     *T1
 		V2     *T2
 		V3     *T3
@@ -1651,7 +1833,7 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq2[
 ] {
 	return func(yield func(
 		struct {
-			Entity Entity
+			Entity core.Entity
 			V1     *T1
 			V2     *T2
 			V3     *T3
@@ -1662,8 +1844,16 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq2[
 			V6 *T6
 		},
 	) bool) {
+		// Entity size is constant
+		strideEntity := unsafe.Sizeof(core.Entity(0))
+
 		for i := range v.Baked {
 			b := &v.Baked[i]
+
+			// 1. Setup Entity Pointer
+			pEntity := b.EntityColumn.Data
+
+			// 2. Setup Component Pointers
 			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
 			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
 			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
@@ -1671,15 +1861,20 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq2[
 			p5, s5 := b.Columns[4].Data, b.Columns[4].ItemSize
 			p6, s6 := b.Columns[5].Data, b.Columns[5].ItemSize
 
+			// Death Loop (Pointer Arithmetic)
 			for j := 0; j < *b.Len; j++ {
+
+				// Construct Head
 				head := struct {
-					Entity Entity
+					Entity core.Entity
 					V1     *T1
 					V2     *T2
 					V3     *T3
 				}{
-					Entity: (*b.Entities)[j], V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3),
+					Entity: *(*core.Entity)(pEntity), V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3),
 				}
+
+				// Construct Tail
 
 				tail := struct {
 					V4 *T4
@@ -1690,6 +1885,9 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq2[
 				if !yield(head, tail) {
 					return
 				}
+
+				// Increment Pointers
+				pEntity = unsafe.Add(pEntity, strideEntity)
 				p1 = unsafe.Add(p1, s1)
 				p2 = unsafe.Add(p2, s2)
 				p3 = unsafe.Add(p3, s3)
@@ -1764,7 +1962,7 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Filter(selected []Entity) iter.Seq2[
 			}
 			if arch != lastArch {
 				for i := 0; i < 6; i++ {
-					cols[i] = arch.Columns[v.CompInfos[i].ID]
+					cols[i] = arch.GetColumn(v.Layout[i].ID)
 				}
 				lastArch = arch
 			}
@@ -1924,7 +2122,7 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) FilterValues(selected []Entity) iter.Seq
 			}
 			if arch != lastArch {
 				for i := 0; i < 6; i++ {
-					cols[i] = arch.Columns[v.CompInfos[i].ID]
+					cols[i] = arch.GetColumn(v.Layout[i].ID)
 				}
 				lastArch = arch
 			}
@@ -1969,39 +2167,63 @@ type View7[T1, T2, T3, T4, T5, T6, T7 any] struct {
 // This ensures that the View is valid and ready for high-performance
 // iteration immediately after creation.
 func NewView7[T1, T2, T3, T4, T5, T6, T7 any](ecs *ECS, opts ...BlueprintOption) *View7[T1, T2, T3, T4, T5, T6, T7] {
-	blueprint := core.NewBlueprint(ecs.registry)
-	reg := ecs.registry.ComponentsRegistry
+	registry := ecs.registry
+	blueprint := core.NewBlueprint(registry)
+	componentsRegistry := &registry.ComponentsRegistry
 
-	// mustAdd validates that the required component can be part of the view.
-	// Panics on failure to ensure fail-fast behavior at startup.
+	// Helper: Validates that the required component can be part of the view.
 	mustAdd := func(info core.ComponentInfo) {
 		if err := blueprint.WithComp(info); err != nil {
 			panic(fmt.Sprintf("goke: view7 init failed: %v", err))
 		}
 	}
 
-	mustAdd(core.EnsureComponentRegistered[T1](reg))
+	// 1. Resolve Component Infos (Type -> ID)
 
-	mustAdd(core.EnsureComponentRegistered[T2](reg))
+	info1 := core.EnsureComponentRegistered[T1](componentsRegistry)
 
-	mustAdd(core.EnsureComponentRegistered[T3](reg))
+	info2 := core.EnsureComponentRegistered[T2](componentsRegistry)
 
-	mustAdd(core.EnsureComponentRegistered[T4](reg))
+	info3 := core.EnsureComponentRegistered[T3](componentsRegistry)
 
-	mustAdd(core.EnsureComponentRegistered[T5](reg))
+	info4 := core.EnsureComponentRegistered[T4](componentsRegistry)
 
-	mustAdd(core.EnsureComponentRegistered[T6](reg))
+	info5 := core.EnsureComponentRegistered[T5](componentsRegistry)
 
-	mustAdd(core.EnsureComponentRegistered[T7](reg))
+	info6 := core.EnsureComponentRegistered[T6](componentsRegistry)
 
-	// Apply dynamic options (Include/Exclude) and panic on any configuration error.
+	info7 := core.EnsureComponentRegistered[T7](componentsRegistry)
+
+	// 2. Add to Blueprint (Build Mask)
+
+	mustAdd(info1)
+
+	mustAdd(info2)
+
+	mustAdd(info3)
+
+	mustAdd(info4)
+
+	mustAdd(info5)
+
+	mustAdd(info6)
+
+	mustAdd(info7)
+
+	// 3. Apply dynamic options (Include/Exclude)
 	for _, opt := range opts {
 		if err := opt(blueprint); err != nil {
 			panic(fmt.Sprintf("goke: view7 option failed: %v", err))
 		}
 	}
 
-	view := core.NewView(blueprint, ecs.registry)
+	// 4. Define Rigid Layout (Slice Literal - Zero Allocation Overhead)
+	// This guarantees that T1 is at index 0, T2 at index 1, etc.
+	layout := []core.ComponentInfo{
+		info1, info2, info3, info4, info5, info6, info7,
+	}
+
+	view := core.NewView(blueprint, layout, registry)
 	return &View7[T1, T2, T3, T4, T5, T6, T7]{View: view}
 }
 
@@ -2024,7 +2246,7 @@ func NewView7[T1, T2, T3, T4, T5, T6, T7 any](ecs *ECS, opts ...BlueprintOption)
 //	}
 func (v *View7[T1, T2, T3, T4, T5, T6, T7]) All() iter.Seq2[
 	struct {
-		Entity Entity
+		Entity core.Entity
 		V1     *T1
 		V2     *T2
 		V3     *T3
@@ -2038,7 +2260,7 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) All() iter.Seq2[
 ] {
 	return func(yield func(
 		struct {
-			Entity Entity
+			Entity core.Entity
 			V1     *T1
 			V2     *T2
 			V3     *T3
@@ -2050,8 +2272,16 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) All() iter.Seq2[
 			V7 *T7
 		},
 	) bool) {
+		// Entity size is constant
+		strideEntity := unsafe.Sizeof(core.Entity(0))
+
 		for i := range v.Baked {
 			b := &v.Baked[i]
+
+			// 1. Setup Entity Pointer
+			pEntity := b.EntityColumn.Data
+
+			// 2. Setup Component Pointers
 			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
 			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
 			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
@@ -2060,15 +2290,20 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) All() iter.Seq2[
 			p6, s6 := b.Columns[5].Data, b.Columns[5].ItemSize
 			p7, s7 := b.Columns[6].Data, b.Columns[6].ItemSize
 
+			// Death Loop (Pointer Arithmetic)
 			for j := 0; j < *b.Len; j++ {
+
+				// Construct Head
 				head := struct {
-					Entity Entity
+					Entity core.Entity
 					V1     *T1
 					V2     *T2
 					V3     *T3
 				}{
-					Entity: (*b.Entities)[j], V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3),
+					Entity: *(*core.Entity)(pEntity), V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3),
 				}
+
+				// Construct Tail
 
 				tail := struct {
 					V4 *T4
@@ -2080,6 +2315,9 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) All() iter.Seq2[
 				if !yield(head, tail) {
 					return
 				}
+
+				// Increment Pointers
+				pEntity = unsafe.Add(pEntity, strideEntity)
 				p1 = unsafe.Add(p1, s1)
 				p2 = unsafe.Add(p2, s2)
 				p3 = unsafe.Add(p3, s3)
@@ -2157,7 +2395,7 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Filter(selected []Entity) iter.Seq2[
 			}
 			if arch != lastArch {
 				for i := 0; i < 7; i++ {
-					cols[i] = arch.Columns[v.CompInfos[i].ID]
+					cols[i] = arch.GetColumn(v.Layout[i].ID)
 				}
 				lastArch = arch
 			}
@@ -2325,7 +2563,7 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) FilterValues(selected []Entity) iter
 			}
 			if arch != lastArch {
 				for i := 0; i < 7; i++ {
-					cols[i] = arch.Columns[v.CompInfos[i].ID]
+					cols[i] = arch.GetColumn(v.Layout[i].ID)
 				}
 				lastArch = arch
 			}
@@ -2371,41 +2609,67 @@ type View8[T1, T2, T3, T4, T5, T6, T7, T8 any] struct {
 // This ensures that the View is valid and ready for high-performance
 // iteration immediately after creation.
 func NewView8[T1, T2, T3, T4, T5, T6, T7, T8 any](ecs *ECS, opts ...BlueprintOption) *View8[T1, T2, T3, T4, T5, T6, T7, T8] {
-	blueprint := core.NewBlueprint(ecs.registry)
-	reg := ecs.registry.ComponentsRegistry
+	registry := ecs.registry
+	blueprint := core.NewBlueprint(registry)
+	componentsRegistry := &registry.ComponentsRegistry
 
-	// mustAdd validates that the required component can be part of the view.
-	// Panics on failure to ensure fail-fast behavior at startup.
+	// Helper: Validates that the required component can be part of the view.
 	mustAdd := func(info core.ComponentInfo) {
 		if err := blueprint.WithComp(info); err != nil {
 			panic(fmt.Sprintf("goke: view8 init failed: %v", err))
 		}
 	}
 
-	mustAdd(core.EnsureComponentRegistered[T1](reg))
+	// 1. Resolve Component Infos (Type -> ID)
 
-	mustAdd(core.EnsureComponentRegistered[T2](reg))
+	info1 := core.EnsureComponentRegistered[T1](componentsRegistry)
 
-	mustAdd(core.EnsureComponentRegistered[T3](reg))
+	info2 := core.EnsureComponentRegistered[T2](componentsRegistry)
 
-	mustAdd(core.EnsureComponentRegistered[T4](reg))
+	info3 := core.EnsureComponentRegistered[T3](componentsRegistry)
 
-	mustAdd(core.EnsureComponentRegistered[T5](reg))
+	info4 := core.EnsureComponentRegistered[T4](componentsRegistry)
 
-	mustAdd(core.EnsureComponentRegistered[T6](reg))
+	info5 := core.EnsureComponentRegistered[T5](componentsRegistry)
 
-	mustAdd(core.EnsureComponentRegistered[T7](reg))
+	info6 := core.EnsureComponentRegistered[T6](componentsRegistry)
 
-	mustAdd(core.EnsureComponentRegistered[T8](reg))
+	info7 := core.EnsureComponentRegistered[T7](componentsRegistry)
 
-	// Apply dynamic options (Include/Exclude) and panic on any configuration error.
+	info8 := core.EnsureComponentRegistered[T8](componentsRegistry)
+
+	// 2. Add to Blueprint (Build Mask)
+
+	mustAdd(info1)
+
+	mustAdd(info2)
+
+	mustAdd(info3)
+
+	mustAdd(info4)
+
+	mustAdd(info5)
+
+	mustAdd(info6)
+
+	mustAdd(info7)
+
+	mustAdd(info8)
+
+	// 3. Apply dynamic options (Include/Exclude)
 	for _, opt := range opts {
 		if err := opt(blueprint); err != nil {
 			panic(fmt.Sprintf("goke: view8 option failed: %v", err))
 		}
 	}
 
-	view := core.NewView(blueprint, ecs.registry)
+	// 4. Define Rigid Layout (Slice Literal - Zero Allocation Overhead)
+	// This guarantees that T1 is at index 0, T2 at index 1, etc.
+	layout := []core.ComponentInfo{
+		info1, info2, info3, info4, info5, info6, info7, info8,
+	}
+
+	view := core.NewView(blueprint, layout, registry)
 	return &View8[T1, T2, T3, T4, T5, T6, T7, T8]{View: view}
 }
 
@@ -2428,7 +2692,7 @@ func NewView8[T1, T2, T3, T4, T5, T6, T7, T8 any](ecs *ECS, opts ...BlueprintOpt
 //	}
 func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) All() iter.Seq2[
 	struct {
-		Entity Entity
+		Entity core.Entity
 		V1     *T1
 		V2     *T2
 		V3     *T3
@@ -2443,7 +2707,7 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) All() iter.Seq2[
 ] {
 	return func(yield func(
 		struct {
-			Entity Entity
+			Entity core.Entity
 			V1     *T1
 			V2     *T2
 			V3     *T3
@@ -2456,8 +2720,16 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) All() iter.Seq2[
 			V8 *T8
 		},
 	) bool) {
+		// Entity size is constant
+		strideEntity := unsafe.Sizeof(core.Entity(0))
+
 		for i := range v.Baked {
 			b := &v.Baked[i]
+
+			// 1. Setup Entity Pointer
+			pEntity := b.EntityColumn.Data
+
+			// 2. Setup Component Pointers
 			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
 			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
 			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
@@ -2467,15 +2739,20 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) All() iter.Seq2[
 			p7, s7 := b.Columns[6].Data, b.Columns[6].ItemSize
 			p8, s8 := b.Columns[7].Data, b.Columns[7].ItemSize
 
+			// Death Loop (Pointer Arithmetic)
 			for j := 0; j < *b.Len; j++ {
+
+				// Construct Head
 				head := struct {
-					Entity Entity
+					Entity core.Entity
 					V1     *T1
 					V2     *T2
 					V3     *T3
 				}{
-					Entity: (*b.Entities)[j], V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3),
+					Entity: *(*core.Entity)(pEntity), V1: (*T1)(p1), V2: (*T2)(p2), V3: (*T3)(p3),
 				}
+
+				// Construct Tail
 
 				tail := struct {
 					V4 *T4
@@ -2488,6 +2765,9 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) All() iter.Seq2[
 				if !yield(head, tail) {
 					return
 				}
+
+				// Increment Pointers
+				pEntity = unsafe.Add(pEntity, strideEntity)
 				p1 = unsafe.Add(p1, s1)
 				p2 = unsafe.Add(p2, s2)
 				p3 = unsafe.Add(p3, s3)
@@ -2568,7 +2848,7 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Filter(selected []Entity) iter.S
 			}
 			if arch != lastArch {
 				for i := 0; i < 8; i++ {
-					cols[i] = arch.Columns[v.CompInfos[i].ID]
+					cols[i] = arch.GetColumn(v.Layout[i].ID)
 				}
 				lastArch = arch
 			}
@@ -2744,7 +3024,7 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) FilterValues(selected []Entity) 
 			}
 			if arch != lastArch {
 				for i := 0; i < 8; i++ {
-					cols[i] = arch.Columns[v.CompInfos[i].ID]
+					cols[i] = arch.GetColumn(v.Layout[i].ID)
 				}
 				lastArch = arch
 			}

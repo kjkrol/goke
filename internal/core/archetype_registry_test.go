@@ -160,7 +160,7 @@ func TestArchetypeRegistry_OverwriteIdempotency(t *testing.T) {
 	}
 
 	linkAfterArch := &reg.Archetypes[linkAfter.ArchId]
-	gotData := *(*position)(linkAfterArch.Columns[posTypeInfo.ID].GetElement(linkAfter.Row))
+	gotData := *(*position)(linkAfterArch.GetColumn(posTypeInfo.ID).GetElement(linkAfter.Row))
 	if gotData != p2 {
 		t.Errorf("data update failed: got %+v, want %+v", gotData, p2)
 	}
@@ -169,30 +169,53 @@ func TestArchetypeRegistry_OverwriteIdempotency(t *testing.T) {
 // 6. Structural Integrity (Swap-and-Pop link update)
 func TestArchetypeRegistry_SwapPopIntegrity(t *testing.T) {
 	reg := setupTestRegistry()
-	e0, e1, e2 := Entity(0), Entity(1), Entity(2)
+
 	posTypeInfo := reg.componentsRegistry.GetOrRegister(reflect.TypeFor[position]())
+
+	mask := NewArchetypeMask(posTypeInfo.ID)
+	archId := reg.InitArchetype(mask, 4)
+
+	// Dane testowe
+	e0, e1, e2 := Entity(10), Entity(11), Entity(12)
 	pData := position{x: 1, y: 1}
+	pData2 := position{x: 2, y: 2}
 
-	// Fix: replace nil with pointer in all Assign calls
-	reg.AddEntity(e0, RootArchetypeId)
-	if ptr, err := reg.AllocateComponentMemory(e0, posTypeInfo); err == nil {
-		*(*position)(ptr) = pData
+	setPos := func(e Entity, p position) {
+		reg.AddEntity(e, archId)
+		ptr, err := reg.AllocateComponentMemory(e, posTypeInfo)
+		if err != nil {
+			t.Fatalf("Failed to allocate memory for entity %d: %v", e, err)
+		}
+		*(*position)(ptr) = p
 	}
 
-	reg.AddEntity(e1, RootArchetypeId)
-	if ptr, err := reg.AllocateComponentMemory(e1, posTypeInfo); err == nil {
-		*(*position)(ptr) = pData
-	}
-	reg.AddEntity(e2, RootArchetypeId)
-	if ptr, err := reg.AllocateComponentMemory(e2, posTypeInfo); err == nil {
-		*(*position)(ptr) = pData
+	setPos(e0, pData)
+	setPos(e1, pData)
+	setPos(e2, pData2)
+
+	link2_pre, _ := reg.EntityLinkStore.Get(e2)
+	if link2_pre.Row != 2 {
+		t.Fatalf("Setup error: e2 should be at row 2, got %d", link2_pre.Row)
 	}
 
 	reg.UnlinkEntity(e1)
 
-	link2, _ := reg.EntityLinkStore.Get(e2)
-	if link2.Row != 1 {
-		t.Errorf("E2 should be at row 1, got %d", link2.Row)
+	link2_post, ok := reg.EntityLinkStore.Get(e2)
+	if !ok {
+		t.Fatal("Entity e2 lost from LinkStore")
+	}
+	if link2_post.Row != 1 {
+		t.Errorf("SwapPop failed: E2 should move to row 1, got %d", link2_post.Row)
+	}
+
+	ptr, err := reg.AllocateComponentMemory(e2, posTypeInfo)
+	if err != nil {
+		t.Fatalf("Failed to access memory for e2: %v", err)
+	}
+
+	gotVal := *(*position)(ptr)
+	if gotVal != pData2 {
+		t.Errorf("Data Integrity Lost: Expected %+v, got %+v. (Did e2 data overwrite e1 data correctly?)", pData2, gotVal)
 	}
 }
 
@@ -204,7 +227,7 @@ func setupTestRegistry() *ArchetypeRegistry {
 	// Mock ViewRegistry to avoid panics
 	viewReg := &ViewRegistry{}
 
-	return NewArchetypeRegistry(compReg, viewReg, DefaultRegistryConfig())
+	return NewArchetypeRegistry(&compReg, viewReg, DefaultRegistryConfig())
 }
 
 func TestArchetypeRegistry_AssignValidation(t *testing.T) {

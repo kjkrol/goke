@@ -50,21 +50,25 @@ func setupBenchmark(_ *testing.B, count int) (*goke.ECS, []core.Entity) {
 
 // --- Benchmark All ---
 
+var GlobalCount int
+
 func BenchmarkView0_All(b *testing.B) {
 	b.StopTimer()
 	ecs, _ := setupBenchmark(b, entitiesNumber)
 	view := goke.NewView0(ecs)
+	b.StartTimer()
 
-	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
-	fn := func() {
+	for i := 0; i < b.N; i++ {
+		count := 0
 		for entity := range view.All() {
-			entity.IsVirtual()
+			_ = entity
+			count++
 		}
+		GlobalCount = count
 	}
 
-	b.StartTimer()
-	for i := 0; i < b.N; i++ {
-		fn()
+	if GlobalCount != entitiesNumber {
+		b.Fatalf("View0 sanity check failed: expected 1000, got %d", GlobalCount)
 	}
 }
 
@@ -72,17 +76,20 @@ func BenchmarkView1_All(b *testing.B) {
 	b.StopTimer()
 	ecs, _ := setupBenchmark(b, entitiesNumber)
 	view1 := goke.NewView1[Pos](ecs)
+	b.StartTimer()
 
-	fn := func() {
+	for i := 0; i < b.N; i++ {
+		count := 0
 		for head := range view1.All() {
 			pos := head.V1
 			pos.X += pos.X
+			count++
 		}
+		GlobalCount = count
 	}
 
-	b.StartTimer()
-	for i := 0; i < b.N; i++ {
-		fn()
+	if GlobalCount != entitiesNumber {
+		b.Fatalf("View1 sanity check failed: expected 1000, got %d", GlobalCount)
 	}
 }
 

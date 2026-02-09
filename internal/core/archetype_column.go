@@ -7,6 +7,7 @@ import (
 
 // Dynamic Array (Vector) - SoA (Structure of Arrays).
 type Column struct {
+	CompID   ComponentID
 	Data     unsafe.Pointer
 	rawSlice reflect.Value // prevent GC from garbage collecting
 	dataType reflect.Type
@@ -49,7 +50,7 @@ func (c *Column) copyData(dstIdx, srcIdx ArchRow) {
 
 func (c *Column) setData(row ArchRow, src unsafe.Pointer) {
 	dest := unsafe.Add(c.Data, uintptr(row)*c.ItemSize)
-	memmove(dest, src, c.ItemSize)
+	copyMemory(dest, src, c.ItemSize)
 }
 
 func copyMemory(dst, src unsafe.Pointer, size uintptr) {
@@ -59,6 +60,3 @@ func copyMemory(dst, src unsafe.Pointer, size uintptr) {
 func zeroMemory(ptr unsafe.Pointer, size uintptr) {
 	clear(unsafe.Slice((*byte)(ptr), size))
 }
-
-//go:linkname memmove runtime.memmove
-func memmove(to, from unsafe.Pointer, n uintptr)

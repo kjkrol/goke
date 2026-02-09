@@ -1,5 +1,7 @@
 package core
 
+import "unsafe"
+
 // ArchetypeId represents a unique identifier within the archetype registry.
 //
 // Special values:
@@ -9,18 +11,29 @@ package core
 // Archetypes are organized in a graph structure, where nodes are connected
 // through edges (e.g., adding or removing components) to facilitate
 // efficient entity transitions.
-type ArchetypeId int
+type ArchetypeId uint16
 
 const NullArchetypeId = ArchetypeId(0)
 const RootArchetypeId = ArchetypeId(1)
+const MaxArchetypeId = ArchetypeId(4096)
+
+type LocalColumnID uint8
+
+const EntityColumnIndex = LocalColumnID(0)
+const FirstDataColumnIndex = LocalColumnID(1)
+const InvalidLocalID = LocalColumnID(MaxComponents + 1)
 
 type Archetype struct {
-	Mask     ArchetypeMask
-	Id       ArchetypeId
-	entities []Entity
-	Columns  [MaxComponents]*Column
-	// Cached IDs of active components for high-speed iteration
-	activeIDs []ComponentID
+	Mask ArchetypeMask
+	Id   ArchetypeId
+
+	// Global ComponentID -> Local Index in 'columns' slice
+	// 128 bytes - fits in exactly 2 cache lines.
+	columnMap [MaxComponents]LocalColumnID
+	// Dense storage:
+	// columns[0] = Entity IDs (Always present)
+	// columns[1..N] = Component Data
+	columns []Column
 
 	len     int
 	cap     int
@@ -34,11 +47,16 @@ type ArchRow uint32
 
 func (a *Archetype) SwapRemoveEntity(row ArchRow) (swapedEntity Entity, swaped bool) {
 	lastRow := ArchRow(a.len - 1)
-	entityToMove := a.entities[lastRow]
+	entityCol := &a.columns[EntityColumnIndex]
+	ptr := entityCol.Data
+	stride := entityCol.ItemSize
+
+	srcPtr := unsafe.Add(ptr, uintptr(lastRow)*stride)
+	entityToMove := *(*Entity)(srcPtr)
 
 	// 1. Swap data in all active columns using cached IDs
-	for _, id := range a.activeIDs {
-		col := a.Columns[id]
+	for i := range a.columns {
+		col := &a.columns[i] // Get pointer to struct in slice
 
 		if row != lastRow {
 			col.copyData(row, lastRow)
@@ -48,9 +66,7 @@ func (a *Archetype) SwapRemoveEntity(row ArchRow) (swapedEntity Entity, swaped b
 		col.len--
 	}
 
-	// 2. Swap entity ID in the entities slice
-	a.entities[row] = entityToMove
-	a.entities[lastRow] = 0
+	// 2. Swap entity ID
 	a.len--
 
 	if row == lastRow {
@@ -61,17 +77,26 @@ func (a *Archetype) SwapRemoveEntity(row ArchRow) (swapedEntity Entity, swaped b
 
 func (a *Archetype) registerEntity(entity Entity) ArchRow {
 	a.ensureCapacity()
-	newIdx := a.len
 
-	// Update column lengths using cached IDs
-	for _, id := range a.activeIDs {
-		a.Columns[id].len++
+	// 1. Write Entity ID to Column 0
+	// We assume columns[0] is initialized with ItemSize = sizeof(Entity)
+	entityCol := &a.columns[EntityColumnIndex]
+
+	// Calculate address: Data + (len * 8)
+	targetPtr := unsafe.Add(entityCol.Data, uintptr(a.len)*entityCol.ItemSize)
+
+	// Store the entity ID
+	*(*Entity)(targetPtr) = entity
+
+	// 2. Increment length in ALL columns
+	for i := range a.columns {
+		a.columns[i].len++
 	}
 
-	a.entities[newIdx] = entity
+	newRow := ArchRow(a.len)
 	a.len++
 
-	return ArchRow(newIdx)
+	return newRow
 }
 
 func (a *Archetype) ensureCapacity() {
@@ -83,17 +108,29 @@ func (a *Archetype) ensureCapacity() {
 	if newCap == 0 {
 		newCap = a.initCap
 	}
+	if newCap == 0 {
+		newCap = 1
+	}
 
-	newEntities := make([]Entity, newCap)
-	copy(newEntities, a.entities)
-	a.entities = newEntities
-
-	// Grow columns using cached IDs
-	for _, id := range a.activeIDs {
-		a.Columns[id].growTo(newCap)
+	// Simplified: We just iterate over ALL columns.
+	// Since Entity is now column[0], it gets grown automatically here.
+	for i := range a.columns {
+		a.columns[i].growTo(newCap)
 	}
 
 	a.cap = newCap
+}
+
+func (a *Archetype) GetEntityColumn() *Column {
+	return &a.columns[EntityColumnIndex]
+}
+
+func (a *Archetype) GetColumn(id ComponentID) *Column {
+	localIdx := a.columnMap[id]
+	if localIdx == InvalidLocalID {
+		return nil
+	}
+	return &a.columns[localIdx]
 }
 
 // CountNextEdges remains as is (or use a stored counter if needed)

@@ -38,7 +38,7 @@ func (b *ArchetypeEntryBlueprint) Create() (Entity, [ArchetypeEntryCap]unsafe.Po
 	arch := b.reg.ArchetypeRegistry.Archetypes[b.ArchId]
 	var ptrs [ArchetypeEntryCap]unsafe.Pointer
 	for i, info := range b.CompInfos {
-		column := arch.Columns[info.ID]
+		column := arch.GetColumn(info.ID)
 		ptrs[i] = unsafe.Add(column.Data, uintptr(row)*column.ItemSize)
 	}
 	return entity, ptrs

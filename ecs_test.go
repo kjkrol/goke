@@ -1,6 +1,7 @@
 package goke_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -38,6 +39,8 @@ func TestECS_UseCase(t *testing.T) {
 	eB, order := blueprint2.Create()
 	*order = Order{ID: "ORD-002", Total: 50.0}
 
+	fmt.Printf("eB= %d\n", eB.Index())
+
 	query1 := goke.NewView2[Order, Discount](ecs)
 	processedCount := 0
 
@@ -51,8 +54,8 @@ func TestECS_UseCase(t *testing.T) {
 	})
 	query2 := goke.NewView0(ecs, goke.Include[Processed](), goke.Include[Order](), goke.Include[Discount]())
 	cleanerSystem := goke.RegisterSystemFunc(ecs, func(schedule *goke.Schedule, d time.Duration) {
-		for entity := range query2.All() {
-			goke.ScheduleRemoveEntity(schedule, entity)
+		for head := range query2.All() {
+			goke.ScheduleRemoveEntity(schedule, head.Entity)
 		}
 	})
 
@@ -66,6 +69,9 @@ func TestECS_UseCase(t *testing.T) {
 		}
 
 		ctx.Sync()
+		for head := range query2.All() {
+			fmt.Printf("entity %d\n", head.Entity.Index())
+		}
 		ctx.Run(cleanerSystem, d)
 		ctx.Sync()
 	})

@@ -2,24 +2,22 @@ package core
 
 import "fmt"
 
-const MaxColumns = 8
-
 type MatchedArch struct {
-	Entities *[]Entity
-	Columns  [MaxColumns]*Column
-	Len      *int
+	EntityColumn *Column
+	Columns      []*Column
+	Len          *int
 }
 
 type View struct {
 	Reg         *Registry
 	includeMask ArchetypeMask
 	excludeMask ArchetypeMask
-	CompInfos   []ComponentInfo
+	Layout      []ComponentInfo
 	Baked       []MatchedArch
 }
 
 // View factory based on Functional Options pattern
-func NewView(blueprint *Blueprint, reg *Registry) *View {
+func NewView(blueprint *Blueprint, layout []ComponentInfo, reg *Registry) *View {
 	var mask ArchetypeMask
 	var excludedMask ArchetypeMask
 
@@ -38,11 +36,17 @@ func NewView(blueprint *Blueprint, reg *Registry) *View {
 		excludedMask = excludedMask.Set(id)
 	}
 
+	for _, info := range layout {
+		if !mask.IsSet(info.ID) {
+			panic(fmt.Sprintf("View Layout Error: Component %d is in layout but not required by Blueprint", info.ID))
+		}
+	}
+
 	v := &View{
 		Reg:         reg,
 		includeMask: mask,
 		excludeMask: excludedMask,
-		CompInfos:   blueprint.compInfos,
+		Layout:      layout,
 	}
 	v.Reindex()
 	v.Reg.ViewRegistry.Register(v)
@@ -51,9 +55,16 @@ func NewView(blueprint *Blueprint, reg *Registry) *View {
 
 func (v *View) Reindex() {
 	v.Baked = v.Baked[:0]
-	arches := v.Reg.ArchetypeRegistry.Archetypes
-	for i := range len(arches) {
-		arch := &arches[i]
+	reg := v.Reg.ArchetypeRegistry
+
+	for i := RootArchetypeId; i < reg.lastArchetypeId; i++ {
+		arch := &reg.Archetypes[i]
+
+		// Guard clause w pętli też się przyda
+		if len(arch.columns) == 0 {
+			continue
+		}
+
 		if v.Matches(arch.Mask) {
 			v.AddArchetype(arch)
 		}
@@ -61,13 +72,28 @@ func (v *View) Reindex() {
 }
 
 func (v *View) AddArchetype(arch *Archetype) {
+
+	if len(arch.columns) == 0 {
+		return
+	}
+
 	mArch := MatchedArch{
-		Entities: &arch.entities,
-		Len:      &arch.len,
+		Len:          &arch.len,
+		EntityColumn: &arch.columns[0],
 	}
-	for i, info := range v.CompInfos {
-		mArch.Columns[i] = arch.Columns[info.ID]
+
+	if len(v.Layout) > 0 {
+		mArch.Columns = make([]*Column, len(v.Layout))
+
+		for i, info := range v.Layout {
+			localIdx := arch.columnMap[info.ID]
+			if localIdx == InvalidLocalID || int(localIdx) >= len(arch.columns) {
+				continue
+			}
+			mArch.Columns[i] = &arch.columns[localIdx]
+		}
 	}
+
 	v.Baked = append(v.Baked, mArch)
 }
 

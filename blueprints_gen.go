@@ -33,8 +33,8 @@ func NewBlueprint1[T1 any](
     ecs *ECS,
     opts ...BlueprintOption,
 ) *Blueprint1[T1] {
-    blueprint := core.NewBlueprint(ecs.registry)
-    reg := ecs.registry.ComponentsRegistry
+    registry := ecs.registry
+    blueprint := core.NewBlueprint(registry)
 
     // mustAdd ensures that component registration and blueprint assignment
     // are successful. Panics immediately on failure to support fail-fast startup.
@@ -44,7 +44,7 @@ func NewBlueprint1[T1 any](
         }
     }
 
-    mustAdd(core.EnsureComponentRegistered[T1](reg))
+    mustAdd(core.EnsureComponentRegistered[T1](&registry.ComponentsRegistry))
     
 
     // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
@@ -105,8 +105,8 @@ func NewBlueprint2[T1 any, T2 any](
     ecs *ECS,
     opts ...BlueprintOption,
 ) *Blueprint2[T1, T2] {
-    blueprint := core.NewBlueprint(ecs.registry)
-    reg := ecs.registry.ComponentsRegistry
+    registry := ecs.registry
+    blueprint := core.NewBlueprint(registry)
 
     // mustAdd ensures that component registration and blueprint assignment
     // are successful. Panics immediately on failure to support fail-fast startup.
@@ -116,8 +116,8 @@ func NewBlueprint2[T1 any, T2 any](
         }
     }
 
-    mustAdd(core.EnsureComponentRegistered[T1](reg))
-    mustAdd(core.EnsureComponentRegistered[T2](reg))
+    mustAdd(core.EnsureComponentRegistered[T1](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T2](&registry.ComponentsRegistry))
     
 
     // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
@@ -179,8 +179,8 @@ func NewBlueprint3[T1 any, T2 any, T3 any](
     ecs *ECS,
     opts ...BlueprintOption,
 ) *Blueprint3[T1, T2, T3] {
-    blueprint := core.NewBlueprint(ecs.registry)
-    reg := ecs.registry.ComponentsRegistry
+    registry := ecs.registry
+    blueprint := core.NewBlueprint(registry)
 
     // mustAdd ensures that component registration and blueprint assignment
     // are successful. Panics immediately on failure to support fail-fast startup.
@@ -190,9 +190,9 @@ func NewBlueprint3[T1 any, T2 any, T3 any](
         }
     }
 
-    mustAdd(core.EnsureComponentRegistered[T1](reg))
-    mustAdd(core.EnsureComponentRegistered[T2](reg))
-    mustAdd(core.EnsureComponentRegistered[T3](reg))
+    mustAdd(core.EnsureComponentRegistered[T1](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T2](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T3](&registry.ComponentsRegistry))
     
 
     // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
@@ -255,8 +255,8 @@ func NewBlueprint4[T1 any, T2 any, T3 any, T4 any](
     ecs *ECS,
     opts ...BlueprintOption,
 ) *Blueprint4[T1, T2, T3, T4] {
-    blueprint := core.NewBlueprint(ecs.registry)
-    reg := ecs.registry.ComponentsRegistry
+    registry := ecs.registry
+    blueprint := core.NewBlueprint(registry)
 
     // mustAdd ensures that component registration and blueprint assignment
     // are successful. Panics immediately on failure to support fail-fast startup.
@@ -266,10 +266,10 @@ func NewBlueprint4[T1 any, T2 any, T3 any, T4 any](
         }
     }
 
-    mustAdd(core.EnsureComponentRegistered[T1](reg))
-    mustAdd(core.EnsureComponentRegistered[T2](reg))
-    mustAdd(core.EnsureComponentRegistered[T3](reg))
-    mustAdd(core.EnsureComponentRegistered[T4](reg))
+    mustAdd(core.EnsureComponentRegistered[T1](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T2](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T3](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T4](&registry.ComponentsRegistry))
     
 
     // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
@@ -333,8 +333,8 @@ func NewBlueprint5[T1 any, T2 any, T3 any, T4 any, T5 any](
     ecs *ECS,
     opts ...BlueprintOption,
 ) *Blueprint5[T1, T2, T3, T4, T5] {
-    blueprint := core.NewBlueprint(ecs.registry)
-    reg := ecs.registry.ComponentsRegistry
+    registry := ecs.registry
+    blueprint := core.NewBlueprint(registry)
 
     // mustAdd ensures that component registration and blueprint assignment
     // are successful. Panics immediately on failure to support fail-fast startup.
@@ -344,11 +344,11 @@ func NewBlueprint5[T1 any, T2 any, T3 any, T4 any, T5 any](
         }
     }
 
-    mustAdd(core.EnsureComponentRegistered[T1](reg))
-    mustAdd(core.EnsureComponentRegistered[T2](reg))
-    mustAdd(core.EnsureComponentRegistered[T3](reg))
-    mustAdd(core.EnsureComponentRegistered[T4](reg))
-    mustAdd(core.EnsureComponentRegistered[T5](reg))
+    mustAdd(core.EnsureComponentRegistered[T1](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T2](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T3](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T4](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T5](&registry.ComponentsRegistry))
     
 
     // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
@@ -413,8 +413,8 @@ func NewBlueprint6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any](
     ecs *ECS,
     opts ...BlueprintOption,
 ) *Blueprint6[T1, T2, T3, T4, T5, T6] {
-    blueprint := core.NewBlueprint(ecs.registry)
-    reg := ecs.registry.ComponentsRegistry
+    registry := ecs.registry
+    blueprint := core.NewBlueprint(registry)
 
     // mustAdd ensures that component registration and blueprint assignment
     // are successful. Panics immediately on failure to support fail-fast startup.
@@ -424,12 +424,12 @@ func NewBlueprint6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any](
         }
     }
 
-    mustAdd(core.EnsureComponentRegistered[T1](reg))
-    mustAdd(core.EnsureComponentRegistered[T2](reg))
-    mustAdd(core.EnsureComponentRegistered[T3](reg))
-    mustAdd(core.EnsureComponentRegistered[T4](reg))
-    mustAdd(core.EnsureComponentRegistered[T5](reg))
-    mustAdd(core.EnsureComponentRegistered[T6](reg))
+    mustAdd(core.EnsureComponentRegistered[T1](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T2](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T3](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T4](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T5](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T6](&registry.ComponentsRegistry))
     
 
     // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
@@ -495,8 +495,8 @@ func NewBlueprint7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any](
     ecs *ECS,
     opts ...BlueprintOption,
 ) *Blueprint7[T1, T2, T3, T4, T5, T6, T7] {
-    blueprint := core.NewBlueprint(ecs.registry)
-    reg := ecs.registry.ComponentsRegistry
+    registry := ecs.registry
+    blueprint := core.NewBlueprint(registry)
 
     // mustAdd ensures that component registration and blueprint assignment
     // are successful. Panics immediately on failure to support fail-fast startup.
@@ -506,13 +506,13 @@ func NewBlueprint7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any](
         }
     }
 
-    mustAdd(core.EnsureComponentRegistered[T1](reg))
-    mustAdd(core.EnsureComponentRegistered[T2](reg))
-    mustAdd(core.EnsureComponentRegistered[T3](reg))
-    mustAdd(core.EnsureComponentRegistered[T4](reg))
-    mustAdd(core.EnsureComponentRegistered[T5](reg))
-    mustAdd(core.EnsureComponentRegistered[T6](reg))
-    mustAdd(core.EnsureComponentRegistered[T7](reg))
+    mustAdd(core.EnsureComponentRegistered[T1](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T2](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T3](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T4](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T5](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T6](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T7](&registry.ComponentsRegistry))
     
 
     // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
@@ -579,8 +579,8 @@ func NewBlueprint8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 an
     ecs *ECS,
     opts ...BlueprintOption,
 ) *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8] {
-    blueprint := core.NewBlueprint(ecs.registry)
-    reg := ecs.registry.ComponentsRegistry
+    registry := ecs.registry
+    blueprint := core.NewBlueprint(registry)
 
     // mustAdd ensures that component registration and blueprint assignment
     // are successful. Panics immediately on failure to support fail-fast startup.
@@ -590,14 +590,14 @@ func NewBlueprint8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 an
         }
     }
 
-    mustAdd(core.EnsureComponentRegistered[T1](reg))
-    mustAdd(core.EnsureComponentRegistered[T2](reg))
-    mustAdd(core.EnsureComponentRegistered[T3](reg))
-    mustAdd(core.EnsureComponentRegistered[T4](reg))
-    mustAdd(core.EnsureComponentRegistered[T5](reg))
-    mustAdd(core.EnsureComponentRegistered[T6](reg))
-    mustAdd(core.EnsureComponentRegistered[T7](reg))
-    mustAdd(core.EnsureComponentRegistered[T8](reg))
+    mustAdd(core.EnsureComponentRegistered[T1](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T2](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T3](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T4](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T5](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T6](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T7](&registry.ComponentsRegistry))
+    mustAdd(core.EnsureComponentRegistered[T8](&registry.ComponentsRegistry))
     
 
     // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.

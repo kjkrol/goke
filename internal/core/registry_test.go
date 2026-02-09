@@ -20,7 +20,7 @@ func TestViewReactivity(t *testing.T) {
 	blueprint := NewBlueprint(reg)
 	blueprint.WithComp(posTypeInfo)
 	blueprint.WithTag(tagTypeInfo.ID)
-	view := NewView(blueprint, reg)
+	view := NewView(blueprint, []ComponentInfo{posTypeInfo}, reg)
 
 	// Initial check: The view should be empty because no archetypes exist yet
 	if len(view.Baked) != 0 {

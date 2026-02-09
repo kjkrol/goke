@@ -4,7 +4,7 @@ import (
 	"reflect"
 )
 
-type ComponentID int
+type ComponentID uint8
 
 type ComponentInfo struct {
 	ID   ComponentID
@@ -17,8 +17,8 @@ type ComponentsRegistry struct {
 	idToInfo   [MaxComponents]ComponentInfo
 }
 
-func NewComponentsRegistry() *ComponentsRegistry {
-	return &ComponentsRegistry{
+func NewComponentsRegistry() ComponentsRegistry {
+	return ComponentsRegistry{
 		typeToInfo: make(map[reflect.Type]ComponentInfo),
 	}
 }
