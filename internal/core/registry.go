@@ -7,24 +7,22 @@ import (
 )
 
 type Registry struct {
-	EntityPool         *EntityGenerationalPool
-	ComponentsRegistry *ComponentsRegistry
-	ViewRegistry       *ViewRegistry
+	EntityPool         EntityGenerationalPool
+	ComponentsRegistry ComponentsRegistry
+	ViewRegistry       ViewRegistry
 	ArchetypeRegistry  *ArchetypeRegistry
 }
 
 var _ ReadOnlyRegistry = (*Registry)(nil)
 
 func NewRegistry(cfg RegistryConfig) *Registry {
-	componentsRegistry := NewComponentsRegistry()
-	viewRegistry := NewViewRegistry(cfg.ViewRegistryInitCap)
-	archetypeRegistry := NewArchetypeRegistry(componentsRegistry, viewRegistry, cfg)
-	return &Registry{
+	reg := &Registry{
 		EntityPool:         NewEntityGenerator(cfg.InitialEntityCap, cfg.FreeIndicesCap),
-		ComponentsRegistry: componentsRegistry,
-		ViewRegistry:       viewRegistry,
-		ArchetypeRegistry:  archetypeRegistry,
+		ComponentsRegistry: NewComponentsRegistry(),
+		ViewRegistry:       NewViewRegistry(cfg.ViewRegistryInitCap),
 	}
+	reg.ArchetypeRegistry = NewArchetypeRegistry(&reg.ComponentsRegistry, &reg.ViewRegistry, cfg)
+	return reg
 }
 
 // CreateEntity allocates a new empty entity in the registry.
@@ -81,7 +79,7 @@ func (r *Registry) ComponentGet(entity Entity, compID ComponentID) (unsafe.Point
 	}
 
 	arch := &r.ArchetypeRegistry.Archetypes[link.ArchId]
-	col := arch.Columns[compID]
+	col := arch.GetColumn(compID)
 	if col == nil {
 		return nil, fmt.Errorf("component not found in archetype")
 	}

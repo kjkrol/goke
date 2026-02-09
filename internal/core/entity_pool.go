@@ -7,8 +7,8 @@ type EntityGenerationalPool struct {
 	capacity    uint32
 }
 
-func NewEntityGenerator(initialEntityCap, freeIndicesCap int) *EntityGenerationalPool {
-	return &EntityGenerationalPool{
+func NewEntityGenerator(initialEntityCap, freeIndicesCap int) EntityGenerationalPool {
+	return EntityGenerationalPool{
 		// Pre-allocate with full length to avoid 'append' logic for generations
 		generations: make([]uint32, initialEntityCap),
 		// Pre-allocate capacity for freeIndices, but keep length 0

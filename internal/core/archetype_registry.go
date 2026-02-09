@@ -2,15 +2,17 @@ package core
 
 import (
 	"errors"
-	"math/bits"
+	"fmt"
 	"reflect"
+	"slices"
 	"unsafe"
 )
 
 type ArchetypeRegistry struct {
-	archetypeMaskToId         map[ArchetypeMask]ArchetypeId
-	Archetypes                []Archetype
-	EntityLinkStore           *EntityLinkStore
+	archetypeMaskMap          ArchetypeMaskMap
+	Archetypes                [MaxArchetypeId]Archetype
+	lastArchetypeId           ArchetypeId
+	EntityLinkStore           EntityLinkStore
 	componentsRegistry        *ComponentsRegistry
 	viewRegistry              *ViewRegistry
 	defaultArchetypeChunkSize int
@@ -21,47 +23,53 @@ func NewArchetypeRegistry(
 	viewRegistry *ViewRegistry,
 	cfg RegistryConfig,
 ) *ArchetypeRegistry {
-	reg := &ArchetypeRegistry{
-		archetypeMaskToId:         make(map[ArchetypeMask]ArchetypeId),
-		Archetypes:                make([]Archetype, 1, cfg.InitialArchetypeRegistryCap),
+	reg := ArchetypeRegistry{
 		EntityLinkStore:           NewEntityLinkStore(cfg.InitialEntityCap),
 		componentsRegistry:        componentsRegistry,
 		viewRegistry:              viewRegistry,
 		defaultArchetypeChunkSize: cfg.DefaultArchetypeChunkSize,
+		lastArchetypeId:           RootArchetypeId,
 	}
 
 	rootMask := ArchetypeMask{}
 	reg.InitArchetype(rootMask, reg.defaultArchetypeChunkSize)
 
-	return reg
+	return &reg
 }
 
-func (r *ArchetypeRegistry) InitArchetype(mask ArchetypeMask, defaultArchetypeChunkSize int) ArchetypeId {
-	// Pre-calculate active IDs to avoid bitmask scanning in hot loops
-	var activeIDs [MaxComponents]ComponentID
-	counter := 0
-	for i, word := range mask {
-		for word != 0 {
-			bitPos := bits.TrailingZeros64(word)
-			id := ComponentID(i*64 + bitPos)
-			if r.componentsRegistry.idToInfo[id].Size > 0 {
-				activeIDs[counter] = id
-				counter++
-			}
-			word &= word - 1
-		}
+func (r *ArchetypeRegistry) InitArchetype(mask ArchetypeMask, initCapacity int) ArchetypeId {
+	if r.lastArchetypeId >= MaxArchetypeId {
+		panic(fmt.Sprintf("Max archetype number exceeded: %d", MaxArchetypeId))
 	}
+
+	archId := r.lastArchetypeId
+	estimatedCompNum := mask.Count()
+	totalCols := estimatedCompNum + 1
 
 	arch := Archetype{
-		Mask:      mask,
-		entities:  make([]Entity, defaultArchetypeChunkSize),
-		activeIDs: activeIDs[:counter],
-		len:       0,
-		cap:       defaultArchetypeChunkSize,
-		initCap:   defaultArchetypeChunkSize,
+		Id:      archId,
+		Mask:    mask,
+		columns: make([]Column, 0, totalCols),
+		len:     0,
+		cap:     initCapacity,
+		initCap: initCapacity,
 	}
 
-	initCapacity := r.defaultArchetypeChunkSize
+	for i := range arch.columnMap {
+		arch.columnMap[i] = InvalidLocalID
+	}
+
+	entitySlice := make([]Entity, 0, initCapacity)
+	entityCol := Column{
+		CompID:   0,
+		Data:     unsafe.Pointer(unsafe.SliceData(entitySlice)),
+		dataType: reflect.TypeOf(Entity(0)),
+		rawSlice: reflect.ValueOf(entitySlice),
+		ItemSize: unsafe.Sizeof(Entity(0)),
+		len:      0,
+		cap:      initCapacity,
+	}
+	arch.columns = append(arch.columns, entityCol)
 
 	for id := range mask.AllSet() {
 		info := r.componentsRegistry.idToInfo[id]
@@ -69,25 +77,35 @@ func (r *ArchetypeRegistry) InitArchetype(mask ArchetypeMask, defaultArchetypeCh
 		if info.Size == 0 {
 			continue
 		}
+
 		slice := reflect.MakeSlice(reflect.SliceOf(info.Type), initCapacity, initCapacity)
-		arch.Columns[id] = &Column{
+
+		col := Column{
+			CompID:   id,
 			Data:     slice.UnsafePointer(),
+			rawSlice: slice,
 			dataType: info.Type,
 			ItemSize: info.Size,
 			len:      0,
 			cap:      initCapacity,
 		}
-	}
 
-	archId := ArchetypeId(len(r.Archetypes))
-	r.archetypeMaskToId[mask] = archId
-	arch.Id = archId
-	r.Archetypes = append(r.Archetypes, arch)
+		currentIndex := len(arch.columns)
+		arch.columnMap[id] = LocalColumnID(currentIndex)
+
+		arch.columns = append(arch.columns, col)
+	}
+	arch.columns = slices.Clip(arch.columns)
+
+	r.archetypeMaskMap.Put(mask, archId)
+	r.Archetypes[archId] = arch
+	r.lastArchetypeId++
+
 	return archId
 }
 
 func (r *ArchetypeRegistry) Get(mask ArchetypeMask) ArchetypeId {
-	if archId, ok := r.archetypeMaskToId[mask]; ok {
+	if archId, ok := r.archetypeMaskMap.Get(mask); ok {
 		return archId
 	}
 	return NullArchetypeId
@@ -151,7 +169,7 @@ func (r *ArchetypeRegistry) AllocateComponentMemory(entity Entity, compInfo Comp
 	}
 
 	// 3. Calculate and return the direct pointer
-	column := r.Archetypes[targetArchId].Columns[compID]
+	column := r.Archetypes[targetArchId].GetColumn(compID)
 	return unsafe.Add(column.Data, uintptr(targetRow)*column.ItemSize), nil
 }
 
@@ -188,7 +206,7 @@ func (r *ArchetypeRegistry) UnAssign(entity Entity, compInfo ComponentInfo) {
 			r.UnlinkEntity(entity)
 			return
 		}
-		oldArch.Columns[compID].zeroData(link.Row)
+		oldArch.GetColumn(compID).zeroData(link.Row)
 		r.moveEntity(entity, link, prevArchId)
 		return
 	}
@@ -212,14 +230,14 @@ func (r *ArchetypeRegistry) UnAssign(entity Entity, compInfo ComponentInfo) {
 	oldArch.edgesPrev[compID] = newPrevArchId
 	newPrevArch.edgesNext[compID] = oldArch.Id
 
-	oldArch.Columns[compID].zeroData(link.Row)
+	oldArch.GetColumn(compID).zeroData(link.Row)
 	r.moveEntity(entity, link, newPrevArchId)
 }
 
 // --------------------------------------------------------------
 
 func (r *ArchetypeRegistry) getOrRegister(mask ArchetypeMask) ArchetypeId {
-	if found, ok := r.archetypeMaskToId[mask]; ok {
+	if found, ok := r.archetypeMaskMap.Get(mask); ok {
 		return found
 	}
 	archId := r.InitArchetype(mask, r.defaultArchetypeChunkSize)
@@ -236,13 +254,18 @@ func (r *ArchetypeRegistry) moveEntity(entity Entity, link EntityArchLink, archI
 	newArch := &r.Archetypes[archId]
 	newArchRow := newArch.registerEntity(entity)
 
-	for _, id := range newArch.activeIDs {
-		if oldCol := oldArch.Columns[id]; oldCol != nil {
-			newArch.Columns[id].setData(newArchRow, oldCol.GetElement(oldArchRow))
+	for i := int(FirstDataColumnIndex); i < len(newArch.columns); i++ {
+		col := &newArch.columns[i]
+		if oldCol := oldArch.GetColumn(col.CompID); oldCol != nil {
+			col.setData(newArchRow, oldCol.GetElement(oldArchRow))
 		}
 	}
 
-	r.UnlinkEntity(entity)
+	swappedEntity, swapped := oldArch.SwapRemoveEntity(link.Row)
+
+	if swapped {
+		r.EntityLinkStore.Update(swappedEntity, oldArch.Id, link.Row)
+	}
 
 	r.EntityLinkStore.Update(entity, newArch.Id, newArchRow)
 

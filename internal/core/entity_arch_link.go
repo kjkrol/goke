@@ -10,8 +10,8 @@ type EntityLinkStore struct {
 	links []EntityArchLink
 }
 
-func NewEntityLinkStore(initialCap int) *EntityLinkStore {
-	return &EntityLinkStore{
+func NewEntityLinkStore(initialCap int) EntityLinkStore {
+	return EntityLinkStore{
 		links: make([]EntityArchLink, initialCap),
 	}
 }

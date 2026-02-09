@@ -38,8 +38,8 @@ func TestView_WithTag_And_Without_Logic(t *testing.T) {
 		)
 
 		found := make(map[core.Entity]bool)
-		for e := range view.All() {
-			found[e] = true
+		for head := range view.All() {
+			found[head.Entity] = true
 		}
 
 		assert.Len(t, found, 2, "Should find exactly 2 entities (A and C)")
@@ -58,8 +58,8 @@ func TestView_WithTag_And_Without_Logic(t *testing.T) {
 		)
 
 		count := 0
-		for e := range view.All() {
-			assert.Equal(t, eC, e, "Only Entity C has both position and complexComponent")
+		for head := range view.All() {
+			assert.Equal(t, eC, head.Entity, "Only Entity C has both position and complexComponent")
 			count++
 		}
 		assert.Equal(t, 1, count)
@@ -72,8 +72,8 @@ func TestView_WithTag_And_Without_Logic(t *testing.T) {
 
 		input := []core.Entity{eA, eB, eC}
 		var result []core.Entity
-		for e := range view.Filter(input) {
-			result = append(result, e)
+		for head := range view.Filter(input) {
+			result = append(result, head.Entity)
 		}
 
 		assert.Len(t, result, 2, "Should skip Entity C")

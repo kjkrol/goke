@@ -20,29 +20,41 @@ type View{{.N}}[{{.AllTParams}} any] struct {
 // This ensures that the View is valid and ready for high-performance 
 // iteration immediately after creation.
 func NewView{{.N}}[{{.AllTParams}} any](ecs *ECS, opts ...BlueprintOption) *View{{.N}}[{{.AllTParams}}] {
-    blueprint := core.NewBlueprint(ecs.registry)
-    reg := ecs.registry.ComponentsRegistry
+    registry := ecs.registry
+    blueprint := core.NewBlueprint(registry)
+    componentsRegistry := &registry.ComponentsRegistry
 
-    // mustAdd validates that the required component can be part of the view.
-    // Panics on failure to ensure fail-fast behavior at startup.
+    // Helper: Validates that the required component can be part of the view.
     mustAdd := func(info core.ComponentInfo) {
         if err := blueprint.WithComp(info); err != nil {
             panic(fmt.Sprintf("goke: view{{.N}} init failed: %v", err))
         }
     }
 
+    // 1. Resolve Component Infos (Type -> ID)
     {{range .Indices}}
-    mustAdd(core.EnsureComponentRegistered[T{{additions . 1}}](reg))
+    info{{additions . 1}} := core.EnsureComponentRegistered[T{{additions . 1}}](componentsRegistry)
     {{end}}
 
-    // Apply dynamic options (Include/Exclude) and panic on any configuration error.
+    // 2. Add to Blueprint (Build Mask)
+    {{range .Indices}}
+    mustAdd(info{{additions . 1}})
+    {{end}}
+
+    // 3. Apply dynamic options (Include/Exclude)
     for _, opt := range opts {
         if err := opt(blueprint); err != nil {
             panic(fmt.Sprintf("goke: view{{.N}} option failed: %v", err))
         }
     }
 
-    view := core.NewView(blueprint, ecs.registry)
+    // 4. Define Rigid Layout (Slice Literal - Zero Allocation Overhead)
+    // This guarantees that T1 is at index 0, T2 at index 1, etc.
+    layout := []core.ComponentInfo{
+        {{range .Indices}}info{{additions . 1}}, {{end}}
+    }
+
+    view := core.NewView(blueprint, layout, registry)
     return &View{{.N}}[{{.AllTParams}}]{View: view}
 }
 
@@ -65,22 +77,36 @@ func NewView{{.N}}[{{.AllTParams}} any](ecs *ECS, opts ...BlueprintOption) *View
 //        {{- end }}
 //    }
 func (v *View{{.N}}[{{.AllTParams}}]) All() iter.Seq2[
-    struct { Entity Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
+    struct { Entity core.Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
     {{if .HasTail}}struct { {{range .TIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
 ] {
     return func(yield func(
-        struct { Entity Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
+        struct { Entity core.Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
         {{if .HasTail}}struct { {{range .TIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
     ) bool) {
+        // Entity size is constant
+        strideEntity := unsafe.Sizeof(core.Entity(0))
+
         for i := range v.Baked {
             b := &v.Baked[i]
+            
+            // 1. Setup Entity Pointer
+            pEntity := b.EntityColumn.Data
+
+            // 2. Setup Component Pointers
             {{range .Indices}}p{{additions . 1}}, s{{additions . 1}} := b.Columns[{{.}}].Data, b.Columns[{{.}}].ItemSize
             {{end}}
+
+            // Death Loop (Pointer Arithmetic)
             for j := 0; j < *b.Len; j++ {
-                head := struct { Entity Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
-                    Entity: (*b.Entities)[j],
+                
+                // Construct Head
+                head := struct { Entity core.Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
+                    Entity: *(*core.Entity)(pEntity),
                     {{- range .HIndices}}V{{additions . 1}}: (*T{{additions . 1}})(p{{additions . 1}}),{{end}}
                 }
+
+                // Construct Tail
                 {{if .HasTail}}
                 tail := struct { {{range .TIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
                     {{- range .TIndices}}V{{additions . 1}}: (*T{{additions . 1}})(p{{additions . 1}}),{{end}}
@@ -88,7 +114,11 @@ func (v *View{{.N}}[{{.AllTParams}}]) All() iter.Seq2[
                 {{else}}
                 tail := struct{}{}
                 {{end}}
+
                 if !yield(head, tail) { return }
+
+                // Increment Pointers
+                pEntity = unsafe.Add(pEntity, strideEntity)
                 {{range .Indices}}p{{additions . 1}} = unsafe.Add(p{{additions . 1}}, s{{additions . 1}})
                 {{end}}
             }
@@ -136,7 +166,7 @@ func (v *View{{.N}}[{{.AllTParams}}]) Filter(selected []Entity) iter.Seq2[
             arch := &v.Reg.ArchetypeRegistry.Archetypes[link.ArchId]
             if arch == nil || !v.View.Matches(arch.Mask) { continue }
             if arch != lastArch {
-                for i := 0; i < {{.N}}; i++ { cols[i] = arch.Columns[v.CompInfos[i].ID] }
+                for i := 0; i < {{.N}}; i++ { cols[i] = arch.GetColumn(v.Layout[i].ID) }
                 lastArch = arch
             }
             idx := uintptr(link.Row)
@@ -238,7 +268,7 @@ func (v *View{{.N}}[{{.AllTParams}}]) FilterValues(selected []Entity) iter.Seq2[
             arch := &v.Reg.ArchetypeRegistry.Archetypes[link.ArchId]
             if arch == nil || !v.View.Matches(arch.Mask) { continue }
             if arch != lastArch {
-                for i := 0; i < {{.N}}; i++ { cols[i] = arch.Columns[v.CompInfos[i].ID] }
+                for i := 0; i < {{.N}}; i++ { cols[i] = arch.GetColumn(v.Layout[i].ID) }
                 lastArch = arch
             }
             idx := uintptr(link.Row)

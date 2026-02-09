@@ -109,7 +109,7 @@ func TestColumn_DataManipulation(t *testing.T) {
 	})
 
 	// Case: Struct Support
-	// Ensuring memmove copies the entire block, including fields with different alignments.
+	// Ensuring copyMemory copies the entire block, including fields with different alignments.
 	t.Run("Struct Support", func(t *testing.T) {
 		val := largeStruct{A: 99.9, B: -99.9, Active: false}
 		col.setData(9, unsafe.Pointer(&val))
