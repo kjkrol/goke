@@ -101,13 +101,13 @@ func (v *View1[T1]) All() iter.Seq2[
 			b := &v.Baked[i]
 
 			// 1. Setup Entity Pointer
-			pEntity := b.EntityColumn.Data
+			pEntity := b.GetEntityColumn().Data
 
 			// 2. Setup Component Pointers
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
+			p1, s1 := b.GetColumn(0).Data, b.GetColumn(0).ItemSize
 
 			// Death Loop (Pointer Arithmetic)
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.Arch.Len; j++ {
 
 				// Construct Head
 				head := struct {
@@ -226,9 +226,9 @@ func (v *View1[T1]) Values() iter.Seq2[
 	) bool) {
 		for i := range v.Baked {
 			b := &v.Baked[i]
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
+			p1, s1 := b.GetColumn(0).Data, b.GetColumn(0).ItemSize
 
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.Arch.Len; j++ {
 				vhead := struct{ V1 *T1 }{V1: (*T1)(p1)}
 
 				vtail := struct{}{}
@@ -397,14 +397,14 @@ func (v *View2[T1, T2]) All() iter.Seq2[
 			b := &v.Baked[i]
 
 			// 1. Setup Entity Pointer
-			pEntity := b.EntityColumn.Data
+			pEntity := b.GetEntityColumn().Data
 
 			// 2. Setup Component Pointers
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
+			p1, s1 := b.GetColumn(0).Data, b.GetColumn(0).ItemSize
+			p2, s2 := b.GetColumn(1).Data, b.GetColumn(1).ItemSize
 
 			// Death Loop (Pointer Arithmetic)
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.Arch.Len; j++ {
 
 				// Construct Head
 				head := struct {
@@ -539,10 +539,10 @@ func (v *View2[T1, T2]) Values() iter.Seq2[
 	) bool) {
 		for i := range v.Baked {
 			b := &v.Baked[i]
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
+			p1, s1 := b.GetColumn(0).Data, b.GetColumn(0).ItemSize
+			p2, s2 := b.GetColumn(1).Data, b.GetColumn(1).ItemSize
 
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.Arch.Len; j++ {
 				vhead := struct {
 					V1 *T1
 					V2 *T2
@@ -731,15 +731,15 @@ func (v *View3[T1, T2, T3]) All() iter.Seq2[
 			b := &v.Baked[i]
 
 			// 1. Setup Entity Pointer
-			pEntity := b.EntityColumn.Data
+			pEntity := b.GetEntityColumn().Data
 
 			// 2. Setup Component Pointers
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
-			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
+			p1, s1 := b.GetColumn(0).Data, b.GetColumn(0).ItemSize
+			p2, s2 := b.GetColumn(1).Data, b.GetColumn(1).ItemSize
+			p3, s3 := b.GetColumn(2).Data, b.GetColumn(2).ItemSize
 
 			// Death Loop (Pointer Arithmetic)
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.Arch.Len; j++ {
 
 				// Construct Head
 				head := struct {
@@ -881,11 +881,11 @@ func (v *View3[T1, T2, T3]) Values() iter.Seq2[
 	) bool) {
 		for i := range v.Baked {
 			b := &v.Baked[i]
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
-			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
+			p1, s1 := b.GetColumn(0).Data, b.GetColumn(0).ItemSize
+			p2, s2 := b.GetColumn(1).Data, b.GetColumn(1).ItemSize
+			p3, s3 := b.GetColumn(2).Data, b.GetColumn(2).ItemSize
 
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.Arch.Len; j++ {
 				vhead := struct {
 					V1 *T1
 					V2 *T2
@@ -1083,16 +1083,16 @@ func (v *View4[T1, T2, T3, T4]) All() iter.Seq2[
 			b := &v.Baked[i]
 
 			// 1. Setup Entity Pointer
-			pEntity := b.EntityColumn.Data
+			pEntity := b.GetEntityColumn().Data
 
 			// 2. Setup Component Pointers
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
-			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
-			p4, s4 := b.Columns[3].Data, b.Columns[3].ItemSize
+			p1, s1 := b.GetColumn(0).Data, b.GetColumn(0).ItemSize
+			p2, s2 := b.GetColumn(1).Data, b.GetColumn(1).ItemSize
+			p3, s3 := b.GetColumn(2).Data, b.GetColumn(2).ItemSize
+			p4, s4 := b.GetColumn(3).Data, b.GetColumn(3).ItemSize
 
 			// Death Loop (Pointer Arithmetic)
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.Arch.Len; j++ {
 
 				// Construct Head
 				head := struct {
@@ -1237,12 +1237,12 @@ func (v *View4[T1, T2, T3, T4]) Values() iter.Seq2[
 	) bool) {
 		for i := range v.Baked {
 			b := &v.Baked[i]
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
-			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
-			p4, s4 := b.Columns[3].Data, b.Columns[3].ItemSize
+			p1, s1 := b.GetColumn(0).Data, b.GetColumn(0).ItemSize
+			p2, s2 := b.GetColumn(1).Data, b.GetColumn(1).ItemSize
+			p3, s3 := b.GetColumn(2).Data, b.GetColumn(2).ItemSize
+			p4, s4 := b.GetColumn(3).Data, b.GetColumn(3).ItemSize
 
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.Arch.Len; j++ {
 				vhead := struct {
 					V1 *T1
 					V2 *T2
@@ -1455,17 +1455,17 @@ func (v *View5[T1, T2, T3, T4, T5]) All() iter.Seq2[
 			b := &v.Baked[i]
 
 			// 1. Setup Entity Pointer
-			pEntity := b.EntityColumn.Data
+			pEntity := b.GetEntityColumn().Data
 
 			// 2. Setup Component Pointers
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
-			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
-			p4, s4 := b.Columns[3].Data, b.Columns[3].ItemSize
-			p5, s5 := b.Columns[4].Data, b.Columns[4].ItemSize
+			p1, s1 := b.GetColumn(0).Data, b.GetColumn(0).ItemSize
+			p2, s2 := b.GetColumn(1).Data, b.GetColumn(1).ItemSize
+			p3, s3 := b.GetColumn(2).Data, b.GetColumn(2).ItemSize
+			p4, s4 := b.GetColumn(3).Data, b.GetColumn(3).ItemSize
+			p5, s5 := b.GetColumn(4).Data, b.GetColumn(4).ItemSize
 
 			// Death Loop (Pointer Arithmetic)
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.Arch.Len; j++ {
 
 				// Construct Head
 				head := struct {
@@ -1624,13 +1624,13 @@ func (v *View5[T1, T2, T3, T4, T5]) Values() iter.Seq2[
 	) bool) {
 		for i := range v.Baked {
 			b := &v.Baked[i]
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
-			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
-			p4, s4 := b.Columns[3].Data, b.Columns[3].ItemSize
-			p5, s5 := b.Columns[4].Data, b.Columns[4].ItemSize
+			p1, s1 := b.GetColumn(0).Data, b.GetColumn(0).ItemSize
+			p2, s2 := b.GetColumn(1).Data, b.GetColumn(1).ItemSize
+			p3, s3 := b.GetColumn(2).Data, b.GetColumn(2).ItemSize
+			p4, s4 := b.GetColumn(3).Data, b.GetColumn(3).ItemSize
+			p5, s5 := b.GetColumn(4).Data, b.GetColumn(4).ItemSize
 
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.Arch.Len; j++ {
 				vhead := struct {
 					V1 *T1
 					V2 *T2
@@ -1851,18 +1851,18 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq2[
 			b := &v.Baked[i]
 
 			// 1. Setup Entity Pointer
-			pEntity := b.EntityColumn.Data
+			pEntity := b.GetEntityColumn().Data
 
 			// 2. Setup Component Pointers
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
-			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
-			p4, s4 := b.Columns[3].Data, b.Columns[3].ItemSize
-			p5, s5 := b.Columns[4].Data, b.Columns[4].ItemSize
-			p6, s6 := b.Columns[5].Data, b.Columns[5].ItemSize
+			p1, s1 := b.GetColumn(0).Data, b.GetColumn(0).ItemSize
+			p2, s2 := b.GetColumn(1).Data, b.GetColumn(1).ItemSize
+			p3, s3 := b.GetColumn(2).Data, b.GetColumn(2).ItemSize
+			p4, s4 := b.GetColumn(3).Data, b.GetColumn(3).ItemSize
+			p5, s5 := b.GetColumn(4).Data, b.GetColumn(4).ItemSize
+			p6, s6 := b.GetColumn(5).Data, b.GetColumn(5).ItemSize
 
 			// Death Loop (Pointer Arithmetic)
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.Arch.Len; j++ {
 
 				// Construct Head
 				head := struct {
@@ -2032,14 +2032,14 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Values() iter.Seq2[
 	) bool) {
 		for i := range v.Baked {
 			b := &v.Baked[i]
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
-			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
-			p4, s4 := b.Columns[3].Data, b.Columns[3].ItemSize
-			p5, s5 := b.Columns[4].Data, b.Columns[4].ItemSize
-			p6, s6 := b.Columns[5].Data, b.Columns[5].ItemSize
+			p1, s1 := b.GetColumn(0).Data, b.GetColumn(0).ItemSize
+			p2, s2 := b.GetColumn(1).Data, b.GetColumn(1).ItemSize
+			p3, s3 := b.GetColumn(2).Data, b.GetColumn(2).ItemSize
+			p4, s4 := b.GetColumn(3).Data, b.GetColumn(3).ItemSize
+			p5, s5 := b.GetColumn(4).Data, b.GetColumn(4).ItemSize
+			p6, s6 := b.GetColumn(5).Data, b.GetColumn(5).ItemSize
 
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.Arch.Len; j++ {
 				vhead := struct {
 					V1 *T1
 					V2 *T2
@@ -2279,19 +2279,19 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) All() iter.Seq2[
 			b := &v.Baked[i]
 
 			// 1. Setup Entity Pointer
-			pEntity := b.EntityColumn.Data
+			pEntity := b.GetEntityColumn().Data
 
 			// 2. Setup Component Pointers
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
-			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
-			p4, s4 := b.Columns[3].Data, b.Columns[3].ItemSize
-			p5, s5 := b.Columns[4].Data, b.Columns[4].ItemSize
-			p6, s6 := b.Columns[5].Data, b.Columns[5].ItemSize
-			p7, s7 := b.Columns[6].Data, b.Columns[6].ItemSize
+			p1, s1 := b.GetColumn(0).Data, b.GetColumn(0).ItemSize
+			p2, s2 := b.GetColumn(1).Data, b.GetColumn(1).ItemSize
+			p3, s3 := b.GetColumn(2).Data, b.GetColumn(2).ItemSize
+			p4, s4 := b.GetColumn(3).Data, b.GetColumn(3).ItemSize
+			p5, s5 := b.GetColumn(4).Data, b.GetColumn(4).ItemSize
+			p6, s6 := b.GetColumn(5).Data, b.GetColumn(5).ItemSize
+			p7, s7 := b.GetColumn(6).Data, b.GetColumn(6).ItemSize
 
 			// Death Loop (Pointer Arithmetic)
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.Arch.Len; j++ {
 
 				// Construct Head
 				head := struct {
@@ -2468,15 +2468,15 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Values() iter.Seq2[
 	) bool) {
 		for i := range v.Baked {
 			b := &v.Baked[i]
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
-			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
-			p4, s4 := b.Columns[3].Data, b.Columns[3].ItemSize
-			p5, s5 := b.Columns[4].Data, b.Columns[4].ItemSize
-			p6, s6 := b.Columns[5].Data, b.Columns[5].ItemSize
-			p7, s7 := b.Columns[6].Data, b.Columns[6].ItemSize
+			p1, s1 := b.GetColumn(0).Data, b.GetColumn(0).ItemSize
+			p2, s2 := b.GetColumn(1).Data, b.GetColumn(1).ItemSize
+			p3, s3 := b.GetColumn(2).Data, b.GetColumn(2).ItemSize
+			p4, s4 := b.GetColumn(3).Data, b.GetColumn(3).ItemSize
+			p5, s5 := b.GetColumn(4).Data, b.GetColumn(4).ItemSize
+			p6, s6 := b.GetColumn(5).Data, b.GetColumn(5).ItemSize
+			p7, s7 := b.GetColumn(6).Data, b.GetColumn(6).ItemSize
 
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.Arch.Len; j++ {
 				vhead := struct {
 					V1 *T1
 					V2 *T2
@@ -2727,20 +2727,20 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) All() iter.Seq2[
 			b := &v.Baked[i]
 
 			// 1. Setup Entity Pointer
-			pEntity := b.EntityColumn.Data
+			pEntity := b.GetEntityColumn().Data
 
 			// 2. Setup Component Pointers
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
-			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
-			p4, s4 := b.Columns[3].Data, b.Columns[3].ItemSize
-			p5, s5 := b.Columns[4].Data, b.Columns[4].ItemSize
-			p6, s6 := b.Columns[5].Data, b.Columns[5].ItemSize
-			p7, s7 := b.Columns[6].Data, b.Columns[6].ItemSize
-			p8, s8 := b.Columns[7].Data, b.Columns[7].ItemSize
+			p1, s1 := b.GetColumn(0).Data, b.GetColumn(0).ItemSize
+			p2, s2 := b.GetColumn(1).Data, b.GetColumn(1).ItemSize
+			p3, s3 := b.GetColumn(2).Data, b.GetColumn(2).ItemSize
+			p4, s4 := b.GetColumn(3).Data, b.GetColumn(3).ItemSize
+			p5, s5 := b.GetColumn(4).Data, b.GetColumn(4).ItemSize
+			p6, s6 := b.GetColumn(5).Data, b.GetColumn(5).ItemSize
+			p7, s7 := b.GetColumn(6).Data, b.GetColumn(6).ItemSize
+			p8, s8 := b.GetColumn(7).Data, b.GetColumn(7).ItemSize
 
 			// Death Loop (Pointer Arithmetic)
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.Arch.Len; j++ {
 
 				// Construct Head
 				head := struct {
@@ -2924,16 +2924,16 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Values() iter.Seq2[
 	) bool) {
 		for i := range v.Baked {
 			b := &v.Baked[i]
-			p1, s1 := b.Columns[0].Data, b.Columns[0].ItemSize
-			p2, s2 := b.Columns[1].Data, b.Columns[1].ItemSize
-			p3, s3 := b.Columns[2].Data, b.Columns[2].ItemSize
-			p4, s4 := b.Columns[3].Data, b.Columns[3].ItemSize
-			p5, s5 := b.Columns[4].Data, b.Columns[4].ItemSize
-			p6, s6 := b.Columns[5].Data, b.Columns[5].ItemSize
-			p7, s7 := b.Columns[6].Data, b.Columns[6].ItemSize
-			p8, s8 := b.Columns[7].Data, b.Columns[7].ItemSize
+			p1, s1 := b.GetColumn(0).Data, b.GetColumn(0).ItemSize
+			p2, s2 := b.GetColumn(1).Data, b.GetColumn(1).ItemSize
+			p3, s3 := b.GetColumn(2).Data, b.GetColumn(2).ItemSize
+			p4, s4 := b.GetColumn(3).Data, b.GetColumn(3).ItemSize
+			p5, s5 := b.GetColumn(4).Data, b.GetColumn(4).ItemSize
+			p6, s6 := b.GetColumn(5).Data, b.GetColumn(5).ItemSize
+			p7, s7 := b.GetColumn(6).Data, b.GetColumn(6).ItemSize
+			p8, s8 := b.GetColumn(7).Data, b.GetColumn(7).ItemSize
 
-			for j := 0; j < *b.Len; j++ {
+			for j := 0; j < b.Arch.Len; j++ {
 				vhead := struct {
 					V1 *T1
 					V2 *T2

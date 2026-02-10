@@ -50,7 +50,7 @@ func (r *ArchetypeRegistry) InitArchetype(mask ArchetypeMask, initCapacity int) 
 		Id:      archId,
 		Mask:    mask,
 		columns: make([]Column, 0, totalCols),
-		len:     0,
+		Len:     0,
 		cap:     initCapacity,
 		initCap: initCapacity,
 	}

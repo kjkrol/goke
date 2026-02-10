@@ -53,14 +53,14 @@ func (v *View0) All() iter.Seq2[struct{ Entity core.Entity }, struct{}] {
 		for i := range v.Baked {
 			b := &v.Baked[i]
 
-			count := *b.Len
+			count := b.Arch.Len
 			if count == 0 {
 				continue
 			}
 
 			// FIX: Access EntityColumn directly.
 			// b.Columns is empty for View0, so b.Columns[0] would panic.
-			ptr := b.EntityColumn.Data
+			ptr := b.Arch.GetEntityColumn().Data
 
 			for j := 0; j < count; j++ {
 				val := *(*core.Entity)(ptr)

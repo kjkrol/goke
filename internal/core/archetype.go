@@ -35,7 +35,7 @@ type Archetype struct {
 	// columns[1..N] = Component Data
 	columns []Column
 
-	len     int
+	Len     int
 	cap     int
 	initCap int
 
@@ -46,7 +46,7 @@ type Archetype struct {
 type ArchRow uint32
 
 func (a *Archetype) SwapRemoveEntity(row ArchRow) (swapedEntity Entity, swaped bool) {
-	lastRow := ArchRow(a.len - 1)
+	lastRow := ArchRow(a.Len - 1)
 	entityCol := &a.columns[EntityColumnIndex]
 	ptr := entityCol.Data
 	stride := entityCol.ItemSize
@@ -67,7 +67,7 @@ func (a *Archetype) SwapRemoveEntity(row ArchRow) (swapedEntity Entity, swaped b
 	}
 
 	// 2. Swap entity ID
-	a.len--
+	a.Len--
 
 	if row == lastRow {
 		return 0, false
@@ -83,7 +83,7 @@ func (a *Archetype) registerEntity(entity Entity) ArchRow {
 	entityCol := &a.columns[EntityColumnIndex]
 
 	// Calculate address: Data + (len * 8)
-	targetPtr := unsafe.Add(entityCol.Data, uintptr(a.len)*entityCol.ItemSize)
+	targetPtr := unsafe.Add(entityCol.Data, uintptr(a.Len)*entityCol.ItemSize)
 
 	// Store the entity ID
 	*(*Entity)(targetPtr) = entity
@@ -93,14 +93,14 @@ func (a *Archetype) registerEntity(entity Entity) ArchRow {
 		a.columns[i].len++
 	}
 
-	newRow := ArchRow(a.len)
-	a.len++
+	newRow := ArchRow(a.Len)
+	a.Len++
 
 	return newRow
 }
 
 func (a *Archetype) ensureCapacity() {
-	if a.len < a.cap {
+	if a.Len < a.cap {
 		return
 	}
 

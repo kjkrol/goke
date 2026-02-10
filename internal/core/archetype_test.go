@@ -149,8 +149,8 @@ func TestArchetype_SwapRemoveWithLenSync(t *testing.T) {
 	col.setData(row1, unsafe.Pointer(&val2))
 
 	// 5. Verify initial state
-	if arch.len != 2 {
-		t.Fatalf("Setup failed: Arch len should be 2, got %d", arch.len)
+	if arch.Len != 2 {
+		t.Fatalf("Setup failed: Arch len should be 2, got %d", arch.Len)
 	}
 	if col.len != 2 {
 		t.Fatalf("Setup failed: Column len should be 2, got %d", col.len)
@@ -162,8 +162,8 @@ func TestArchetype_SwapRemoveWithLenSync(t *testing.T) {
 	swappedEntity, swapped := arch.SwapRemoveEntity(0)
 
 	// 7. Verify sync and length reduction
-	if arch.len != 1 {
-		t.Errorf("Archetype len should decrease to 1, got %d", arch.len)
+	if arch.Len != 1 {
+		t.Errorf("Archetype len should decrease to 1, got %d", arch.Len)
 	}
 
 	if col.len != 1 {
@@ -188,9 +188,9 @@ func TestArchetype_SwapRemoveWithLenSync(t *testing.T) {
 	}
 
 	// 10. Safety Check: Column vs Archetype sync
-	if col.len != arch.len {
+	if col.len != arch.Len {
 		t.Errorf("Critical Sync Error: Archetype len (%d) != Column len (%d)",
-			arch.len, col.len)
+			arch.Len, col.len)
 	}
 }
 
@@ -242,8 +242,8 @@ func TestArchetype_MultiColumnIntegrity(t *testing.T) {
 	colVel.setData(row1, unsafe.Pointer(&v1))
 
 	// Verify setup sanity
-	if arch.len != 2 {
-		t.Fatalf("Setup failed, len %d", arch.len)
+	if arch.Len != 2 {
+		t.Fatalf("Setup failed, len %d", arch.Len)
 	}
 
 	// 7. Swap-and-Pop: Remove Entity 0 (Row 0)
@@ -279,8 +279,8 @@ func TestArchetype_MultiColumnIntegrity(t *testing.T) {
 	}
 
 	// 9. Verify Lengths
-	if arch.len != 1 {
-		t.Errorf("Archetype len expected 1, got %d", arch.len)
+	if arch.Len != 1 {
+		t.Errorf("Archetype len expected 1, got %d", arch.Len)
 	}
 	if colPos.len != 1 || colVel.len != 1 {
 		t.Errorf("Column len desync")
@@ -308,7 +308,7 @@ func TestArchetype_EdgeCases(t *testing.T) {
 		entity := NewEntity(0, 100)
 		arch.registerEntity(entity)
 
-		if arch.len != 1 {
+		if arch.Len != 1 {
 			t.Fatal("failed to register entity in columnless archetype")
 		}
 
@@ -321,7 +321,7 @@ func TestArchetype_EdgeCases(t *testing.T) {
 		// 3. Remove
 		arch.SwapRemoveEntity(0)
 
-		if arch.len != 0 {
+		if arch.Len != 0 {
 			t.Error("failed to remove entity from columnless archetype")
 		}
 	})
@@ -345,7 +345,7 @@ func TestArchetype_EdgeCases(t *testing.T) {
 		arch.registerEntity(NewEntity(0, 5))
 
 		// Verify setup
-		if arch.len != 1 {
+		if arch.Len != 1 {
 			t.Fatal("Setup failed: len should be 1")
 		}
 
@@ -362,7 +362,7 @@ func TestArchetype_EdgeCases(t *testing.T) {
 		if moved != 0 {
 			t.Errorf("moved entity should be empty/zero, got %+v", moved)
 		}
-		if arch.len != 0 {
+		if arch.Len != 0 {
 			t.Error("invalid len after removing the only entity")
 		}
 	})
@@ -456,8 +456,8 @@ func TestArchetype_DataIntegrityAfterGrowth(t *testing.T) {
 	col.setData(row1, unsafe.Pointer(&val1))
 
 	// Verify we are exactly at capacity
-	if arch.len != 2 || arch.cap != 2 {
-		t.Fatalf("Setup failed: expected len=2, cap=2. Got len=%d, cap=%d", arch.len, arch.cap)
+	if arch.Len != 2 || arch.cap != 2 {
+		t.Fatalf("Setup failed: expected len=2, cap=2. Got len=%d, cap=%d", arch.Len, arch.cap)
 	}
 
 	// 4. TRIGGER GROWTH (Add 3rd Entity)
@@ -568,8 +568,8 @@ func TestArchetype_RemoveLastEntityLenSync(t *testing.T) {
 
 	// Safety check przed operacją
 	col := arch.GetColumn(int32ID)
-	if arch.len != 1 || col.len != 1 {
-		t.Fatalf("Setup failed: expected len=1, got arch=%d, col=%d", arch.len, col.len)
+	if arch.Len != 1 || col.len != 1 {
+		t.Fatalf("Setup failed: expected len=1, got arch=%d, col=%d", arch.Len, col.len)
 	}
 
 	// 5. Remove the only entity (Index 0)
@@ -578,8 +578,8 @@ func TestArchetype_RemoveLastEntityLenSync(t *testing.T) {
 	arch.SwapRemoveEntity(0)
 
 	// 6. Verify Sync
-	if arch.len != 0 {
-		t.Errorf("Archetype len should be 0, got %d", arch.len)
+	if arch.Len != 0 {
+		t.Errorf("Archetype len should be 0, got %d", arch.Len)
 	}
 
 	if col.len != 0 {

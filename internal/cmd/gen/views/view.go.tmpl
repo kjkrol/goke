@@ -91,14 +91,14 @@ func (v *View{{.N}}[{{.AllTParams}}]) All() iter.Seq2[
             b := &v.Baked[i]
             
             // 1. Setup Entity Pointer
-            pEntity := b.EntityColumn.Data
+            pEntity := b.GetEntityColumn().Data
 
             // 2. Setup Component Pointers
-            {{range .Indices}}p{{additions . 1}}, s{{additions . 1}} := b.Columns[{{.}}].Data, b.Columns[{{.}}].ItemSize
+            {{range .Indices}}p{{additions . 1}}, s{{additions . 1}} := b.GetColumn({{.}}).Data, b.GetColumn({{.}}).ItemSize
             {{end}}
 
             // Death Loop (Pointer Arithmetic)
-            for j := 0; j < *b.Len; j++ {
+            for j := 0; j < b.Arch.Len; j++ {
                 
                 // Construct Head
                 head := struct { Entity core.Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
@@ -214,9 +214,9 @@ func (v *View{{.N}}[{{.AllTParams}}]) Values() iter.Seq2[
     ) bool) {
         for i := range v.Baked {
             b := &v.Baked[i]
-            {{range .Indices}}p{{additions . 1}}, s{{additions . 1}} := b.Columns[{{.}}].Data, b.Columns[{{.}}].ItemSize
+            {{range .Indices}}p{{additions . 1}}, s{{additions . 1}} := b.GetColumn({{.}}).Data, b.GetColumn({{.}}).ItemSize
             {{end}}
-            for j := 0; j < *b.Len; j++ {
+            for j := 0; j < b.Arch.Len; j++ {
                 vhead := struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
                     {{- range .PHIndices}}V{{additions . 1}}: (*T{{additions . 1}})(p{{additions . 1}}),{{end}}
                 }

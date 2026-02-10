@@ -3,9 +3,17 @@ package core
 import "fmt"
 
 type MatchedArch struct {
-	EntityColumn *Column
-	Columns      []*Column
-	Len          *int
+	Arch            *Archetype
+	LayoutColumnIDs []LocalColumnID
+}
+
+func (ma *MatchedArch) GetEntityColumn() *Column {
+	return &ma.Arch.columns[0]
+}
+
+func (ma *MatchedArch) GetColumn(colId LocalColumnID) *Column {
+	layoutColId := ma.LayoutColumnIDs[colId]
+	return &ma.Arch.columns[layoutColId]
 }
 
 type View struct {
@@ -60,7 +68,6 @@ func (v *View) Reindex() {
 	for i := RootArchetypeId; i < reg.lastArchetypeId; i++ {
 		arch := &reg.Archetypes[i]
 
-		// Guard clause w pętli też się przyda
 		if len(arch.columns) == 0 {
 			continue
 		}
@@ -78,19 +85,18 @@ func (v *View) AddArchetype(arch *Archetype) {
 	}
 
 	mArch := MatchedArch{
-		Len:          &arch.len,
-		EntityColumn: &arch.columns[0],
+		Arch: arch,
 	}
 
 	if len(v.Layout) > 0 {
-		mArch.Columns = make([]*Column, len(v.Layout))
+		mArch.LayoutColumnIDs = make([]LocalColumnID, len(v.Layout))
 
 		for i, info := range v.Layout {
 			localIdx := arch.columnMap[info.ID]
 			if localIdx == InvalidLocalID || int(localIdx) >= len(arch.columns) {
 				continue
 			}
-			mArch.Columns[i] = &arch.columns[localIdx]
+			mArch.LayoutColumnIDs[i] = localIdx
 		}
 	}
 
