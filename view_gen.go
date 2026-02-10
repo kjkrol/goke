@@ -3,9 +3,10 @@ package goke
 
 import (
 	"fmt"
-	"github.com/kjkrol/goke/internal/core"
 	"iter"
 	"unsafe"
+
+	"github.com/kjkrol/goke/internal/core"
 )
 
 // --------------- View1 ---------------
