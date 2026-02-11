@@ -250,8 +250,8 @@ GOKe delivers near-metal speeds by eliminating heap allocations and leveraging L
 
 | Category | Operation | Performance | Allocs | Technical Mechanism |
 | :--- | :--- | :--- | :--- | :--- |
-| **Throughput** | **View Iteration** | **0.48 – 0.98 ns/ent** | **0** | Linear SoA (1-8 components) |
-| **Scalability** | **$O(1)$ Filter** | **4.48 ns/ent** | **0** | Centralized Record Lookup |
+| **Throughput** | **View Iteration** | **0.34 – 0.64 ns/ent** | **0** | Linear SoA (1-8 components) |
+| **Scalability** | **$O(1)$ Filter** | **1.34 – 2.33 ns/ent** | **0** | Centralized Record Lookup |
 | **Structural** | **Add Component** | **28.30 ns/op** | **0** | Archetype Migration (Insert) |
 | **Structural** | **Migrate Component** | **43.27 ns/op** | **0** | Archetype Move + Insert |
 | **Structural** | **Remove Entity** | **14.44 ns/op** | **0** | Index Recycling |
