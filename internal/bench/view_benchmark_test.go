@@ -275,6 +275,26 @@ func BenchmarkView0_Filter100(b *testing.B) {
 	}
 }
 
+func BenchmarkView2_Filter100(b *testing.B) {
+	b.StopTimer()
+	ecs, entities := setupBenchmark(b, entitiesNumber)
+	view3 := goke.NewView2[Pos, Vel](ecs)
+	subset := entities[:100]
+
+	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
+	fn := func() {
+		for head := range view3.Filter(subset) {
+			pos, vel := head.V1, head.V2
+			pos.X += vel.X
+		}
+	}
+
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		fn()
+	}
+}
+
 func BenchmarkView3_Filter100(b *testing.B) {
 	b.StopTimer()
 	ecs, entities := setupBenchmark(b, entitiesNumber)

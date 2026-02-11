@@ -1,6 +1,8 @@
 package core
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type MatchedArch struct {
 	Arch            *Archetype

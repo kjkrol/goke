@@ -46,32 +46,19 @@ func NewView0(ecs *ECS, opts ...BlueprintOption) *View0 {
 //	    entity := head.Entity
 //	    // Logic using only the entity ID...
 //	}
-func (v *View0) All() iter.Seq2[struct{ Entity core.Entity }, struct{}] {
-	return func(yield func(struct{ Entity core.Entity }, struct{}) bool) {
-		stride := unsafe.Sizeof(core.Entity(0))
+func (v *View0) All() iter.Seq[struct{ Entity core.Entity }] {
+	const stride = unsafe.Sizeof(core.Entity(0))
+	return func(yield func(struct{ Entity core.Entity }) bool) {
+		for _, b := range v.Baked {
+			ptr := b.GetEntityColumn().Data
+			n := b.Arch.Len
 
-		for i := range v.Baked {
-			b := &v.Baked[i]
-
-			count := b.Arch.Len
-			if count == 0 {
-				continue
-			}
-
-			// FIX: Access EntityColumn directly.
-			// b.Columns is empty for View0, so b.Columns[0] would panic.
-			ptr := b.Arch.GetEntityColumn().Data
-
-			for j := 0; j < count; j++ {
-				val := *(*core.Entity)(ptr)
-
-				head := struct{ Entity core.Entity }{Entity: val}
-
-				if !yield(head, struct{}{}) {
+			for n > 0 {
+				if !yield(struct{ Entity core.Entity }{Entity: *(*core.Entity)(ptr)}) {
 					return
 				}
-
 				ptr = unsafe.Add(ptr, stride)
+				n--
 			}
 		}
 	}
@@ -92,20 +79,23 @@ func (v *View0) All() iter.Seq2[struct{ Entity core.Entity }, struct{}] {
 //	    // ...
 //	}
 func (v *View0) Filter(selected []core.Entity) iter.Seq2[struct{ Entity core.Entity }, struct{}] {
-	links := v.Reg.ArchetypeRegistry.EntityLinkStore
-
 	return func(yield func(struct{ Entity core.Entity }, struct{}) bool) {
+		var lastArchID int32 = -1
+		registry := v.Reg.ArchetypeRegistry
 		for _, e := range selected {
-			link, ok := links.Get(e)
+			link, ok := registry.EntityLinkStore.Get(e)
 			if !ok {
 				continue
 			}
-			// Unsafe access to Archetypes array for speed (bounds checked implicitly by LinkStore logic)
-			arch := &v.Reg.ArchetypeRegistry.Archetypes[link.ArchId]
 
-			// Check if the entity's current archetype matches this View
-			if !v.Matches(arch.Mask) {
-				continue
+			if int32(link.ArchId) != lastArchID {
+				arch := &registry.Archetypes[link.ArchId]
+				if !v.View.Matches(arch.Mask) {
+					lastArchID = -1
+					continue
+				}
+
+				lastArchID = int32(link.ArchId)
 			}
 
 			head := struct{ Entity core.Entity }{Entity: e}

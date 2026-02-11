@@ -84,21 +84,20 @@ func (v *View{{.N}}[{{.AllTParams}}]) All() iter.Seq2[
         struct { Entity core.Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
         {{if .HasTail}}struct { {{range .TIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
     ) bool) {
-        // Entity size is constant
-        strideEntity := unsafe.Sizeof(core.Entity(0))
-
-        for i := range v.Baked {
-            b := &v.Baked[i]
+        const strideEntity = unsafe.Sizeof(core.Entity(0))
+        {{range .Indices}}s{{additions . 1}} := unsafe.Sizeof(*new(T{{additions . 1}}))
+        {{end}}
+        for _, b := range v.Baked {
             
             // 1. Setup Entity Pointer
             pEntity := b.GetEntityColumn().Data
 
             // 2. Setup Component Pointers
-            {{range .Indices}}p{{additions . 1}}, s{{additions . 1}} := b.GetColumn({{.}}).Data, b.GetColumn({{.}}).ItemSize
+            {{range .Indices}}p{{additions . 1}} := b.GetColumn({{.}}).Data
             {{end}}
-
+            n := b.Arch.Len
             // Death Loop (Pointer Arithmetic)
-            for j := 0; j < b.Arch.Len; j++ {
+            for n > 0 {
                 
                 // Construct Head
                 head := struct { Entity core.Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
@@ -121,6 +120,7 @@ func (v *View{{.N}}[{{.AllTParams}}]) All() iter.Seq2[
                 pEntity = unsafe.Add(pEntity, strideEntity)
                 {{range .Indices}}p{{additions . 1}} = unsafe.Add(p{{additions . 1}}, s{{additions . 1}})
                 {{end}}
+                n--
             }
         }
     }
@@ -155,33 +155,54 @@ func (v *View{{.N}}[{{.AllTParams}}]) Filter(selected []Entity) iter.Seq2[
     struct { Entity Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
     {{if .HasTail}}struct { {{range .TIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
 ] {
-    links := v.Reg.ArchetypeRegistry.EntityLinkStore
     return func(yield func(
         struct { Entity Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
         {{if .HasTail}}struct { {{range .TIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
     ) bool) {
-        var lastArch *core.Archetype; var cols [{{.N}}]*core.Column
+        {{range .Indices}}stride{{additions . 1}} := unsafe.Sizeof(*new(T{{additions . 1}}))
+        {{end}}
+        var {{range $i, $_ := .Indices}}{{if $i}}, {{end}}ptr{{additions . 1}}{{end}} unsafe.Pointer
+        var lastArchID int32 = -1
+        registry := v.Reg.ArchetypeRegistry
+        {{range .Indices}}col{{additions . 1}}ID := v.Layout[{{.}}].ID
+        {{end}}
+
         for _, e := range selected {
-            link, ok := links.Get(e); if !ok { continue }
-            arch := &v.Reg.ArchetypeRegistry.Archetypes[link.ArchId]
-            if arch == nil || !v.View.Matches(arch.Mask) { continue }
-            if arch != lastArch {
-                for i := 0; i < {{.N}}; i++ { cols[i] = arch.GetColumn(v.Layout[i].ID) }
-                lastArch = arch
+            link, ok := registry.EntityLinkStore.Get(e)
+            if !ok {
+                continue
             }
-            idx := uintptr(link.Row)
+
+            if int32(link.ArchId) != lastArchID {
+                arch := &registry.Archetypes[link.ArchId]
+                if !v.View.Matches(arch.Mask) {
+                    lastArchID = -1
+                    continue
+                }
+
+                {{range .Indices}}ptr{{additions . 1}} = arch.GetColumn(col{{additions . 1}}ID).Data
+                {{end}}
+
+                lastArchID = int32(link.ArchId)
+            }
+
+            row := uintptr(link.Row)
+
             head := struct { Entity Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
                 Entity: e,
-                {{- range .HIndices}}V{{additions . 1}}: (*T{{additions . 1}})(unsafe.Add(cols[{{.}}].Data, idx*cols[{{.}}].ItemSize)),{{end}}
+                {{- range .HIndices}}V{{additions . 1}}: (*T{{additions . 1}})(unsafe.Add(ptr{{additions . 1}}, row*stride{{additions . 1}})),{{end}}
             }
             {{if .HasTail}}
             tail := struct { {{range .TIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
-                {{- range .TIndices}}V{{additions . 1}}: (*T{{additions . 1}})(unsafe.Add(cols[{{.}}].Data, idx*cols[{{.}}].ItemSize)),{{end}}
+                {{- range .TIndices}}V{{additions . 1}}: (*T{{additions . 1}})(unsafe.Add(ptr{{additions . 1}}, row*stride{{additions . 1}})),{{end}}
             }
             {{else}}
             tail := struct{}{}
             {{end}}
-            if !yield(head, tail) { return }
+
+            if !yield(head, tail) {
+                return
+            }
         }
     }
 }
@@ -212,24 +233,41 @@ func (v *View{{.N}}[{{.AllTParams}}]) Values() iter.Seq2[
         struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
         {{if .HasVTail}}struct { {{range .PTIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
     ) bool) {
-        for i := range v.Baked {
-            b := &v.Baked[i]
-            {{range .Indices}}p{{additions . 1}}, s{{additions . 1}} := b.GetColumn({{.}}).Data, b.GetColumn({{.}}).ItemSize
+        // Calculate strides for types
+        {{range .Indices}}s{{additions . 1}} := unsafe.Sizeof(*new(T{{additions . 1}}))
+        {{end}}
+
+        for _, b := range v.Baked {
+            
+            // Setup Component Pointers
+            {{range .Indices}}p{{additions . 1}} := b.GetColumn({{.}}).Data
             {{end}}
-            for j := 0; j < b.Arch.Len; j++ {
-                vhead := struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
+            
+            n := b.Arch.Len
+
+            // Death Loop (Pointer Arithmetic)
+            for n > 0 {
+                
+                // Construct Head
+                head := struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
                     {{- range .PHIndices}}V{{additions . 1}}: (*T{{additions . 1}})(p{{additions . 1}}),{{end}}
                 }
+
+                // Construct Tail
                 {{if .HasVTail}}
-                vtail := struct { {{range .PTIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
+                tail := struct { {{range .PTIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
                     {{- range .PTIndices}}V{{additions . 1}}: (*T{{additions . 1}})(p{{additions . 1}}),{{end}}
                 }
                 {{else}}
-                vtail := struct{}{}
+                tail := struct{}{}
                 {{end}}
-                if !yield(vhead, vtail) { return }
+
+                if !yield(head, tail) { return }
+
+                // Increment Pointers
                 {{range .Indices}}p{{additions . 1}} = unsafe.Add(p{{additions . 1}}, s{{additions . 1}})
                 {{end}}
+                n--
             }
         }
     }
@@ -257,32 +295,53 @@ func (v *View{{.N}}[{{.AllTParams}}]) FilterValues(selected []Entity) iter.Seq2[
     struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
     {{if .HasVTail}}struct { {{range .PTIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
 ] {
-    links := v.Reg.ArchetypeRegistry.EntityLinkStore
     return func(yield func(
         struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
         {{if .HasVTail}}struct { {{range .PTIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
     ) bool) {
-        var lastArch *core.Archetype; var cols [{{.N}}]*core.Column
+        {{range .Indices}}stride{{additions . 1}} := unsafe.Sizeof(*new(T{{additions . 1}}))
+        {{end}}
+        var {{range $i, $_ := .Indices}}{{if $i}}, {{end}}ptr{{additions . 1}}{{end}} unsafe.Pointer
+        var lastArchID int32 = -1
+        registry := v.Reg.ArchetypeRegistry
+        {{range .Indices}}col{{additions . 1}}ID := v.Layout[{{.}}].ID
+        {{end}}
+
         for _, e := range selected {
-            link, ok := links.Get(e); if !ok { continue }
-            arch := &v.Reg.ArchetypeRegistry.Archetypes[link.ArchId]
-            if arch == nil || !v.View.Matches(arch.Mask) { continue }
-            if arch != lastArch {
-                for i := 0; i < {{.N}}; i++ { cols[i] = arch.GetColumn(v.Layout[i].ID) }
-                lastArch = arch
+            link, ok := registry.EntityLinkStore.Get(e)
+            if !ok {
+                continue
             }
-            idx := uintptr(link.Row)
+
+            if int32(link.ArchId) != lastArchID {
+                arch := &registry.Archetypes[link.ArchId]
+                if !v.View.Matches(arch.Mask) {
+                    lastArchID = -1
+                    continue
+                }
+
+                {{range .Indices}}ptr{{additions . 1}} = arch.GetColumn(col{{additions . 1}}ID).Data
+                {{end}}
+
+                lastArchID = int32(link.ArchId)
+            }
+
+            row := uintptr(link.Row)
+
             vhead := struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
-                {{- range .PHIndices}}V{{additions . 1}}: (*T{{additions . 1}})(unsafe.Add(cols[{{.}}].Data, idx*cols[{{.}}].ItemSize)),{{end}}
+                {{- range .PHIndices}}V{{additions . 1}}: (*T{{additions . 1}})(unsafe.Add(ptr{{additions . 1}}, row*stride{{additions . 1}})),{{end}}
             }
             {{if .HasVTail}}
             vtail := struct { {{range .PTIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
-                {{- range .PTIndices}}V{{additions . 1}}: (*T{{additions . 1}})(unsafe.Add(cols[{{.}}].Data, idx*cols[{{.}}].ItemSize)),{{end}}
+                {{- range .PTIndices}}V{{additions . 1}}: (*T{{additions . 1}})(unsafe.Add(ptr{{additions . 1}}, row*stride{{additions . 1}})),{{end}}
             }
             {{else}}
             vtail := struct{}{}
             {{end}}
-            if !yield(vhead, vtail) { return }
+
+            if !yield(vhead, vtail) {
+                return
+            }
         }
     }
 }
