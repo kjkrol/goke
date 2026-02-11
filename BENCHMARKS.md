@@ -46,9 +46,9 @@ The following benchmarks demonstrate the efficiency of SoA (Structure of Arrays)
 | View Complexity | All Iterator | Values Iterator (No ID) | Performance Gain |
 | :--- | :--- | :--- | :--- |
 | **View0 (Entity Only)** | 0.32 ns | - | - |
-| **View1 (1 Comp)** | 0.48 ns | 0.32 ns | **+32.8%** |
-| **View3 (3 Comps)** | 0.78 ns | 0.73 ns | **+6.6%** |
-| **View8 (8 Comps)** | 0.80 ns | 0.67 ns | **+15.8%** |
+| **View1 (1 Comp)** | 0.48 ns | 0.32 ns | **+33.33%** |
+| **View3 (3 Comps)** | 0.78 ns | 0.73 ns | **+6.41%** |
+| **View8 (8 Comps)** | 0.80 ns | 0.67 ns | **+16.25%** |
 
 
 ### Key Technical Takeaways
