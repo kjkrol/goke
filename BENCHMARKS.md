@@ -45,10 +45,10 @@ The following benchmarks demonstrate the efficiency of SoA (Structure of Arrays)
 #### 2. Complexity Scaling (10M Entities Stress Test)
 | View Complexity | All Iterator | Values Iterator (No ID) | Performance Gain |
 | :--- | :--- | :--- | :--- |
-| **View0 (Entity Only)** | 3.15 ms | - | - |
-| **View1 (1 Comp)** | 4.73 ms | 3.18 ms | **+32.8%** |
-| **View3 (3 Comps)** | 7.86 ms | 7.34 ms | **+6.6%** |
-| **View8 (8 Comps)** | 7.97 ms | 6.71 ms | **+15.8%** |
+| **View0 (Entity Only)** | 0.32 ns | - | - |
+| **View1 (1 Comp)** | 0.48 ns | 0.32 ns | **+32.8%** |
+| **View3 (3 Comps)** | 0.78 ns | 0.73 ns | **+6.6%** |
+| **View8 (8 Comps)** | 0.80 ns | 0.67 ns | **+15.8%** |
 
 
 ### Key Technical Takeaways
