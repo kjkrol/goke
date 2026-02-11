@@ -52,7 +52,7 @@ The following benchmarks demonstrate the efficiency of SoA (Structure of Arrays)
 
 
 ### Key Technical Takeaways
-* **Near-Zero Latency:** Targeted queries (Filter) remain at **~232 ns** regardless of whether the world has 1k or 10M entities.
+* **Near-Zero Latency:** Targeted queries (Filter) remain at **~2.33 ns** regardless of whether the world has 1k or 10M entities.
 * **Instruction Efficiency:** Even with 8 components, the engine processes entities bellow **~0.8 ns/entity**, fitting a 10M entity update within a **10ms** window.
 * **Values Iteration Gain:** Bypassing Entity ID generation provides up to **33%** additional throughput for heavy computational systems.
 
