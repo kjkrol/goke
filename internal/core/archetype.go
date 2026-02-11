@@ -1,6 +1,9 @@
 package core
 
-import "unsafe"
+import (
+	"reflect"
+	"unsafe"
+)
 
 // ArchetypeId represents a unique identifier within the archetype registry.
 //
@@ -23,6 +26,8 @@ const EntityColumnIndex = LocalColumnID(0)
 const FirstDataColumnIndex = LocalColumnID(1)
 const InvalidLocalID = LocalColumnID(MaxComponents + 1)
 
+type ArchRow uint32
+
 type Archetype struct {
 	Mask ArchetypeMask
 	Id   ArchetypeId
@@ -43,7 +48,39 @@ type Archetype struct {
 	edgesPrev [MaxComponents]ArchetypeId
 }
 
-type ArchRow uint32
+func (a *Archetype) initEntitiesColumn() {
+	entitySlice := make([]Entity, 0, a.cap)
+	entityCol := Column{
+		CompID:   0,
+		Data:     unsafe.Pointer(unsafe.SliceData(entitySlice)),
+		dataType: reflect.TypeOf(Entity(0)),
+		rawSlice: reflect.ValueOf(entitySlice),
+		ItemSize: unsafe.Sizeof(Entity(0)),
+		len:      0,
+		cap:      a.cap,
+	}
+	a.columns = append(a.columns, entityCol)
+}
+
+func (a *Archetype) initColumn(info ComponentInfo) {
+	slice := reflect.MakeSlice(reflect.SliceOf(info.Type), a.cap, a.cap)
+	id := info.ID
+
+	col := Column{
+		CompID:   id,
+		Data:     slice.UnsafePointer(),
+		rawSlice: slice,
+		dataType: info.Type,
+		ItemSize: info.Size,
+		len:      0,
+		cap:      a.cap,
+	}
+
+	currentIndex := len(a.columns)
+	a.columnMap[id] = LocalColumnID(currentIndex)
+
+	a.columns = append(a.columns, col)
+}
 
 func (a *Archetype) SwapRemoveEntity(row ArchRow) (swapedEntity Entity, swaped bool) {
 	lastRow := ArchRow(a.Len - 1)

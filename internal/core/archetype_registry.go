@@ -3,8 +3,6 @@ package core
 import (
 	"errors"
 	"fmt"
-	"reflect"
-	"slices"
 	"unsafe"
 )
 
@@ -16,6 +14,7 @@ type ArchetypeRegistry struct {
 	componentsRegistry        *ComponentsRegistry
 	viewRegistry              *ViewRegistry
 	defaultArchetypeChunkSize int
+	sharedColsInfos           []ComponentInfo
 }
 
 func NewArchetypeRegistry(
@@ -42,34 +41,12 @@ func (r *ArchetypeRegistry) InitArchetype(mask ArchetypeMask, initCapacity int) 
 		panic(fmt.Sprintf("Max archetype number exceeded: %d", MaxArchetypeId))
 	}
 
-	archId := r.lastArchetypeId
-	estimatedCompNum := mask.Count()
-	totalCols := estimatedCompNum + 1
+	r.sharedColsInfos = r.sharedColsInfos[:0]
 
-	arch := Archetype{
-		Id:      archId,
-		Mask:    mask,
-		columns: make([]Column, 0, totalCols),
-		Len:     0,
-		cap:     initCapacity,
-		initCap: initCapacity,
-	}
-
-	for i := range arch.columnMap {
-		arch.columnMap[i] = InvalidLocalID
-	}
-
-	entitySlice := make([]Entity, 0, initCapacity)
-	entityCol := Column{
-		CompID:   0,
-		Data:     unsafe.Pointer(unsafe.SliceData(entitySlice)),
-		dataType: reflect.TypeOf(Entity(0)),
-		rawSlice: reflect.ValueOf(entitySlice),
-		ItemSize: unsafe.Sizeof(Entity(0)),
-		len:      0,
-		cap:      initCapacity,
-	}
-	arch.columns = append(arch.columns, entityCol)
+	defer func() {
+		clear(r.sharedColsInfos)
+		r.sharedColsInfos = r.sharedColsInfos[:0]
+	}()
 
 	for id := range mask.AllSet() {
 		info := r.componentsRegistry.idToInfo[id]
@@ -77,31 +54,45 @@ func (r *ArchetypeRegistry) InitArchetype(mask ArchetypeMask, initCapacity int) 
 		if info.Size == 0 {
 			continue
 		}
-
-		slice := reflect.MakeSlice(reflect.SliceOf(info.Type), initCapacity, initCapacity)
-
-		col := Column{
-			CompID:   id,
-			Data:     slice.UnsafePointer(),
-			rawSlice: slice,
-			dataType: info.Type,
-			ItemSize: info.Size,
-			len:      0,
-			cap:      initCapacity,
-		}
-
-		currentIndex := len(arch.columns)
-		arch.columnMap[id] = LocalColumnID(currentIndex)
-
-		arch.columns = append(arch.columns, col)
+		r.sharedColsInfos = append(r.sharedColsInfos, info)
 	}
-	arch.columns = slices.Clip(arch.columns)
+
+	archId := r.lastArchetypeId
+
+	arch := &r.Archetypes[archId]
+	arch.Id = archId
+	arch.Mask = mask
+	arch.columns = make([]Column, 0, len(r.sharedColsInfos)+1)
+	arch.Len = 0
+	arch.cap = initCapacity
+	arch.initCap = initCapacity
+	// Archetype{
+	// 	Id:      archId,
+	// 	Mask:    mask,
+	// 	columns: make([]Column, 0, len(r.sharedColsInfos)+1),
+	// 	Len:     0,
+	// 	cap:     initCapacity,
+	// 	initCap: initCapacity,
+	// }
+
+	arch.InitArchetype(r.sharedColsInfos)
 
 	r.archetypeMaskMap.Put(mask, archId)
-	r.Archetypes[archId] = arch
+
 	r.lastArchetypeId++
 
 	return archId
+}
+
+func (a *Archetype) InitArchetype(colsInfos []ComponentInfo) {
+	for i := range a.columnMap {
+		a.columnMap[i] = InvalidLocalID
+	}
+	a.initEntitiesColumn()
+
+	for _, info := range colsInfos {
+		a.initColumn(info)
+	}
 }
 
 func (r *ArchetypeRegistry) Get(mask ArchetypeMask) ArchetypeId {
