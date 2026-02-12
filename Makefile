@@ -17,7 +17,7 @@ bench:
 	go test -bench=. -benchmem ./...
 bench-save:
 	@mkdir -p bench_results
-	go test -bench=. -benchmem -count=10 ./internal/bench/... > $(RESULT_FILE)
+	go test -bench=. -benchmem -cpu=1 -count=7 ./internal/bench/... > $(RESULT_FILE)
 	@echo "Results saved into: $(RESULT_FILE)"
 
 ## bench-stats: Runs benchmarks multiple times and calculates P95/P99 latencies
