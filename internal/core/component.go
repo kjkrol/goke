@@ -46,8 +46,3 @@ func (r *ComponentsRegistry) GetOrRegister(t reflect.Type) ComponentInfo {
 	r.idToInfo[id] = info
 	return info
 }
-
-func EnsureComponentRegistered[T any](m *ComponentsRegistry) ComponentInfo {
-	componentType := reflect.TypeFor[T]()
-	return m.GetOrRegister(componentType)
-}

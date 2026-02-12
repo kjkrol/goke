@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/kjkrol/goke/internal/core"
 	"iter"
+	"reflect"
 	"unsafe"
 )
 
@@ -42,7 +43,7 @@ func NewView1[T1 any](ecs *ECS, opts ...BlueprintOption) *View1[T1] {
 
 	// 1. Resolve Component Infos (Type -> ID)
 
-	info1 := core.EnsureComponentRegistered[T1](componentsRegistry)
+	info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
 
 	// 2. Add to Blueprint (Build Mask)
 
@@ -361,9 +362,9 @@ func NewView2[T1, T2 any](ecs *ECS, opts ...BlueprintOption) *View2[T1, T2] {
 
 	// 1. Resolve Component Infos (Type -> ID)
 
-	info1 := core.EnsureComponentRegistered[T1](componentsRegistry)
+	info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
 
-	info2 := core.EnsureComponentRegistered[T2](componentsRegistry)
+	info2 := componentsRegistry.GetOrRegister(reflect.TypeFor[T2]())
 
 	// 2. Add to Blueprint (Build Mask)
 
@@ -728,11 +729,11 @@ func NewView3[T1, T2, T3 any](ecs *ECS, opts ...BlueprintOption) *View3[T1, T2, 
 
 	// 1. Resolve Component Infos (Type -> ID)
 
-	info1 := core.EnsureComponentRegistered[T1](componentsRegistry)
+	info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
 
-	info2 := core.EnsureComponentRegistered[T2](componentsRegistry)
+	info2 := componentsRegistry.GetOrRegister(reflect.TypeFor[T2]())
 
-	info3 := core.EnsureComponentRegistered[T3](componentsRegistry)
+	info3 := componentsRegistry.GetOrRegister(reflect.TypeFor[T3]())
 
 	// 2. Add to Blueprint (Build Mask)
 
@@ -1123,13 +1124,13 @@ func NewView4[T1, T2, T3, T4 any](ecs *ECS, opts ...BlueprintOption) *View4[T1, 
 
 	// 1. Resolve Component Infos (Type -> ID)
 
-	info1 := core.EnsureComponentRegistered[T1](componentsRegistry)
+	info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
 
-	info2 := core.EnsureComponentRegistered[T2](componentsRegistry)
+	info2 := componentsRegistry.GetOrRegister(reflect.TypeFor[T2]())
 
-	info3 := core.EnsureComponentRegistered[T3](componentsRegistry)
+	info3 := componentsRegistry.GetOrRegister(reflect.TypeFor[T3]())
 
-	info4 := core.EnsureComponentRegistered[T4](componentsRegistry)
+	info4 := componentsRegistry.GetOrRegister(reflect.TypeFor[T4]())
 
 	// 2. Add to Blueprint (Build Mask)
 
@@ -1540,15 +1541,15 @@ func NewView5[T1, T2, T3, T4, T5 any](ecs *ECS, opts ...BlueprintOption) *View5[
 
 	// 1. Resolve Component Infos (Type -> ID)
 
-	info1 := core.EnsureComponentRegistered[T1](componentsRegistry)
+	info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
 
-	info2 := core.EnsureComponentRegistered[T2](componentsRegistry)
+	info2 := componentsRegistry.GetOrRegister(reflect.TypeFor[T2]())
 
-	info3 := core.EnsureComponentRegistered[T3](componentsRegistry)
+	info3 := componentsRegistry.GetOrRegister(reflect.TypeFor[T3]())
 
-	info4 := core.EnsureComponentRegistered[T4](componentsRegistry)
+	info4 := componentsRegistry.GetOrRegister(reflect.TypeFor[T4]())
 
-	info5 := core.EnsureComponentRegistered[T5](componentsRegistry)
+	info5 := componentsRegistry.GetOrRegister(reflect.TypeFor[T5]())
 
 	// 2. Add to Blueprint (Build Mask)
 
@@ -1993,17 +1994,17 @@ func NewView6[T1, T2, T3, T4, T5, T6 any](ecs *ECS, opts ...BlueprintOption) *Vi
 
 	// 1. Resolve Component Infos (Type -> ID)
 
-	info1 := core.EnsureComponentRegistered[T1](componentsRegistry)
+	info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
 
-	info2 := core.EnsureComponentRegistered[T2](componentsRegistry)
+	info2 := componentsRegistry.GetOrRegister(reflect.TypeFor[T2]())
 
-	info3 := core.EnsureComponentRegistered[T3](componentsRegistry)
+	info3 := componentsRegistry.GetOrRegister(reflect.TypeFor[T3]())
 
-	info4 := core.EnsureComponentRegistered[T4](componentsRegistry)
+	info4 := componentsRegistry.GetOrRegister(reflect.TypeFor[T4]())
 
-	info5 := core.EnsureComponentRegistered[T5](componentsRegistry)
+	info5 := componentsRegistry.GetOrRegister(reflect.TypeFor[T5]())
 
-	info6 := core.EnsureComponentRegistered[T6](componentsRegistry)
+	info6 := componentsRegistry.GetOrRegister(reflect.TypeFor[T6]())
 
 	// 2. Add to Blueprint (Build Mask)
 
@@ -2486,19 +2487,19 @@ func NewView7[T1, T2, T3, T4, T5, T6, T7 any](ecs *ECS, opts ...BlueprintOption)
 
 	// 1. Resolve Component Infos (Type -> ID)
 
-	info1 := core.EnsureComponentRegistered[T1](componentsRegistry)
+	info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
 
-	info2 := core.EnsureComponentRegistered[T2](componentsRegistry)
+	info2 := componentsRegistry.GetOrRegister(reflect.TypeFor[T2]())
 
-	info3 := core.EnsureComponentRegistered[T3](componentsRegistry)
+	info3 := componentsRegistry.GetOrRegister(reflect.TypeFor[T3]())
 
-	info4 := core.EnsureComponentRegistered[T4](componentsRegistry)
+	info4 := componentsRegistry.GetOrRegister(reflect.TypeFor[T4]())
 
-	info5 := core.EnsureComponentRegistered[T5](componentsRegistry)
+	info5 := componentsRegistry.GetOrRegister(reflect.TypeFor[T5]())
 
-	info6 := core.EnsureComponentRegistered[T6](componentsRegistry)
+	info6 := componentsRegistry.GetOrRegister(reflect.TypeFor[T6]())
 
-	info7 := core.EnsureComponentRegistered[T7](componentsRegistry)
+	info7 := componentsRegistry.GetOrRegister(reflect.TypeFor[T7]())
 
 	// 2. Add to Blueprint (Build Mask)
 
@@ -3007,21 +3008,21 @@ func NewView8[T1, T2, T3, T4, T5, T6, T7, T8 any](ecs *ECS, opts ...BlueprintOpt
 
 	// 1. Resolve Component Infos (Type -> ID)
 
-	info1 := core.EnsureComponentRegistered[T1](componentsRegistry)
+	info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
 
-	info2 := core.EnsureComponentRegistered[T2](componentsRegistry)
+	info2 := componentsRegistry.GetOrRegister(reflect.TypeFor[T2]())
 
-	info3 := core.EnsureComponentRegistered[T3](componentsRegistry)
+	info3 := componentsRegistry.GetOrRegister(reflect.TypeFor[T3]())
 
-	info4 := core.EnsureComponentRegistered[T4](componentsRegistry)
+	info4 := componentsRegistry.GetOrRegister(reflect.TypeFor[T4]())
 
-	info5 := core.EnsureComponentRegistered[T5](componentsRegistry)
+	info5 := componentsRegistry.GetOrRegister(reflect.TypeFor[T5]())
 
-	info6 := core.EnsureComponentRegistered[T6](componentsRegistry)
+	info6 := componentsRegistry.GetOrRegister(reflect.TypeFor[T6]())
 
-	info7 := core.EnsureComponentRegistered[T7](componentsRegistry)
+	info7 := componentsRegistry.GetOrRegister(reflect.TypeFor[T7]())
 
-	info8 := core.EnsureComponentRegistered[T8](componentsRegistry)
+	info8 := componentsRegistry.GetOrRegister(reflect.TypeFor[T8]())
 
 	// 2. Add to Blueprint (Build Mask)
 

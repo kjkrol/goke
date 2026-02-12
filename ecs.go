@@ -30,7 +30,7 @@ type (
 // types, and define the execution flow of your application.
 type ECS struct {
 	registry  *core.Registry
-	scheduler core.SystemScheduler
+	scheduler core.Scheduler
 }
 
 // New creates and initializes a new ECS instance.
@@ -119,7 +119,8 @@ func RemoveComponent(ecs *ECS, entity Entity, compDesc ComponentDesc) error {
 // RegisterComponent ensures a component of type T is registered in the ECS
 // and returns its metadata.
 func RegisterComponent[T any](ecs *ECS) ComponentDesc {
-	return core.EnsureComponentRegistered[T](&ecs.registry.ComponentsRegistry)
+	componentType := reflect.TypeFor[T]()
+	return ecs.registry.RegisterComponentType(componentType)
 }
 
 // ---- EC[S] System ----

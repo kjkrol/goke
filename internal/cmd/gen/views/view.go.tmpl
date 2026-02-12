@@ -33,7 +33,7 @@ func NewView{{.N}}[{{.AllTParams}} any](ecs *ECS, opts ...BlueprintOption) *View
 
     // 1. Resolve Component Infos (Type -> ID)
     {{range .Indices}}
-    info{{additions . 1}} := core.EnsureComponentRegistered[T{{additions . 1}}](componentsRegistry)
+    info{{additions . 1}} := componentsRegistry.GetOrRegister(reflect.TypeFor[T{{additions . 1}}]())
     {{end}}
 
     // 2. Add to Blueprint (Build Mask)

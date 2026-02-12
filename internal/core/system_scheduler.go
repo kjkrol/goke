@@ -14,33 +14,33 @@ type ExecutionContext interface {
 
 type ExecutionPlan func(ExecutionContext, time.Duration)
 
-type SystemScheduler struct {
+type Scheduler struct {
 	register *Registry
 	systems  []System
 	buffers  map[System]*SystemCommandBuffer
 	plan     ExecutionPlan
 }
 
-func NewScheduler(register *Registry) SystemScheduler {
-	return SystemScheduler{
+func NewScheduler(register *Registry) Scheduler {
+	return Scheduler{
 		register: register,
 		buffers:  make(map[System]*SystemCommandBuffer),
 		systems:  make([]System, 0),
 	}
 }
 
-var _ ExecutionContext = (*SystemScheduler)(nil)
+var _ ExecutionContext = (*Scheduler)(nil)
 
-func (s *SystemScheduler) SetExecutionPlan(plan ExecutionPlan) {
+func (s *Scheduler) SetExecutionPlan(plan ExecutionPlan) {
 	s.plan = plan
 }
 
-func (s *SystemScheduler) RegisterSystem(sys System) {
+func (s *Scheduler) RegisterSystem(sys System) {
 	s.systems = append(s.systems, sys)
 	s.buffers[sys] = NewSystemCommandBuffer()
 }
 
-func (s *SystemScheduler) Tick(duration time.Duration) {
+func (s *Scheduler) Tick(duration time.Duration) {
 	if s.plan == nil {
 		panic("ECS Error: ExecutionPlan is not defined! Use SetPlan() before starting the loop.")
 	}
@@ -49,12 +49,12 @@ func (s *SystemScheduler) Tick(duration time.Duration) {
 
 // -------------------------------------------------------------
 
-func (s *SystemScheduler) Run(sys System, d time.Duration) {
+func (s *Scheduler) Run(sys System, d time.Duration) {
 	cb := s.getBuffer(sys)
 	sys.Update(s.register, cb, d)
 }
 
-func (s *SystemScheduler) RunParallel(d time.Duration, systems ...System) {
+func (s *Scheduler) RunParallel(d time.Duration, systems ...System) {
 	var wg sync.WaitGroup
 
 	for _, sys := range systems {
@@ -69,7 +69,7 @@ func (s *SystemScheduler) RunParallel(d time.Duration, systems ...System) {
 	wg.Wait()
 }
 
-func (s *SystemScheduler) Sync() error {
+func (s *Scheduler) Sync() error {
 	for _, cb := range s.buffers {
 		if len(cb.commands) > 0 {
 			err := s.applyBufferCommands(cb)
@@ -83,11 +83,11 @@ func (s *SystemScheduler) Sync() error {
 
 // -------------------------------------------------------------
 
-func (s *SystemScheduler) getBuffer(sys System) *SystemCommandBuffer {
+func (s *Scheduler) getBuffer(sys System) *SystemCommandBuffer {
 	return s.buffers[sys]
 }
 
-func (s *SystemScheduler) applyBufferCommands(cb *SystemCommandBuffer) error {
+func (s *Scheduler) applyBufferCommands(cb *SystemCommandBuffer) error {
 	vMap := make(map[Entity]Entity)
 	for _, cmd := range cb.commands {
 

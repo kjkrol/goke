@@ -57,6 +57,7 @@ func main() {
 	f.WriteString("import (\n")
 	f.WriteString("\t\"fmt\"\n")
 	f.WriteString("\t\"iter\"\n")
+	f.WriteString("\t\"reflect\"\n")
 	f.WriteString("\t\"unsafe\"\n")
 	f.WriteString("\t\"github.com/kjkrol/goke/internal/core\"\n")
 	f.WriteString(")\n\n")
