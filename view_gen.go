@@ -105,7 +105,7 @@ func (v *View1[T1]) All() iter.Seq2[
 			// 2. Setup Component Pointers
 			p1 := b.GetColumn(0).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
 
@@ -241,7 +241,7 @@ func (v *View1[T1]) Values() iter.Seq2[
 			// Setup Component Pointers
 			p1 := b.GetColumn(0).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
@@ -434,7 +434,7 @@ func (v *View2[T1, T2]) All() iter.Seq2[
 			p1 := b.GetColumn(0).Data
 			p2 := b.GetColumn(1).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
 
@@ -591,7 +591,7 @@ func (v *View2[T1, T2]) Values() iter.Seq2[
 			p1 := b.GetColumn(0).Data
 			p2 := b.GetColumn(1).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
@@ -809,7 +809,7 @@ func (v *View3[T1, T2, T3]) All() iter.Seq2[
 			p2 := b.GetColumn(1).Data
 			p3 := b.GetColumn(2).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
 
@@ -978,7 +978,7 @@ func (v *View3[T1, T2, T3]) Values() iter.Seq2[
 			p2 := b.GetColumn(1).Data
 			p3 := b.GetColumn(2).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
@@ -1210,7 +1210,7 @@ func (v *View4[T1, T2, T3, T4]) All() iter.Seq2[
 			p3 := b.GetColumn(2).Data
 			p4 := b.GetColumn(3).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
 
@@ -1387,7 +1387,7 @@ func (v *View4[T1, T2, T3, T4]) Values() iter.Seq2[
 			p3 := b.GetColumn(2).Data
 			p4 := b.GetColumn(3).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
@@ -1639,7 +1639,7 @@ func (v *View5[T1, T2, T3, T4, T5]) All() iter.Seq2[
 			p4 := b.GetColumn(3).Data
 			p5 := b.GetColumn(4).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
 
@@ -1835,7 +1835,7 @@ func (v *View5[T1, T2, T3, T4, T5]) Values() iter.Seq2[
 			p4 := b.GetColumn(3).Data
 			p5 := b.GetColumn(4).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
@@ -2100,7 +2100,7 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq2[
 			p5 := b.GetColumn(4).Data
 			p6 := b.GetColumn(5).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
 
@@ -2312,7 +2312,7 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Values() iter.Seq2[
 			p5 := b.GetColumn(4).Data
 			p6 := b.GetColumn(5).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
@@ -2601,7 +2601,7 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) All() iter.Seq2[
 			p6 := b.GetColumn(5).Data
 			p7 := b.GetColumn(6).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
 
@@ -2825,7 +2825,7 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Values() iter.Seq2[
 			p6 := b.GetColumn(5).Data
 			p7 := b.GetColumn(6).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
@@ -3130,7 +3130,7 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) All() iter.Seq2[
 			p7 := b.GetColumn(6).Data
 			p8 := b.GetColumn(7).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
 
@@ -3366,7 +3366,7 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Values() iter.Seq2[
 			p7 := b.GetColumn(6).Data
 			p8 := b.GetColumn(7).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {

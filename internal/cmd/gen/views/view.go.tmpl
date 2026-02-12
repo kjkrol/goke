@@ -95,7 +95,7 @@ func (v *View{{.N}}[{{.AllTParams}}]) All() iter.Seq2[
             // 2. Setup Component Pointers
             {{range .Indices}}p{{additions . 1}} := b.GetColumn({{.}}).Data
             {{end}}
-            n := b.Arch.Len
+            n := b.Arch.Len()
             // Death Loop (Pointer Arithmetic)
             for n > 0 {
                 
@@ -243,7 +243,7 @@ func (v *View{{.N}}[{{.AllTParams}}]) Values() iter.Seq2[
             {{range .Indices}}p{{additions . 1}} := b.GetColumn({{.}}).Data
             {{end}}
             
-            n := b.Arch.Len
+            n := b.Arch.Len()
 
             // Death Loop (Pointer Arithmetic)
             for n > 0 {

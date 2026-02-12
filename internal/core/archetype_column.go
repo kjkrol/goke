@@ -5,53 +5,130 @@ import (
 	"unsafe"
 )
 
-// Dynamic Array (Vector) - SoA (Structure of Arrays).
+// -----------------------------------------------------------------------------
+// Memory Block & Columns (Monolithic SoA)
+// -----------------------------------------------------------------------------
+
+// Column represents "Hot Data". It contains only what's necessary for
+// high-performance iteration in systems. Fits in ~24 bytes.
 type Column struct {
 	CompID   ComponentID
 	Data     unsafe.Pointer
-	rawSlice reflect.Value // prevent GC from garbage collecting
-	dataType reflect.Type
-	len      int
-	cap      int
 	ItemSize uintptr
 }
+
+// -----------------------------------------------------------------------------
+// Column Methods (Pointer Arithmetic)
+// -----------------------------------------------------------------------------
 
 func (c *Column) GetElement(row ArchRow) unsafe.Pointer {
 	return unsafe.Add(c.Data, uintptr(row)*c.ItemSize)
 }
 
-func (c *Column) growTo(newCap int) {
-	newSlice := reflect.MakeSlice(reflect.SliceOf(c.dataType), newCap, newCap)
-	newPtr := newSlice.UnsafePointer()
-
-	if c.len > 0 {
-		copyMemory(newPtr, c.Data, uintptr(c.len)*c.ItemSize)
-	}
-
-	c.Data = newPtr
-	c.rawSlice = newSlice
-	c.cap = newCap
-}
-
-func (c *Column) zeroData(row ArchRow) {
-	ptr := c.GetElement(row)
-	zeroMemory(ptr, c.ItemSize)
-
-	if int(row) >= c.len {
-		c.len = int(row + 1)
-	}
-}
-
-func (c *Column) copyData(dstIdx, srcIdx ArchRow) {
-	src := c.GetElement(srcIdx)
-	dst := c.GetElement(dstIdx)
+func (c *Column) CopyData(dstRow, srcRow ArchRow) {
+	src := c.GetElement(srcRow)
+	dst := c.GetElement(dstRow)
 	copyMemory(dst, src, c.ItemSize)
 }
 
-func (c *Column) setData(row ArchRow, src unsafe.Pointer) {
+func (c *Column) ZeroData(row ArchRow) {
+	ptr := c.GetElement(row)
+	zeroMemory(ptr, c.ItemSize)
+}
+
+func (c *Column) SetData(row ArchRow, src unsafe.Pointer) {
 	dest := unsafe.Add(c.Data, uintptr(row)*c.ItemSize)
 	copyMemory(dest, src, c.ItemSize)
 }
+
+// columnMeta represents "Cold Data". Used only during allocation/resize.
+type columnMeta struct {
+	rawSlice reflect.Value // prevent GC from garbage collecting
+	dataType reflect.Type
+}
+
+// MemoryBlock holds the physical memory.
+// It separates Hot (Columns) from Cold (Meta) data for cache efficiency.
+type MemoryBlock struct {
+	// Columns[0] to zawsze EntityID
+	Columns []Column
+	Meta    []columnMeta
+
+	Len uint32
+	Cap uint32
+}
+
+// Init initializes the memory block and performs the first allocation.
+// Unlike NewMemoryBlock, this works on an existing struct (embedding).
+func (b *MemoryBlock) Init(cap int, colInfos []ComponentInfo) {
+	// Count = Entity Column (1) + Component Columns (N)
+	count := len(colInfos) + 1
+
+	b.Columns = make([]Column, count)
+	b.Meta = make([]columnMeta, count)
+	b.Len = 0
+	b.Cap = 0 // Will force allocation in Resize
+
+	// 1. Setup Entity Column (Index 0)
+	b.Meta[0] = columnMeta{dataType: reflect.TypeOf(Entity(0))}
+	b.Columns[0] = Column{
+		CompID:   0,
+		ItemSize: unsafe.Sizeof(Entity(0)),
+	}
+
+	// 2. Setup Component Columns (Index 1..N)
+	for i, info := range colInfos {
+		idx := i + 1
+		b.Meta[idx] = columnMeta{dataType: info.Type}
+		b.Columns[idx] = Column{
+			CompID:   info.ID,
+			ItemSize: info.Size,
+		}
+	}
+
+	// 3. Initial Allocation
+	if cap <= 0 {
+		cap = 1
+	}
+	b.Resize(uint32(cap))
+}
+
+func (b *MemoryBlock) Resize(newCap uint32) {
+	for i := range b.Columns {
+		col := &b.Columns[i] // Hot
+		meta := &b.Meta[i]   // Cold
+
+		// 1. Allocate new slice using reflection (Cold path)
+		newSlice := reflect.MakeSlice(reflect.SliceOf(meta.dataType), int(newCap), int(newCap))
+		newPtr := newSlice.UnsafePointer()
+
+		// 2. Copy existing data (if any)
+		if b.Len > 0 {
+			oldSizeBytes := uintptr(b.Len) * col.ItemSize
+			copyMemory(newPtr, col.Data, oldSizeBytes)
+		}
+
+		// 3. Update Hot Column & Cold Meta
+		col.Data = newPtr
+		meta.rawSlice = newSlice // Keep reference for GC
+	}
+	b.Cap = newCap
+}
+
+func (b *MemoryBlock) EnsureCapacity(required uint32) {
+	if required <= b.Cap {
+		return
+	}
+	newCap := b.Cap * 2
+	if newCap < required {
+		newCap = required
+	}
+	b.Resize(newCap)
+}
+
+// -----------------------------------------------------------------------------
+// Low-Level Helpers
+// -----------------------------------------------------------------------------
 
 func copyMemory(dst, src unsafe.Pointer, size uintptr) {
 	copy(unsafe.Slice((*byte)(dst), size), unsafe.Slice((*byte)(src), size))

@@ -51,7 +51,7 @@ func (v *View0) All() iter.Seq[struct{ Entity core.Entity }] {
 	return func(yield func(struct{ Entity core.Entity }) bool) {
 		for _, b := range v.Baked {
 			ptr := b.GetEntityColumn().Data
-			n := b.Arch.Len
+			n := b.Arch.Len()
 
 			for n > 0 {
 				if !yield(struct{ Entity core.Entity }{Entity: *(*core.Entity)(ptr)}) {

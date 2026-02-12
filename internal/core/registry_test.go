@@ -44,7 +44,7 @@ func TestViewReactivity(t *testing.T) {
 	// Verify the data inside baked reflects the added entity
 	foundMatchingArch := false
 	for _, b := range view.Baked {
-		if b.Arch.Len == 1 {
+		if b.Arch.Len() == 1 {
 			foundMatchingArch = true
 			break
 		}

@@ -58,41 +58,14 @@ func (r *ArchetypeRegistry) InitArchetype(mask ArchetypeMask, initCapacity int) 
 	}
 
 	archId := r.lastArchetypeId
-
 	arch := &r.Archetypes[archId]
-	arch.Id = archId
-	arch.Mask = mask
-	arch.columns = make([]Column, 0, len(r.sharedColsInfos)+1)
-	arch.Len = 0
-	arch.cap = initCapacity
-	arch.initCap = initCapacity
-	// Archetype{
-	// 	Id:      archId,
-	// 	Mask:    mask,
-	// 	columns: make([]Column, 0, len(r.sharedColsInfos)+1),
-	// 	Len:     0,
-	// 	cap:     initCapacity,
-	// 	initCap: initCapacity,
-	// }
-
-	arch.InitArchetype(r.sharedColsInfos)
+	arch.InitArchetype(archId, mask, r.sharedColsInfos, initCapacity)
 
 	r.archetypeMaskMap.Put(mask, archId)
 
 	r.lastArchetypeId++
 
 	return archId
-}
-
-func (a *Archetype) InitArchetype(colsInfos []ComponentInfo) {
-	for i := range a.columnMap {
-		a.columnMap[i] = InvalidLocalID
-	}
-	a.initEntitiesColumn()
-
-	for _, info := range colsInfos {
-		a.initColumn(info)
-	}
 }
 
 func (r *ArchetypeRegistry) Get(mask ArchetypeMask) ArchetypeId {
@@ -165,7 +138,7 @@ func (r *ArchetypeRegistry) AllocateComponentMemory(entity Entity, compInfo Comp
 }
 
 func (r *ArchetypeRegistry) ensureNextEdgeId(compID ComponentID, oldArch *Archetype) ArchetypeId {
-	if nextEdgeId := oldArch.edgesNext[compID]; nextEdgeId != NullArchetypeId {
+	if nextEdgeId := oldArch.graph.edgesNext[compID]; nextEdgeId != NullArchetypeId {
 		return nextEdgeId
 	}
 
@@ -175,8 +148,8 @@ func (r *ArchetypeRegistry) ensureNextEdgeId(compID ComponentID, oldArch *Archet
 
 	// Link in the graph
 	actualNext := &r.Archetypes[nextArchId]
-	oldArch.edgesNext[compID] = actualNext.Id
-	actualNext.edgesPrev[compID] = oldArch.Id
+	oldArch.graph.edgesNext[compID] = actualNext.Id
+	actualNext.graph.edgesPrev[compID] = oldArch.Id
 	return nextArchId
 }
 
@@ -191,13 +164,13 @@ func (r *ArchetypeRegistry) UnAssign(entity Entity, compInfo ComponentInfo) {
 	oldArch := &r.Archetypes[oldArchId]
 
 	// FAST PATH (use Archetype-Graph)
-	if prevArchId := oldArch.edgesPrev[compID]; prevArchId != NullArchetypeId {
+	if prevArchId := oldArch.graph.edgesPrev[compID]; prevArchId != NullArchetypeId {
 		prevArch := &r.Archetypes[prevArchId]
 		if prevArch.Mask.IsEmpty() {
 			r.UnlinkEntity(entity)
 			return
 		}
-		oldArch.GetColumn(compID).zeroData(link.Row)
+		oldArch.GetColumn(compID).ZeroData(link.Row)
 		r.moveEntity(entity, link, prevArchId)
 		return
 	}
@@ -218,10 +191,10 @@ func (r *ArchetypeRegistry) UnAssign(entity Entity, compInfo ComponentInfo) {
 
 	newPrevArch := &r.Archetypes[newPrevArchId]
 	// register edges on Archetype-Graph
-	oldArch.edgesPrev[compID] = newPrevArchId
-	newPrevArch.edgesNext[compID] = oldArch.Id
+	oldArch.graph.edgesPrev[compID] = newPrevArchId
+	newPrevArch.graph.edgesNext[compID] = oldArch.Id
 
-	oldArch.GetColumn(compID).zeroData(link.Row)
+	oldArch.GetColumn(compID).ZeroData(link.Row)
 	r.moveEntity(entity, link, newPrevArchId)
 }
 
@@ -245,10 +218,10 @@ func (r *ArchetypeRegistry) moveEntity(entity Entity, link EntityArchLink, archI
 	newArch := &r.Archetypes[archId]
 	newArchRow := newArch.registerEntity(entity)
 
-	for i := int(FirstDataColumnIndex); i < len(newArch.columns); i++ {
-		col := &newArch.columns[i]
+	for i := int(FirstDataColumnIndex); i < len(newArch.block.Columns); i++ {
+		col := &newArch.block.Columns[i]
 		if oldCol := oldArch.GetColumn(col.CompID); oldCol != nil {
-			col.setData(newArchRow, oldCol.GetElement(oldArchRow))
+			col.SetData(newArchRow, oldCol.GetElement(oldArchRow))
 		}
 	}
 
