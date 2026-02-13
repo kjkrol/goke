@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details>
   <summary>Click to see full benchstat results (Apple M1 Max)</summary>
 
-| Task | Baseline (Old) | Arche (New) | Δ % |
+| Task | Before | After | Δ % |
 | :--- | :--- | :--- | :--- |
 | **Create Entity with 1 Component** | 38.42 ns | 21.31 ns | **-44.53%** |
 | **Create Entity with 2 Components** | 38.56 ns | 23.29 ns | **-39.60%** |
@@ -43,7 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   <summary>Click to see full benchstat results (Apple M1 Max)</summary>
 
 #### View & Query Operations
-| Task | Baseline (Old) | Arche (New) | Δ % |
+| Task | Before | After | Δ % |
 | :--- | :--- | :--- | :--- |
 | **View0_All** | 346.0 ns | 339.2 ns | -1.95% |
 | **View1_All** | 515.0 ns | 439.6 ns | -14.64% |
