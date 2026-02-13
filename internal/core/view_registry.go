@@ -19,3 +19,13 @@ func (vr *ViewRegistry) OnArchetypeCreated(arch *Archetype) {
 		}
 	}
 }
+
+func (vr *ViewRegistry) Reset() {
+	for i := range vr.views {
+		if vr.views[i] != nil {
+			vr.views[i].Clear()
+		}
+	}
+	clear(vr.views)
+	vr.views = vr.views[:0]
+}

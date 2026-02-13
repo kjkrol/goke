@@ -7,6 +7,12 @@ type EntityGenerationalPool struct {
 	capacity    uint32
 }
 
+func (p *EntityGenerationalPool) Reset() {
+	p.lastIndex = 0
+	p.freeIndices = p.freeIndices[:0]
+	clear(p.generations)
+}
+
 func NewEntityGenerator(initialEntityCap, freeIndicesCap int) EntityGenerationalPool {
 	return EntityGenerationalPool{
 		// Pre-allocate with full length to avoid 'append' logic for generations

@@ -21,6 +21,18 @@ type Scheduler struct {
 	plan     ExecutionPlan
 }
 
+func (s *Scheduler) Reset() {
+	clear(s.systems)
+	s.systems = s.systems[:0]
+	for _, scb := range s.buffers {
+		if scb != nil {
+			scb.Clear()
+		}
+	}
+	clear(s.buffers)
+	s.plan = nil
+}
+
 func NewScheduler(register *Registry) Scheduler {
 	return Scheduler{
 		register: register,

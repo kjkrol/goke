@@ -66,6 +66,16 @@ type Archetype struct {
 	graph   *ArchetypeGraph
 }
 
+func (a *Archetype) Reset() {
+	a.block.Reset()
+	if a.graph != nil {
+		a.graph.Reset()
+	}
+	a.Map.Reset()
+	a.Mask = ArchetypeMask{}
+	a.Id = NullArchetypeId
+}
+
 func (a *Archetype) InitArchetype(
 	archId ArchetypeId,
 	mask ArchetypeMask,

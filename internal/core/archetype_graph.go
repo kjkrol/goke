@@ -5,6 +5,11 @@ type ArchetypeGraph struct {
 	edgesPrev [MaxComponents]ArchetypeId
 }
 
+func (a *ArchetypeGraph) Reset() {
+	clear(a.edgesNext[:])
+	clear(a.edgesPrev[:])
+}
+
 // CountNextEdges remains as is (or use a stored counter if needed)
 func (a *ArchetypeGraph) CountNextEdges() int {
 	return countNonZeros(a.edgesNext)

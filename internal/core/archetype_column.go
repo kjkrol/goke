@@ -41,10 +41,21 @@ func (c *Column) SetData(row ArchRow, src unsafe.Pointer) {
 	copyMemory(dest, src, c.ItemSize)
 }
 
+func (c *Column) Clear(fullCap uintptr) {
+	zeroMemory(c.Data, c.ItemSize*fullCap)
+	c.CompID = 0
+	c.ItemSize = 0
+}
+
 // columnMeta represents "Cold Data". Used only during allocation/resize.
 type columnMeta struct {
 	rawSlice reflect.Value // prevent GC from garbage collecting
 	dataType reflect.Type
+}
+
+func (c *columnMeta) Clear() {
+	c.rawSlice = reflect.Value{}
+	c.dataType = nil
 }
 
 // MemoryBlock holds the physical memory.
@@ -56,6 +67,15 @@ type MemoryBlock struct {
 
 	Len uint32
 	Cap uint32
+}
+
+func (b MemoryBlock) Reset() {
+	for i := range b.Columns {
+		b.Columns[i].Clear(uintptr(b.Cap))
+		b.Meta[i].Clear()
+	}
+	b.Len = 0
+	b.Cap = 0
 }
 
 // Init initializes the memory block and performs the first allocation.

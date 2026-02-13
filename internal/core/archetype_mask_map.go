@@ -33,6 +33,11 @@ type ArchetypeMaskMap struct {
 	values [HashSize]ArchetypeId
 }
 
+func (m *ArchetypeMaskMap) Reset() {
+	clear(m.keys[:])
+	clear(m.values[:])
+}
+
 // -------------------------------------------------------------------------
 // Hash Function
 // -------------------------------------------------------------------------

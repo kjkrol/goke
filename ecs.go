@@ -152,3 +152,8 @@ func Plan(ecs *ECS, plan ExecutionPlan) {
 func Tick(ecs *ECS, duration time.Duration) {
 	ecs.scheduler.Tick(duration)
 }
+
+func Reset(ecs *ECS) {
+	ecs.scheduler.Reset()
+	ecs.registry.Reset()
+}

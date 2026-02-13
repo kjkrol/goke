@@ -198,6 +198,23 @@ func (r *ArchetypeRegistry) UnAssign(entity Entity, compInfo ComponentInfo) {
 	r.moveEntity(entity, link, newPrevArchId)
 }
 
+func (r *ArchetypeRegistry) Reset() {
+	for i := range int(r.lastArchetypeId) {
+		r.Archetypes[i].Reset()
+	}
+	clear(r.Archetypes[:])
+
+	r.archetypeMaskMap.Reset()
+	r.EntityLinkStore.Reset()
+
+	clear(r.sharedColsInfos)
+	r.sharedColsInfos = r.sharedColsInfos[:0]
+
+	r.lastArchetypeId = RootArchetypeId
+	rootMask := ArchetypeMask{}
+	r.InitArchetype(rootMask, r.defaultArchetypeChunkSize)
+}
+
 // --------------------------------------------------------------
 
 func (r *ArchetypeRegistry) getOrRegister(mask ArchetypeMask) ArchetypeId {

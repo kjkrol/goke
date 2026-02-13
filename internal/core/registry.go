@@ -16,6 +16,7 @@ type Registry struct {
 var _ ReadOnlyRegistry = (*Registry)(nil)
 
 func NewRegistry(cfg RegistryConfig) *Registry {
+	validateConst()
 	reg := &Registry{
 		EntityPool:         NewEntityGenerator(cfg.InitialEntityCap, cfg.FreeIndicesCap),
 		ComponentsRegistry: NewComponentsRegistry(),
@@ -85,4 +86,17 @@ func (r *Registry) ComponentGet(entity Entity, compID ComponentID) (unsafe.Point
 	}
 
 	return col.GetElement(link.Row), nil
+}
+
+func (r *Registry) Reset() {
+	r.ArchetypeRegistry.Reset()
+	r.ComponentsRegistry.Reset()
+	r.ViewRegistry.Reset()
+	r.EntityPool.Reset()
+}
+
+func validateConst() {
+	if HashSize == 0 || (HashSize&(HashSize-1)) != 0 {
+		panic("CRITICAL: HashSize must be a power of 2!")
+	}
 }

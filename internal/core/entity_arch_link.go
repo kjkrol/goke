@@ -10,6 +10,10 @@ type EntityLinkStore struct {
 	links []EntityArchLink
 }
 
+func (s *EntityLinkStore) Reset() {
+	clear(s.links)
+}
+
 func NewEntityLinkStore(initialCap int) EntityLinkStore {
 	return EntityLinkStore{
 		links: make([]EntityArchLink, initialCap),
@@ -19,7 +23,7 @@ func NewEntityLinkStore(initialCap int) EntityLinkStore {
 // Get returns the link only if the generation matches.
 func (s *EntityLinkStore) Get(entity Entity) (EntityArchLink, bool) {
 	index := entity.Index()
-	if index >= uint32(len(s.links)) {
+	if index >= uint32(cap(s.links)) {
 		return EntityArchLink{}, false
 	}
 
@@ -35,7 +39,7 @@ func (s *EntityLinkStore) Get(entity Entity) (EntityArchLink, bool) {
 
 func (s *EntityLinkStore) Update(entity Entity, archId ArchetypeId, row ArchRow) {
 	index := entity.Index()
-	if index >= uint32(len(s.links)) {
+	if index >= uint32(cap(s.links)) {
 		s.grow(index + 1)
 	}
 	// Store both the location AND the current generation
@@ -48,7 +52,7 @@ func (s *EntityLinkStore) Update(entity Entity, archId ArchetypeId, row ArchRow)
 
 func (s *EntityLinkStore) Clear(entity Entity) {
 	index := entity.Index()
-	if index >= uint32(len(s.links)) {
+	if index >= uint32(cap(s.links)) {
 		return
 	}
 

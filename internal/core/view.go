@@ -18,12 +18,30 @@ func (ma *MatchedArch) GetColumn(colId LocalColumnID) *Column {
 	return &ma.Arch.block.Columns[layoutColId]
 }
 
+func (ma *MatchedArch) Clear() {
+	ma.Arch = nil
+	clear(ma.LayoutColumnIDs)
+	ma.LayoutColumnIDs = ma.LayoutColumnIDs[:0]
+}
+
 type View struct {
 	Reg         *Registry
 	includeMask ArchetypeMask
 	excludeMask ArchetypeMask
 	Layout      []ComponentInfo
 	Baked       []MatchedArch
+}
+
+func (v *View) Clear() {
+	v.includeMask = ArchetypeMask{}
+	v.excludeMask = ArchetypeMask{}
+	clear(v.Layout)
+	v.Layout = v.Layout[:0]
+	for i := range v.Baked {
+		v.Baked[i].Clear()
+	}
+	clear(v.Baked)
+	v.Baked = v.Baked[:0]
 }
 
 // View factory based on Functional Options pattern
