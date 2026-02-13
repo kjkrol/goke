@@ -250,12 +250,12 @@ GOKe delivers near-metal speeds by eliminating heap allocations and leveraging L
 
 | Category | Operation | Performance | Allocs | Technical Mechanism |
 | :--- | :--- | :--- | :--- | :--- |
-| **Throughput** | **View Iteration** | **0.34 – 0.64 ns/ent** | **0** | Linear SoA (1-8 components) |
+| **Throughput** | **Iteration** | **0.34 – 0.64 ns/ent** | **0** | Linear SoA (1-8 components) (1k entities) |
 | **Scalability** | **$O(1)$ Filter** | **1.34 – 2.33 ns/ent** | **0** | Centralized Record Lookup |
-| **Structural** | **Add Component** | **28.30 ns/op** | **0** | Archetype Migration (Insert) |
-| **Structural** | **Migrate Component** | **43.27 ns/op** | **0** | Archetype Move + Insert |
-| **Structural** | **Remove Entity** | **14.44 ns/op** | **0** | Index Recycling |
-| **Access** | **Get Component** | **3.46 ns/op** | **0** | Direct Generation Check |
+| **Structural** | **Create Entity with Components** | **21.31 - 26.84 ns/op**  | **0** | Blueprint-based Create (1-4 component) |
+| **Structural** | **Migrate Component** | **37.49 ns/op** | **0** | Archetype Move (Insert) |
+| **Structural** | **Remove Entity** | **17.09 ns/op** | **0** | Index Recycling |
+| **Access** | **Get Component** | **7.69 ns/op** | **0** | Direct Generation Check |
 
 
 > 📊 **Deep Dive**: For a full breakdown of hardware specs, stress tests, and $O(N)$ vs $O(1)$ scaling charts, see [**BENCHMARKS.md**](./BENCHMARKS.md).

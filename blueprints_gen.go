@@ -3,6 +3,7 @@ package goke
 
 import (
     "fmt"
+    "reflect"
 
     "github.com/kjkrol/goke/internal/core"
 )
@@ -44,7 +45,7 @@ func NewBlueprint1[T1 any](
         }
     }
 
-    mustAdd(core.EnsureComponentRegistered[T1](&registry.ComponentsRegistry))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
     
 
     // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
@@ -116,8 +117,8 @@ func NewBlueprint2[T1 any, T2 any](
         }
     }
 
-    mustAdd(core.EnsureComponentRegistered[T1](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T2](&registry.ComponentsRegistry))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T2]()))
     
 
     // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
@@ -190,9 +191,9 @@ func NewBlueprint3[T1 any, T2 any, T3 any](
         }
     }
 
-    mustAdd(core.EnsureComponentRegistered[T1](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T2](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T3](&registry.ComponentsRegistry))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T2]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T3]()))
     
 
     // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
@@ -266,10 +267,10 @@ func NewBlueprint4[T1 any, T2 any, T3 any, T4 any](
         }
     }
 
-    mustAdd(core.EnsureComponentRegistered[T1](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T2](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T3](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T4](&registry.ComponentsRegistry))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T2]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T3]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T4]()))
     
 
     // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
@@ -344,11 +345,11 @@ func NewBlueprint5[T1 any, T2 any, T3 any, T4 any, T5 any](
         }
     }
 
-    mustAdd(core.EnsureComponentRegistered[T1](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T2](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T3](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T4](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T5](&registry.ComponentsRegistry))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T2]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T3]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T4]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T5]()))
     
 
     // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
@@ -424,12 +425,12 @@ func NewBlueprint6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any](
         }
     }
 
-    mustAdd(core.EnsureComponentRegistered[T1](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T2](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T3](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T4](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T5](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T6](&registry.ComponentsRegistry))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T2]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T3]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T4]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T5]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T6]()))
     
 
     // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
@@ -506,13 +507,13 @@ func NewBlueprint7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any](
         }
     }
 
-    mustAdd(core.EnsureComponentRegistered[T1](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T2](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T3](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T4](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T5](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T6](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T7](&registry.ComponentsRegistry))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T2]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T3]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T4]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T5]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T6]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T7]()))
     
 
     // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
@@ -590,14 +591,14 @@ func NewBlueprint8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 an
         }
     }
 
-    mustAdd(core.EnsureComponentRegistered[T1](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T2](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T3](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T4](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T5](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T6](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T7](&registry.ComponentsRegistry))
-    mustAdd(core.EnsureComponentRegistered[T8](&registry.ComponentsRegistry))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T2]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T3]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T4]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T5]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T6]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T7]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T8]()))
     
 
     // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.

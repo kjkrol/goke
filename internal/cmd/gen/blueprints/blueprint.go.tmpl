@@ -3,6 +3,7 @@ package goke
 
 import (
     "fmt"
+    "reflect"
 
     "github.com/kjkrol/goke/internal/core"
 )
@@ -48,7 +49,7 @@ func NewBlueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $
     }
 
     {{ range $i := (seq 1 $n) -}}
-    mustAdd(core.EnsureComponentRegistered[T{{ $i }}](&registry.ComponentsRegistry))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T{{ $i }}]()))
     {{ end }}
 
     // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.

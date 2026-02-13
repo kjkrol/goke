@@ -1,153 +1,175 @@
 package core
 
-import "unsafe"
+import (
+	"unsafe"
+)
 
-// ArchetypeId represents a unique identifier within the archetype registry.
-//
-// Special values:
-//   - 0: Indicates a non-existent archetype (Null Archetype).
-//   - 1: Represents the Root Archetype, acting as the entry point of the graph.
-//
-// Archetypes are organized in a graph structure, where nodes are connected
-// through edges (e.g., adding or removing components) to facilitate
-// efficient entity transitions.
+// -----------------------------------------------------------------------------
+// ID & Constants
+// -----------------------------------------------------------------------------
+
 type ArchetypeId uint16
 
-const NullArchetypeId = ArchetypeId(0)
-const RootArchetypeId = ArchetypeId(1)
-const MaxArchetypeId = ArchetypeId(4096)
+const (
+	NullArchetypeId = ArchetypeId(0)
+	RootArchetypeId = ArchetypeId(1)
+	MaxArchetypeId  = ArchetypeId(4096)
+)
 
 type LocalColumnID uint8
 
-const EntityColumnIndex = LocalColumnID(0)
-const FirstDataColumnIndex = LocalColumnID(1)
-const InvalidLocalID = LocalColumnID(MaxComponents + 1)
+const (
+	EntityColumnIndex    = LocalColumnID(0)
+	FirstDataColumnIndex = LocalColumnID(1)
+	InvalidLocalID       = LocalColumnID(MaxComponents + 1)
+)
+
+type ArchRow uint32
+
+// -----------------------------------------------------------------------------
+// Column Map
+// -----------------------------------------------------------------------------
+
+// Global ComponentID -> Local Index in 'columns' slice inside MemoryBlock.
+// 128 bytes - fits in exactly 2 cache lines.
+type ColumnMap [MaxComponents]LocalColumnID
+
+// Reset fills the map with InvalidLocalID.
+func (m *ColumnMap) Reset() {
+	for i := range m {
+		m[i] = InvalidLocalID
+	}
+}
+
+func (m *ColumnMap) Set(globalID ComponentID, localIdx LocalColumnID) {
+	m[globalID] = localIdx
+}
+
+func (m *ColumnMap) Get(globalID ComponentID) LocalColumnID {
+	return m[globalID]
+}
+
+// -----------------------------------------------------------------------------
+// Archetype
+// -----------------------------------------------------------------------------
 
 type Archetype struct {
 	Mask ArchetypeMask
 	Id   ArchetypeId
+	Map  ColumnMap
 
-	// Global ComponentID -> Local Index in 'columns' slice
-	// 128 bytes - fits in exactly 2 cache lines.
-	columnMap [MaxComponents]LocalColumnID
-	// Dense storage:
-	// columns[0] = Entity IDs (Always present)
-	// columns[1..N] = Component Data
-	columns []Column
+	// MemoryBlock is embedded by value for better cache locality & GC performance.
+	// It manages the physical memory for all entities in this archetype.
+	block MemoryBlock
 
-	Len     int
-	cap     int
 	initCap int
-
-	edgesNext [MaxComponents]ArchetypeId
-	edgesPrev [MaxComponents]ArchetypeId
+	graph   *ArchetypeGraph
 }
 
-type ArchRow uint32
+func (a *Archetype) Reset() {
+	a.block.Reset()
+	if a.graph != nil {
+		a.graph.Reset()
+	}
+	a.Map.Reset()
+	a.Mask = ArchetypeMask{}
+	a.Id = NullArchetypeId
+}
 
-func (a *Archetype) SwapRemoveEntity(row ArchRow) (swapedEntity Entity, swaped bool) {
-	lastRow := ArchRow(a.Len - 1)
-	entityCol := &a.columns[EntityColumnIndex]
-	ptr := entityCol.Data
-	stride := entityCol.ItemSize
+func (a *Archetype) InitArchetype(
+	archId ArchetypeId,
+	mask ArchetypeMask,
+	colsInfos []ComponentInfo,
+	initCapacity int,
+) {
+	a.Id = archId
+	a.Mask = mask
+	a.initCap = initCapacity
+	a.graph = &ArchetypeGraph{} // Assuming ArchetypeGraph is defined elsewhere
 
-	srcPtr := unsafe.Add(ptr, uintptr(lastRow)*stride)
-	entityToMove := *(*Entity)(srcPtr)
+	// 1. Initialize Column Map
+	a.Map.Reset()
 
-	// 1. Swap data in all active columns using cached IDs
-	for i := range a.columns {
-		col := &a.columns[i] // Get pointer to struct in slice
+	// Entity ID is always at local index 0
+	a.Map.Set(0, EntityColumnIndex)
 
-		if row != lastRow {
-			col.copyData(row, lastRow)
-		}
-
-		col.zeroData(lastRow)
-		col.len--
+	// Map components (Index 1..N)
+	for i, info := range colsInfos {
+		// i+1 because 0 is reserved for Entity
+		a.Map.Set(info.ID, LocalColumnID(i+1))
 	}
 
-	// 2. Swap entity ID
-	a.Len--
+	// 2. Initialize Memory Block (Allocates memory)
+	a.block.Init(initCapacity, colsInfos)
+}
+
+func (a *Archetype) Len() int {
+	return int(a.block.Len)
+}
+
+func (a *Archetype) Cap() int {
+	return int(a.block.Cap)
+}
+
+func (a *Archetype) GetEntityColumn() *Column {
+	// Fast path: Entity is always at index 0
+	return &a.block.Columns[EntityColumnIndex]
+}
+
+func (a *Archetype) GetColumn(id ComponentID) *Column {
+	localIdx := a.Map.Get(id)
+	if localIdx == InvalidLocalID {
+		return nil
+	}
+	// Return pointer to the "Hot" column struct inside the block
+	return &a.block.Columns[localIdx]
+}
+
+func (a *Archetype) registerEntity(entity Entity) ArchRow {
+	// 1. Ensure space in the memory block
+	a.block.EnsureCapacity(a.block.Len + 1)
+
+	// 2. Write Entity ID to Column 0
+	entityCol := &a.block.Columns[EntityColumnIndex]
+
+	// Pointer arithmetic: Data + (Len * ItemSize)
+	targetPtr := unsafe.Add(entityCol.Data, uintptr(a.block.Len)*entityCol.ItemSize)
+	*(*Entity)(targetPtr) = entity
+
+	// 3. Increment Row Count (Block manages length globally)
+	newRow := ArchRow(a.block.Len)
+	a.block.Len++
+
+	return newRow
+}
+
+func (a *Archetype) SwapRemoveEntity(row ArchRow) (swapedEntity Entity, swaped bool) {
+	lastRow := ArchRow(a.block.Len - 1)
+
+	// Get the entity ID that is currently at the end (to return it)
+	entityCol := &a.block.Columns[EntityColumnIndex]
+	srcPtr := entityCol.GetElement(lastRow)
+	entityToMove := *(*Entity)(srcPtr)
+
+	// 1. Swap data in ALL active columns
+	// We iterate over the block's columns directly, ignoring the Map (faster)
+	for i := range a.block.Columns {
+		col := &a.block.Columns[i]
+
+		if row != lastRow {
+			col.CopyData(row, lastRow)
+		}
+
+		// Optional: Zero out the memory at the old position to help debugging
+		// and prevent stale pointers if strictly needed.
+		col.ZeroData(lastRow)
+	}
+
+	// 2. Decrement length
+	a.block.Len--
 
 	if row == lastRow {
 		return 0, false
 	}
 	return entityToMove, true
-}
-
-func (a *Archetype) registerEntity(entity Entity) ArchRow {
-	a.ensureCapacity()
-
-	// 1. Write Entity ID to Column 0
-	// We assume columns[0] is initialized with ItemSize = sizeof(Entity)
-	entityCol := &a.columns[EntityColumnIndex]
-
-	// Calculate address: Data + (len * 8)
-	targetPtr := unsafe.Add(entityCol.Data, uintptr(a.Len)*entityCol.ItemSize)
-
-	// Store the entity ID
-	*(*Entity)(targetPtr) = entity
-
-	// 2. Increment length in ALL columns
-	for i := range a.columns {
-		a.columns[i].len++
-	}
-
-	newRow := ArchRow(a.Len)
-	a.Len++
-
-	return newRow
-}
-
-func (a *Archetype) ensureCapacity() {
-	if a.Len < a.cap {
-		return
-	}
-
-	newCap := a.cap * 2
-	if newCap == 0 {
-		newCap = a.initCap
-	}
-	if newCap == 0 {
-		newCap = 1
-	}
-
-	// Simplified: We just iterate over ALL columns.
-	// Since Entity is now column[0], it gets grown automatically here.
-	for i := range a.columns {
-		a.columns[i].growTo(newCap)
-	}
-
-	a.cap = newCap
-}
-
-func (a *Archetype) GetEntityColumn() *Column {
-	return &a.columns[EntityColumnIndex]
-}
-
-func (a *Archetype) GetColumn(id ComponentID) *Column {
-	localIdx := a.columnMap[id]
-	if localIdx == InvalidLocalID {
-		return nil
-	}
-	return &a.columns[localIdx]
-}
-
-// CountNextEdges remains as is (or use a stored counter if needed)
-func (a *Archetype) CountNextEdges() int {
-	return countNonZeros(a.edgesNext)
-}
-
-func (a *Archetype) CountPrevEdges() int {
-	return countNonZeros(a.edgesPrev)
-}
-
-func countNonZeros(edges [MaxComponents]ArchetypeId) int {
-	count := 0
-	for _, edge := range edges {
-		if edge != 0 {
-			count++
-		}
-	}
-	return count
 }

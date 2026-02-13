@@ -27,7 +27,7 @@ func TestArchetypeRegistry_FastPath(t *testing.T) {
 
 	// Case: Verify edge was cached in rootArch
 	rootArch := &reg.Archetypes[RootArchetypeId]
-	if nextEdge := rootArch.edgesNext[posTypeInfo.ID]; nextEdge == RootArchetypeId {
+	if nextEdge := rootArch.graph.edgesNext[posTypeInfo.ID]; nextEdge == RootArchetypeId {
 		t.Fatal("fast path edge was not cached in rootArch")
 	}
 
@@ -64,7 +64,7 @@ func TestArchetypeRegistry_CycleConsistency(t *testing.T) {
 
 	// Case: Verify back-link exists in the graph
 	linkAArch := &reg.Archetypes[linkA.ArchId]
-	if linkAArch.edgesPrev[posTypeInfo.ID] != RootArchetypeId {
+	if linkAArch.graph.edgesPrev[posTypeInfo.ID] != RootArchetypeId {
 		t.Error("bidirectional link (edgesPrev) from ArchA to Root not established")
 	}
 }
@@ -94,12 +94,12 @@ func TestArchetypeRegistry_GraphBranching(t *testing.T) {
 
 	// Case: Root should have 2 independent outgoing edges
 	rootArch := &reg.Archetypes[RootArchetypeId]
-	if count := rootArch.CountNextEdges(); count != 2 {
+	if count := rootArch.graph.CountNextEdges(); count != 2 {
 		t.Errorf("expected 2 outgoing edges from Root, got %d", count)
 	}
 
-	archPos := rootArch.edgesNext[posTypeInfo.ID]
-	archVel := rootArch.edgesNext[velTypeInfo.ID]
+	archPos := rootArch.graph.edgesNext[posTypeInfo.ID]
+	archVel := rootArch.graph.edgesNext[velTypeInfo.ID]
 
 	if archPos == archVel {
 		t.Error("different components must lead to distinct archetypes")

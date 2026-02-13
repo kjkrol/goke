@@ -1,6 +1,7 @@
 package bench
 
 import (
+	"math/rand/v2"
 	"testing"
 
 	"github.com/kjkrol/goke"
@@ -34,9 +35,9 @@ func setupBenchmark(_ *testing.B, count int) (*goke.ECS, []core.Entity) {
 	for range count {
 		e, pos, vel, acc, mass, spin, char, elec, magn := blueprint.Create()
 
-		*pos = Pos{1, 1}
-		*vel = Vel{1, 1}
-		*acc = Acc{1, 1}
+		*pos = Pos{rand.Float32() * 100, rand.Float32() * 100}
+		*vel = Vel{rand.Float32() * 40, 1}
+		*acc = Acc{rand.Float32(), 0.1}
 		*mass = Mass{}
 		*spin = Spin{}
 		*char = Char{}

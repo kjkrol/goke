@@ -3,8 +3,6 @@ package core
 import (
 	"errors"
 	"fmt"
-	"reflect"
-	"slices"
 	"unsafe"
 )
 
@@ -16,6 +14,7 @@ type ArchetypeRegistry struct {
 	componentsRegistry        *ComponentsRegistry
 	viewRegistry              *ViewRegistry
 	defaultArchetypeChunkSize int
+	sharedColsInfos           []ComponentInfo
 }
 
 func NewArchetypeRegistry(
@@ -42,34 +41,12 @@ func (r *ArchetypeRegistry) InitArchetype(mask ArchetypeMask, initCapacity int) 
 		panic(fmt.Sprintf("Max archetype number exceeded: %d", MaxArchetypeId))
 	}
 
-	archId := r.lastArchetypeId
-	estimatedCompNum := mask.Count()
-	totalCols := estimatedCompNum + 1
+	r.sharedColsInfos = r.sharedColsInfos[:0]
 
-	arch := Archetype{
-		Id:      archId,
-		Mask:    mask,
-		columns: make([]Column, 0, totalCols),
-		Len:     0,
-		cap:     initCapacity,
-		initCap: initCapacity,
-	}
-
-	for i := range arch.columnMap {
-		arch.columnMap[i] = InvalidLocalID
-	}
-
-	entitySlice := make([]Entity, 0, initCapacity)
-	entityCol := Column{
-		CompID:   0,
-		Data:     unsafe.Pointer(unsafe.SliceData(entitySlice)),
-		dataType: reflect.TypeOf(Entity(0)),
-		rawSlice: reflect.ValueOf(entitySlice),
-		ItemSize: unsafe.Sizeof(Entity(0)),
-		len:      0,
-		cap:      initCapacity,
-	}
-	arch.columns = append(arch.columns, entityCol)
+	defer func() {
+		clear(r.sharedColsInfos)
+		r.sharedColsInfos = r.sharedColsInfos[:0]
+	}()
 
 	for id := range mask.AllSet() {
 		info := r.componentsRegistry.idToInfo[id]
@@ -77,28 +54,15 @@ func (r *ArchetypeRegistry) InitArchetype(mask ArchetypeMask, initCapacity int) 
 		if info.Size == 0 {
 			continue
 		}
-
-		slice := reflect.MakeSlice(reflect.SliceOf(info.Type), initCapacity, initCapacity)
-
-		col := Column{
-			CompID:   id,
-			Data:     slice.UnsafePointer(),
-			rawSlice: slice,
-			dataType: info.Type,
-			ItemSize: info.Size,
-			len:      0,
-			cap:      initCapacity,
-		}
-
-		currentIndex := len(arch.columns)
-		arch.columnMap[id] = LocalColumnID(currentIndex)
-
-		arch.columns = append(arch.columns, col)
+		r.sharedColsInfos = append(r.sharedColsInfos, info)
 	}
-	arch.columns = slices.Clip(arch.columns)
+
+	archId := r.lastArchetypeId
+	arch := &r.Archetypes[archId]
+	arch.InitArchetype(archId, mask, r.sharedColsInfos, initCapacity)
 
 	r.archetypeMaskMap.Put(mask, archId)
-	r.Archetypes[archId] = arch
+
 	r.lastArchetypeId++
 
 	return archId
@@ -174,7 +138,7 @@ func (r *ArchetypeRegistry) AllocateComponentMemory(entity Entity, compInfo Comp
 }
 
 func (r *ArchetypeRegistry) ensureNextEdgeId(compID ComponentID, oldArch *Archetype) ArchetypeId {
-	if nextEdgeId := oldArch.edgesNext[compID]; nextEdgeId != NullArchetypeId {
+	if nextEdgeId := oldArch.graph.edgesNext[compID]; nextEdgeId != NullArchetypeId {
 		return nextEdgeId
 	}
 
@@ -184,8 +148,8 @@ func (r *ArchetypeRegistry) ensureNextEdgeId(compID ComponentID, oldArch *Archet
 
 	// Link in the graph
 	actualNext := &r.Archetypes[nextArchId]
-	oldArch.edgesNext[compID] = actualNext.Id
-	actualNext.edgesPrev[compID] = oldArch.Id
+	oldArch.graph.edgesNext[compID] = actualNext.Id
+	actualNext.graph.edgesPrev[compID] = oldArch.Id
 	return nextArchId
 }
 
@@ -200,13 +164,13 @@ func (r *ArchetypeRegistry) UnAssign(entity Entity, compInfo ComponentInfo) {
 	oldArch := &r.Archetypes[oldArchId]
 
 	// FAST PATH (use Archetype-Graph)
-	if prevArchId := oldArch.edgesPrev[compID]; prevArchId != NullArchetypeId {
+	if prevArchId := oldArch.graph.edgesPrev[compID]; prevArchId != NullArchetypeId {
 		prevArch := &r.Archetypes[prevArchId]
 		if prevArch.Mask.IsEmpty() {
 			r.UnlinkEntity(entity)
 			return
 		}
-		oldArch.GetColumn(compID).zeroData(link.Row)
+		oldArch.GetColumn(compID).ZeroData(link.Row)
 		r.moveEntity(entity, link, prevArchId)
 		return
 	}
@@ -227,11 +191,28 @@ func (r *ArchetypeRegistry) UnAssign(entity Entity, compInfo ComponentInfo) {
 
 	newPrevArch := &r.Archetypes[newPrevArchId]
 	// register edges on Archetype-Graph
-	oldArch.edgesPrev[compID] = newPrevArchId
-	newPrevArch.edgesNext[compID] = oldArch.Id
+	oldArch.graph.edgesPrev[compID] = newPrevArchId
+	newPrevArch.graph.edgesNext[compID] = oldArch.Id
 
-	oldArch.GetColumn(compID).zeroData(link.Row)
+	oldArch.GetColumn(compID).ZeroData(link.Row)
 	r.moveEntity(entity, link, newPrevArchId)
+}
+
+func (r *ArchetypeRegistry) Reset() {
+	for i := range int(r.lastArchetypeId) {
+		r.Archetypes[i].Reset()
+	}
+	clear(r.Archetypes[:])
+
+	r.archetypeMaskMap.Reset()
+	r.EntityLinkStore.Reset()
+
+	clear(r.sharedColsInfos)
+	r.sharedColsInfos = r.sharedColsInfos[:0]
+
+	r.lastArchetypeId = RootArchetypeId
+	rootMask := ArchetypeMask{}
+	r.InitArchetype(rootMask, r.defaultArchetypeChunkSize)
 }
 
 // --------------------------------------------------------------
@@ -254,10 +235,10 @@ func (r *ArchetypeRegistry) moveEntity(entity Entity, link EntityArchLink, archI
 	newArch := &r.Archetypes[archId]
 	newArchRow := newArch.registerEntity(entity)
 
-	for i := int(FirstDataColumnIndex); i < len(newArch.columns); i++ {
-		col := &newArch.columns[i]
+	for i := int(FirstDataColumnIndex); i < len(newArch.block.Columns); i++ {
+		col := &newArch.block.Columns[i]
 		if oldCol := oldArch.GetColumn(col.CompID); oldCol != nil {
-			col.setData(newArchRow, oldCol.GetElement(oldArchRow))
+			col.SetData(newArchRow, oldCol.GetElement(oldArchRow))
 		}
 	}
 

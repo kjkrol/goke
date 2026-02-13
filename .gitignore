@@ -36,6 +36,5 @@ go.work
 go.work.sum
 
 # Temp bench results
-old.txt
-new.txt
+bench_results/
 

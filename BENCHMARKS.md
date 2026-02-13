@@ -15,17 +15,18 @@
 ### Structural Operations (Apple M1 Max)
 These benchmarks highlight the efficiency of our archetype-based memory management. Every operation below results in **0 heap allocations**, ensuring no GC pressure during the simulation loop.
 
-| Operation | Performance | Memory | Allocs | Technical Mechanism |
-| :--- | :--- | :--- | :--- | :--- |
-| **Create with 1 Comp** | **38.59 ns/op** | 82 B/op | **0** | Blueprint-based archetype slotting |
-| **Create with 2 Comps** | **42.04 ns/op** | 144 B/op | **0** | Blueprint-based archetype slotting |
-| **Create with 3 Comps** | **41.26 ns/op** | 66 B/op | **0** | Blueprint-based archetype slotting |
-| **Add Next Component** | **79.06 ns/op** | 203 B/op | **0** | Archetype migration (+ data move + data insert) |
-| **Add Tag** | **39.59 ns/op** | 119 B/op | **0** | Archetype migration (Metadata only) |
-| **Remove Component** | **11.09 ns/op** | 0 B/op | **0** | Archetype migration (Swap-and-pop) |
-| **Remove Entity** | **18.88 ns/op** | 0 B/op | **0** | Index recycling & record invalidation |
-| **Get Entity Component** | **5.45 ns/op** | 0 B/op | **0** | Direct record lookup with generation check |
-| **Structural Stability** | **49.02 ns/op** | 67 B/op | **0** | Stress test of add/remove cycles |
+| Operation | Performance | Allocs | Technical Mechanism |
+| :--- | :--- | :--- | :--- |
+| **Create with 1 Comp** | **21.31 ns/op ±47%** | **0** | Blueprint-based archetype slotting |
+| **Create with 2 Comps** | **23.29 ns/op ±4%** | **0** | Blueprint-based archetype slotting |
+| **Create with 3 Comps** | **24.87 ns/op ± 5%** | **0** | Blueprint-based archetype slotting |
+| **Create with 4 Comps** | **26.84 ns/op ± 2%** | **0** | Blueprint-based archetype slotting |
+| **Add Next Component** | **37.49 ns/op ±57%** | **0** | Archetype migration (+ data move + data insert) |
+| **Add Tag** | **37.47 ns/op ± 16%** | **0** | Archetype migration (Metadata only) |
+| **Remove Component** | **11.87 ns/op ±27%** | **0** | Archetype migration (Swap-and-pop) |
+| **Remove Entity** | **17.09 ns/op ±4%** | **0** | Index recycling & record invalidation |
+| **Get Entity Component** | **7.69 ns/op ±3%** | **0** | Direct record lookup with generation check |
+| **Structural Stability** | **28.08 ns/op ±31%** | **0** | Stress test of add/remove cycles |
 
 
 
@@ -74,12 +75,10 @@ It is important to note that while **GOKe** achieves industry-leading raw iterat
 | **Iteration (1 Comp)** | **0.44 ns** | 0.55 ns | **GOKe (+20.0%)** | Superior cache locality |
 | **Iteration (2 Comp)** | **0.48 ns** | 1.37 ns | **GOKe (+65.0%)** | Efficient memory layout |
 | **Iteration (3 Comp)** | **0.64 ns** | 1.79 ns | **GOKe (+64.2%)** | Minimal per-entity overhead |
-| **Create Entity (1 comp)** | 38.59 ns | **20.60 ns** | **Arche (+46%)** | Arche's simpler indexing edge |
-| **Add First Component*** | 38.59 ns | **29.30 ns** | **Arche (+24%)** | GOKe uses atomic Blueprint |
-| **Add Next Component** | 79.06 ns | **--** | **Arche** | Fast graph traversal |
-| **Add Tag** | 39.59 ns | **--** | **Arche** | Metadata-only migration |
-| **Remove Component** | **11.09 ns** | **--** | **GOKe/Arche** | Highly optimized swap-and-pop |
-| **Remove Entity** | 18.88 ns | **--** | **Arche** | Lightning fast cleanup |
+| **Create Entity (1 comp)** | 21.31 ns | **20.60 ns** | **Arche (+3.33%)** | Draw |
+| **Add Next Component** | 37.49 ns | **--** | **Arche** | Fast graph traversal |
+| **Remove Component** | **11.87 ns** | **--** | **GOKe/Arche** | Highly optimized swap-and-pop |
+| **Remove Entity** | 17.09 ns | **--** | **Arche** | Fast fast cleanup |
 
 ## How to benchmark
 Results may vary based on CPU architecture and cache sizes. You can run the suite using:

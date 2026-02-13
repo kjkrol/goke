@@ -33,6 +33,21 @@ type SystemCommandBuffer struct {
 	nextVirtualID uint32
 }
 
+func (cb *SystemCommandBuffer) Clear() {
+	clear(cb.commands)
+	cb.commands = cb.commands[:0]
+
+	for i := 0; i <= cb.pageIdx; i++ {
+		if i < len(cb.pages) {
+			clear(cb.pages[i])
+		}
+	}
+
+	cb.pageIdx = 0
+	cb.offset = 0
+	cb.nextVirtualID = 0
+}
+
 func NewSystemCommandBuffer() *SystemCommandBuffer {
 	return &SystemCommandBuffer{
 		commands: make([]systemCommand, 0, 128),

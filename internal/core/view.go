@@ -10,12 +10,18 @@ type MatchedArch struct {
 }
 
 func (ma *MatchedArch) GetEntityColumn() *Column {
-	return &ma.Arch.columns[0]
+	return &ma.Arch.block.Columns[0]
 }
 
 func (ma *MatchedArch) GetColumn(colId LocalColumnID) *Column {
 	layoutColId := ma.LayoutColumnIDs[colId]
-	return &ma.Arch.columns[layoutColId]
+	return &ma.Arch.block.Columns[layoutColId]
+}
+
+func (ma *MatchedArch) Clear() {
+	ma.Arch = nil
+	clear(ma.LayoutColumnIDs)
+	ma.LayoutColumnIDs = ma.LayoutColumnIDs[:0]
 }
 
 type View struct {
@@ -24,6 +30,18 @@ type View struct {
 	excludeMask ArchetypeMask
 	Layout      []ComponentInfo
 	Baked       []MatchedArch
+}
+
+func (v *View) Clear() {
+	v.includeMask = ArchetypeMask{}
+	v.excludeMask = ArchetypeMask{}
+	clear(v.Layout)
+	v.Layout = v.Layout[:0]
+	for i := range v.Baked {
+		v.Baked[i].Clear()
+	}
+	clear(v.Baked)
+	v.Baked = v.Baked[:0]
 }
 
 // View factory based on Functional Options pattern
@@ -70,7 +88,7 @@ func (v *View) Reindex() {
 	for i := RootArchetypeId; i < reg.lastArchetypeId; i++ {
 		arch := &reg.Archetypes[i]
 
-		if len(arch.columns) == 0 {
+		if len(arch.block.Columns) == 0 {
 			continue
 		}
 
@@ -82,7 +100,7 @@ func (v *View) Reindex() {
 
 func (v *View) AddArchetype(arch *Archetype) {
 
-	if len(arch.columns) == 0 {
+	if len(arch.block.Columns) == 0 {
 		return
 	}
 
@@ -94,8 +112,8 @@ func (v *View) AddArchetype(arch *Archetype) {
 		mArch.LayoutColumnIDs = make([]LocalColumnID, len(v.Layout))
 
 		for i, info := range v.Layout {
-			localIdx := arch.columnMap[info.ID]
-			if localIdx == InvalidLocalID || int(localIdx) >= len(arch.columns) {
+			localIdx := arch.Map[info.ID]
+			if localIdx == InvalidLocalID || int(localIdx) >= len(arch.block.Columns) {
 				continue
 			}
 			mArch.LayoutColumnIDs[i] = localIdx

@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"reflect"
 )
 
@@ -15,6 +16,15 @@ type ComponentInfo struct {
 type ComponentsRegistry struct {
 	typeToInfo map[reflect.Type]ComponentInfo
 	idToInfo   [MaxComponents]ComponentInfo
+}
+
+func (r *ComponentsRegistry) Reset() {
+	if r.typeToInfo == nil {
+		r.typeToInfo = make(map[reflect.Type]ComponentInfo)
+	} else {
+		clear(r.typeToInfo)
+	}
+	r.idToInfo = [MaxComponents]ComponentInfo{}
 }
 
 func NewComponentsRegistry() ComponentsRegistry {
@@ -35,6 +45,12 @@ func (r *ComponentsRegistry) GetOrRegister(t reflect.Type) ComponentInfo {
 		return info
 	}
 
+	idInt := len(r.typeToInfo)
+
+	if idInt >= MaxComponents {
+		panic(fmt.Sprintf("too many components registered: MaxComponents (%d) limit reached", MaxComponents))
+	}
+
 	id := ComponentID(len(r.typeToInfo))
 	info := ComponentInfo{
 		ID:   id,
@@ -45,9 +61,4 @@ func (r *ComponentsRegistry) GetOrRegister(t reflect.Type) ComponentInfo {
 	r.typeToInfo[t] = info
 	r.idToInfo[id] = info
 	return info
-}
-
-func EnsureComponentRegistered[T any](m *ComponentsRegistry) ComponentInfo {
-	componentType := reflect.TypeFor[T]()
-	return m.GetOrRegister(componentType)
 }

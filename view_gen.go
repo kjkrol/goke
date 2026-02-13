@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/kjkrol/goke/internal/core"
 	"iter"
+	"reflect"
 	"unsafe"
 )
 
@@ -42,7 +43,7 @@ func NewView1[T1 any](ecs *ECS, opts ...BlueprintOption) *View1[T1] {
 
 	// 1. Resolve Component Infos (Type -> ID)
 
-	info1 := core.EnsureComponentRegistered[T1](componentsRegistry)
+	info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
 
 	// 2. Add to Blueprint (Build Mask)
 
@@ -105,7 +106,7 @@ func (v *View1[T1]) All() iter.Seq2[
 			// 2. Setup Component Pointers
 			p1 := b.GetColumn(0).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
 
@@ -241,7 +242,7 @@ func (v *View1[T1]) Values() iter.Seq2[
 			// Setup Component Pointers
 			p1 := b.GetColumn(0).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
@@ -361,9 +362,9 @@ func NewView2[T1, T2 any](ecs *ECS, opts ...BlueprintOption) *View2[T1, T2] {
 
 	// 1. Resolve Component Infos (Type -> ID)
 
-	info1 := core.EnsureComponentRegistered[T1](componentsRegistry)
+	info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
 
-	info2 := core.EnsureComponentRegistered[T2](componentsRegistry)
+	info2 := componentsRegistry.GetOrRegister(reflect.TypeFor[T2]())
 
 	// 2. Add to Blueprint (Build Mask)
 
@@ -434,7 +435,7 @@ func (v *View2[T1, T2]) All() iter.Seq2[
 			p1 := b.GetColumn(0).Data
 			p2 := b.GetColumn(1).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
 
@@ -591,7 +592,7 @@ func (v *View2[T1, T2]) Values() iter.Seq2[
 			p1 := b.GetColumn(0).Data
 			p2 := b.GetColumn(1).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
@@ -728,11 +729,11 @@ func NewView3[T1, T2, T3 any](ecs *ECS, opts ...BlueprintOption) *View3[T1, T2, 
 
 	// 1. Resolve Component Infos (Type -> ID)
 
-	info1 := core.EnsureComponentRegistered[T1](componentsRegistry)
+	info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
 
-	info2 := core.EnsureComponentRegistered[T2](componentsRegistry)
+	info2 := componentsRegistry.GetOrRegister(reflect.TypeFor[T2]())
 
-	info3 := core.EnsureComponentRegistered[T3](componentsRegistry)
+	info3 := componentsRegistry.GetOrRegister(reflect.TypeFor[T3]())
 
 	// 2. Add to Blueprint (Build Mask)
 
@@ -809,7 +810,7 @@ func (v *View3[T1, T2, T3]) All() iter.Seq2[
 			p2 := b.GetColumn(1).Data
 			p3 := b.GetColumn(2).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
 
@@ -978,7 +979,7 @@ func (v *View3[T1, T2, T3]) Values() iter.Seq2[
 			p2 := b.GetColumn(1).Data
 			p3 := b.GetColumn(2).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
@@ -1123,13 +1124,13 @@ func NewView4[T1, T2, T3, T4 any](ecs *ECS, opts ...BlueprintOption) *View4[T1, 
 
 	// 1. Resolve Component Infos (Type -> ID)
 
-	info1 := core.EnsureComponentRegistered[T1](componentsRegistry)
+	info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
 
-	info2 := core.EnsureComponentRegistered[T2](componentsRegistry)
+	info2 := componentsRegistry.GetOrRegister(reflect.TypeFor[T2]())
 
-	info3 := core.EnsureComponentRegistered[T3](componentsRegistry)
+	info3 := componentsRegistry.GetOrRegister(reflect.TypeFor[T3]())
 
-	info4 := core.EnsureComponentRegistered[T4](componentsRegistry)
+	info4 := componentsRegistry.GetOrRegister(reflect.TypeFor[T4]())
 
 	// 2. Add to Blueprint (Build Mask)
 
@@ -1210,7 +1211,7 @@ func (v *View4[T1, T2, T3, T4]) All() iter.Seq2[
 			p3 := b.GetColumn(2).Data
 			p4 := b.GetColumn(3).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
 
@@ -1387,7 +1388,7 @@ func (v *View4[T1, T2, T3, T4]) Values() iter.Seq2[
 			p3 := b.GetColumn(2).Data
 			p4 := b.GetColumn(3).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
@@ -1540,15 +1541,15 @@ func NewView5[T1, T2, T3, T4, T5 any](ecs *ECS, opts ...BlueprintOption) *View5[
 
 	// 1. Resolve Component Infos (Type -> ID)
 
-	info1 := core.EnsureComponentRegistered[T1](componentsRegistry)
+	info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
 
-	info2 := core.EnsureComponentRegistered[T2](componentsRegistry)
+	info2 := componentsRegistry.GetOrRegister(reflect.TypeFor[T2]())
 
-	info3 := core.EnsureComponentRegistered[T3](componentsRegistry)
+	info3 := componentsRegistry.GetOrRegister(reflect.TypeFor[T3]())
 
-	info4 := core.EnsureComponentRegistered[T4](componentsRegistry)
+	info4 := componentsRegistry.GetOrRegister(reflect.TypeFor[T4]())
 
-	info5 := core.EnsureComponentRegistered[T5](componentsRegistry)
+	info5 := componentsRegistry.GetOrRegister(reflect.TypeFor[T5]())
 
 	// 2. Add to Blueprint (Build Mask)
 
@@ -1639,7 +1640,7 @@ func (v *View5[T1, T2, T3, T4, T5]) All() iter.Seq2[
 			p4 := b.GetColumn(3).Data
 			p5 := b.GetColumn(4).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
 
@@ -1835,7 +1836,7 @@ func (v *View5[T1, T2, T3, T4, T5]) Values() iter.Seq2[
 			p4 := b.GetColumn(3).Data
 			p5 := b.GetColumn(4).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
@@ -1993,17 +1994,17 @@ func NewView6[T1, T2, T3, T4, T5, T6 any](ecs *ECS, opts ...BlueprintOption) *Vi
 
 	// 1. Resolve Component Infos (Type -> ID)
 
-	info1 := core.EnsureComponentRegistered[T1](componentsRegistry)
+	info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
 
-	info2 := core.EnsureComponentRegistered[T2](componentsRegistry)
+	info2 := componentsRegistry.GetOrRegister(reflect.TypeFor[T2]())
 
-	info3 := core.EnsureComponentRegistered[T3](componentsRegistry)
+	info3 := componentsRegistry.GetOrRegister(reflect.TypeFor[T3]())
 
-	info4 := core.EnsureComponentRegistered[T4](componentsRegistry)
+	info4 := componentsRegistry.GetOrRegister(reflect.TypeFor[T4]())
 
-	info5 := core.EnsureComponentRegistered[T5](componentsRegistry)
+	info5 := componentsRegistry.GetOrRegister(reflect.TypeFor[T5]())
 
-	info6 := core.EnsureComponentRegistered[T6](componentsRegistry)
+	info6 := componentsRegistry.GetOrRegister(reflect.TypeFor[T6]())
 
 	// 2. Add to Blueprint (Build Mask)
 
@@ -2100,7 +2101,7 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq2[
 			p5 := b.GetColumn(4).Data
 			p6 := b.GetColumn(5).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
 
@@ -2312,7 +2313,7 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Values() iter.Seq2[
 			p5 := b.GetColumn(4).Data
 			p6 := b.GetColumn(5).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
@@ -2486,19 +2487,19 @@ func NewView7[T1, T2, T3, T4, T5, T6, T7 any](ecs *ECS, opts ...BlueprintOption)
 
 	// 1. Resolve Component Infos (Type -> ID)
 
-	info1 := core.EnsureComponentRegistered[T1](componentsRegistry)
+	info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
 
-	info2 := core.EnsureComponentRegistered[T2](componentsRegistry)
+	info2 := componentsRegistry.GetOrRegister(reflect.TypeFor[T2]())
 
-	info3 := core.EnsureComponentRegistered[T3](componentsRegistry)
+	info3 := componentsRegistry.GetOrRegister(reflect.TypeFor[T3]())
 
-	info4 := core.EnsureComponentRegistered[T4](componentsRegistry)
+	info4 := componentsRegistry.GetOrRegister(reflect.TypeFor[T4]())
 
-	info5 := core.EnsureComponentRegistered[T5](componentsRegistry)
+	info5 := componentsRegistry.GetOrRegister(reflect.TypeFor[T5]())
 
-	info6 := core.EnsureComponentRegistered[T6](componentsRegistry)
+	info6 := componentsRegistry.GetOrRegister(reflect.TypeFor[T6]())
 
-	info7 := core.EnsureComponentRegistered[T7](componentsRegistry)
+	info7 := componentsRegistry.GetOrRegister(reflect.TypeFor[T7]())
 
 	// 2. Add to Blueprint (Build Mask)
 
@@ -2601,7 +2602,7 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) All() iter.Seq2[
 			p6 := b.GetColumn(5).Data
 			p7 := b.GetColumn(6).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
 
@@ -2825,7 +2826,7 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Values() iter.Seq2[
 			p6 := b.GetColumn(5).Data
 			p7 := b.GetColumn(6).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
@@ -3007,21 +3008,21 @@ func NewView8[T1, T2, T3, T4, T5, T6, T7, T8 any](ecs *ECS, opts ...BlueprintOpt
 
 	// 1. Resolve Component Infos (Type -> ID)
 
-	info1 := core.EnsureComponentRegistered[T1](componentsRegistry)
+	info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
 
-	info2 := core.EnsureComponentRegistered[T2](componentsRegistry)
+	info2 := componentsRegistry.GetOrRegister(reflect.TypeFor[T2]())
 
-	info3 := core.EnsureComponentRegistered[T3](componentsRegistry)
+	info3 := componentsRegistry.GetOrRegister(reflect.TypeFor[T3]())
 
-	info4 := core.EnsureComponentRegistered[T4](componentsRegistry)
+	info4 := componentsRegistry.GetOrRegister(reflect.TypeFor[T4]())
 
-	info5 := core.EnsureComponentRegistered[T5](componentsRegistry)
+	info5 := componentsRegistry.GetOrRegister(reflect.TypeFor[T5]())
 
-	info6 := core.EnsureComponentRegistered[T6](componentsRegistry)
+	info6 := componentsRegistry.GetOrRegister(reflect.TypeFor[T6]())
 
-	info7 := core.EnsureComponentRegistered[T7](componentsRegistry)
+	info7 := componentsRegistry.GetOrRegister(reflect.TypeFor[T7]())
 
-	info8 := core.EnsureComponentRegistered[T8](componentsRegistry)
+	info8 := componentsRegistry.GetOrRegister(reflect.TypeFor[T8]())
 
 	// 2. Add to Blueprint (Build Mask)
 
@@ -3130,7 +3131,7 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) All() iter.Seq2[
 			p7 := b.GetColumn(6).Data
 			p8 := b.GetColumn(7).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {
 
@@ -3366,7 +3367,7 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Values() iter.Seq2[
 			p7 := b.GetColumn(6).Data
 			p8 := b.GetColumn(7).Data
 
-			n := b.Arch.Len
+			n := b.Arch.Len()
 
 			// Death Loop (Pointer Arithmetic)
 			for n > 0 {

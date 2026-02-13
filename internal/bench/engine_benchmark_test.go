@@ -22,25 +22,12 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		goke.WithFreeIndicesCap(100000),
 		goke.WithViewRegistryInitCap(64),
 	)
-
 	// Pre-registering for "Turbo" performance in bench
-	posDesc := goke.RegisterComponent[Position3](ecs)
-	velDesc := goke.RegisterComponent[Velocity3](ecs)
-	tagDesc := goke.RegisterComponent[ProcessedTag](ecs)
-
-	// initialize archetypes
-	blueprintA := goke.NewBlueprint1[Velocity3](ecs)
-	_, _ = blueprintA.Create()
-
-	blueprintB := goke.NewBlueprint2[Position3, Velocity3](ecs)
-	_, _, _ = blueprintB.Create()
-
-	blueprintC := goke.NewBlueprint1[Velocity3](ecs, goke.Include[ProcessedTag]())
-	_, _ = blueprintC.Create()
 
 	// --- 1. ENTITY CREATION & INITIALIZATION ---
 	// Tests CreateEntity
 	b.Run("Create Entity With 1 comp", func(b *testing.B) {
+		goke.Reset(ecs)
 		blueprint := goke.NewBlueprint1[Props1](ecs)
 		b.ResetTimer()
 		b.ReportAllocs()
@@ -50,6 +37,7 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		}
 	})
 	b.Run("Create Entity With 2 comp", func(b *testing.B) {
+		goke.Reset(ecs)
 		blueprint := goke.NewBlueprint2[Props1, Props2](ecs)
 		b.ResetTimer()
 		b.ReportAllocs()
@@ -60,6 +48,7 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		}
 	})
 	b.Run("Create Entity With 3 comp", func(b *testing.B) {
+		goke.Reset(ecs)
 		blueprint := goke.NewBlueprint3[Props1, Props2, Props3](ecs)
 		b.ResetTimer()
 		b.ReportAllocs()
@@ -71,6 +60,7 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		}
 	})
 	b.Run("Create Entity With 4 comp", func(b *testing.B) {
+		goke.Reset(ecs)
 		blueprint := goke.NewBlueprint4[Props1, Props2, Props3, Props4](ecs)
 		b.ResetTimer()
 		b.ReportAllocs()
@@ -86,7 +76,13 @@ func BenchmarkEngine_Structural(b *testing.B) {
 	// --- 2. ARCHETYPE TRANSITION (Evolution) ---
 	// Tests moving an entity from {Velocity3} to {Velocity3, Position3}
 	b.Run("Add 2nd Component", func(b *testing.B) {
+		goke.Reset(ecs)
 		entities := make([]goke.Entity, b.N)
+
+		posDesc := goke.RegisterComponent[Position3](ecs)
+		blueprintA := goke.NewBlueprint1[Velocity3](ecs)
+		_, _ = blueprintA.Create()
+
 		for i := 0; i < b.N; i++ {
 			entities[i], _ = blueprintA.Create()
 		}
@@ -99,7 +95,13 @@ func BenchmarkEngine_Structural(b *testing.B) {
 
 	// --- 3. TAGGING (Zero-size components) ---
 	b.Run("Add Tag", func(b *testing.B) {
+		goke.Reset(ecs)
 		entities := make([]goke.Entity, b.N)
+
+		tagDesc := goke.RegisterComponent[ProcessedTag](ecs)
+		blueprintA := goke.NewBlueprint1[Velocity3](ecs)
+		_, _ = blueprintA.Create()
+
 		for i := 0; i < b.N; i++ {
 			entities[i], _ = blueprintA.Create()
 		}
@@ -112,7 +114,13 @@ func BenchmarkEngine_Structural(b *testing.B) {
 
 	// --- 4. COMPONENT REMOVAL ---
 	b.Run("Remove Component", func(b *testing.B) {
+		goke.Reset(ecs)
 		entities := make([]goke.Entity, b.N)
+
+		posDesc := goke.RegisterComponent[Position3](ecs)
+		blueprintA := goke.NewBlueprint1[Velocity3](ecs)
+		_, _ = blueprintA.Create()
+
 		for i := 0; i < b.N; i++ {
 			entities[i], _ = blueprintA.Create()
 		}
@@ -128,6 +136,12 @@ func BenchmarkEngine_Structural(b *testing.B) {
 	// Benchmark for ComponentGet: Uses reflection to find ComponentInfo.
 	// This is the "Convenience Path" - slower but easier to use.
 	b.Run("Get Component ", func(b *testing.B) {
+		goke.Reset(ecs)
+
+		velDesc := goke.RegisterComponent[Velocity3](ecs)
+		blueprintA := goke.NewBlueprint1[Velocity3](ecs)
+		_, _ = blueprintA.Create()
+
 		e, vel := blueprintA.Create()
 		*vel = Velocity3{X: 1, Y: 2, Z: 3}
 
