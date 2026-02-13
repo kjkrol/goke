@@ -252,10 +252,10 @@ GOKe delivers near-metal speeds by eliminating heap allocations and leveraging L
 | :--- | :--- | :--- | :--- | :--- |
 | **Throughput** | **Iteration** | **0.34 – 0.64 ns/ent** | **0** | Linear SoA (1-8 components) (1k entities) |
 | **Scalability** | **$O(1)$ Filter** | **1.34 – 2.33 ns/ent** | **0** | Centralized Record Lookup |
-| **Structural** | **Create Entity with Components** | **38.59 - 42.26 ns/op**  | **0** | Blueprint-based Create (1-3 component) |
-| **Structural** | **Migrate Component** | **79.06 ns/op** | **0** | Archetype Move (Insert) |
-| **Structural** | **Remove Entity** | **18.88 ns/op** | **0** | Index Recycling |
-| **Access** | **Get Component** | **5.45 ns/op** | **0** | Direct Generation Check |
+| **Structural** | **Create Entity with Components** | **21.31 - 26.84 ns/op**  | **0** | Blueprint-based Create (1-4 component) |
+| **Structural** | **Migrate Component** | **37.49 ns/op** | **0** | Archetype Move (Insert) |
+| **Structural** | **Remove Entity** | **17.09 ns/op** | **0** | Index Recycling |
+| **Access** | **Get Component** | **7.69 ns/op** | **0** | Direct Generation Check |
 
 
 > 📊 **Deep Dive**: For a full breakdown of hardware specs, stress tests, and $O(N)$ vs $O(1)$ scaling charts, see [**BENCHMARKS.md**](./BENCHMARKS.md).
