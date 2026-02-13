@@ -37,7 +37,7 @@ func TestMemoryBlock_AllocationAndGrowth(t *testing.T) {
 	// Case: Initial Growth
 	// Checking if data is available and pointer is not nil after first Resize.
 	t.Run("Initial Growth", func(t *testing.T) {
-		block.Resize(10)
+		block.resize(10)
 
 		col := getPosColumn()
 		if col.Data == nil {
@@ -61,7 +61,7 @@ func TestMemoryBlock_AllocationAndGrowth(t *testing.T) {
 		block.Len = 1
 
 		// Trigger reallocation
-		block.Resize(20)
+		block.resize(20)
 
 		// Check if data is still there (col.Data should have changed, but point to copied data)
 		// Note: We don't need to re-fetch 'col' pointer because MemoryBlock.Columns slice header stays stable,
@@ -79,7 +79,7 @@ func TestMemoryBlock_AllocationAndGrowth(t *testing.T) {
 	t.Run("Capacity vs Length", func(t *testing.T) {
 		initialLen := block.Len
 
-		block.Resize(30)
+		block.resize(30)
 
 		if block.Len != initialLen {
 			t.Errorf("Resize should not change length: got %d, want %d", block.Len, initialLen)

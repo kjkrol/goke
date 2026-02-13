@@ -147,9 +147,10 @@ func (r *ArchetypeRegistry) ensureNextEdgeId(compID ComponentID, oldArch *Archet
 	nextArchId := r.getOrRegister(newMask)
 
 	// Link in the graph
-	actualNext := &r.Archetypes[nextArchId]
-	oldArch.graph.edgesNext[compID] = actualNext.Id
-	actualNext.graph.edgesPrev[compID] = oldArch.Id
+	nextArch := &r.Archetypes[nextArchId]
+
+	oldArch.linkNextArch(nextArch, compID)
+
 	return nextArchId
 }
 
@@ -191,8 +192,7 @@ func (r *ArchetypeRegistry) UnAssign(entity Entity, compInfo ComponentInfo) {
 
 	newPrevArch := &r.Archetypes[newPrevArchId]
 	// register edges on Archetype-Graph
-	oldArch.graph.edgesPrev[compID] = newPrevArchId
-	newPrevArch.graph.edgesNext[compID] = oldArch.Id
+	oldArch.linkPrevArch(newPrevArch, compID)
 
 	oldArch.GetColumn(compID).ZeroData(link.Row)
 	r.moveEntity(entity, link, newPrevArchId)
@@ -229,23 +229,23 @@ func (r *ArchetypeRegistry) getOrRegister(mask ArchetypeMask) ArchetypeId {
 // --------------------------------------------------------------
 
 func (r *ArchetypeRegistry) moveEntity(entity Entity, link EntityArchLink, archId ArchetypeId) ArchRow {
-	oldArch := &r.Archetypes[link.ArchId]
-	oldArchRow := link.Row
+	linkArch := &r.Archetypes[link.ArchId]
+	linkArchRow := link.Row
 
 	newArch := &r.Archetypes[archId]
 	newArchRow := newArch.registerEntity(entity)
 
 	for i := int(FirstDataColumnIndex); i < len(newArch.block.Columns); i++ {
 		col := &newArch.block.Columns[i]
-		if oldCol := oldArch.GetColumn(col.CompID); oldCol != nil {
-			col.SetData(newArchRow, oldCol.GetElement(oldArchRow))
+		if oldCol := linkArch.GetColumn(col.CompID); oldCol != nil {
+			col.SetData(newArchRow, oldCol.GetElement(linkArchRow))
 		}
 	}
 
-	swappedEntity, swapped := oldArch.SwapRemoveEntity(link.Row)
+	swappedEntity, swapped := linkArch.SwapRemoveEntity(link.Row)
 
 	if swapped {
-		r.EntityLinkStore.Update(swappedEntity, oldArch.Id, link.Row)
+		r.EntityLinkStore.Update(swappedEntity, link.ArchId, link.Row)
 	}
 
 	r.EntityLinkStore.Update(entity, newArch.Id, newArchRow)

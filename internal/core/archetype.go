@@ -173,3 +173,13 @@ func (a *Archetype) SwapRemoveEntity(row ArchRow) (swapedEntity Entity, swaped b
 	}
 	return entityToMove, true
 }
+
+func (a *Archetype) linkNextArch(nextArch *Archetype, compID ComponentID) {
+	a.graph.edgesNext[compID] = nextArch.Id
+	nextArch.graph.edgesPrev[compID] = a.Id
+}
+
+func (a *Archetype) linkPrevArch(prevArch *Archetype, compID ComponentID) {
+	a.graph.edgesPrev[compID] = prevArch.Id
+	prevArch.graph.edgesNext[compID] = a.Id
+}
