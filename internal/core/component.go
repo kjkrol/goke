@@ -7,6 +7,8 @@ import (
 
 type ComponentID uint8
 
+const EntityID ComponentID = ComponentID(255)
+
 type ComponentInfo struct {
 	ID    ComponentID
 	Size  uintptr

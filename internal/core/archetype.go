@@ -61,10 +61,7 @@ type Column struct {
 // Formula: Chunk.Data + ColumnOffset + (Row * ItemSize)
 // Cost: Simple pointer arithmetic, very fast.
 func (c *Column) GetPointer(chunk *chunk, row ChunkRow) unsafe.Pointer {
-	// Base address of the column within this chunk
-	colBase := unsafe.Add(chunk.ptr, c.ChunkOffset)
-	// Address of the specific row
-	return unsafe.Add(colBase, uintptr(row)*c.ItemSize)
+	return unsafe.Add(chunk.ptr, c.ChunkOffset+uintptr(row)*c.ItemSize)
 }
 
 // -----------------------------------------------------------------------------
@@ -101,7 +98,6 @@ func (a *Archetype) InitArchetype(
 	a.graph = &ArchetypeGraph{} // Assuming ArchetypeGraph is defined elsewhere
 
 	// 1. Initialize Memory (Calculate Layout)
-	// This computes how components are packed into 16KB chunks.
 	a.Memory.Init(colsInfos)
 
 	// 2. Setup Columns & Map
@@ -110,10 +106,10 @@ func (a *Archetype) InitArchetype(
 	a.Columns = make([]Column, count)
 	a.Map.Reset()
 
-	// --- A. Setup Entity Column (LocalID 0) ---
-	a.Map.Set(0, EntityColumnIndex)
+	// --- A. Setup Entity Column ---
+	// a.Map.Set(EntityID, EntityColumnIndex)
 	a.Columns[EntityColumnIndex] = Column{
-		CompID:      0, //TODO: this is incorrect
+		CompID:      EntityID,
 		ItemSize:    unsafe.Sizeof(Entity(0)),
 		ChunkOffset: a.Memory.Layout.Offsets[0], // Offset from Layout calculation
 	}
@@ -168,25 +164,13 @@ func (a *Archetype) AddEntity(entity Entity) (ChunkIdx, ChunkRow) {
 // It moves the last entity of the archetype into the empty slot (Swap).
 // Returns the entity that was moved (swappedEntity) and true if a move happened.
 func (a *Archetype) SwapRemoveEntity(targetChunkIdx ChunkIdx, targetRow ChunkRow) (swappedEntity Entity, swapped bool) {
-	// 1. Identify the Tail (The last entity in the last chunk)
-	lastChunkIdx := ChunkIdx(len(a.Memory.Pages) - 1)
-	lastChunk := a.Memory.Pages[lastChunkIdx]
 
-	// FIX: Jeśli ostatni chunk jest pusty i nie jest to jedyny chunk,
-	// musimy go usunąć ze slice'a, aby ogon wskazywał na chunk z danymi.
-	for lastChunk.Len == 0 && lastChunkIdx > 0 {
-		a.Memory.Pages = a.Memory.Pages[:lastChunkIdx] // Usuń pusty chunk z końca
-		lastChunkIdx--
-		lastChunk = a.Memory.Pages[lastChunkIdx]
-	}
-
-	lastRow := lastChunk.Len - 1
-
-	// Identify the Target Chunk (where the hole is)
-	// We access the slice directly using the index from LinkStore.
+	// 1. Get the real, verified tail
+	lastChunkIdx, lastChunk := a.Memory.ResolveTail()
+	lastRow := ChunkRow(lastChunk.Len - 1) // Safe now because lastChunk.Len > 0
 	targetChunk := a.Memory.Pages[targetChunkIdx]
 
-	// Edge Case: Removing the very last entity (No swap needed)
+	// 2. Case: Removing the last entity of the archetype
 	if targetChunkIdx == lastChunkIdx && targetRow == lastRow {
 		a.zeroEntityAt(lastChunk, lastRow)
 		lastChunk.Len--
@@ -194,25 +178,16 @@ func (a *Archetype) SwapRemoveEntity(targetChunkIdx ChunkIdx, targetRow ChunkRow
 		return 0, false
 	}
 
-	// 2. Retrieve the Entity ID from the Tail (this is the one moving)
-	entityCol := &a.Columns[EntityColumnIndex]
-	srcEntityPtr := entityCol.GetPointer(lastChunk, lastRow)
-	entityToMove := *(*Entity)(srcEntityPtr)
+	// 3. Case: Standard Swap (Tail moves to Hole)
+	ptrLastEntity := a.GetEntityColumn().GetPointer(lastChunk, lastRow)
+	entityToMove := *(*Entity)(ptrLastEntity)
 
-	// 3. Move Data: Tail -> Hole (Target)
-	// We iterate over all columns (Entity + Components)
 	for i := range a.Columns {
 		col := &a.Columns[i]
-
 		src := col.GetPointer(lastChunk, lastRow)
 		dst := col.GetPointer(targetChunk, targetRow)
 
-		// Memcpy
-		// Go's internal copy handles overlap safely, though here memory is distinct.
-		// We cast to byte slice for copying.
-		srcSlice := unsafe.Slice((*byte)(src), col.ItemSize)
-		dstSlice := unsafe.Slice((*byte)(dst), col.ItemSize)
-		copy(dstSlice, srcSlice)
+		copy(unsafe.Slice((*byte)(dst), col.ItemSize), unsafe.Slice((*byte)(src), col.ItemSize))
 	}
 
 	// 4. Cleanup the old Tail position (GC safety)
@@ -230,10 +205,7 @@ func (a *Archetype) zeroEntityAt(c *chunk, row ChunkRow) {
 	for i := range a.Columns {
 		col := &a.Columns[i]
 		ptr := col.GetPointer(c, row)
-
-		// Efficient memory zeroing
-		b := unsafe.Slice((*byte)(ptr), col.ItemSize)
-		clear(b)
+		zeroMemory(ptr, col.ItemSize)
 	}
 }
 

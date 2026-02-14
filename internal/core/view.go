@@ -10,7 +10,7 @@ type MatchedArch struct {
 }
 
 func (ma *MatchedArch) GetEntityColumn() *Column {
-	return &ma.Arch.Columns[0]
+	return ma.Arch.GetEntityColumn()
 }
 
 func (ma *MatchedArch) GetColumn(colId LocalColumnID) *Column {

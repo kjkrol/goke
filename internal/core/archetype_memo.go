@@ -21,6 +21,8 @@ type Memo struct {
 	Len    uint32 // Global entity count (optional, but useful)
 }
 
+// Computes how components are packed into fixed size (by default 16KB) chunks
+// and initialize memory chunks (Pages)
 func (b *Memo) Init(compInfos []ComponentInfo) {
 	b.Layout = CalculateLayout(compInfos)
 
@@ -71,6 +73,23 @@ func (b *Memo) addChunk() {
 	}
 
 	b.Pages = append(b.Pages, newChunk)
+}
+
+// ResolveTail returns the index and pointer of the last chunk that actually contains data.
+// It performs a "sanity check" by truncating any empty trailing chunks from the Pages slice.
+func (b *Memo) ResolveTail() (ChunkIdx, *chunk) {
+	lastIdx := len(b.Pages) - 1
+
+	// Loop backwards to remove empty trailing chunks.
+	// We keep at least one chunk (index 0) even if it's empty.
+	for lastIdx > 0 && b.Pages[lastIdx].Len == 0 {
+		// Optional: you could clear(b.Pages[lastIdx].data) here if
+		// you want to be ultra-aggressive with GC, but Clear() should handle it.
+		b.Pages = b.Pages[:lastIdx]
+		lastIdx--
+	}
+
+	return ChunkIdx(lastIdx), b.Pages[lastIdx]
 }
 
 func (b *Memo) Clear() {
