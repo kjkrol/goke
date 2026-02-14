@@ -10,12 +10,12 @@ type MatchedArch struct {
 }
 
 func (ma *MatchedArch) GetEntityColumn() *Column {
-	return &ma.Arch.block.Columns[0]
+	return &ma.Arch.Columns[0]
 }
 
 func (ma *MatchedArch) GetColumn(colId LocalColumnID) *Column {
 	layoutColId := ma.LayoutColumnIDs[colId]
-	return &ma.Arch.block.Columns[layoutColId]
+	return &ma.Arch.Columns[layoutColId]
 }
 
 func (ma *MatchedArch) Clear() {
@@ -88,7 +88,7 @@ func (v *View) Reindex() {
 	for i := RootArchetypeId; i < reg.lastArchetypeId; i++ {
 		arch := &reg.Archetypes[i]
 
-		if len(arch.block.Columns) == 0 {
+		if len(arch.Columns) == 0 {
 			continue
 		}
 
@@ -100,7 +100,7 @@ func (v *View) Reindex() {
 
 func (v *View) AddArchetype(arch *Archetype) {
 
-	if len(arch.block.Columns) == 0 {
+	if len(arch.Columns) == 0 {
 		return
 	}
 
@@ -113,7 +113,7 @@ func (v *View) AddArchetype(arch *Archetype) {
 
 		for i, info := range v.Layout {
 			localIdx := arch.Map[info.ID]
-			if localIdx == InvalidLocalID || int(localIdx) >= len(arch.block.Columns) {
+			if localIdx == InvalidLocalID || int(localIdx) >= len(arch.Columns) {
 				continue
 			}
 			mArch.LayoutColumnIDs[i] = localIdx

@@ -2,22 +2,23 @@ package core
 
 type EntityArchLink struct {
 	ArchId     ArchetypeId
-	Row        ArchRow
-	Generation uint32
+	ChunkIdx   ChunkIdx // Index of the memory page (Chunk) in Archetype.Memory.Pages
+	ChunkRow   ChunkRow // Index of the row within that specific Chunk
+	Generation uint32   // Entity generation for validation
 }
 
 type EntityLinkStore struct {
 	links []EntityArchLink
 }
 
-func (s *EntityLinkStore) Reset() {
-	clear(s.links)
-}
-
 func NewEntityLinkStore(initialCap int) EntityLinkStore {
 	return EntityLinkStore{
 		links: make([]EntityArchLink, initialCap),
 	}
+}
+
+func (s *EntityLinkStore) Reset() {
+	clear(s.links)
 }
 
 // Get returns the link only if the generation matches.
@@ -29,7 +30,8 @@ func (s *EntityLinkStore) Get(entity Entity) (EntityArchLink, bool) {
 
 	link := s.links[index]
 
-	// Safety check: compare generations
+	// Safety check: compare generations.
+	// We also check ArchId to ensure the link is not empty/invalid.
 	if link.ArchId == NullArchetypeId || link.Generation != entity.Generation() {
 		return EntityArchLink{}, false
 	}
@@ -37,15 +39,18 @@ func (s *EntityLinkStore) Get(entity Entity) (EntityArchLink, bool) {
 	return link, true
 }
 
-func (s *EntityLinkStore) Update(entity Entity, archId ArchetypeId, row ArchRow) {
+// Update updates the entity's location using the new Chunk Index and Chunk Row.
+func (s *EntityLinkStore) Update(entity Entity, archId ArchetypeId, chunkIdx ChunkIdx, row ChunkRow) {
 	index := entity.Index()
 	if index >= uint32(cap(s.links)) {
 		s.grow(index + 1)
 	}
-	// Store both the location AND the current generation
+
+	// Store location (Chunk Index + Row) AND the current generation
 	s.links[index] = EntityArchLink{
 		ArchId:     archId,
-		Row:        row,
+		ChunkIdx:   chunkIdx,
+		ChunkRow:   row,
 		Generation: entity.Generation(),
 	}
 }
@@ -61,7 +66,8 @@ func (s *EntityLinkStore) Clear(entity Entity) {
 	if s.links[index].Generation == entity.Generation() {
 		s.links[index] = EntityArchLink{
 			ArchId:     NullArchetypeId,
-			Row:        0,
+			ChunkIdx:   0,
+			ChunkRow:   0,
 			Generation: 0, // Reset to 0 to prevent any stale handle matches
 		}
 	}
@@ -72,6 +78,7 @@ func (s *EntityLinkStore) grow(minLen uint32) {
 	if newCap < minLen {
 		newCap = minLen
 	}
+
 	newLinks := make([]EntityArchLink, newCap)
 	copy(newLinks, s.links)
 	s.links = newLinks

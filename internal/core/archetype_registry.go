@@ -59,7 +59,7 @@ func (r *ArchetypeRegistry) InitArchetype(mask ArchetypeMask, initCapacity int) 
 
 	archId := r.lastArchetypeId
 	arch := &r.Archetypes[archId]
-	arch.InitArchetype(archId, mask, r.sharedColsInfos, initCapacity)
+	arch.InitArchetype(archId, mask, r.sharedColsInfos)
 
 	r.archetypeMaskMap.Put(mask, archId)
 
@@ -75,11 +75,11 @@ func (r *ArchetypeRegistry) Get(mask ArchetypeMask) ArchetypeId {
 	return NullArchetypeId
 }
 
-func (r *ArchetypeRegistry) AddEntity(entity Entity, archId ArchetypeId) ArchRow {
+func (r *ArchetypeRegistry) AddEntity(entity Entity, archId ArchetypeId) (ChunkIdx, ChunkRow) {
 	arch := &r.Archetypes[archId]
-	row := arch.registerEntity(entity)
-	r.EntityLinkStore.Update(entity, archId, row)
-	return row
+	chunkIdx, chunkRow := arch.AddEntity(entity)
+	r.EntityLinkStore.Update(entity, archId, chunkIdx, chunkRow)
+	return chunkIdx, chunkRow
 }
 
 func (r *ArchetypeRegistry) UnlinkEntity(entity Entity) {
@@ -89,10 +89,10 @@ func (r *ArchetypeRegistry) UnlinkEntity(entity Entity) {
 	}
 
 	linkArch := &r.Archetypes[link.ArchId]
-	swappedEntity, swapped := linkArch.SwapRemoveEntity(link.Row)
+	swappedEntity, swapped := linkArch.SwapRemoveEntity(link.ChunkIdx, link.ChunkRow)
 
 	if swapped {
-		r.EntityLinkStore.Update(swappedEntity, link.ArchId, link.Row)
+		r.EntityLinkStore.Update(swappedEntity, link.ArchId, link.ChunkIdx, link.ChunkRow)
 	}
 
 	r.EntityLinkStore.Clear(entity)
@@ -103,38 +103,53 @@ var (
 )
 
 // AllocateComponentMemory ensures the entity has the component and returns a pointer to its memory.
-// This avoids the 'escape to heap' allocation of the component data struct.
-func (r *ArchetypeRegistry) AllocateComponentMemory(entity Entity, compInfo ComponentInfo) (unsafe.Pointer, error) {
+func (r *ArchetypeRegistry) AllocateComponentMemory(
+	entity Entity,
+	compInfo ComponentInfo,
+) (unsafe.Pointer, error) {
 	compID := compInfo.ID
 
-	backLink, ok := r.EntityLinkStore.Get(entity)
+	link, ok := r.EntityLinkStore.Get(entity)
 	if !ok {
 		return nil, ErrEntityNotFound
 	}
 
-	currentArch := &r.Archetypes[backLink.ArchId]
-	var targetRow ArchRow
-	targetArchId := NullArchetypeId
+	currentArch := &r.Archetypes[link.ArchId]
 
-	// 1. If component already exists, just return the address
+	var targetArch *Archetype
+	var targetChunkIdx ChunkIdx
+	var targetRow ChunkRow
+
+	// 2. Ścieżka Szybka: Komponent już istnieje
 	if currentArch.Mask.IsSet(compID) {
-		targetRow = backLink.Row
-		targetArchId = currentArch.Id
+		targetArch = currentArch
+		targetChunkIdx = link.ChunkIdx
+		targetRow = link.ChunkRow
 	} else {
-		// 2. Perform structural change (Archetype Transition)
-		// Check if we have a fast path in the Archetype-Graph
-		targetArchId = r.ensureNextEdgeId(compID, currentArch)
-		// Move existing data to the new archetype
-		targetRow = r.moveEntity(entity, backLink, targetArchId)
+		// 3. Ścieżka Wolna: Strukturalna zmiana (Tranzycja)
+		nextArchID := r.ensureNextEdgeId(compID, currentArch)
+
+		// Przenosimy encję i dostajemy nowe koordynaty
+		targetChunkIdx, targetRow = r.moveEntity(entity, link, nextArchID)
+		targetArch = &r.Archetypes[nextArchID]
 	}
 
+	// Jeśli komponent jest znacznikiem (Tag, size 0), nie zwracamy wskaźnika
 	if compInfo.Size == 0 {
 		return nil, nil
 	}
 
-	// 3. Calculate and return the direct pointer
-	column := r.Archetypes[targetArchId].GetColumn(compID)
-	return unsafe.Add(column.Data, uintptr(targetRow)*column.ItemSize), nil
+	// 4. Obliczamy i zwracamy wskaźnik
+	// Teraz jest to dużo bezpieczniejsze dzięki Chunk Architecture.
+
+	// Pobieramy kolumnę z docelowego archetypu
+	column := targetArch.GetColumn(compID)
+
+	// Pobieramy fizyczny chunk
+	chunk := targetArch.Memory.GetChunk(targetChunkIdx)
+
+	// Kolumna sama wylicza adres
+	return column.GetPointer(chunk, targetRow), nil
 }
 
 func (r *ArchetypeRegistry) ensureNextEdgeId(compID ComponentID, oldArch *Archetype) ArchetypeId {
@@ -159,42 +174,70 @@ func (r *ArchetypeRegistry) UnAssign(entity Entity, compInfo ComponentInfo) {
 	if !ok {
 		return
 	}
+
 	oldArchId := link.ArchId
 	compID := compInfo.ID
-
 	oldArch := &r.Archetypes[oldArchId]
 
-	// FAST PATH (use Archetype-Graph)
+	// -------------------------------------------------------------------------
+	// KROK 1: Pobranie fizycznego chunka (Resolve Once)
+	// Musimy mieć dostęp do pamięci, aby wyzerować usuwany komponent.
+	// -------------------------------------------------------------------------
+	srcChunk := oldArch.Memory.GetChunk(link.ChunkIdx)
+
+	// Helper do zerowania danych konkretnego komponentu
+	zeroComponent := func(arch *Archetype, c *chunk, r ChunkRow, cID ComponentID) {
+		col := arch.GetColumn(cID)
+		ptr := col.GetPointer(c, r)
+		// Helper zeroMemory (clear) - musisz go mieć zdefiniowanego w pakiecie
+		zeroMemory(ptr, col.ItemSize)
+	}
+
+	// -------------------------------------------------------------------------
+	// FAST PATH (Graph Edge Exists)
+	// -------------------------------------------------------------------------
 	if prevArchId := oldArch.graph.edgesPrev[compID]; prevArchId != NullArchetypeId {
 		prevArch := &r.Archetypes[prevArchId]
+
+		// Jeśli nowy archetyp jest pusty (Root), usuwamy encję całkowicie
 		if prevArch.Mask.IsEmpty() {
 			r.UnlinkEntity(entity)
 			return
 		}
-		oldArch.GetColumn(compID).ZeroData(link.Row)
+
+		// Wyzeruj usuwany komponent (dla bezpieczeństwa GC przed przeniesieniem reszty)
+		zeroComponent(oldArch, srcChunk, link.ChunkRow, compID)
+
+		// Przenieś encję (moveEntity sam skopiuje pozostałe komponenty i zrobi SwapRemove)
 		r.moveEntity(entity, link, prevArchId)
 		return
 	}
-	// SLOW PATH (prevArch does not exist yet)
+
+	// -------------------------------------------------------------------------
+	// SLOW PATH (Calculate Mask & Create Edge)
+	// -------------------------------------------------------------------------
 	newMask := oldArch.Mask.Clear(compID)
 
-	// nothing to unassign
+	// Jeśli maska się nie zmieniła, to znaczy, że encja nie miała tego komponentu
 	if oldArch.Mask == newMask {
 		return
 	}
 
+	// Jeśli nowa maska jest pusta -> Unlink
 	if newMask.IsEmpty() {
 		r.UnlinkEntity(entity)
 		return
 	}
 
+	// Znajdź lub stwórz nowy archetyp
 	newPrevArchId := r.getOrRegister(newMask)
-
 	newPrevArch := &r.Archetypes[newPrevArchId]
-	// register edges on Archetype-Graph
+
+	// Zaktualizuj Graf (Edges)
 	oldArch.linkPrevArch(newPrevArch, compID)
 
-	oldArch.GetColumn(compID).ZeroData(link.Row)
+	// Wyzeruj i Przenieś
+	zeroComponent(oldArch, srcChunk, link.ChunkRow, compID)
 	r.moveEntity(entity, link, newPrevArchId)
 }
 
@@ -228,27 +271,51 @@ func (r *ArchetypeRegistry) getOrRegister(mask ArchetypeMask) ArchetypeId {
 
 // --------------------------------------------------------------
 
-func (r *ArchetypeRegistry) moveEntity(entity Entity, link EntityArchLink, archId ArchetypeId) ArchRow {
-	linkArch := &r.Archetypes[link.ArchId]
-	linkArchRow := link.Row
-
+func (r *ArchetypeRegistry) moveEntity(
+	entity Entity,
+	link EntityArchLink,
+	archId ArchetypeId,
+) (ChunkIdx, ChunkRow) {
+	oldArch := &r.Archetypes[link.ArchId]
 	newArch := &r.Archetypes[archId]
-	newArchRow := newArch.registerEntity(entity)
 
-	for i := int(FirstDataColumnIndex); i < len(newArch.block.Columns); i++ {
-		col := &newArch.block.Columns[i]
-		if oldCol := linkArch.GetColumn(col.CompID); oldCol != nil {
-			col.SetData(newArchRow, oldCol.GetElement(linkArchRow))
+	newChunkIdx, newRow := newArch.AddEntity(entity)
+
+	srcChunk := oldArch.Memory.GetChunk(link.ChunkIdx)
+	dstChunk := newArch.Memory.GetChunk(newChunkIdx)
+
+	// 3. Kopiuj wspólne komponenty
+	// Iterujemy po kolumnach NOWEGO archetypu
+	for i := range newArch.Columns {
+		dstCol := &newArch.Columns[i]
+
+		// Pomijamy EntityID (Index 0), bo AddEntity już to obsłużyło
+		if dstCol.CompID == 0 {
+			continue
+		}
+
+		// Jeśli stary archetyp też miał ten komponent -> Kopiujemy dane
+		if srcCol := oldArch.GetColumn(dstCol.CompID); srcCol != nil {
+			// Używamy helperów do wyciągnięcia wskaźników
+			srcPtr := srcCol.GetPointer(srcChunk, link.ChunkRow)
+			dstPtr := dstCol.GetPointer(dstChunk, newRow)
+
+			// Kopiowanie pamięci
+			copyMemory(dstPtr, srcPtr, dstCol.ItemSize)
 		}
 	}
 
-	swappedEntity, swapped := linkArch.SwapRemoveEntity(link.Row)
+	// 4. Usuń ze starego miejsca (Swap Remove)
+	swappedEntity, swapped := oldArch.SwapRemoveEntity(link.ChunkIdx, link.ChunkRow)
 
+	// 5. Aktualizacja LinkStore
+	// A. Jeśli coś wskoczyło w dziurę po starej encji -> aktualizujemy to
 	if swapped {
-		r.EntityLinkStore.Update(swappedEntity, link.ArchId, link.Row)
+		r.EntityLinkStore.Update(swappedEntity, link.ArchId, link.ChunkIdx, link.ChunkRow)
 	}
 
-	r.EntityLinkStore.Update(entity, newArch.Id, newArchRow)
+	// B. Aktualizujemy przenoszoną encję (nowy adres)
+	r.EntityLinkStore.Update(entity, newArch.Id, newChunkIdx, newRow)
 
-	return newArchRow
+	return newChunkIdx, newRow
 }

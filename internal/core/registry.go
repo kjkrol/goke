@@ -84,8 +84,9 @@ func (r *Registry) ComponentGet(entity Entity, compID ComponentID) (unsafe.Point
 	if col == nil {
 		return nil, fmt.Errorf("component not found in archetype")
 	}
+	chunk := arch.Memory.GetChunk(link.ChunkIdx)
 
-	return col.GetElement(link.Row), nil
+	return col.GetPointer(chunk, link.ChunkRow), nil
 }
 
 func (r *Registry) Reset() {

@@ -80,47 +80,66 @@ func (v *View{{.N}}[{{.AllTParams}}]) All() iter.Seq2[
     struct { Entity core.Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
     {{if .HasTail}}struct { {{range .TIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
 ] {
+    // 1. Pre-calculate Strides (Invariant)
+    const strideEntity = unsafe.Sizeof(core.Entity(0))
+    {{range .Indices}}stride{{additions . 1}} := unsafe.Sizeof(*new(T{{additions . 1}}))
+    {{end}}
+
     return func(yield func(
         struct { Entity core.Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
         {{if .HasTail}}struct { {{range .TIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
     ) bool) {
-        const strideEntity = unsafe.Sizeof(core.Entity(0))
-        {{range .Indices}}s{{additions . 1}} := unsafe.Sizeof(*new(T{{additions . 1}}))
-        {{end}}
-        for _, b := range v.Baked {
-            
-            // 1. Setup Entity Pointer
-            pEntity := b.GetEntityColumn().Data
 
-            // 2. Setup Component Pointers
-            {{range .Indices}}p{{additions . 1}} := b.GetColumn({{.}}).Data
+        // Loop over matched archetypes
+        for _, ma := range v.Baked {
+            // 2. Get Column Accessors for this Archetype
+            colEntity := ma.GetEntityColumn()
+            {{range .Indices}}col{{additions . 1}} := ma.GetColumn({{ . }})
             {{end}}
-            n := b.Arch.Len()
-            // Death Loop (Pointer Arithmetic)
-            for n > 0 {
-                
-                // Construct Head
-                head := struct { Entity core.Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
-                    Entity: *(*core.Entity)(pEntity),
-                    {{- range .HIndices}}V{{additions . 1}}: (*T{{additions . 1}})(p{{additions . 1}}),{{end}}
+
+            // 3. Loop over Physical Memory Pages (CHUNKS)
+            for _, chunk := range ma.Arch.Memory.Pages {
+                count := chunk.Len // Using ChunkRow type
+                if count == 0 {
+                    continue
                 }
 
-                // Construct Tail
-                {{if .HasTail}}
-                tail := struct { {{range .TIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
-                    {{- range .TIndices}}V{{additions . 1}}: (*T{{additions . 1}})(p{{additions . 1}}),{{end}}
+                // 4. Resolve Base Pointers for this Chunk
+                ptrEntity := colEntity.GetPointer(chunk, 0)
+                {{range .Indices}}ptr{{additions . 1}} := col{{additions . 1}}.GetPointer(chunk, 0)
+                {{end}}
+
+                // 5. Hot Loop (Death Loop)
+                for count > 0 {
+                    // Construct Head
+                    head := struct { Entity core.Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
+                        Entity: *(*core.Entity)(ptrEntity),
+                        {{range .HIndices}}V{{additions . 1}}: (*T{{additions . 1}})(ptr{{additions . 1}}),
+                        {{end}}
+                    }
+
+                    // Construct Tail (if exists)
+                    {{if .HasTail}}
+                    tail := struct { {{range .TIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
+                        {{range .TIndices}}V{{additions . 1}}: (*T{{additions . 1}})(ptr{{additions . 1}}),
+                        {{end}}
+                    }
+                    {{else}}
+                    tail := struct{}{}
+                    {{end}}
+
+                    // Yield execution to the user
+                    if !yield(head, tail) {
+                        return
+                    }
+
+                    // 6. Pointer Arithmetic (Move to next row)
+                    ptrEntity = unsafe.Add(ptrEntity, strideEntity)
+                    {{range .Indices}}ptr{{additions . 1}} = unsafe.Add(ptr{{additions . 1}}, stride{{additions . 1}})
+                    {{end}}
+
+                    count--
                 }
-                {{else}}
-                tail := struct{}{}
-                {{end}}
-
-                if !yield(head, tail) { return }
-
-                // Increment Pointers
-                pEntity = unsafe.Add(pEntity, strideEntity)
-                {{range .Indices}}p{{additions . 1}} = unsafe.Add(p{{additions . 1}}, s{{additions . 1}})
-                {{end}}
-                n--
             }
         }
     }
@@ -156,16 +175,17 @@ func (v *View{{.N}}[{{.AllTParams}}]) Filter(selected []Entity) iter.Seq2[
     {{if .HasTail}}struct { {{range .TIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
 ] {
     return func(yield func(
-        struct { Entity Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
+        struct { Entity core.Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
         {{if .HasTail}}struct { {{range .TIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
     ) bool) {
-        {{range .Indices}}stride{{additions . 1}} := unsafe.Sizeof(*new(T{{additions . 1}}))
+        var lastArchID core.ArchetypeId = core.NullArchetypeId
+        var currentArch *core.Archetype
+        
+        // Column descriptor cache
+        {{range .Indices}}var col{{additions . 1}} *core.Column
         {{end}}
-        var {{range $i, $_ := .Indices}}{{if $i}}, {{end}}ptr{{additions . 1}}{{end}} unsafe.Pointer
-        var lastArchID int32 = -1
+
         registry := v.Reg.ArchetypeRegistry
-        {{range .Indices}}col{{additions . 1}}ID := v.Layout[{{.}}].ID
-        {{end}}
 
         for _, e := range selected {
             link, ok := registry.EntityLinkStore.Get(e)
@@ -173,28 +193,43 @@ func (v *View{{.N}}[{{.AllTParams}}]) Filter(selected []Entity) iter.Seq2[
                 continue
             }
 
-            if int32(link.ArchId) != lastArchID {
-                arch := &registry.Archetypes[link.ArchId]
-                if !v.View.Matches(arch.Mask) {
-                    lastArchID = -1
+            // 1. Archetype Change Detection (Cache descriptors)
+            if link.ArchId != lastArchID {
+                currentArch = &registry.Archetypes[link.ArchId]
+                
+                if !v.View.Matches(currentArch.Mask) {
+                    lastArchID = core.NullArchetypeId
+                    currentArch = nil
                     continue
                 }
 
-                {{range .Indices}}ptr{{additions . 1}} = arch.GetColumn(col{{additions . 1}}ID).Data
+                // Cache all column descriptors for this archetype
+                {{range .Indices}}col{{additions . 1}} = currentArch.GetColumn(v.Layout[{{ . }}].ID)
                 {{end}}
-
-                lastArchID = int32(link.ArchId)
+                
+                lastArchID = link.ArchId
             }
 
-            row := uintptr(link.Row)
+            if currentArch == nil {
+                continue
+            }
 
-            head := struct { Entity Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
+            // 2. Resolve Chunk
+            // Access the physical page using the index from the link
+            chunk := currentArch.Memory.Pages[link.ChunkIdx]
+
+            // 3. Construct Result (Head)
+            head := struct { Entity core.Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
                 Entity: e,
-                {{- range .HIndices}}V{{additions . 1}}: (*T{{additions . 1}})(unsafe.Add(ptr{{additions . 1}}, row*stride{{additions . 1}})),{{end}}
+                {{range .HIndices}}V{{additions . 1}}: (*T{{additions . 1}})(col{{additions . 1}}.GetPointer(chunk, link.ChunkRow)),
+                {{end}}
             }
+
+            // 4. Construct Result (Tail)
             {{if .HasTail}}
             tail := struct { {{range .TIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
-                {{- range .TIndices}}V{{additions . 1}}: (*T{{additions . 1}})(unsafe.Add(ptr{{additions . 1}}, row*stride{{additions . 1}})),{{end}}
+                {{range .TIndices}}V{{additions . 1}}: (*T{{additions . 1}})(col{{additions . 1}}.GetPointer(chunk, link.ChunkRow)),
+                {{end}}
             }
             {{else}}
             tail := struct{}{}
@@ -229,45 +264,62 @@ func (v *View{{.N}}[{{.AllTParams}}]) Values() iter.Seq2[
     struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
     {{if .HasVTail}}struct { {{range .PTIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
 ] {
+    // 1. Pre-calculate Strides (Invariant)
+    // We calculate type sizes once, outside the loops.
+    {{range .Indices}}s{{additions . 1}} := unsafe.Sizeof(*new(T{{additions . 1}}))
+    {{end}}
+
     return func(yield func(
         struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
         {{if .HasVTail}}struct { {{range .PTIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
     ) bool) {
-        // Calculate strides for types
-        {{range .Indices}}s{{additions . 1}} := unsafe.Sizeof(*new(T{{additions . 1}}))
-        {{end}}
 
-        for _, b := range v.Baked {
+        // Loop over matched archetypes
+        for _, ma := range v.Baked {
             
-            // Setup Component Pointers
-            {{range .Indices}}p{{additions . 1}} := b.GetColumn({{.}}).Data
+            // 2. Get Column Accessors for this Archetype
+            {{range .Indices}}col{{additions . 1}} := ma.GetColumn({{ . }})
             {{end}}
-            
-            n := b.Arch.Len()
 
-            // Death Loop (Pointer Arithmetic)
-            for n > 0 {
-                
-                // Construct Head
-                head := struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
-                    {{- range .PHIndices}}V{{additions . 1}}: (*T{{additions . 1}})(p{{additions . 1}}),{{end}}
+            // 3. Loop over Physical Memory Pages (CHUNKS)
+            for _, chunk := range ma.Arch.Memory.Pages {
+                count := chunk.Len 
+                if count == 0 {
+                    continue
                 }
 
-                // Construct Tail
-                {{if .HasVTail}}
-                tail := struct { {{range .PTIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
-                    {{- range .PTIndices}}V{{additions . 1}}: (*T{{additions . 1}})(p{{additions . 1}}),{{end}}
+                // 4. Resolve Base Pointers for this Chunk
+                // Starting at row 0 for each column in this specific chunk.
+                {{range .Indices}}ptr{{additions . 1}} := col{{additions . 1}}.GetPointer(chunk, 0)
+                {{end}}
+
+                // 5. Hot Loop (Death Loop)
+                // Direct pointer arithmetic within the 16KB contiguous chunk.
+                for count > 0 {
+                    
+                    // Construct Head
+                    head := struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
+                        {{- range .PHIndices}}V{{additions . 1}}: (*T{{additions . 1}})(ptr{{additions . 1}}),{{end}}
+                    }
+
+                    // Construct Tail
+                    {{if .HasVTail}}
+                    tail := struct { {{range .PTIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
+                        {{- range .PTIndices}}V{{additions . 1}}: (*T{{additions . 1}})(ptr{{additions . 1}}),{{end}}
+                    }
+                    {{else}}
+                    tail := struct{}{}
+                    {{end}}
+
+                    if !yield(head, tail) { return }
+
+                    // 6. Increment Pointers (Pointer Arithmetic)
+                    // Move to the next row using pre-calculated strides.
+                    {{range .Indices}}ptr{{additions . 1}} = unsafe.Add(ptr{{additions . 1}}, s{{additions . 1}})
+                    {{end}}
+                    
+                    count--
                 }
-                {{else}}
-                tail := struct{}{}
-                {{end}}
-
-                if !yield(head, tail) { return }
-
-                // Increment Pointers
-                {{range .Indices}}p{{additions . 1}} = unsafe.Add(p{{additions . 1}}, s{{additions . 1}})
-                {{end}}
-                n--
             }
         }
     }
@@ -291,7 +343,7 @@ func (v *View{{.N}}[{{.AllTParams}}]) Values() iter.Seq2[
 //        v{{.N}} := tail.V{{.N}}
 //        {{- end }}
 //    }
-func (v *View{{.N}}[{{.AllTParams}}]) FilterValues(selected []Entity) iter.Seq2[
+func (v *View{{.N}}[{{.AllTParams}}]) FilterValues(selected []core.Entity) iter.Seq2[
     struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
     {{if .HasVTail}}struct { {{range .PTIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
 ] {
@@ -299,13 +351,14 @@ func (v *View{{.N}}[{{.AllTParams}}]) FilterValues(selected []Entity) iter.Seq2[
         struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
         {{if .HasVTail}}struct { {{range .PTIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
     ) bool) {
-        {{range .Indices}}stride{{additions . 1}} := unsafe.Sizeof(*new(T{{additions . 1}}))
+        var lastArchID core.ArchetypeId = core.NullArchetypeId
+        var currentArch *core.Archetype
+        
+        // Cache for column descriptors to avoid repeated map lookups
+        {{range .Indices}}var col{{additions . 1}} *core.Column
         {{end}}
-        var {{range $i, $_ := .Indices}}{{if $i}}, {{end}}ptr{{additions . 1}}{{end}} unsafe.Pointer
-        var lastArchID int32 = -1
+
         registry := v.Reg.ArchetypeRegistry
-        {{range .Indices}}col{{additions . 1}}ID := v.Layout[{{.}}].ID
-        {{end}}
 
         for _, e := range selected {
             link, ok := registry.EntityLinkStore.Get(e)
@@ -313,27 +366,43 @@ func (v *View{{.N}}[{{.AllTParams}}]) FilterValues(selected []Entity) iter.Seq2[
                 continue
             }
 
-            if int32(link.ArchId) != lastArchID {
-                arch := &registry.Archetypes[link.ArchId]
-                if !v.View.Matches(arch.Mask) {
-                    lastArchID = -1
+            // 1. Archetype Transition Detection
+            // We only refresh column descriptors when the archetype changes.
+            if link.ArchId != lastArchID {
+                currentArch = &registry.Archetypes[link.ArchId]
+                
+                // Verify if the archetype matches the view's mask requirements
+                if !v.View.Matches(currentArch.Mask) {
+                    lastArchID = core.NullArchetypeId
+                    currentArch = nil
                     continue
                 }
 
-                {{range .Indices}}ptr{{additions . 1}} = arch.GetColumn(col{{additions . 1}}ID).Data
+                // Cache column accessors for this specific archetype
+                {{range .Indices}}col{{additions . 1}} = currentArch.GetColumn(v.Layout[{{.}}].ID)
                 {{end}}
 
-                lastArchID = int32(link.ArchId)
+                lastArchID = link.ArchId
             }
 
-            row := uintptr(link.Row)
+            // If currentArch is nil, it means the current entity's archetype doesn't match the view
+            if currentArch == nil {
+                continue
+            }
 
+            // 2. Resolve Physical Chunk
+            // Access the memory page (Chunk) using the index from the link store.
+            chunk := currentArch.Memory.Pages[link.ChunkIdx]
+
+            // 3. Construct Result (Head)
             vhead := struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
-                {{- range .PHIndices}}V{{additions . 1}}: (*T{{additions . 1}})(unsafe.Add(ptr{{additions . 1}}, row*stride{{additions . 1}})),{{end}}
+                {{- range .PHIndices}}V{{additions . 1}}: (*T{{additions . 1}})(col{{additions . 1}}.GetPointer(chunk, link.ChunkRow)),{{end}}
             }
+
+            // 4. Construct Result (Tail)
             {{if .HasVTail}}
             vtail := struct { {{range .PTIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
-                {{- range .PTIndices}}V{{additions . 1}}: (*T{{additions . 1}})(unsafe.Add(ptr{{additions . 1}}, row*stride{{additions . 1}})),{{end}}
+                {{- range .PTIndices}}V{{additions . 1}}: (*T{{additions . 1}})(col{{additions . 1}}.GetPointer(chunk, link.ChunkRow)),{{end}}
             }
             {{else}}
             vtail := struct{}{}

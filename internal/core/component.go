@@ -8,9 +8,10 @@ import (
 type ComponentID uint8
 
 type ComponentInfo struct {
-	ID   ComponentID
-	Size uintptr
-	Type reflect.Type
+	ID    ComponentID
+	Size  uintptr
+	Align uintptr
+	Type  reflect.Type
 }
 
 type ComponentsRegistry struct {
@@ -53,9 +54,10 @@ func (r *ComponentsRegistry) GetOrRegister(t reflect.Type) ComponentInfo {
 
 	id := ComponentID(len(r.typeToInfo))
 	info := ComponentInfo{
-		ID:   id,
-		Size: t.Size(),
-		Type: t,
+		ID:    id,
+		Size:  t.Size(),
+		Align: uintptr(t.Align()),
+		Type:  t,
 	}
 
 	r.typeToInfo[t] = info
