@@ -61,7 +61,7 @@ type Column struct {
 // Formula: Chunk.Data + ColumnOffset + (Row * ItemSize)
 // Cost: Simple pointer arithmetic, very fast.
 func (c *Column) GetPointer(chunk *chunk, row ChunkRow) unsafe.Pointer {
-	return unsafe.Add(chunk.ptr, c.ChunkOffset+uintptr(row)*c.ItemSize)
+	return unsafe.Add(chunk.Ptr, c.ChunkOffset+uintptr(row)*c.ItemSize)
 }
 
 // -----------------------------------------------------------------------------

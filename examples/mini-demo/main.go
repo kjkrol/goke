@@ -60,6 +60,6 @@ func main() {
 	// Execute a single simulation step (standard 120 TPS)
 	goke.Tick(ecs, time.Second/120)
 
-	p, _ := goke.GetComponent[Pos](ecs, entity, posDesc)
+	p, _ := goke.SafeGetComponent[Pos](ecs, entity, posDesc)
 	fmt.Printf("Final Position: {X: %.2f, Y: %.2f}\n", p.X, p.Y)
 }

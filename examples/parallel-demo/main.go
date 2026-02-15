@@ -74,7 +74,7 @@ func main() {
 		}
 		turnCounter++
 
-		dice, _ := goke.GetComponent[Dice](ecs, diceEnt, diceDesc)
+		dice, _ := goke.SafeGetComponent[Dice](ecs, diceEnt, diceDesc)
 		fmt.Printf("🎲 Turn %d | Dice Result: %d\n", turnCounter, dice.Value)
 
 		for res := range vPlayers.All() {

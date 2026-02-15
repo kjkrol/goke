@@ -2,7 +2,7 @@ package core
 
 import "unsafe"
 
-const PageSize = 16 * 1024 // 16KB - fits L1 Cache
+const PageSize = L1DataCacheSize
 
 type ChunkIdx uint32 // Index of the chunk in Memo.Pages slice
 // ChunkRow is a type alias for the index within a chunk.
@@ -68,7 +68,7 @@ func (b *Memo) addChunk() {
 
 	newChunk := &chunk{
 		data: data,
-		ptr:  unsafe.Pointer(&data[0]),
+		Ptr:  unsafe.Pointer(&data[0]),
 		Len:  0,
 	}
 
@@ -114,7 +114,7 @@ func (b *Memo) Clear() {
 
 type chunk struct {
 	data []byte
-	ptr  unsafe.Pointer
+	Ptr  unsafe.Pointer
 	Len  ChunkRow
 }
 

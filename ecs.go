@@ -39,11 +39,8 @@ type ECS struct {
 // (e.g., adjusting archetype chunk sizes to minimize GC pressure).
 func New(opts ...ECSOption) *ECS {
 	config := ECSConfig{
-		InitialEntityCap:            1024,
-		DefaultArchetypeChunkSize:   128,
-		InitialArchetypeRegistryCap: 64,
-		FreeIndicesCap:              1024,
-		ViewRegistryInitCap:         32,
+		InitialEntityCap: 1024,
+		FreeIndicesCap:   1024,
 	}
 
 	for _, opt := range opts {
@@ -95,8 +92,18 @@ func SafeEnsureComponent[T any](ecs *ECS, entity Entity, compDesc ComponentDesc)
 	return (*T)(ptr), nil
 }
 
-// GetComponent returns a typed pointer to an entity's component of type T.
-func GetComponent[T any](ecs *ECS, entity Entity, compDesc ComponentDesc) (*T, error) {
+// SafeGetComponent retrieves a typed pointer to an entity's component with strict runtime type checking.
+//
+// It verifies that:
+//  1. The entity exists and possesses the component defined by compDesc.ID.
+//  2. The requested generic type T matches the type registered in compDesc.Type (using reflection).
+//
+// If the types do not match or the component is missing, an error is returned.
+//
+// Use Use Case:
+// Recommended for debugging, development, or logic outside the main loop where performance is less critical
+// than type safety.
+func SafeGetComponent[T any](ecs *ECS, entity Entity, compDesc ComponentDesc) (*T, error) {
 	data, err := ecs.registry.ComponentGet(entity, compDesc.ID)
 	requestedType := reflect.TypeFor[T]()
 	if requestedType != compDesc.Type {
@@ -107,6 +114,25 @@ func GetComponent[T any](ecs *ECS, entity Entity, compDesc ComponentDesc) (*T, e
 		return nil, err
 	}
 	return (*T)(data), nil
+}
+
+// GetComponent retrieves a typed pointer to an entity's component, optimized for performance.
+//
+// It returns nil if the component does not exist for the given entity.
+//
+// Performance:
+// This method bypasses reflection-based type checking, making it significantly faster
+// than SafeGetComponent. It is designed for use in "hot paths" (e.g., system update loops).
+//
+// Warning:
+// This method performs an unsafe pointer cast to *T. The caller is strictly responsible
+// for ensuring that T matches the actual component type associated with compDesc.
+func GetComponent[T any](ecs *ECS, entity Entity, compDesc ComponentDesc) *T {
+	data, err := ecs.registry.ComponentGet(entity, compDesc.ID)
+	if err != nil {
+		return nil
+	}
+	return (*T)(data)
 }
 
 // RemoveComponent removes a component from an entity using its ComponentInfo.

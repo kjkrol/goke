@@ -251,9 +251,9 @@ func main() {
 			spatialIndex.QueryRange(pos.AABB.AABB, func(otherID uint64) {
 				entity2 := goke.Entity(otherID / 4) // TODO: fix gokg!!
 				if head.Entity.Index() < entity2.Index() {
-					pos2, _ := goke.GetComponent[Position](ecs, entity2, posDesc)
-					vel2, _ := goke.GetComponent[Velocity](ecs, entity2, velDesc)
-					app2, _ := goke.GetComponent[Appearance](ecs, entity2, appDesc)
+					pos2, _ := goke.SafeGetComponent[Position](ecs, entity2, posDesc)
+					vel2, _ := goke.SafeGetComponent[Velocity](ecs, entity2, velDesc)
+					app2, _ := goke.SafeGetComponent[Appearance](ecs, entity2, appDesc)
 
 					app.Color = color.RGBA{R: 255, A: 255}
 					app2.Color = color.RGBA{R: 255, A: 255}

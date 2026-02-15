@@ -48,30 +48,25 @@ func NewView0(ecs *ECS, opts ...BlueprintOption) *View0 {
 //	}
 func (v *View0) All() iter.Seq[struct{ Entity core.Entity }] {
 	return func(yield func(struct{ Entity core.Entity }) bool) {
-		const strideEntity = unsafe.Sizeof(core.Entity(0))
-
 		for _, ma := range v.Baked {
-			arch := ma.Arch
-
-			entityCol := ma.GetEntityColumn()
-			// stride := entityCol.ItemSize
-
-			for _, chunk := range arch.Memory.Pages {
+			offEntity := ma.EntityChunkOffset
+			for _, chunk := range ma.Arch.Memory.Pages {
 				count := chunk.Len
 				if count == 0 {
 					continue
 				}
-
-				ptr := entityCol.GetPointer(chunk, 0)
+				base := chunk.Ptr
+				ptrEntity := unsafe.Add(base, offEntity)
 
 				for count > 0 {
-					e := *(*core.Entity)(ptr)
 
-					if !yield(struct{ Entity core.Entity }{Entity: e}) {
+					if !yield(struct{ Entity core.Entity }{
+						Entity: *(*core.Entity)(ptrEntity),
+					}) {
 						return
 					}
 
-					ptr = unsafe.Add(ptr, strideEntity)
+					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
 					count--
 				}
 			}

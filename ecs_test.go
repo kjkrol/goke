@@ -63,7 +63,7 @@ func TestECS_UseCase(t *testing.T) {
 		ctx.Run(billingSystem, d)
 
 		// test this stage
-		order, _ := goke.GetComponent[Order](ecs, eA, orderDesc)
+		order, _ := goke.SafeGetComponent[Order](ecs, eA, orderDesc)
 		if order.Total != 90.0 {
 			t.Errorf("Discount has not been applied, Total: %v", order.Total)
 		}
@@ -83,13 +83,13 @@ func TestECS_UseCase(t *testing.T) {
 	}
 
 	// Entity A should be removed from Registry
-	_, err := goke.GetComponent[Order](ecs, eA, orderDesc)
+	_, err := goke.SafeGetComponent[Order](ecs, eA, orderDesc)
 	if err == nil {
 		t.Error("Entity eA should have been removed from the registry")
 	}
 
 	// Entity B should still exist
-	_, errB := goke.GetComponent[Order](ecs, eB, orderDesc)
+	_, errB := goke.SafeGetComponent[Order](ecs, eB, orderDesc)
 	if errB != nil {
 		t.Error("Entity eB should not have been removed")
 	}
@@ -106,7 +106,7 @@ func TestECS_GetComponent_TypeSafety(t *testing.T) {
 	*pos = Position{X: 10, Y: 20}
 
 	t.Run("Should fail when requesting wrong type for valid ID", func(t *testing.T) {
-		_, err := goke.GetComponent[Velocity](ecs, e, posDesc)
+		_, err := goke.SafeGetComponent[Velocity](ecs, e, posDesc)
 
 		if err == nil {
 			t.Fatal("Expected error due to type mismatch, but got nil")
@@ -119,7 +119,7 @@ func TestECS_GetComponent_TypeSafety(t *testing.T) {
 	})
 
 	t.Run("Should succeed when type matches descriptor", func(t *testing.T) {
-		p, err := goke.GetComponent[Position](ecs, e, posDesc)
+		p, err := goke.SafeGetComponent[Position](ecs, e, posDesc)
 
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)

@@ -88,10 +88,6 @@ func (v *View1[T1]) All() iter.Seq2[
 	},
 	struct{},
 ] {
-	// 1. Pre-calculate Strides (Invariant)
-	const strideEntity = unsafe.Sizeof(core.Entity(0))
-	stride1 := unsafe.Sizeof(*new(T1))
-
 	return func(yield func(
 		struct {
 			Entity core.Entity
@@ -99,23 +95,27 @@ func (v *View1[T1]) All() iter.Seq2[
 		},
 		struct{},
 	) bool) {
+		// 1. Pre-calculate Strides (Invariant)
+		stride1 := unsafe.Sizeof(*new(T1))
 
-		// Loop over matched archetypes
+		// Loop over matched archetypes - Value Copy is fast enough (stack allocation)
 		for _, ma := range v.Baked {
-			// 2. Get Column Accessors for this Archetype
-			colEntity := ma.GetEntityColumn()
-			col1 := ma.GetColumn(0)
+			// 2. Load Offsets from Cache (L1 Cache Friendly)
+			// Accessing fields on stack-allocated 'ma' is blazing fast
+			offsetEntity := ma.EntityChunkOffset
+			offset1 := ma.FieldsOffsets[0]
 
 			// 3. Loop over Physical Memory Pages (CHUNKS)
 			for _, chunk := range ma.Arch.Memory.Pages {
-				count := chunk.Len // Using ChunkRow type
+				count := chunk.Len
 				if count == 0 {
 					continue
 				}
 
-				// 4. Resolve Base Pointers for this Chunk
-				ptrEntity := colEntity.GetPointer(chunk, 0)
-				ptr1 := col1.GetPointer(chunk, 0)
+				// 4. Resolve Base Pointers for this Chunk (Pure Math)
+				base := chunk.Ptr
+				ptrEntity := unsafe.Add(base, offsetEntity)
+				ptr1 := unsafe.Add(base, offset1)
 
 				// 5. Hot Loop (Death Loop)
 				for count > 0 {
@@ -138,7 +138,7 @@ func (v *View1[T1]) All() iter.Seq2[
 					}
 
 					// 6. Pointer Arithmetic (Move to next row)
-					ptrEntity = unsafe.Add(ptrEntity, strideEntity)
+					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
 					ptr1 = unsafe.Add(ptr1, stride1)
 
 					count--
@@ -257,20 +257,19 @@ func (v *View1[T1]) Values() iter.Seq2[
 	struct{ V1 *T1 },
 	struct{},
 ] {
-	// 1. Pre-calculate Strides (Invariant)
-	// We calculate type sizes once, outside the loops.
-	s1 := unsafe.Sizeof(*new(T1))
-
 	return func(yield func(
 		struct{ V1 *T1 },
 		struct{},
 	) bool) {
+		// 1. Pre-calculate Strides (Invariant)
+		stride1 := unsafe.Sizeof(*new(T1))
 
 		// Loop over matched archetypes
 		for _, ma := range v.Baked {
 
-			// 2. Get Column Accessors for this Archetype
-			col1 := ma.GetColumn(0)
+			// 2. Load Offsets from Cache (L1 Cache Friendly)
+			// We use the same lookup array as in All(), just skipping the Entity offset.
+			offset1 := ma.FieldsOffsets[0]
 
 			// 3. Loop over Physical Memory Pages (CHUNKS)
 			for _, chunk := range ma.Arch.Memory.Pages {
@@ -280,11 +279,11 @@ func (v *View1[T1]) Values() iter.Seq2[
 				}
 
 				// 4. Resolve Base Pointers for this Chunk
-				// Starting at row 0 for each column in this specific chunk.
-				ptr1 := col1.GetPointer(chunk, 0)
+				// Pure math: ChunkBase + ComponentOffset
+				base := chunk.Ptr
+				ptr1 := unsafe.Add(base, offset1)
 
 				// 5. Hot Loop (Death Loop)
-				// Direct pointer arithmetic within the 16KB contiguous chunk.
 				for count > 0 {
 
 					// Construct Head
@@ -299,8 +298,7 @@ func (v *View1[T1]) Values() iter.Seq2[
 					}
 
 					// 6. Increment Pointers (Pointer Arithmetic)
-					// Move to the next row using pre-calculated strides.
-					ptr1 = unsafe.Add(ptr1, s1)
+					ptr1 = unsafe.Add(ptr1, stride1)
 
 					count--
 				}
@@ -473,11 +471,6 @@ func (v *View2[T1, T2]) All() iter.Seq2[
 	},
 	struct{},
 ] {
-	// 1. Pre-calculate Strides (Invariant)
-	const strideEntity = unsafe.Sizeof(core.Entity(0))
-	stride1 := unsafe.Sizeof(*new(T1))
-	stride2 := unsafe.Sizeof(*new(T2))
-
 	return func(yield func(
 		struct {
 			Entity core.Entity
@@ -486,25 +479,30 @@ func (v *View2[T1, T2]) All() iter.Seq2[
 		},
 		struct{},
 	) bool) {
+		// 1. Pre-calculate Strides (Invariant)
+		stride1 := unsafe.Sizeof(*new(T1))
+		stride2 := unsafe.Sizeof(*new(T2))
 
-		// Loop over matched archetypes
+		// Loop over matched archetypes - Value Copy is fast enough (stack allocation)
 		for _, ma := range v.Baked {
-			// 2. Get Column Accessors for this Archetype
-			colEntity := ma.GetEntityColumn()
-			col1 := ma.GetColumn(0)
-			col2 := ma.GetColumn(1)
+			// 2. Load Offsets from Cache (L1 Cache Friendly)
+			// Accessing fields on stack-allocated 'ma' is blazing fast
+			offsetEntity := ma.EntityChunkOffset
+			offset1 := ma.FieldsOffsets[0]
+			offset2 := ma.FieldsOffsets[1]
 
 			// 3. Loop over Physical Memory Pages (CHUNKS)
 			for _, chunk := range ma.Arch.Memory.Pages {
-				count := chunk.Len // Using ChunkRow type
+				count := chunk.Len
 				if count == 0 {
 					continue
 				}
 
-				// 4. Resolve Base Pointers for this Chunk
-				ptrEntity := colEntity.GetPointer(chunk, 0)
-				ptr1 := col1.GetPointer(chunk, 0)
-				ptr2 := col2.GetPointer(chunk, 0)
+				// 4. Resolve Base Pointers for this Chunk (Pure Math)
+				base := chunk.Ptr
+				ptrEntity := unsafe.Add(base, offsetEntity)
+				ptr1 := unsafe.Add(base, offset1)
+				ptr2 := unsafe.Add(base, offset2)
 
 				// 5. Hot Loop (Death Loop)
 				for count > 0 {
@@ -529,7 +527,7 @@ func (v *View2[T1, T2]) All() iter.Seq2[
 					}
 
 					// 6. Pointer Arithmetic (Move to next row)
-					ptrEntity = unsafe.Add(ptrEntity, strideEntity)
+					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
 					ptr1 = unsafe.Add(ptr1, stride1)
 					ptr2 = unsafe.Add(ptr2, stride2)
 
@@ -663,11 +661,6 @@ func (v *View2[T1, T2]) Values() iter.Seq2[
 	},
 	struct{},
 ] {
-	// 1. Pre-calculate Strides (Invariant)
-	// We calculate type sizes once, outside the loops.
-	s1 := unsafe.Sizeof(*new(T1))
-	s2 := unsafe.Sizeof(*new(T2))
-
 	return func(yield func(
 		struct {
 			V1 *T1
@@ -675,13 +668,17 @@ func (v *View2[T1, T2]) Values() iter.Seq2[
 		},
 		struct{},
 	) bool) {
+		// 1. Pre-calculate Strides (Invariant)
+		stride1 := unsafe.Sizeof(*new(T1))
+		stride2 := unsafe.Sizeof(*new(T2))
 
 		// Loop over matched archetypes
 		for _, ma := range v.Baked {
 
-			// 2. Get Column Accessors for this Archetype
-			col1 := ma.GetColumn(0)
-			col2 := ma.GetColumn(1)
+			// 2. Load Offsets from Cache (L1 Cache Friendly)
+			// We use the same lookup array as in All(), just skipping the Entity offset.
+			offset1 := ma.FieldsOffsets[0]
+			offset2 := ma.FieldsOffsets[1]
 
 			// 3. Loop over Physical Memory Pages (CHUNKS)
 			for _, chunk := range ma.Arch.Memory.Pages {
@@ -691,12 +688,12 @@ func (v *View2[T1, T2]) Values() iter.Seq2[
 				}
 
 				// 4. Resolve Base Pointers for this Chunk
-				// Starting at row 0 for each column in this specific chunk.
-				ptr1 := col1.GetPointer(chunk, 0)
-				ptr2 := col2.GetPointer(chunk, 0)
+				// Pure math: ChunkBase + ComponentOffset
+				base := chunk.Ptr
+				ptr1 := unsafe.Add(base, offset1)
+				ptr2 := unsafe.Add(base, offset2)
 
 				// 5. Hot Loop (Death Loop)
-				// Direct pointer arithmetic within the 16KB contiguous chunk.
 				for count > 0 {
 
 					// Construct Head
@@ -714,9 +711,8 @@ func (v *View2[T1, T2]) Values() iter.Seq2[
 					}
 
 					// 6. Increment Pointers (Pointer Arithmetic)
-					// Move to the next row using pre-calculated strides.
-					ptr1 = unsafe.Add(ptr1, s1)
-					ptr2 = unsafe.Add(ptr2, s2)
+					ptr1 = unsafe.Add(ptr1, stride1)
+					ptr2 = unsafe.Add(ptr2, stride2)
 
 					count--
 				}
@@ -906,12 +902,6 @@ func (v *View3[T1, T2, T3]) All() iter.Seq2[
 	},
 	struct{},
 ] {
-	// 1. Pre-calculate Strides (Invariant)
-	const strideEntity = unsafe.Sizeof(core.Entity(0))
-	stride1 := unsafe.Sizeof(*new(T1))
-	stride2 := unsafe.Sizeof(*new(T2))
-	stride3 := unsafe.Sizeof(*new(T3))
-
 	return func(yield func(
 		struct {
 			Entity core.Entity
@@ -921,27 +911,33 @@ func (v *View3[T1, T2, T3]) All() iter.Seq2[
 		},
 		struct{},
 	) bool) {
+		// 1. Pre-calculate Strides (Invariant)
+		stride1 := unsafe.Sizeof(*new(T1))
+		stride2 := unsafe.Sizeof(*new(T2))
+		stride3 := unsafe.Sizeof(*new(T3))
 
-		// Loop over matched archetypes
+		// Loop over matched archetypes - Value Copy is fast enough (stack allocation)
 		for _, ma := range v.Baked {
-			// 2. Get Column Accessors for this Archetype
-			colEntity := ma.GetEntityColumn()
-			col1 := ma.GetColumn(0)
-			col2 := ma.GetColumn(1)
-			col3 := ma.GetColumn(2)
+			// 2. Load Offsets from Cache (L1 Cache Friendly)
+			// Accessing fields on stack-allocated 'ma' is blazing fast
+			offsetEntity := ma.EntityChunkOffset
+			offset1 := ma.FieldsOffsets[0]
+			offset2 := ma.FieldsOffsets[1]
+			offset3 := ma.FieldsOffsets[2]
 
 			// 3. Loop over Physical Memory Pages (CHUNKS)
 			for _, chunk := range ma.Arch.Memory.Pages {
-				count := chunk.Len // Using ChunkRow type
+				count := chunk.Len
 				if count == 0 {
 					continue
 				}
 
-				// 4. Resolve Base Pointers for this Chunk
-				ptrEntity := colEntity.GetPointer(chunk, 0)
-				ptr1 := col1.GetPointer(chunk, 0)
-				ptr2 := col2.GetPointer(chunk, 0)
-				ptr3 := col3.GetPointer(chunk, 0)
+				// 4. Resolve Base Pointers for this Chunk (Pure Math)
+				base := chunk.Ptr
+				ptrEntity := unsafe.Add(base, offsetEntity)
+				ptr1 := unsafe.Add(base, offset1)
+				ptr2 := unsafe.Add(base, offset2)
+				ptr3 := unsafe.Add(base, offset3)
 
 				// 5. Hot Loop (Death Loop)
 				for count > 0 {
@@ -968,7 +964,7 @@ func (v *View3[T1, T2, T3]) All() iter.Seq2[
 					}
 
 					// 6. Pointer Arithmetic (Move to next row)
-					ptrEntity = unsafe.Add(ptrEntity, strideEntity)
+					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
 					ptr1 = unsafe.Add(ptr1, stride1)
 					ptr2 = unsafe.Add(ptr2, stride2)
 					ptr3 = unsafe.Add(ptr3, stride3)
@@ -1110,12 +1106,6 @@ func (v *View3[T1, T2, T3]) Values() iter.Seq2[
 	},
 	struct{},
 ] {
-	// 1. Pre-calculate Strides (Invariant)
-	// We calculate type sizes once, outside the loops.
-	s1 := unsafe.Sizeof(*new(T1))
-	s2 := unsafe.Sizeof(*new(T2))
-	s3 := unsafe.Sizeof(*new(T3))
-
 	return func(yield func(
 		struct {
 			V1 *T1
@@ -1124,14 +1114,19 @@ func (v *View3[T1, T2, T3]) Values() iter.Seq2[
 		},
 		struct{},
 	) bool) {
+		// 1. Pre-calculate Strides (Invariant)
+		stride1 := unsafe.Sizeof(*new(T1))
+		stride2 := unsafe.Sizeof(*new(T2))
+		stride3 := unsafe.Sizeof(*new(T3))
 
 		// Loop over matched archetypes
 		for _, ma := range v.Baked {
 
-			// 2. Get Column Accessors for this Archetype
-			col1 := ma.GetColumn(0)
-			col2 := ma.GetColumn(1)
-			col3 := ma.GetColumn(2)
+			// 2. Load Offsets from Cache (L1 Cache Friendly)
+			// We use the same lookup array as in All(), just skipping the Entity offset.
+			offset1 := ma.FieldsOffsets[0]
+			offset2 := ma.FieldsOffsets[1]
+			offset3 := ma.FieldsOffsets[2]
 
 			// 3. Loop over Physical Memory Pages (CHUNKS)
 			for _, chunk := range ma.Arch.Memory.Pages {
@@ -1141,13 +1136,13 @@ func (v *View3[T1, T2, T3]) Values() iter.Seq2[
 				}
 
 				// 4. Resolve Base Pointers for this Chunk
-				// Starting at row 0 for each column in this specific chunk.
-				ptr1 := col1.GetPointer(chunk, 0)
-				ptr2 := col2.GetPointer(chunk, 0)
-				ptr3 := col3.GetPointer(chunk, 0)
+				// Pure math: ChunkBase + ComponentOffset
+				base := chunk.Ptr
+				ptr1 := unsafe.Add(base, offset1)
+				ptr2 := unsafe.Add(base, offset2)
+				ptr3 := unsafe.Add(base, offset3)
 
 				// 5. Hot Loop (Death Loop)
-				// Direct pointer arithmetic within the 16KB contiguous chunk.
 				for count > 0 {
 
 					// Construct Head
@@ -1166,10 +1161,9 @@ func (v *View3[T1, T2, T3]) Values() iter.Seq2[
 					}
 
 					// 6. Increment Pointers (Pointer Arithmetic)
-					// Move to the next row using pre-calculated strides.
-					ptr1 = unsafe.Add(ptr1, s1)
-					ptr2 = unsafe.Add(ptr2, s2)
-					ptr3 = unsafe.Add(ptr3, s3)
+					ptr1 = unsafe.Add(ptr1, stride1)
+					ptr2 = unsafe.Add(ptr2, stride2)
+					ptr3 = unsafe.Add(ptr3, stride3)
 
 					count--
 				}
@@ -1368,13 +1362,6 @@ func (v *View4[T1, T2, T3, T4]) All() iter.Seq2[
 	},
 	struct{ V4 *T4 },
 ] {
-	// 1. Pre-calculate Strides (Invariant)
-	const strideEntity = unsafe.Sizeof(core.Entity(0))
-	stride1 := unsafe.Sizeof(*new(T1))
-	stride2 := unsafe.Sizeof(*new(T2))
-	stride3 := unsafe.Sizeof(*new(T3))
-	stride4 := unsafe.Sizeof(*new(T4))
-
 	return func(yield func(
 		struct {
 			Entity core.Entity
@@ -1384,29 +1371,36 @@ func (v *View4[T1, T2, T3, T4]) All() iter.Seq2[
 		},
 		struct{ V4 *T4 },
 	) bool) {
+		// 1. Pre-calculate Strides (Invariant)
+		stride1 := unsafe.Sizeof(*new(T1))
+		stride2 := unsafe.Sizeof(*new(T2))
+		stride3 := unsafe.Sizeof(*new(T3))
+		stride4 := unsafe.Sizeof(*new(T4))
 
-		// Loop over matched archetypes
+		// Loop over matched archetypes - Value Copy is fast enough (stack allocation)
 		for _, ma := range v.Baked {
-			// 2. Get Column Accessors for this Archetype
-			colEntity := ma.GetEntityColumn()
-			col1 := ma.GetColumn(0)
-			col2 := ma.GetColumn(1)
-			col3 := ma.GetColumn(2)
-			col4 := ma.GetColumn(3)
+			// 2. Load Offsets from Cache (L1 Cache Friendly)
+			// Accessing fields on stack-allocated 'ma' is blazing fast
+			offsetEntity := ma.EntityChunkOffset
+			offset1 := ma.FieldsOffsets[0]
+			offset2 := ma.FieldsOffsets[1]
+			offset3 := ma.FieldsOffsets[2]
+			offset4 := ma.FieldsOffsets[3]
 
 			// 3. Loop over Physical Memory Pages (CHUNKS)
 			for _, chunk := range ma.Arch.Memory.Pages {
-				count := chunk.Len // Using ChunkRow type
+				count := chunk.Len
 				if count == 0 {
 					continue
 				}
 
-				// 4. Resolve Base Pointers for this Chunk
-				ptrEntity := colEntity.GetPointer(chunk, 0)
-				ptr1 := col1.GetPointer(chunk, 0)
-				ptr2 := col2.GetPointer(chunk, 0)
-				ptr3 := col3.GetPointer(chunk, 0)
-				ptr4 := col4.GetPointer(chunk, 0)
+				// 4. Resolve Base Pointers for this Chunk (Pure Math)
+				base := chunk.Ptr
+				ptrEntity := unsafe.Add(base, offsetEntity)
+				ptr1 := unsafe.Add(base, offset1)
+				ptr2 := unsafe.Add(base, offset2)
+				ptr3 := unsafe.Add(base, offset3)
+				ptr4 := unsafe.Add(base, offset4)
 
 				// 5. Hot Loop (Death Loop)
 				for count > 0 {
@@ -1435,7 +1429,7 @@ func (v *View4[T1, T2, T3, T4]) All() iter.Seq2[
 					}
 
 					// 6. Pointer Arithmetic (Move to next row)
-					ptrEntity = unsafe.Add(ptrEntity, strideEntity)
+					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
 					ptr1 = unsafe.Add(ptr1, stride1)
 					ptr2 = unsafe.Add(ptr2, stride2)
 					ptr3 = unsafe.Add(ptr3, stride3)
@@ -1583,13 +1577,6 @@ func (v *View4[T1, T2, T3, T4]) Values() iter.Seq2[
 	},
 	struct{},
 ] {
-	// 1. Pre-calculate Strides (Invariant)
-	// We calculate type sizes once, outside the loops.
-	s1 := unsafe.Sizeof(*new(T1))
-	s2 := unsafe.Sizeof(*new(T2))
-	s3 := unsafe.Sizeof(*new(T3))
-	s4 := unsafe.Sizeof(*new(T4))
-
 	return func(yield func(
 		struct {
 			V1 *T1
@@ -1599,15 +1586,21 @@ func (v *View4[T1, T2, T3, T4]) Values() iter.Seq2[
 		},
 		struct{},
 	) bool) {
+		// 1. Pre-calculate Strides (Invariant)
+		stride1 := unsafe.Sizeof(*new(T1))
+		stride2 := unsafe.Sizeof(*new(T2))
+		stride3 := unsafe.Sizeof(*new(T3))
+		stride4 := unsafe.Sizeof(*new(T4))
 
 		// Loop over matched archetypes
 		for _, ma := range v.Baked {
 
-			// 2. Get Column Accessors for this Archetype
-			col1 := ma.GetColumn(0)
-			col2 := ma.GetColumn(1)
-			col3 := ma.GetColumn(2)
-			col4 := ma.GetColumn(3)
+			// 2. Load Offsets from Cache (L1 Cache Friendly)
+			// We use the same lookup array as in All(), just skipping the Entity offset.
+			offset1 := ma.FieldsOffsets[0]
+			offset2 := ma.FieldsOffsets[1]
+			offset3 := ma.FieldsOffsets[2]
+			offset4 := ma.FieldsOffsets[3]
 
 			// 3. Loop over Physical Memory Pages (CHUNKS)
 			for _, chunk := range ma.Arch.Memory.Pages {
@@ -1617,14 +1610,14 @@ func (v *View4[T1, T2, T3, T4]) Values() iter.Seq2[
 				}
 
 				// 4. Resolve Base Pointers for this Chunk
-				// Starting at row 0 for each column in this specific chunk.
-				ptr1 := col1.GetPointer(chunk, 0)
-				ptr2 := col2.GetPointer(chunk, 0)
-				ptr3 := col3.GetPointer(chunk, 0)
-				ptr4 := col4.GetPointer(chunk, 0)
+				// Pure math: ChunkBase + ComponentOffset
+				base := chunk.Ptr
+				ptr1 := unsafe.Add(base, offset1)
+				ptr2 := unsafe.Add(base, offset2)
+				ptr3 := unsafe.Add(base, offset3)
+				ptr4 := unsafe.Add(base, offset4)
 
 				// 5. Hot Loop (Death Loop)
-				// Direct pointer arithmetic within the 16KB contiguous chunk.
 				for count > 0 {
 
 					// Construct Head
@@ -1644,11 +1637,10 @@ func (v *View4[T1, T2, T3, T4]) Values() iter.Seq2[
 					}
 
 					// 6. Increment Pointers (Pointer Arithmetic)
-					// Move to the next row using pre-calculated strides.
-					ptr1 = unsafe.Add(ptr1, s1)
-					ptr2 = unsafe.Add(ptr2, s2)
-					ptr3 = unsafe.Add(ptr3, s3)
-					ptr4 = unsafe.Add(ptr4, s4)
+					ptr1 = unsafe.Add(ptr1, stride1)
+					ptr2 = unsafe.Add(ptr2, stride2)
+					ptr3 = unsafe.Add(ptr3, stride3)
+					ptr4 = unsafe.Add(ptr4, stride4)
 
 					count--
 				}
@@ -1859,14 +1851,6 @@ func (v *View5[T1, T2, T3, T4, T5]) All() iter.Seq2[
 		V5 *T5
 	},
 ] {
-	// 1. Pre-calculate Strides (Invariant)
-	const strideEntity = unsafe.Sizeof(core.Entity(0))
-	stride1 := unsafe.Sizeof(*new(T1))
-	stride2 := unsafe.Sizeof(*new(T2))
-	stride3 := unsafe.Sizeof(*new(T3))
-	stride4 := unsafe.Sizeof(*new(T4))
-	stride5 := unsafe.Sizeof(*new(T5))
-
 	return func(yield func(
 		struct {
 			Entity core.Entity
@@ -1879,31 +1863,39 @@ func (v *View5[T1, T2, T3, T4, T5]) All() iter.Seq2[
 			V5 *T5
 		},
 	) bool) {
+		// 1. Pre-calculate Strides (Invariant)
+		stride1 := unsafe.Sizeof(*new(T1))
+		stride2 := unsafe.Sizeof(*new(T2))
+		stride3 := unsafe.Sizeof(*new(T3))
+		stride4 := unsafe.Sizeof(*new(T4))
+		stride5 := unsafe.Sizeof(*new(T5))
 
-		// Loop over matched archetypes
+		// Loop over matched archetypes - Value Copy is fast enough (stack allocation)
 		for _, ma := range v.Baked {
-			// 2. Get Column Accessors for this Archetype
-			colEntity := ma.GetEntityColumn()
-			col1 := ma.GetColumn(0)
-			col2 := ma.GetColumn(1)
-			col3 := ma.GetColumn(2)
-			col4 := ma.GetColumn(3)
-			col5 := ma.GetColumn(4)
+			// 2. Load Offsets from Cache (L1 Cache Friendly)
+			// Accessing fields on stack-allocated 'ma' is blazing fast
+			offsetEntity := ma.EntityChunkOffset
+			offset1 := ma.FieldsOffsets[0]
+			offset2 := ma.FieldsOffsets[1]
+			offset3 := ma.FieldsOffsets[2]
+			offset4 := ma.FieldsOffsets[3]
+			offset5 := ma.FieldsOffsets[4]
 
 			// 3. Loop over Physical Memory Pages (CHUNKS)
 			for _, chunk := range ma.Arch.Memory.Pages {
-				count := chunk.Len // Using ChunkRow type
+				count := chunk.Len
 				if count == 0 {
 					continue
 				}
 
-				// 4. Resolve Base Pointers for this Chunk
-				ptrEntity := colEntity.GetPointer(chunk, 0)
-				ptr1 := col1.GetPointer(chunk, 0)
-				ptr2 := col2.GetPointer(chunk, 0)
-				ptr3 := col3.GetPointer(chunk, 0)
-				ptr4 := col4.GetPointer(chunk, 0)
-				ptr5 := col5.GetPointer(chunk, 0)
+				// 4. Resolve Base Pointers for this Chunk (Pure Math)
+				base := chunk.Ptr
+				ptrEntity := unsafe.Add(base, offsetEntity)
+				ptr1 := unsafe.Add(base, offset1)
+				ptr2 := unsafe.Add(base, offset2)
+				ptr3 := unsafe.Add(base, offset3)
+				ptr4 := unsafe.Add(base, offset4)
+				ptr5 := unsafe.Add(base, offset5)
 
 				// 5. Hot Loop (Death Loop)
 				for count > 0 {
@@ -1936,7 +1928,7 @@ func (v *View5[T1, T2, T3, T4, T5]) All() iter.Seq2[
 					}
 
 					// 6. Pointer Arithmetic (Move to next row)
-					ptrEntity = unsafe.Add(ptrEntity, strideEntity)
+					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
 					ptr1 = unsafe.Add(ptr1, stride1)
 					ptr2 = unsafe.Add(ptr2, stride2)
 					ptr3 = unsafe.Add(ptr3, stride3)
@@ -2098,14 +2090,6 @@ func (v *View5[T1, T2, T3, T4, T5]) Values() iter.Seq2[
 	},
 	struct{ V5 *T5 },
 ] {
-	// 1. Pre-calculate Strides (Invariant)
-	// We calculate type sizes once, outside the loops.
-	s1 := unsafe.Sizeof(*new(T1))
-	s2 := unsafe.Sizeof(*new(T2))
-	s3 := unsafe.Sizeof(*new(T3))
-	s4 := unsafe.Sizeof(*new(T4))
-	s5 := unsafe.Sizeof(*new(T5))
-
 	return func(yield func(
 		struct {
 			V1 *T1
@@ -2115,16 +2099,23 @@ func (v *View5[T1, T2, T3, T4, T5]) Values() iter.Seq2[
 		},
 		struct{ V5 *T5 },
 	) bool) {
+		// 1. Pre-calculate Strides (Invariant)
+		stride1 := unsafe.Sizeof(*new(T1))
+		stride2 := unsafe.Sizeof(*new(T2))
+		stride3 := unsafe.Sizeof(*new(T3))
+		stride4 := unsafe.Sizeof(*new(T4))
+		stride5 := unsafe.Sizeof(*new(T5))
 
 		// Loop over matched archetypes
 		for _, ma := range v.Baked {
 
-			// 2. Get Column Accessors for this Archetype
-			col1 := ma.GetColumn(0)
-			col2 := ma.GetColumn(1)
-			col3 := ma.GetColumn(2)
-			col4 := ma.GetColumn(3)
-			col5 := ma.GetColumn(4)
+			// 2. Load Offsets from Cache (L1 Cache Friendly)
+			// We use the same lookup array as in All(), just skipping the Entity offset.
+			offset1 := ma.FieldsOffsets[0]
+			offset2 := ma.FieldsOffsets[1]
+			offset3 := ma.FieldsOffsets[2]
+			offset4 := ma.FieldsOffsets[3]
+			offset5 := ma.FieldsOffsets[4]
 
 			// 3. Loop over Physical Memory Pages (CHUNKS)
 			for _, chunk := range ma.Arch.Memory.Pages {
@@ -2134,15 +2125,15 @@ func (v *View5[T1, T2, T3, T4, T5]) Values() iter.Seq2[
 				}
 
 				// 4. Resolve Base Pointers for this Chunk
-				// Starting at row 0 for each column in this specific chunk.
-				ptr1 := col1.GetPointer(chunk, 0)
-				ptr2 := col2.GetPointer(chunk, 0)
-				ptr3 := col3.GetPointer(chunk, 0)
-				ptr4 := col4.GetPointer(chunk, 0)
-				ptr5 := col5.GetPointer(chunk, 0)
+				// Pure math: ChunkBase + ComponentOffset
+				base := chunk.Ptr
+				ptr1 := unsafe.Add(base, offset1)
+				ptr2 := unsafe.Add(base, offset2)
+				ptr3 := unsafe.Add(base, offset3)
+				ptr4 := unsafe.Add(base, offset4)
+				ptr5 := unsafe.Add(base, offset5)
 
 				// 5. Hot Loop (Death Loop)
-				// Direct pointer arithmetic within the 16KB contiguous chunk.
 				for count > 0 {
 
 					// Construct Head
@@ -2162,12 +2153,11 @@ func (v *View5[T1, T2, T3, T4, T5]) Values() iter.Seq2[
 					}
 
 					// 6. Increment Pointers (Pointer Arithmetic)
-					// Move to the next row using pre-calculated strides.
-					ptr1 = unsafe.Add(ptr1, s1)
-					ptr2 = unsafe.Add(ptr2, s2)
-					ptr3 = unsafe.Add(ptr3, s3)
-					ptr4 = unsafe.Add(ptr4, s4)
-					ptr5 = unsafe.Add(ptr5, s5)
+					ptr1 = unsafe.Add(ptr1, stride1)
+					ptr2 = unsafe.Add(ptr2, stride2)
+					ptr3 = unsafe.Add(ptr3, stride3)
+					ptr4 = unsafe.Add(ptr4, stride4)
+					ptr5 = unsafe.Add(ptr5, stride5)
 
 					count--
 				}
@@ -2386,15 +2376,6 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq2[
 		V6 *T6
 	},
 ] {
-	// 1. Pre-calculate Strides (Invariant)
-	const strideEntity = unsafe.Sizeof(core.Entity(0))
-	stride1 := unsafe.Sizeof(*new(T1))
-	stride2 := unsafe.Sizeof(*new(T2))
-	stride3 := unsafe.Sizeof(*new(T3))
-	stride4 := unsafe.Sizeof(*new(T4))
-	stride5 := unsafe.Sizeof(*new(T5))
-	stride6 := unsafe.Sizeof(*new(T6))
-
 	return func(yield func(
 		struct {
 			Entity core.Entity
@@ -2408,33 +2389,42 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq2[
 			V6 *T6
 		},
 	) bool) {
+		// 1. Pre-calculate Strides (Invariant)
+		stride1 := unsafe.Sizeof(*new(T1))
+		stride2 := unsafe.Sizeof(*new(T2))
+		stride3 := unsafe.Sizeof(*new(T3))
+		stride4 := unsafe.Sizeof(*new(T4))
+		stride5 := unsafe.Sizeof(*new(T5))
+		stride6 := unsafe.Sizeof(*new(T6))
 
-		// Loop over matched archetypes
+		// Loop over matched archetypes - Value Copy is fast enough (stack allocation)
 		for _, ma := range v.Baked {
-			// 2. Get Column Accessors for this Archetype
-			colEntity := ma.GetEntityColumn()
-			col1 := ma.GetColumn(0)
-			col2 := ma.GetColumn(1)
-			col3 := ma.GetColumn(2)
-			col4 := ma.GetColumn(3)
-			col5 := ma.GetColumn(4)
-			col6 := ma.GetColumn(5)
+			// 2. Load Offsets from Cache (L1 Cache Friendly)
+			// Accessing fields on stack-allocated 'ma' is blazing fast
+			offsetEntity := ma.EntityChunkOffset
+			offset1 := ma.FieldsOffsets[0]
+			offset2 := ma.FieldsOffsets[1]
+			offset3 := ma.FieldsOffsets[2]
+			offset4 := ma.FieldsOffsets[3]
+			offset5 := ma.FieldsOffsets[4]
+			offset6 := ma.FieldsOffsets[5]
 
 			// 3. Loop over Physical Memory Pages (CHUNKS)
 			for _, chunk := range ma.Arch.Memory.Pages {
-				count := chunk.Len // Using ChunkRow type
+				count := chunk.Len
 				if count == 0 {
 					continue
 				}
 
-				// 4. Resolve Base Pointers for this Chunk
-				ptrEntity := colEntity.GetPointer(chunk, 0)
-				ptr1 := col1.GetPointer(chunk, 0)
-				ptr2 := col2.GetPointer(chunk, 0)
-				ptr3 := col3.GetPointer(chunk, 0)
-				ptr4 := col4.GetPointer(chunk, 0)
-				ptr5 := col5.GetPointer(chunk, 0)
-				ptr6 := col6.GetPointer(chunk, 0)
+				// 4. Resolve Base Pointers for this Chunk (Pure Math)
+				base := chunk.Ptr
+				ptrEntity := unsafe.Add(base, offsetEntity)
+				ptr1 := unsafe.Add(base, offset1)
+				ptr2 := unsafe.Add(base, offset2)
+				ptr3 := unsafe.Add(base, offset3)
+				ptr4 := unsafe.Add(base, offset4)
+				ptr5 := unsafe.Add(base, offset5)
+				ptr6 := unsafe.Add(base, offset6)
 
 				// 5. Hot Loop (Death Loop)
 				for count > 0 {
@@ -2469,7 +2459,7 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq2[
 					}
 
 					// 6. Pointer Arithmetic (Move to next row)
-					ptrEntity = unsafe.Add(ptrEntity, strideEntity)
+					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
 					ptr1 = unsafe.Add(ptr1, stride1)
 					ptr2 = unsafe.Add(ptr2, stride2)
 					ptr3 = unsafe.Add(ptr3, stride3)
@@ -2641,15 +2631,6 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Values() iter.Seq2[
 		V6 *T6
 	},
 ] {
-	// 1. Pre-calculate Strides (Invariant)
-	// We calculate type sizes once, outside the loops.
-	s1 := unsafe.Sizeof(*new(T1))
-	s2 := unsafe.Sizeof(*new(T2))
-	s3 := unsafe.Sizeof(*new(T3))
-	s4 := unsafe.Sizeof(*new(T4))
-	s5 := unsafe.Sizeof(*new(T5))
-	s6 := unsafe.Sizeof(*new(T6))
-
 	return func(yield func(
 		struct {
 			V1 *T1
@@ -2662,17 +2643,25 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Values() iter.Seq2[
 			V6 *T6
 		},
 	) bool) {
+		// 1. Pre-calculate Strides (Invariant)
+		stride1 := unsafe.Sizeof(*new(T1))
+		stride2 := unsafe.Sizeof(*new(T2))
+		stride3 := unsafe.Sizeof(*new(T3))
+		stride4 := unsafe.Sizeof(*new(T4))
+		stride5 := unsafe.Sizeof(*new(T5))
+		stride6 := unsafe.Sizeof(*new(T6))
 
 		// Loop over matched archetypes
 		for _, ma := range v.Baked {
 
-			// 2. Get Column Accessors for this Archetype
-			col1 := ma.GetColumn(0)
-			col2 := ma.GetColumn(1)
-			col3 := ma.GetColumn(2)
-			col4 := ma.GetColumn(3)
-			col5 := ma.GetColumn(4)
-			col6 := ma.GetColumn(5)
+			// 2. Load Offsets from Cache (L1 Cache Friendly)
+			// We use the same lookup array as in All(), just skipping the Entity offset.
+			offset1 := ma.FieldsOffsets[0]
+			offset2 := ma.FieldsOffsets[1]
+			offset3 := ma.FieldsOffsets[2]
+			offset4 := ma.FieldsOffsets[3]
+			offset5 := ma.FieldsOffsets[4]
+			offset6 := ma.FieldsOffsets[5]
 
 			// 3. Loop over Physical Memory Pages (CHUNKS)
 			for _, chunk := range ma.Arch.Memory.Pages {
@@ -2682,16 +2671,16 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Values() iter.Seq2[
 				}
 
 				// 4. Resolve Base Pointers for this Chunk
-				// Starting at row 0 for each column in this specific chunk.
-				ptr1 := col1.GetPointer(chunk, 0)
-				ptr2 := col2.GetPointer(chunk, 0)
-				ptr3 := col3.GetPointer(chunk, 0)
-				ptr4 := col4.GetPointer(chunk, 0)
-				ptr5 := col5.GetPointer(chunk, 0)
-				ptr6 := col6.GetPointer(chunk, 0)
+				// Pure math: ChunkBase + ComponentOffset
+				base := chunk.Ptr
+				ptr1 := unsafe.Add(base, offset1)
+				ptr2 := unsafe.Add(base, offset2)
+				ptr3 := unsafe.Add(base, offset3)
+				ptr4 := unsafe.Add(base, offset4)
+				ptr5 := unsafe.Add(base, offset5)
+				ptr6 := unsafe.Add(base, offset6)
 
 				// 5. Hot Loop (Death Loop)
-				// Direct pointer arithmetic within the 16KB contiguous chunk.
 				for count > 0 {
 
 					// Construct Head
@@ -2714,13 +2703,12 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Values() iter.Seq2[
 					}
 
 					// 6. Increment Pointers (Pointer Arithmetic)
-					// Move to the next row using pre-calculated strides.
-					ptr1 = unsafe.Add(ptr1, s1)
-					ptr2 = unsafe.Add(ptr2, s2)
-					ptr3 = unsafe.Add(ptr3, s3)
-					ptr4 = unsafe.Add(ptr4, s4)
-					ptr5 = unsafe.Add(ptr5, s5)
-					ptr6 = unsafe.Add(ptr6, s6)
+					ptr1 = unsafe.Add(ptr1, stride1)
+					ptr2 = unsafe.Add(ptr2, stride2)
+					ptr3 = unsafe.Add(ptr3, stride3)
+					ptr4 = unsafe.Add(ptr4, stride4)
+					ptr5 = unsafe.Add(ptr5, stride5)
+					ptr6 = unsafe.Add(ptr6, stride6)
 
 					count--
 				}
@@ -2955,16 +2943,6 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) All() iter.Seq2[
 		V7 *T7
 	},
 ] {
-	// 1. Pre-calculate Strides (Invariant)
-	const strideEntity = unsafe.Sizeof(core.Entity(0))
-	stride1 := unsafe.Sizeof(*new(T1))
-	stride2 := unsafe.Sizeof(*new(T2))
-	stride3 := unsafe.Sizeof(*new(T3))
-	stride4 := unsafe.Sizeof(*new(T4))
-	stride5 := unsafe.Sizeof(*new(T5))
-	stride6 := unsafe.Sizeof(*new(T6))
-	stride7 := unsafe.Sizeof(*new(T7))
-
 	return func(yield func(
 		struct {
 			Entity core.Entity
@@ -2979,35 +2957,45 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) All() iter.Seq2[
 			V7 *T7
 		},
 	) bool) {
+		// 1. Pre-calculate Strides (Invariant)
+		stride1 := unsafe.Sizeof(*new(T1))
+		stride2 := unsafe.Sizeof(*new(T2))
+		stride3 := unsafe.Sizeof(*new(T3))
+		stride4 := unsafe.Sizeof(*new(T4))
+		stride5 := unsafe.Sizeof(*new(T5))
+		stride6 := unsafe.Sizeof(*new(T6))
+		stride7 := unsafe.Sizeof(*new(T7))
 
-		// Loop over matched archetypes
+		// Loop over matched archetypes - Value Copy is fast enough (stack allocation)
 		for _, ma := range v.Baked {
-			// 2. Get Column Accessors for this Archetype
-			colEntity := ma.GetEntityColumn()
-			col1 := ma.GetColumn(0)
-			col2 := ma.GetColumn(1)
-			col3 := ma.GetColumn(2)
-			col4 := ma.GetColumn(3)
-			col5 := ma.GetColumn(4)
-			col6 := ma.GetColumn(5)
-			col7 := ma.GetColumn(6)
+			// 2. Load Offsets from Cache (L1 Cache Friendly)
+			// Accessing fields on stack-allocated 'ma' is blazing fast
+			offsetEntity := ma.EntityChunkOffset
+			offset1 := ma.FieldsOffsets[0]
+			offset2 := ma.FieldsOffsets[1]
+			offset3 := ma.FieldsOffsets[2]
+			offset4 := ma.FieldsOffsets[3]
+			offset5 := ma.FieldsOffsets[4]
+			offset6 := ma.FieldsOffsets[5]
+			offset7 := ma.FieldsOffsets[6]
 
 			// 3. Loop over Physical Memory Pages (CHUNKS)
 			for _, chunk := range ma.Arch.Memory.Pages {
-				count := chunk.Len // Using ChunkRow type
+				count := chunk.Len
 				if count == 0 {
 					continue
 				}
 
-				// 4. Resolve Base Pointers for this Chunk
-				ptrEntity := colEntity.GetPointer(chunk, 0)
-				ptr1 := col1.GetPointer(chunk, 0)
-				ptr2 := col2.GetPointer(chunk, 0)
-				ptr3 := col3.GetPointer(chunk, 0)
-				ptr4 := col4.GetPointer(chunk, 0)
-				ptr5 := col5.GetPointer(chunk, 0)
-				ptr6 := col6.GetPointer(chunk, 0)
-				ptr7 := col7.GetPointer(chunk, 0)
+				// 4. Resolve Base Pointers for this Chunk (Pure Math)
+				base := chunk.Ptr
+				ptrEntity := unsafe.Add(base, offsetEntity)
+				ptr1 := unsafe.Add(base, offset1)
+				ptr2 := unsafe.Add(base, offset2)
+				ptr3 := unsafe.Add(base, offset3)
+				ptr4 := unsafe.Add(base, offset4)
+				ptr5 := unsafe.Add(base, offset5)
+				ptr6 := unsafe.Add(base, offset6)
+				ptr7 := unsafe.Add(base, offset7)
 
 				// 5. Hot Loop (Death Loop)
 				for count > 0 {
@@ -3044,7 +3032,7 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) All() iter.Seq2[
 					}
 
 					// 6. Pointer Arithmetic (Move to next row)
-					ptrEntity = unsafe.Add(ptrEntity, strideEntity)
+					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
 					ptr1 = unsafe.Add(ptr1, stride1)
 					ptr2 = unsafe.Add(ptr2, stride2)
 					ptr3 = unsafe.Add(ptr3, stride3)
@@ -3224,16 +3212,6 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Values() iter.Seq2[
 		V7 *T7
 	},
 ] {
-	// 1. Pre-calculate Strides (Invariant)
-	// We calculate type sizes once, outside the loops.
-	s1 := unsafe.Sizeof(*new(T1))
-	s2 := unsafe.Sizeof(*new(T2))
-	s3 := unsafe.Sizeof(*new(T3))
-	s4 := unsafe.Sizeof(*new(T4))
-	s5 := unsafe.Sizeof(*new(T5))
-	s6 := unsafe.Sizeof(*new(T6))
-	s7 := unsafe.Sizeof(*new(T7))
-
 	return func(yield func(
 		struct {
 			V1 *T1
@@ -3247,18 +3225,27 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Values() iter.Seq2[
 			V7 *T7
 		},
 	) bool) {
+		// 1. Pre-calculate Strides (Invariant)
+		stride1 := unsafe.Sizeof(*new(T1))
+		stride2 := unsafe.Sizeof(*new(T2))
+		stride3 := unsafe.Sizeof(*new(T3))
+		stride4 := unsafe.Sizeof(*new(T4))
+		stride5 := unsafe.Sizeof(*new(T5))
+		stride6 := unsafe.Sizeof(*new(T6))
+		stride7 := unsafe.Sizeof(*new(T7))
 
 		// Loop over matched archetypes
 		for _, ma := range v.Baked {
 
-			// 2. Get Column Accessors for this Archetype
-			col1 := ma.GetColumn(0)
-			col2 := ma.GetColumn(1)
-			col3 := ma.GetColumn(2)
-			col4 := ma.GetColumn(3)
-			col5 := ma.GetColumn(4)
-			col6 := ma.GetColumn(5)
-			col7 := ma.GetColumn(6)
+			// 2. Load Offsets from Cache (L1 Cache Friendly)
+			// We use the same lookup array as in All(), just skipping the Entity offset.
+			offset1 := ma.FieldsOffsets[0]
+			offset2 := ma.FieldsOffsets[1]
+			offset3 := ma.FieldsOffsets[2]
+			offset4 := ma.FieldsOffsets[3]
+			offset5 := ma.FieldsOffsets[4]
+			offset6 := ma.FieldsOffsets[5]
+			offset7 := ma.FieldsOffsets[6]
 
 			// 3. Loop over Physical Memory Pages (CHUNKS)
 			for _, chunk := range ma.Arch.Memory.Pages {
@@ -3268,17 +3255,17 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Values() iter.Seq2[
 				}
 
 				// 4. Resolve Base Pointers for this Chunk
-				// Starting at row 0 for each column in this specific chunk.
-				ptr1 := col1.GetPointer(chunk, 0)
-				ptr2 := col2.GetPointer(chunk, 0)
-				ptr3 := col3.GetPointer(chunk, 0)
-				ptr4 := col4.GetPointer(chunk, 0)
-				ptr5 := col5.GetPointer(chunk, 0)
-				ptr6 := col6.GetPointer(chunk, 0)
-				ptr7 := col7.GetPointer(chunk, 0)
+				// Pure math: ChunkBase + ComponentOffset
+				base := chunk.Ptr
+				ptr1 := unsafe.Add(base, offset1)
+				ptr2 := unsafe.Add(base, offset2)
+				ptr3 := unsafe.Add(base, offset3)
+				ptr4 := unsafe.Add(base, offset4)
+				ptr5 := unsafe.Add(base, offset5)
+				ptr6 := unsafe.Add(base, offset6)
+				ptr7 := unsafe.Add(base, offset7)
 
 				// 5. Hot Loop (Death Loop)
-				// Direct pointer arithmetic within the 16KB contiguous chunk.
 				for count > 0 {
 
 					// Construct Head
@@ -3302,14 +3289,13 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Values() iter.Seq2[
 					}
 
 					// 6. Increment Pointers (Pointer Arithmetic)
-					// Move to the next row using pre-calculated strides.
-					ptr1 = unsafe.Add(ptr1, s1)
-					ptr2 = unsafe.Add(ptr2, s2)
-					ptr3 = unsafe.Add(ptr3, s3)
-					ptr4 = unsafe.Add(ptr4, s4)
-					ptr5 = unsafe.Add(ptr5, s5)
-					ptr6 = unsafe.Add(ptr6, s6)
-					ptr7 = unsafe.Add(ptr7, s7)
+					ptr1 = unsafe.Add(ptr1, stride1)
+					ptr2 = unsafe.Add(ptr2, stride2)
+					ptr3 = unsafe.Add(ptr3, stride3)
+					ptr4 = unsafe.Add(ptr4, stride4)
+					ptr5 = unsafe.Add(ptr5, stride5)
+					ptr6 = unsafe.Add(ptr6, stride6)
+					ptr7 = unsafe.Add(ptr7, stride7)
 
 					count--
 				}
@@ -3554,17 +3540,6 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) All() iter.Seq2[
 		V8 *T8
 	},
 ] {
-	// 1. Pre-calculate Strides (Invariant)
-	const strideEntity = unsafe.Sizeof(core.Entity(0))
-	stride1 := unsafe.Sizeof(*new(T1))
-	stride2 := unsafe.Sizeof(*new(T2))
-	stride3 := unsafe.Sizeof(*new(T3))
-	stride4 := unsafe.Sizeof(*new(T4))
-	stride5 := unsafe.Sizeof(*new(T5))
-	stride6 := unsafe.Sizeof(*new(T6))
-	stride7 := unsafe.Sizeof(*new(T7))
-	stride8 := unsafe.Sizeof(*new(T8))
-
 	return func(yield func(
 		struct {
 			Entity core.Entity
@@ -3580,37 +3555,48 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) All() iter.Seq2[
 			V8 *T8
 		},
 	) bool) {
+		// 1. Pre-calculate Strides (Invariant)
+		stride1 := unsafe.Sizeof(*new(T1))
+		stride2 := unsafe.Sizeof(*new(T2))
+		stride3 := unsafe.Sizeof(*new(T3))
+		stride4 := unsafe.Sizeof(*new(T4))
+		stride5 := unsafe.Sizeof(*new(T5))
+		stride6 := unsafe.Sizeof(*new(T6))
+		stride7 := unsafe.Sizeof(*new(T7))
+		stride8 := unsafe.Sizeof(*new(T8))
 
-		// Loop over matched archetypes
+		// Loop over matched archetypes - Value Copy is fast enough (stack allocation)
 		for _, ma := range v.Baked {
-			// 2. Get Column Accessors for this Archetype
-			colEntity := ma.GetEntityColumn()
-			col1 := ma.GetColumn(0)
-			col2 := ma.GetColumn(1)
-			col3 := ma.GetColumn(2)
-			col4 := ma.GetColumn(3)
-			col5 := ma.GetColumn(4)
-			col6 := ma.GetColumn(5)
-			col7 := ma.GetColumn(6)
-			col8 := ma.GetColumn(7)
+			// 2. Load Offsets from Cache (L1 Cache Friendly)
+			// Accessing fields on stack-allocated 'ma' is blazing fast
+			offsetEntity := ma.EntityChunkOffset
+			offset1 := ma.FieldsOffsets[0]
+			offset2 := ma.FieldsOffsets[1]
+			offset3 := ma.FieldsOffsets[2]
+			offset4 := ma.FieldsOffsets[3]
+			offset5 := ma.FieldsOffsets[4]
+			offset6 := ma.FieldsOffsets[5]
+			offset7 := ma.FieldsOffsets[6]
+			offset8 := ma.FieldsOffsets[7]
 
 			// 3. Loop over Physical Memory Pages (CHUNKS)
 			for _, chunk := range ma.Arch.Memory.Pages {
-				count := chunk.Len // Using ChunkRow type
+				count := chunk.Len
 				if count == 0 {
 					continue
 				}
 
-				// 4. Resolve Base Pointers for this Chunk
-				ptrEntity := colEntity.GetPointer(chunk, 0)
-				ptr1 := col1.GetPointer(chunk, 0)
-				ptr2 := col2.GetPointer(chunk, 0)
-				ptr3 := col3.GetPointer(chunk, 0)
-				ptr4 := col4.GetPointer(chunk, 0)
-				ptr5 := col5.GetPointer(chunk, 0)
-				ptr6 := col6.GetPointer(chunk, 0)
-				ptr7 := col7.GetPointer(chunk, 0)
-				ptr8 := col8.GetPointer(chunk, 0)
+				// 4. Resolve Base Pointers for this Chunk (Pure Math)
+				base := chunk.Ptr
+				ptrEntity := unsafe.Add(base, offsetEntity)
+				ptr1 := unsafe.Add(base, offset1)
+				ptr2 := unsafe.Add(base, offset2)
+				ptr3 := unsafe.Add(base, offset3)
+				ptr4 := unsafe.Add(base, offset4)
+				ptr5 := unsafe.Add(base, offset5)
+				ptr6 := unsafe.Add(base, offset6)
+				ptr7 := unsafe.Add(base, offset7)
+				ptr8 := unsafe.Add(base, offset8)
 
 				// 5. Hot Loop (Death Loop)
 				for count > 0 {
@@ -3649,7 +3635,7 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) All() iter.Seq2[
 					}
 
 					// 6. Pointer Arithmetic (Move to next row)
-					ptrEntity = unsafe.Add(ptrEntity, strideEntity)
+					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
 					ptr1 = unsafe.Add(ptr1, stride1)
 					ptr2 = unsafe.Add(ptr2, stride2)
 					ptr3 = unsafe.Add(ptr3, stride3)
@@ -3837,17 +3823,6 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Values() iter.Seq2[
 		V8 *T8
 	},
 ] {
-	// 1. Pre-calculate Strides (Invariant)
-	// We calculate type sizes once, outside the loops.
-	s1 := unsafe.Sizeof(*new(T1))
-	s2 := unsafe.Sizeof(*new(T2))
-	s3 := unsafe.Sizeof(*new(T3))
-	s4 := unsafe.Sizeof(*new(T4))
-	s5 := unsafe.Sizeof(*new(T5))
-	s6 := unsafe.Sizeof(*new(T6))
-	s7 := unsafe.Sizeof(*new(T7))
-	s8 := unsafe.Sizeof(*new(T8))
-
 	return func(yield func(
 		struct {
 			V1 *T1
@@ -3862,19 +3837,29 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Values() iter.Seq2[
 			V8 *T8
 		},
 	) bool) {
+		// 1. Pre-calculate Strides (Invariant)
+		stride1 := unsafe.Sizeof(*new(T1))
+		stride2 := unsafe.Sizeof(*new(T2))
+		stride3 := unsafe.Sizeof(*new(T3))
+		stride4 := unsafe.Sizeof(*new(T4))
+		stride5 := unsafe.Sizeof(*new(T5))
+		stride6 := unsafe.Sizeof(*new(T6))
+		stride7 := unsafe.Sizeof(*new(T7))
+		stride8 := unsafe.Sizeof(*new(T8))
 
 		// Loop over matched archetypes
 		for _, ma := range v.Baked {
 
-			// 2. Get Column Accessors for this Archetype
-			col1 := ma.GetColumn(0)
-			col2 := ma.GetColumn(1)
-			col3 := ma.GetColumn(2)
-			col4 := ma.GetColumn(3)
-			col5 := ma.GetColumn(4)
-			col6 := ma.GetColumn(5)
-			col7 := ma.GetColumn(6)
-			col8 := ma.GetColumn(7)
+			// 2. Load Offsets from Cache (L1 Cache Friendly)
+			// We use the same lookup array as in All(), just skipping the Entity offset.
+			offset1 := ma.FieldsOffsets[0]
+			offset2 := ma.FieldsOffsets[1]
+			offset3 := ma.FieldsOffsets[2]
+			offset4 := ma.FieldsOffsets[3]
+			offset5 := ma.FieldsOffsets[4]
+			offset6 := ma.FieldsOffsets[5]
+			offset7 := ma.FieldsOffsets[6]
+			offset8 := ma.FieldsOffsets[7]
 
 			// 3. Loop over Physical Memory Pages (CHUNKS)
 			for _, chunk := range ma.Arch.Memory.Pages {
@@ -3884,18 +3869,18 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Values() iter.Seq2[
 				}
 
 				// 4. Resolve Base Pointers for this Chunk
-				// Starting at row 0 for each column in this specific chunk.
-				ptr1 := col1.GetPointer(chunk, 0)
-				ptr2 := col2.GetPointer(chunk, 0)
-				ptr3 := col3.GetPointer(chunk, 0)
-				ptr4 := col4.GetPointer(chunk, 0)
-				ptr5 := col5.GetPointer(chunk, 0)
-				ptr6 := col6.GetPointer(chunk, 0)
-				ptr7 := col7.GetPointer(chunk, 0)
-				ptr8 := col8.GetPointer(chunk, 0)
+				// Pure math: ChunkBase + ComponentOffset
+				base := chunk.Ptr
+				ptr1 := unsafe.Add(base, offset1)
+				ptr2 := unsafe.Add(base, offset2)
+				ptr3 := unsafe.Add(base, offset3)
+				ptr4 := unsafe.Add(base, offset4)
+				ptr5 := unsafe.Add(base, offset5)
+				ptr6 := unsafe.Add(base, offset6)
+				ptr7 := unsafe.Add(base, offset7)
+				ptr8 := unsafe.Add(base, offset8)
 
 				// 5. Hot Loop (Death Loop)
-				// Direct pointer arithmetic within the 16KB contiguous chunk.
 				for count > 0 {
 
 					// Construct Head
@@ -3920,15 +3905,14 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Values() iter.Seq2[
 					}
 
 					// 6. Increment Pointers (Pointer Arithmetic)
-					// Move to the next row using pre-calculated strides.
-					ptr1 = unsafe.Add(ptr1, s1)
-					ptr2 = unsafe.Add(ptr2, s2)
-					ptr3 = unsafe.Add(ptr3, s3)
-					ptr4 = unsafe.Add(ptr4, s4)
-					ptr5 = unsafe.Add(ptr5, s5)
-					ptr6 = unsafe.Add(ptr6, s6)
-					ptr7 = unsafe.Add(ptr7, s7)
-					ptr8 = unsafe.Add(ptr8, s8)
+					ptr1 = unsafe.Add(ptr1, stride1)
+					ptr2 = unsafe.Add(ptr2, stride2)
+					ptr3 = unsafe.Add(ptr3, stride3)
+					ptr4 = unsafe.Add(ptr4, stride4)
+					ptr5 = unsafe.Add(ptr5, stride5)
+					ptr6 = unsafe.Add(ptr6, stride6)
+					ptr7 = unsafe.Add(ptr7, stride7)
+					ptr8 = unsafe.Add(ptr8, stride8)
 
 					count--
 				}
