@@ -201,7 +201,7 @@ func BenchmarkView6_All(b *testing.B) {
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
-		for head, _ := range view6.All() {
+		for head := range view6.All() {
 			pos, vel, acc := head.V1, head.V2, head.V3
 			vel.X += acc.X
 			pos.X += vel.X
@@ -242,7 +242,7 @@ func BenchmarkView8_All(b *testing.B) {
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
-		for head, _ := range view8.All() {
+		for head := range view8.All() {
 			pos, vel, acc := head.V1, head.V2, head.V3
 			vel.X += acc.X
 			pos.X += vel.X
@@ -404,7 +404,7 @@ func BenchmarkView5_Values(b *testing.B) {
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
-		for head, _ := range view5.Values() {
+		for head := range view5.Values() {
 			pos, vel, acc := head.V1, head.V2, head.V3
 			vel.X += acc.X
 			pos.X += vel.X
@@ -424,7 +424,7 @@ func BenchmarkView6_Values(b *testing.B) {
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
-		for head, _ := range view6.Values() {
+		for head := range view6.Values() {
 			pos, vel, acc := head.V1, head.V2, head.V3
 			vel.X += acc.X
 			pos.X += vel.X
@@ -444,7 +444,7 @@ func BenchmarkView7_Values(b *testing.B) {
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
-		for head, _ := range view7.Values() {
+		for head := range view7.Values() {
 			pos, vel, acc := head.V1, head.V2, head.V3
 			vel.X += acc.X
 			pos.X += vel.X
@@ -464,7 +464,7 @@ func BenchmarkView8_Values(b *testing.B) {
 
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
-		for head, _ := range view8.Values() {
+		for head := range view8.Values() {
 			pos, vel, acc := head.V1, head.V2, head.V3
 			vel.X += acc.X
 			pos.X += vel.X

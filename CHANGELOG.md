@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.3] - 2026-02-17
+
+### Architecture & Memory 🏗️
+* **Chunked SoA (Memory Paging):** Transition from monolithic slices to fixed-size memory pages (aligned to L1 Cache).
+    * **Stable Growth:** Memory allocation is now linear and "stepless". This eliminates the massive latency spikes caused by copying millions of elements when a slice capacity is exceeded.
+    * **Trade-off:** While "Hot Cache" iteration is significantly faster, the new architecture introduces overhead during iteration over massive datasets (>1M entities) due to pointer indirection between memory chunks.
+
+### Performance 🚀
+* **Hot Cache Iteration (1k entities):** Significant throughput increase for datasets fitting in L1/L2 cache.
+    * **View Iteration:** Performance improved by **~25%**.
+    * **Values Iteration:** Consistent **~25%** speedup across component counts.
+* **Direct Access:** `Get Component` optimized to **4.49 ns**, providing near-pointer-access speeds.
+* **Structural Stability:** Operations like `Create Entity` and `Add Component` remain stable with a slight performance edge (**~3-5%** improvement).
+
+<details>
+  <summary>Click to see full benchstat results (Apple M1 Max)</summary>
+
+#### 1. Low Scale (1k Entities - Hot Cache)
+| Task | Before (Monolithic) | After (Chunked) | Δ % |
+| :--- | :--- | :--- | :--- |
+| **View0_All** (Entity Only) | 360.4 ns | 360.8 ns | **~0.0%** |
+| **View3_All** (3 Comps) | 726.7 ns | 538.4 ns | **-25.91%** |
+| **View8_All** (8 Comps) | 752.8 ns | 538.3 ns | **-28.49%** |
+| **View3_Values** | 720.4 ns | 539.8 ns | **-25.07%** |
+| **Get Component** | ~5.50 ns | **4.49 ns** | **-18.00%** |
+| **Create Entity (4 comps)** | 29.99 ns | 28.72 ns | -4.23% |
+| **Query (Filter 100)** | 141.3 ns | 138.7 ns | -1.84% |
+
+#### 2. High Scale Stress Test (10M Entities)
+| Metric | Previous (Monolithic) | Current (Chunked) | Impact |
+| :--- | :--- | :--- | :--- |
+| **Throughput** | ~0.78 ns/entity | ~2.01 ns/entity | Slower (Chunk hopping overhead) |
+| **Memory Alloc** | Exponential (Copy spikes) | **Linear (Stepless)** | **Stable Latency** |
+
+</details>
 
 ## [1.2.2] - 2026-02-13
 
