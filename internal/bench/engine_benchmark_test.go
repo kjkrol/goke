@@ -17,10 +17,7 @@ type Props4 struct{ V float64 }
 func BenchmarkEngine_Structural(b *testing.B) {
 	ecs := goke.New(
 		goke.WithInitialEntityCap(100000),
-		goke.WithDefaultArchetypeChunkSize(4096),
-		goke.WithInitialArchetypeRegistryCap(128),
 		goke.WithFreeIndicesCap(100000),
-		goke.WithViewRegistryInitCap(64),
 	)
 	// Pre-registering for "Turbo" performance in bench
 
@@ -135,7 +132,7 @@ func BenchmarkEngine_Structural(b *testing.B) {
 
 	// Benchmark for ComponentGet: Uses reflection to find ComponentInfo.
 	// This is the "Convenience Path" - slower but easier to use.
-	b.Run("Get Component ", func(b *testing.B) {
+	b.Run("Get Component", func(b *testing.B) {
 		goke.Reset(ecs)
 
 		velDesc := goke.RegisterComponent[Velocity3](ecs)
@@ -148,8 +145,53 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			pos, err := goke.GetComponent[Velocity3](ecs, e, velDesc)
+			pos := goke.GetComponent[Velocity3](ecs, e, velDesc)
+			pos.X += 1.0
+		}
+	})
+
+	// Benchmark for ComponentGet: Uses reflection to find ComponentInfo.
+	// This is the "Convenience Path" - slower but easier to use.
+	b.Run("Get Component (Safe)", func(b *testing.B) {
+		goke.Reset(ecs)
+
+		velDesc := goke.RegisterComponent[Velocity3](ecs)
+		blueprintA := goke.NewBlueprint1[Velocity3](ecs)
+		_, _ = blueprintA.Create()
+
+		e, vel := blueprintA.Create()
+		*vel = Velocity3{X: 1, Y: 2, Z: 3}
+
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			pos, err := goke.SafeGetComponent[Velocity3](ecs, e, velDesc)
 			if err == nil {
+				pos.X += 1.0
+			}
+		}
+	})
+
+	// Benchmark for ComponentGet: Uses reflection to find ComponentInfo.
+	// This is the "Convenience Path" - slower but easier to use.
+	b.Run("Get Component via View.Filter", func(b *testing.B) {
+		goke.Reset(ecs)
+
+		_ = goke.RegisterComponent[Velocity3](ecs)
+		blueprintA := goke.NewBlueprint1[Velocity3](ecs)
+		_, _ = blueprintA.Create()
+
+		e, vel := blueprintA.Create()
+		*vel = Velocity3{X: 1, Y: 2, Z: 3}
+
+		view := goke.NewView1[Velocity3](ecs)
+		arr := []goke.Entity{e}
+
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			for head := range view.FilterValues(arr) {
+				pos := head.V1
 				pos.X += 1.0
 			}
 		}
@@ -159,10 +201,7 @@ func BenchmarkEngine_Structural(b *testing.B) {
 func BenchmarkEngine_Query(b *testing.B) {
 	ecs := goke.New(
 		goke.WithInitialEntityCap(100000),
-		goke.WithDefaultArchetypeChunkSize(1024),
-		goke.WithInitialArchetypeRegistryCap(128),
 		goke.WithFreeIndicesCap(100000),
-		goke.WithViewRegistryInitCap(64),
 	)
 	_ = goke.RegisterComponent[Position3](ecs)
 	blueprint := goke.NewBlueprint1[Position3](ecs)
@@ -188,7 +227,6 @@ func BenchmarkEngine_RemoveEntity_Clean(b *testing.B) {
 	// Initialize the ecs with "Turbo" settings to pre-allocate memory buffers
 	ecs := goke.New(
 		goke.WithInitialEntityCap(count),
-		goke.WithDefaultArchetypeChunkSize(4096),
 		goke.WithFreeIndicesCap(count),
 	)
 	_ = goke.RegisterComponent[Position3](ecs)

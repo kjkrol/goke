@@ -5,6 +5,14 @@ import (
 	"testing"
 )
 
+type position struct {
+	x, y float64
+}
+
+type velocity struct {
+	vx, vy float64
+}
+
 // 1. Fast Path Discovery
 func TestArchetypeRegistry_FastPath(t *testing.T) {
 	reg := setupTestRegistry()
@@ -155,12 +163,19 @@ func TestArchetypeRegistry_OverwriteIdempotency(t *testing.T) {
 
 	linkAfter, _ := reg.EntityLinkStore.Get(e)
 
-	if linkBefore.ArchId != linkAfter.ArchId || linkBefore.Row != linkAfter.Row {
+	if linkBefore.ArchId != linkAfter.ArchId || linkBefore.ChunkRow != linkAfter.ChunkRow {
 		t.Error("re-assigning same component should not move entity in graph")
 	}
 
 	linkAfterArch := &reg.Archetypes[linkAfter.ArchId]
-	gotData := *(*position)(linkAfterArch.GetColumn(posTypeInfo.ID).GetElement(linkAfter.Row))
+	targetChunk := linkAfterArch.Memory.Pages[linkAfter.ChunkIdx]
+
+	// B. Pobierasz wskaźnik przez kolumnę (Resolve Once)
+	col := linkAfterArch.GetColumn(posTypeInfo.ID)
+	ptr := col.GetPointer(targetChunk, linkAfter.ChunkRow)
+
+	// 3. Weryfikacja danych
+	gotData := *(*position)(ptr)
 	if gotData != p2 {
 		t.Errorf("data update failed: got %+v, want %+v", gotData, p2)
 	}
@@ -194,8 +209,8 @@ func TestArchetypeRegistry_SwapPopIntegrity(t *testing.T) {
 	setPos(e2, pData2)
 
 	link2_pre, _ := reg.EntityLinkStore.Get(e2)
-	if link2_pre.Row != 2 {
-		t.Fatalf("Setup error: e2 should be at row 2, got %d", link2_pre.Row)
+	if link2_pre.ChunkRow != 2 {
+		t.Fatalf("Setup error: e2 should be at row 2, got %d", link2_pre.ChunkRow)
 	}
 
 	reg.UnlinkEntity(e1)
@@ -204,8 +219,8 @@ func TestArchetypeRegistry_SwapPopIntegrity(t *testing.T) {
 	if !ok {
 		t.Fatal("Entity e2 lost from LinkStore")
 	}
-	if link2_post.Row != 1 {
-		t.Errorf("SwapPop failed: E2 should move to row 1, got %d", link2_post.Row)
+	if link2_post.ChunkRow != 1 {
+		t.Errorf("SwapPop failed: E2 should move to row 1, got %d", link2_post.ChunkRow)
 	}
 
 	ptr, err := reg.AllocateComponentMemory(e2, posTypeInfo)

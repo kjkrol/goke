@@ -39,14 +39,13 @@
 
 # 🚀 Use Cases: Why GOKe?
 
-GOKe is not just a game engine component; it is a **high-performance data orchestrator**. It excels in scenarios where you need to manage a massive number of objects with high-frequency updates while keeping the Go Garbage Collector (GC) quiet.
+GOKe is primarily a **high-performance ECS for game development**, designed to manage massive entity counts while keeping the Go Garbage Collector (GC) completely silent. However, its core architecture a **data-oriented orchestrator** — makes it suitable for any scenario requiring cache-friendly iteration over millions of objects.
 
-## 🎮 Gaming (Ebitengine)
+## 🎮 Gaming (Ebitengine & Frameworks)
 
-GOKe is a perfect companion for **Ebitengine** and other Go game frameworks. In game development, managing thousands of active objects (bullets, particles, NPCs) can quickly hit a CPU bottleneck due to pointer chasing and GC pressure.
+GOKe is the perfect companion for **Ebitengine** or purely server-side game loops. Managing thousands of active objects (bullets, particles, NPCs) often hits CPU bottlenecks due to pointer chasing and GC pressure. GOKe solves this via:
 
-By using GOKe with Ebitengine:
-* **Massive Sprite Batches**: You can update and filter thousands of game entities in a single tick and send them to the GPU buffer with minimal overhead.
+* **Zero-Alloc Updates**: Update thousands of entities in a single tick without triggering the GC.
 * **Decoupled Logic**: Keep your rendering logic in Ebitengine and your game state in GOKe's optimized archetypes, utilizing structures like **[Bucket Grid](https://github.com/kjkrol/gokg)**.
 * **Deterministic Physics**: Run complex collision detection systems across all entities using `RunParallel`.
 
@@ -76,25 +75,12 @@ By using GOKe with Ebitengine:
   </tbody>
 </table>
 
-## 🧬 High-Mass Simulations
-If your project involves millions of "agents" (e.g., crowd simulation, epidemiological models, or particle physics),
-GOKe’s **Linear SoA (Structure of Arrays)** layout is essential. It ensures that data is packed tightly in memory,
-allowing the CPU to process entities at sub-nanosecond speeds by minimizing cache misses.
+## 🧬 Simulations & High-Throughput Data
+Beyond gaming, GOKe shines in any domain where latency consistency is critical and object counts are in the millions.
 
-## ⚡ Latency-Critical Data Pipelines
-In fields like **FinTech** or **Real-time Telemetry**, unpredictable GC pauses can be a dealbreaker.
-Because GOKe achieves **zero allocations in the hot path**, it provides the deterministic performance required for 
-processing streams of data (like order matching or sensor fusion) without sudden latency spikes.
-
-## 🤖 Complex State Management (Digital Twins)
-When building digital replicas of complex systems (factories, power grids, or IoT networks),
-you often have thousands of sensors with overlapping sets of properties. GOKe’s **Archetype-based filtering** allows 
-you to query and update specific subsets of these sensors with $O(1)$ or near - $O(1)$ complexity.
-
-## 📐 Real-time Tooling & CAD
-For applications that require high-speed manipulation of large geometric datasets or scene graphs, GOKe offers 
-a way to decouple data from logic. It allows you to run heavy analytical "Systems" over your data blocks 
-at near-metal speeds.
+* **Agent-Based Simulations**: Crowd dynamics, epidemiological models, or particle physics where $O(N)$ iteration speed is the bottleneck.
+* **Real-time Telemetry**: Processing high-frequency data streams (e.g., IoT sensor fusion) where predictable memory access patterns prevent latency spikes.
+* **Heavy Compute Pipelines**: Logic that requires transforming large datasets every frame (e.g., 16ms window) without allocation overhead.
 
 ## ⚖️ When NOT to use GOKe
 To ensure GOKe is the right tool for your project, consider these trade-offs:
@@ -114,17 +100,16 @@ go get github.com/kjkrol/goke
 <a id="features"></a>
 # ✨ Key Features
 
-GOKe provides a professional-grade toolkit for high-performance simulation and game development:
+Core capabilities designed for predictable performance, cache locality, and zero-allocation cycles:
 
-* **Type-Safe Generics**: Built-in support for `NewView1[A]` up to `NewViewy8[A..H]`. No type assertions or `interface{}` overhead in the hot loop.
-* **Go 1.23+ Range Iterators**: Seamless integration with native `for range` loops via `iter.Seq`, allowing the compiler to perform aggressive loop inlining.
-* **Command Buffer**: Thread-safe structural changes (Create/Remove/Add/Unassign) are buffered and applied during synchronization points to maintain state consistency.
-* **Flexible Systems**: Supporting both stateless **Functional Systems** (closures) and **Stateful Systems** (structs) with full `Init/Update` lifecycles.
-* **Advanced Execution Planning**: Deterministic scheduling with `RunParallel` support to utilize multi-core processors while maintaining control via explicit `Sync()` points.
-* **Low-Level Access**: Use `EnsureComponentfor` direct `*T` pointers and zero-copy in-place upserts, or `SafeEnsureComponent` for error-aware assignments.
-* **Entity Blueprints**: Predefined entity templates for mass instantiation of repetitive structures. Streamlines production by allowing component configurations to be reused, simplifying the management of complex entity definitions without manual initialization overhead.
+* **Type-Safe Generics**: Views (`NewView1[A]` ... `NewView8`) use Go generics to eliminate interface overhead, boxing, and runtime type assertions in the hot loop.
+* **Go 1.23+ Range Iterators**: Uses native `iter.Seq` for standard `for range` loops. This allows the compiler to inline iteration logic directly, avoiding callback overhead.
+* **Deferred Mutations**: Structural changes (Create/Remove/Add components) are buffered via a **Command Buffer** and applied at synchronization points to ensure thread safety without heavy locking.
+* **Parallel Execution**: `RunParallel` distributes system execution across available CPU cores with deterministic synchronization, scaling linearly with hardware resources.
+* **Zero-Alloc Hot Loop**: The architecture guarantees zero heap allocations during the update cycle (tick), preventing GC pauses during simulation.
+* **Entity Blueprints**: Fast, template-based instantiation. Allows creating thousands of entities with identical component layouts using optimal memory copy operations.
 
-> 💡 **See it in action**: Check the `cmd` directory for practical, ready-to-run examples, including a concurrent dice game simulation demonstrating parallel systems and state management.
+> 💡 **See it in action**: Check the `cmd` directory for the concurrent dice game simulation demonstrating parallel systems and state management.
 
 <a id="usage"></a>
 # 💻 Usage Example
@@ -218,24 +203,28 @@ Check the [**examples/**](./examples) directory for complete, ready-to-run proje
   * High-performance spatial management using [GOKg](https://github.com/kjkrol/gokg).
   * Custom physics pipeline: **Velocity Inversion** is processed strictly before **Position Compensation** to ensure boundary stability.
   * **Note**: Run `make` inside the example directory to fetch dependencies and start the demo.
+
 <a id="architecture"></a>
 # 🏗️ Core Architecture & "Mechanical Sympathy"
-GOKe is designed with a deep understanding of modern CPU constraints. By shifting heavy computation to the initialization phase and aligning memory with hardware prefetching, the engine achieves deterministic, near-metal performance.
+
+GOKe is an archetype-based ECS designed for deterministic performance. It shifts structural overhead (like offset calculations) to the initialization phase and uses a chunked SoA layout to maintain consistent throughput regardless of scale.
 
 ## Data-Oriented Memory Design
-The storage layer is engineered to maximize cache hits and minimize the work of the Go Garbage Collector.
+The storage layer is engineered to maximize cache hits and eliminate allocation spikes ("GC jitter").
 
-* **Archetype-Based Storage (SoA)**: Entities with the same component composition are stored in contiguous memory blocks (columns). This **Structure of Arrays** layout is L1/L2 Cache friendly, enabling hardware prefetching.
-* **Generation-based Recycling**: Entities are 64-bit IDs (32-bit Index / 32-bit Generation). This prevents **entity aliasing** by ensuring that any stale references (handles) to a destroyed entity are correctly identified as invalid when the index is reused for a new entity.
-* **Archetype Masks**: Supports up to **128 unique component types** by default using fast, constant-time bitwise operations (2x64-bit bitsets). The mask size—and thus the component limit—can be increased at compile-time via build flags to suit larger projects.
+* **Chunked SoA (Structure of Arrays)**: Instead of monolithic slices that require costly resizing (copying millions of elements) when capacity is exceeded, GOKe manages data in **fixed-size Memory Pages** (aligned to L1 Cache, e.g., 96KB).
+    * **Stable Growth**: Memory allocation is linear and "stepless". Adding the 1,000,001st entity simply allocates one small memory chunk, avoiding the massive latency spike of doubling a large array.
+    * **Cache Locality**: Inside each chunk, components are packed in a tight SoA layout (`[IDs...][CompA...][CompB...]`), ensuring high-efficiency hardware prefetching.
+* **Generation-based Recycling**: Entities are tracked via 64-bit IDs (32-bit Index / 32-bit Generation). This prevents **entity aliasing**—stale references to destroyed entities are instantly recognized as invalid when their memory slot is reused.
+* **Archetype Masks**: Supports rapid composition checks using fast, constant-time bitwise operations. This allows for complex queries over component types without iterating over unrelated data.
 
 ## High-Throughput Access & Iteration
 GOKe bypasses traditional bottlenecks like reflection and map lookups in the execution phase.
 
-* **Flat Cache View**: Views pre-calculate direct pointers to component columns within archetypes during the initialization/warm-up phase. This **eliminates map lookups** and pointer chasing inside the hot loop.
-* **Zero-Overhead Iteration**: Powered by native `for range` over functions (`iter.Seq`), allowing the Go compiler to perform aggressive loop inlining.
-* **Deterministic $O(1)$ Filtering**: Querying specific entities via the **Centralized Record System** takes constant time regardless of the total entity count ($N$) by bypassing hash map probing and utilizing direct index-to-record mapping.
-* **Hardware Prefetching Optimization**: View structures (Head/Tail) are strictly limited to a **maximum of 4 pointer fields**. Beyond this, CPU prefetching efficiency degrades; GOKe adheres to this limit to maintain maximal throughput.
+* **Flat Cache View**: Views pre-calculate direct pointers to component columns within active chunks. This **eliminates map lookups** and pointer chasing inside the hot loop.
+* **Zero-Overhead Iteration**: Powered by native `for range` over functions (`iter.Seq`), allowing the Go compiler to perform aggressive loop inlining directly over the memory pages.
+* **Deterministic $O(1)$ Filter**: Querying specific entities via the **Centralized Record System** takes constant time regardless of the total entity count ($N$) by mapping IDs directly to `(ChunkIndex, RowIndex)` coordinates.
+* **Hardware Prefetching Optimization**: View structures are optimized to keep the prefetcher strictly focused on the data stream, minimizing cache pollution during iteration.
 
 
 ## Execution Planning & Consistency
@@ -248,15 +237,14 @@ GOKe bypasses traditional bottlenecks like reflection and map lookups in the exe
 
 GOKe delivers near-metal speeds by eliminating heap allocations and leveraging L1/L2 cache locality.
 
-| Category | Operation | Performance | Allocs | Technical Mechanism |
+| Category | Operation | Performance (1k Baseline) | Allocs | Technical Mechanism |
 | :--- | :--- | :--- | :--- | :--- |
-| **Throughput** | **Iteration** | **0.34 – 0.64 ns/ent** | **0** | Linear SoA (1-8 components) (1k entities) |
-| **Scalability** | **$O(1)$ Filter** | **1.34 – 2.33 ns/ent** | **0** | Centralized Record Lookup |
-| **Structural** | **Create Entity with Components** | **21.31 - 26.84 ns/op**  | **0** | Blueprint-based Create (1-4 component) |
-| **Structural** | **Migrate Component** | **37.49 ns/op** | **0** | Archetype Move (Insert) |
-| **Structural** | **Remove Entity** | **17.09 ns/op** | **0** | Index Recycling |
-| **Access** | **Get Component** | **7.69 ns/op** | **0** | Direct Generation Check |
-
+| **Throughput** | **Iteration** | **0.36 – 0.66 ns/ent** | **0** | Linear SoA (1-8 components) |
+| **Scalability** | **$O(1)$ Filter** | **1.39 – 5.38 ns/ent** | **0** | Centralized Record Lookup |
+| **Structural** | **Create Entity** | **21.31 - 26.84 ns/op** | **0** | Blueprint-based (1-4 comps) |
+| **Structural** | **Migrate Component** | **37.36 ns/op** | **0** | Archetype Move (Insert) |
+| **Structural** | **Remove Entity** | **17.95 ns/op** | **0** | Index Recycling |
+| **Access** | **Get Component** | **4.49 ns/op** | **0** | Direct Generation Check |
 
 > 📊 **Deep Dive**: For a full breakdown of hardware specs, stress tests, and $O(N)$ vs $O(1)$ scaling charts, see [**BENCHMARKS.md**](./BENCHMARKS.md).
 

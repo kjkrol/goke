@@ -24,8 +24,6 @@ const (
 	InvalidLocalID       = LocalColumnID(MaxComponents + 1)
 )
 
-type ArchRow uint32
-
 // -----------------------------------------------------------------------------
 // Column Map
 // -----------------------------------------------------------------------------
@@ -50,129 +48,170 @@ func (m *ColumnMap) Get(globalID ComponentID) LocalColumnID {
 }
 
 // -----------------------------------------------------------------------------
+// Column Descriptor
+// -----------------------------------------------------------------------------
+
+type Column struct {
+	CompID      ComponentID
+	ItemSize    uintptr
+	ChunkOffset uintptr // Offset from the start of the chunk data to this column's start
+}
+
+// GetPointer returns the unsafe pointer to the specific element in the given chunk.
+// Formula: Chunk.Data + ColumnOffset + (Row * ItemSize)
+// Cost: Simple pointer arithmetic, very fast.
+func (c *Column) GetPointer(chunk *chunk, row ChunkRow) unsafe.Pointer {
+	return unsafe.Add(chunk.Ptr, c.ChunkOffset+uintptr(row)*c.ItemSize)
+}
+
+// -----------------------------------------------------------------------------
 // Archetype
 // -----------------------------------------------------------------------------
 
 type Archetype struct {
-	Mask ArchetypeMask
-	Id   ArchetypeId
-	Map  ColumnMap
-
-	// MemoryBlock is embedded by value for better cache locality & GC performance.
-	// It manages the physical memory for all entities in this archetype.
-	block MemoryBlock
-
-	initCap int
+	Mask    ArchetypeMask
+	Id      ArchetypeId
+	Map     ColumnMap
+	Memory  Memo
+	Columns []Column
 	graph   *ArchetypeGraph
 }
 
 func (a *Archetype) Reset() {
-	a.block.Reset()
+	a.Memory.Clear()
 	if a.graph != nil {
 		a.graph.Reset()
 	}
 	a.Map.Reset()
 	a.Mask = ArchetypeMask{}
 	a.Id = NullArchetypeId
+	a.Columns = nil
 }
 
 func (a *Archetype) InitArchetype(
 	archId ArchetypeId,
 	mask ArchetypeMask,
 	colsInfos []ComponentInfo,
-	initCapacity int,
 ) {
 	a.Id = archId
 	a.Mask = mask
-	a.initCap = initCapacity
 	a.graph = &ArchetypeGraph{} // Assuming ArchetypeGraph is defined elsewhere
 
-	// 1. Initialize Column Map
+	// 1. Initialize Memory (Calculate Layout)
+	a.Memory.Init(colsInfos)
+
+	// 2. Setup Columns & Map
+	// We need space for Entity Column + Data Columns
+	count := len(colsInfos) + 1
+	a.Columns = make([]Column, count)
 	a.Map.Reset()
 
-	// Entity ID is always at local index 0
-	a.Map.Set(0, EntityColumnIndex)
-
-	// Map components (Index 1..N)
-	for i, info := range colsInfos {
-		// i+1 because 0 is reserved for Entity
-		a.Map.Set(info.ID, LocalColumnID(i+1))
+	// --- A. Setup Entity Column ---
+	// a.Map.Set(EntityID, EntityColumnIndex)
+	a.Columns[EntityColumnIndex] = Column{
+		CompID:      EntityID,
+		ItemSize:    unsafe.Sizeof(Entity(0)),
+		ChunkOffset: a.Memory.Layout.Offsets[0], // Offset from Layout calculation
 	}
 
-	// 2. Initialize Memory Block (Allocates memory)
-	a.block.Init(initCapacity, colsInfos)
+	// --- B. Setup Component Columns (LocalID 1..N) ---
+	for i, info := range colsInfos {
+		localIdx := LocalColumnID(i + 1)
+
+		a.Map.Set(info.ID, localIdx)
+
+		a.Columns[localIdx] = Column{
+			CompID:      info.ID,
+			ItemSize:    info.Size,
+			ChunkOffset: a.Memory.Layout.Offsets[i+1], // +1 because index 0 is Entity
+		}
+	}
 }
 
+// Len returns the total number of entities in this archetype.
 func (a *Archetype) Len() int {
-	return int(a.block.Len)
+	return int(a.Memory.Len)
 }
 
-func (a *Archetype) Cap() int {
-	return int(a.block.Cap)
-}
-
+// GetEntityColumn returns the accessor for the Entity ID column.
 func (a *Archetype) GetEntityColumn() *Column {
 	// Fast path: Entity is always at index 0
-	return &a.block.Columns[EntityColumnIndex]
+	return &a.Columns[EntityColumnIndex]
 }
 
+// GetColumn returns the accessor for a specific component.
 func (a *Archetype) GetColumn(id ComponentID) *Column {
 	localIdx := a.Map.Get(id)
 	if localIdx == InvalidLocalID {
 		return nil
 	}
 	// Return pointer to the "Hot" column struct inside the block
-	return &a.block.Columns[localIdx]
+	return &a.Columns[localIdx]
 }
 
-func (a *Archetype) registerEntity(entity Entity) ArchRow {
-	// 1. Ensure space in the memory block
-	a.block.EnsureCapacity(a.block.Len + 1)
+// AddEntity reserves a slot and writes the Entity ID.
+func (a *Archetype) AddEntity(entity Entity) (ChunkIdx, ChunkRow) {
+	chunk, chunkIdx, row := a.Memory.AllocSlot()
 
-	// 2. Write Entity ID to Column 0
-	entityCol := &a.block.Columns[EntityColumnIndex]
+	entityCol := &a.Columns[EntityColumnIndex]
+	destPtr := entityCol.GetPointer(chunk, row)
+	*(*Entity)(destPtr) = entity
 
-	// Pointer arithmetic: Data + (Len * ItemSize)
-	targetPtr := unsafe.Add(entityCol.Data, uintptr(a.block.Len)*entityCol.ItemSize)
-	*(*Entity)(targetPtr) = entity
-
-	// 3. Increment Row Count (Block manages length globally)
-	newRow := ArchRow(a.block.Len)
-	a.block.Len++
-
-	return newRow
+	return chunkIdx, row
 }
 
-func (a *Archetype) SwapRemoveEntity(row ArchRow) (swapedEntity Entity, swaped bool) {
-	lastRow := ArchRow(a.block.Len - 1)
+// SwapRemoveEntity removes an entity at the specified location (O(1)).
+// It moves the last entity of the archetype into the empty slot (Swap).
+// Returns the entity that was moved (swappedEntity) and true if a move happened.
+func (a *Archetype) SwapRemoveEntity(targetChunkIdx ChunkIdx, targetRow ChunkRow) (swappedEntity Entity, swapped bool) {
 
-	// Get the entity ID that is currently at the end (to return it)
-	entityCol := &a.block.Columns[EntityColumnIndex]
-	srcPtr := entityCol.GetElement(lastRow)
-	entityToMove := *(*Entity)(srcPtr)
+	// 1. Get the real, verified tail
+	lastChunkIdx, lastChunk := a.Memory.ResolveTail()
+	lastRow := ChunkRow(lastChunk.Len - 1) // Safe now because lastChunk.Len > 0
+	targetChunk := a.Memory.Pages[targetChunkIdx]
 
-	// 1. Swap data in ALL active columns
-	// We iterate over the block's columns directly, ignoring the Map (faster)
-	for i := range a.block.Columns {
-		col := &a.block.Columns[i]
-
-		if row != lastRow {
-			col.CopyData(row, lastRow)
-		}
-
-		// Optional: Zero out the memory at the old position to help debugging
-		// and prevent stale pointers if strictly needed.
-		col.ZeroData(lastRow)
-	}
-
-	// 2. Decrement length
-	a.block.Len--
-
-	if row == lastRow {
+	// 2. Case: Removing the last entity of the archetype
+	if targetChunkIdx == lastChunkIdx && targetRow == lastRow {
+		a.zeroEntityAt(lastChunk, lastRow)
+		lastChunk.Len--
+		a.Memory.Len--
 		return 0, false
 	}
+
+	// 3. Case: Standard Swap (Tail moves to Hole)
+	ptrLastEntity := a.GetEntityColumn().GetPointer(lastChunk, lastRow)
+	entityToMove := *(*Entity)(ptrLastEntity)
+
+	for i := range a.Columns {
+		col := &a.Columns[i]
+		src := col.GetPointer(lastChunk, lastRow)
+		dst := col.GetPointer(targetChunk, targetRow)
+
+		copy(unsafe.Slice((*byte)(dst), col.ItemSize), unsafe.Slice((*byte)(src), col.ItemSize))
+	}
+
+	// 4. Cleanup the old Tail position (GC safety)
+	a.zeroEntityAt(lastChunk, lastRow)
+
+	// 5. Update Counters
+	lastChunk.Len--
+	a.Memory.Len--
+
 	return entityToMove, true
 }
+
+// zeroEntityAt clears memory at the given location to prevent stale pointers (GC).
+func (a *Archetype) zeroEntityAt(c *chunk, row ChunkRow) {
+	for i := range a.Columns {
+		col := &a.Columns[i]
+		ptr := col.GetPointer(c, row)
+		zeroMemory(ptr, col.ItemSize)
+	}
+}
+
+// -----------------------------------------------------------------------------
+// Graph Linking
+// -----------------------------------------------------------------------------
 
 func (a *Archetype) linkNextArch(nextArch *Archetype, compID ComponentID) {
 	a.graph.edgesNext[compID] = nextArch.Id

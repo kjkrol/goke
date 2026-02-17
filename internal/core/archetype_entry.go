@@ -34,12 +34,13 @@ func NewArchetypeEntry(blueprint *Blueprint) *ArchetypeEntryBlueprint {
 
 func (b *ArchetypeEntryBlueprint) Create() (Entity, [ArchetypeEntryCap]unsafe.Pointer) {
 	entity := b.reg.EntityPool.Next()
-	row := b.reg.ArchetypeRegistry.AddEntity(entity, b.ArchId)
+	chunkIdx, chunkRow := b.reg.ArchetypeRegistry.AddEntity(entity, b.ArchId)
 	arch := b.reg.ArchetypeRegistry.Archetypes[b.ArchId]
+	chunk := arch.Memory.GetChunk(chunkIdx)
 	var ptrs [ArchetypeEntryCap]unsafe.Pointer
 	for i, info := range b.CompInfos {
 		column := arch.GetColumn(info.ID)
-		ptrs[i] = unsafe.Add(column.Data, uintptr(row)*column.ItemSize)
+		ptrs[i] = column.GetPointer(chunk, chunkRow)
 	}
 	return entity, ptrs
 }

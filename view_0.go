@@ -47,18 +47,28 @@ func NewView0(ecs *ECS, opts ...BlueprintOption) *View0 {
 //	    // Logic using only the entity ID...
 //	}
 func (v *View0) All() iter.Seq[struct{ Entity core.Entity }] {
-	const stride = unsafe.Sizeof(core.Entity(0))
 	return func(yield func(struct{ Entity core.Entity }) bool) {
-		for _, b := range v.Baked {
-			ptr := b.GetEntityColumn().Data
-			n := b.Arch.Len()
-
-			for n > 0 {
-				if !yield(struct{ Entity core.Entity }{Entity: *(*core.Entity)(ptr)}) {
-					return
+		for _, ma := range v.Baked {
+			offEntity := ma.EntityChunkOffset
+			for _, chunk := range ma.Arch.Memory.Pages {
+				count := chunk.Len
+				if count == 0 {
+					continue
 				}
-				ptr = unsafe.Add(ptr, stride)
-				n--
+				base := chunk.Ptr
+				ptrEntity := unsafe.Add(base, offEntity)
+
+				for count > 0 {
+
+					if !yield(struct{ Entity core.Entity }{
+						Entity: *(*core.Entity)(ptrEntity),
+					}) {
+						return
+					}
+
+					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
+					count--
+				}
 			}
 		}
 	}

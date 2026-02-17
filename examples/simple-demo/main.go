@@ -67,7 +67,7 @@ func main() {
 	})
 
 	// Log the initial state before simulation begins
-	orderResult, _ := goke.GetComponent[Order](ecs, entity, orderDesc)
+	orderResult, _ := goke.SafeGetComponent[Order](ecs, entity, orderDesc)
 	fmt.Printf("Order id: %v value: %v\n", orderResult.ID, orderResult.Total)
 
 	// Run the main simulation loop until the exit signal is received

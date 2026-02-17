@@ -17,16 +17,16 @@ These benchmarks highlight the efficiency of our archetype-based memory manageme
 
 | Operation | Performance | Allocs | Technical Mechanism |
 | :--- | :--- | :--- | :--- |
-| **Create with 1 Comp** | **21.31 ns/op ±47%** | **0** | Blueprint-based archetype slotting |
-| **Create with 2 Comps** | **23.29 ns/op ±4%** | **0** | Blueprint-based archetype slotting |
-| **Create with 3 Comps** | **24.87 ns/op ± 5%** | **0** | Blueprint-based archetype slotting |
-| **Create with 4 Comps** | **26.84 ns/op ± 2%** | **0** | Blueprint-based archetype slotting |
-| **Add Next Component** | **37.49 ns/op ±57%** | **0** | Archetype migration (+ data move + data insert) |
-| **Add Tag** | **37.47 ns/op ± 16%** | **0** | Archetype migration (Metadata only) |
-| **Remove Component** | **11.87 ns/op ±27%** | **0** | Archetype migration (Swap-and-pop) |
-| **Remove Entity** | **17.09 ns/op ±4%** | **0** | Index recycling & record invalidation |
-| **Get Entity Component** | **7.69 ns/op ±3%** | **0** | Direct record lookup with generation check |
-| **Structural Stability** | **28.08 ns/op ±31%** | **0** | Stress test of add/remove cycles |
+| **Create with 1 Comp** | **22.46 ns/op ±21%** | **0** | Blueprint-based archetype slotting |
+| **Create with 2 Comps** | **24.33 ns/op ±2%** | **0** | Blueprint-based archetype slotting |
+| **Create with 3 Comps** | **27.12 ns/op ± 3%** | **0** | Blueprint-based archetype slotting |
+| **Create with 4 Comps** | **28.72 ns/op ± 1%** | **0** | Blueprint-based archetype slotting |
+| **Add Next Component** | **37.36 ns/op ±7%** | **0** | Archetype migration (+ data move + data insert) |
+| **Add Tag** | **34.36 ns/op ± 3%** | **0** | Archetype migration (Metadata only) |
+| **Remove Component** | **9.64 ns/op ±42%** | **0** | Archetype migration (Swap-and-pop) |
+| **Remove Entity** | **17.95 ns/op ±2%** | **0** | Index recycling & record invalidation |
+| **Get Entity Component** | **4.49 ns/op ±3%** | **0** | Direct record lookup with generation check |
+| **Structural Stability** | **30.17 ns/op ±17%** | **0** | Stress test of add/remove cycles |
 
 
 
@@ -36,27 +36,26 @@ The following benchmarks demonstrate the efficiency of SoA (Structure of Arrays)
 #### 1. Scalability Overview: $O(N)$ vs $O(1)$
 | Registry Size ($N$) | Operation | Entities Processed | Total Time | Per Entity | Mechanism |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1,000** | **View3.All** | 1,000 | 639.5 ns | 0.64 ns | Linear SoA |
-| **10,000** | **View3.All** | 10,000 | 7,268 ns | 0.73 ns | Linear SoA |
-| **100,000** | **View3.All** | 100,000 | 79,472 ns | 0.79 ns | Linear SoA |
-| **1,000,000** | **View3.All** | 1,000,000 | 782,517 ns | 0.78 ns | Linear SoA |
-| **10,000,000** | **View3.All** | 10,000,000 | 7,781,371 ns | **0.78 ns** | Linear SoA |
-| **10,000,000** | **View3.Filter** | **100** | **232.0 ns** | **2.32 ns** | **O(1) Record Lookup** |
+| **1,000** | **View3.All** | 1,000 | 538.4 ns | 0.54 ns | Linear SoA |
+| **10,000** | **View3.All** | 10,000 | 6,942 ns | 0.69 ns | Linear SoA |
+| **100,000** | **View3.All** | 100,000 | 68,571 ns | 0.69 ns | Linear SoA |
+| **1,000,000** | **View3.All** | 1,000,000 | 1,397,688 ns | 1.34 ns | Linear SoA |
+| **10,000,000** | **View3.All** | 10,000,000 | 20,132,807 ns | **2.01 ns** | Linear SoA |
+| **10,000,000** | **View3.Filter** | **100** | **288.0 ns** | **2.88 ns** | **O(1) Record Lookup** |
 
 #### 2. Complexity Scaling (10M Entities Stress Test)
-| View Complexity | All Iterator | Values Iterator (No ID) | Performance Gain |
-| :--- | :--- | :--- | :--- |
-| **View0 (Entity Only)** | 0.32 ns | - | - |
-| **View1 (1 Comp)** | 0.48 ns | 0.32 ns | **+33.33%** |
-| **View3 (3 Comps)** | 0.78 ns | 0.73 ns | **+6.41%** |
-| **View8 (8 Comps)** | 0.80 ns | 0.67 ns | **+16.25%** |
+| View Complexity | All Iterator | Values Iterator (No ID) |
+| :--- | :--- | :--- | 
+| **View0 (Entity Only)** | 0.34 ns | - |
+| **View1 (1 Comp)** | 1.20 ns | 1.20 ns |
+| **View3 (3 Comps)** | 2.18 ns | 2.18 ns |
+| **View8 (8 Comps)** | 2.20 ns | 2.20 ns |
 
 
 ### Key Technical Takeaways
-* **Near-Zero Latency:** Targeted queries (Filter) remain at **~2.33 ns** regardless of whether the world has 1k or 10M entities.
-* **Instruction Efficiency:** Even with 8 components, the engine processes entities bellow **~0.8 ns/entity**, fitting a 10M entity update within a **10ms** window.
-* **Values Iteration Gain:** Bypassing Entity ID generation provides up to **33%** additional throughput for heavy computational systems.
-
+* **Near-Zero Latency:** Targeted queries (Filter) remain at **~2.88 ns** regardless of whether the world has 1k or 10M entities.
+* **Instruction Efficiency:** Even with 8 components, the engine processes entities bellow **~2.2 ns/entity**, fitting a 10M entity update within a **22ms** window.
+* **Values Iteration:** At 10M entities, performance saturates at the same level as standard iteration, indicating memory bandwidth limits outweigh ID generation overhead.
 
 ## Benchmark Comparison: GOKe vs. [Arche](https://github.com/mlange-42/arche) (RAW Data)
 
@@ -68,17 +67,17 @@ It is important to note that while **GOKe** achieves industry-leading raw iterat
 
 ## Benchmark Comparison: GOKe vs. Arche
 **Environment:** Apple M1 Max (ARM64)  
-**Units:** Nanoseconds per operation (ns/op)
+**Units:** Nanoseconds per operation (**ns/op**)
 
 | Operation | GOKe | Arche | Winner | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| **Iteration (1 Comp)** | **0.44 ns** | 0.55 ns | **GOKe (+20.0%)** | Superior cache locality |
-| **Iteration (2 Comp)** | **0.48 ns** | 1.37 ns | **GOKe (+65.0%)** | Efficient memory layout |
-| **Iteration (3 Comp)** | **0.64 ns** | 1.79 ns | **GOKe (+64.2%)** | Minimal per-entity overhead |
-| **Create Entity (1 comp)** | 21.31 ns | **20.60 ns** | **Arche (+3.33%)** | Draw |
-| **Add Next Component** | 37.49 ns | **--** | **Arche** | Fast graph traversal |
-| **Remove Component** | **11.87 ns** | **--** | **GOKe/Arche** | Highly optimized swap-and-pop |
-| **Remove Entity** | 17.09 ns | **--** | **Arche** | Fast fast cleanup |
+| **Iteration (1 Comp)** | **0.36** | 0.55 | **GOKe (+52.8%)** | Superior cache locality |
+| **Iteration (2 Comp)** | **0.39** | 1.37 | **GOKe (+251.3%)** | Efficient memory layout |
+| **Iteration (3 Comp)** | **0.53** | 1.79 | **GOKe (+237.7%)** | Minimal per-entity overhead |
+| **Create Entity (1 comp)** | 22.46 | **20.60** | **Arche (+9.0%)** | Draw |
+| **Add Next Component** | 37.36 | **--** | **Arche** | Fast graph traversal |
+| **Remove Component** | **9.64** | **--** | **GOKe/Arche** | Highly optimized swap-and-pop |
+| **Remove Entity** | 17.95 | **--** | **Arche** | Fast fast cleanup |
 
 ## How to benchmark
 Results may vary based on CPU architecture and cache sizes. You can run the suite using:
