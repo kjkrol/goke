@@ -259,7 +259,6 @@ go test -bench=. ./... -benchmem
 Current development focus and planned improvements:
 
 * **Batch Operations:** High-performance bulk operations for entity creation/destruction to maximize overhead reduction during large-scale processing.
-* **Multi-component Operations:** Variadic Archetype Transitions allowing multiple component changes in a single atomic operation.
 * **Ebitengine Integration:** Dedicated helpers for seamless state synchronization between GOKe systems and Ebitengine's loop.
 
 > 🛠️ **Live Feature Tracker**
