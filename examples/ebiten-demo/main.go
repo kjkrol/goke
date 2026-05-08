@@ -17,6 +17,10 @@ func main() {
 			resource.tps = gs.Ticks
 		}),
 	)
+	game.RegisterComponents(InitBaseComponents)
+
+	initSystem := NewEntitiesInitSystem(resource)
+	game.RegisterSystem(initSystem)
 
 	moveSystem := NewMoveSystem(resource)
 	collisionSystem := NewCollisionSystem(resource)
@@ -28,9 +32,6 @@ func main() {
 		ctx.Run(collisionSystem, d)
 		ctx.Sync()
 	})
-
-	initSystem := NewEntitiesInitSystem(resource)
-	game.RegisterSystem(initSystem)
 
 	entitiesRenderSystem := NewEntitiesRendererSystem(resource)
 	statsRendererSystem := NewStatsRendererSystem(resource)

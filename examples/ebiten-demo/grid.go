@@ -8,18 +8,16 @@ import (
 )
 
 type Grid struct {
-	witdh, height uint32
-	space         plane.Space2D[uint32]
-	spatialIndex  *spatial.GridIndexManager
+	space        plane.Space2D[uint32]
+	spatialIndex *spatial.GridIndexManager
+	gridConfig   spatial.GridIndexConfig
 }
 
-func NewGrid(witdh, height uint32, bucketCapacity int, opsBufferSize int) *Grid {
-	config := spatial.GridIndexConfig{
-		Resolution:       spatial.Size1024x1024,
-		BucketResolution: spatial.Size32x32,
-		BucketCapacity:   bucketCapacity,
-		OpsBufferSize:    opsBufferSize,
-	}
+func NewGrid(config spatial.GridIndexConfig) *Grid {
+	witdh := config.Resolution.Side()
+	height := config.Resolution.Side()
+
+	log.Printf("w=%d, h=%d, c=%v", witdh, height, config)
 
 	space := plane.NewToroidal2D[uint32](witdh, height)
 	spatialIndex, err := spatial.NewGridIndexManager(space, config)
@@ -28,10 +26,9 @@ func NewGrid(witdh, height uint32, bucketCapacity int, opsBufferSize int) *Grid 
 	}
 
 	return &Grid{
-		witdh:        witdh,
-		height:       height,
 		space:        space,
 		spatialIndex: spatialIndex,
+		gridConfig:   config,
 	}
 
 }

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/kjkrol/goke/examples/ebiten-demo/gokebiten"
+	"github.com/kjkrol/gokg/pkg/spatial"
 )
 
 // --- Configuration ---
@@ -11,9 +12,9 @@ const (
 	TPS            = 60
 	ScreenWidth    = 1024
 	ScreenHeight   = 1024
-	RectSize       = 4 // TODO: to powinno byc pobierane z AABB encji
+	RectSize       = 10
 	BucketCapacity = 32
-	EntityCount    = 64 * 1 // to nie jest zaden count, ale init liczba encji
+	EntityCount    = 128
 )
 
 type Statistics struct {
@@ -30,7 +31,12 @@ type Resource struct {
 }
 
 func NewResource() *Resource {
-	grid := NewGrid(ScreenWidth, ScreenHeight, BucketCapacity, EntityCount)
+	gridConfig := spatial.GridIndexConfig{
+		Resolution:       spatial.Size1024x1024,
+		BucketResolution: spatial.Size64x64,
+		BucketCapacity:   BucketCapacity,
+		OpsBufferSize:    EntityCount,
+	}
 	gameProps := gokebiten.GameProps{
 		Title:        "GOKe + GOKg + Ebiten Integration",
 		ScreenWidth:  ScreenWidth,
@@ -40,7 +46,7 @@ func NewResource() *Resource {
 	}
 	return &Resource{
 		gameProps:   gameProps,
-		grid:        grid,
+		grid:        NewGrid(gridConfig),
 		rectSize:    RectSize,
 		entityCount: EntityCount,
 	}

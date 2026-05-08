@@ -55,6 +55,10 @@ func NewGame(props GameProps, opts ...GameOption) *Game {
 	return game
 }
 
+func (g *Game) RegisterComponents(fn func(ecs *goke.ECS)) {
+	fn(g.ecs)
+}
+
 func (g *Game) RegisterScheduledSystem(system goke.System) {
 	goke.RegisterSystem(g.ecs, system)
 }

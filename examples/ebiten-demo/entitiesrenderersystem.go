@@ -11,16 +11,11 @@ import (
 	"github.com/kjkrol/gokg/pkg/plane"
 )
 
-// TODO: to nie jest system; tylko integralna czesc silniczka: rendere encji
-// powinien wystawic funkcje do zaimplementowania, ktora bedzie korzystala z Appearance
-// by pozwolic uzytkownikowi customowac sposob wyswietlania;
-//
-// WAZNE: kolejny krok to dbanie o to, ze odwiezamy widoczna czesc ekranu;
-// wiec nalezy w jakis sposob zachowac polozenie Viewportu na Grid
 type EntitiesRendererSystem struct {
 	*Resource
-	renderView *goke.View2[Position, Appearance]
-	pixelImage *ebiten.Image
+	renderView       *goke.View2[Position, Appearance]
+	pixelImage       *ebiten.Image
+	drawImageOptions *ebiten.DrawImageOptions
 }
 
 var _ gokebiten.RenderSystem = (*EntitiesRendererSystem)(nil)
@@ -29,8 +24,9 @@ func NewEntitiesRendererSystem(resource *Resource) *EntitiesRendererSystem {
 	pixelImage := ebiten.NewImage(resource.rectSize, resource.rectSize)
 	pixelImage.Fill(color.White)
 	return &EntitiesRendererSystem{
-		Resource:   resource,
-		pixelImage: pixelImage,
+		Resource:         resource,
+		pixelImage:       pixelImage,
+		drawImageOptions: &ebiten.DrawImageOptions{},
 	}
 }
 
@@ -45,18 +41,18 @@ func (s *EntitiesRendererSystem) Draw(screen *ebiten.Image) {
 	screen.Fill(color.RGBA{R: 50, G: 50, B: 50, A: 255})
 
 	// Opcje rysowania, alokujemy raz, żeby nie śmiecić pamięci
-	op := &ebiten.DrawImageOptions{}
 
-	for head := range s.renderView.All() {
+	imgW, imgH := s.pixelImage.Size()
+	for head := range s.renderView.Values() {
 		aabb, app := head.V1, head.V2
-
+		op := s.drawImageOptions
 		// Resetujemy opcje (geoM - macierz transformacji)
 		op.GeoM.Reset()
 
 		// Skalowanie (width, height)
 		w := float64(aabb.BottomRight.X - aabb.TopLeft.X)
 		h := float64(aabb.BottomRight.Y - aabb.TopLeft.Y)
-		op.GeoM.Scale(w, h)
+		op.GeoM.Scale(w/float64(imgW), h/float64(imgH))
 
 		// Przesunięcie (pozycja X, Y)
 		op.GeoM.Translate(float64(aabb.TopLeft.X), float64(aabb.TopLeft.Y))

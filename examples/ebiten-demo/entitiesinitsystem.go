@@ -33,20 +33,18 @@ func (s *EntitiesInitSystem) Init(ecs *goke.ECS) {
 	cols := uint32(gridSize)
 
 	// 2. Calculate dynamic spacing to fill the whole ScreenWidth/Height
-	cellWidth := uint32(s.grid.witdh / cols)
-	cellHeight := uint32(s.grid.height / cols)
+	cellWidth := uint32(s.grid.gridConfig.Resolution.Side() / cols)
+	cellHeight := uint32(s.grid.gridConfig.Resolution.Side() / cols)
 
 	for i := 0; i < spawnEntitiesNumber; i++ {
 		entity, position, velocity, appearance := s.blueprint.Create()
-
 		row := uint32(i) / cols
 		col := uint32(i) % cols
 
 		spawnEntity(entity, position, velocity, appearance,
 			cellWidth, cellHeight, row, col)
 
-		aabb := position.AABB
-		s.grid.spatialIndex.QueueInsert(uint64(entity.Index()), aabb.AABB)
+		s.grid.spatialIndex.QueueInsert(uint64(entity.Index()), position.AABB.AABB)
 	}
 	s.grid.spatialIndex.Flush(func(a spatial.AABB) {})
 }
