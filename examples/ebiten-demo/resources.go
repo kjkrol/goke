@@ -1,8 +1,6 @@
 package main
 
 import (
-	"time"
-
 	"github.com/kjkrol/goke/examples/ebiten-demo/gokebiten"
 	"github.com/kjkrol/gokg/pkg/spatial"
 )
@@ -12,15 +10,16 @@ const (
 	TPS            = 60
 	ScreenWidth    = 1024
 	ScreenHeight   = 1024
-	RectSize       = 10
-	BucketCapacity = 32
+	RectSize       = 8
+	BucketCapacity = 16
 	EntityCount    = 256
 )
 
 type Statistics struct {
-	collisionCounter int
-	tps              int
-	entityCount      int
+	collisionCounter          int
+	entityCounter             int
+	measuredTPS               int
+	meeasuredCollisionCounter int
 }
 
 type Resources struct {
@@ -39,7 +38,6 @@ func NewResources() *Resources {
 			ScreenWidth:  ScreenWidth,
 			ScreenHeight: ScreenHeight,
 			TargetTPS:    TPS,
-			PhysicsStep:  time.Second / time.Duration(TPS),
 		},
 		grid: NewGrid(spatial.GridIndexConfig{
 			Resolution:       spatial.Size1024x1024,
@@ -49,7 +47,7 @@ func NewResources() *Resources {
 		}),
 		rectSize: RectSize,
 		Statistics: Statistics{
-			entityCount: EntityCount,
+			entityCounter: EntityCount,
 		},
 	}
 }
@@ -58,7 +56,11 @@ func (r *Resources) GetGameProps() *gokebiten.GameProps {
 	return r.gameProps
 }
 
-func (r *Resources) Refresh(gs gokebiten.GameStats) {
+func (r *Resources) Reset() {
 	r.collisionCounter = 0
-	r.tps = gs.Ticks
+}
+
+func (r *Resources) Refresh(tick int) {
+	r.measuredTPS = tick
+	r.meeasuredCollisionCounter = r.collisionCounter
 }

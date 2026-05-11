@@ -9,43 +9,42 @@ import (
 )
 
 const (
-	defaultTargetTPS   = 60
-	defaultPhysicsStep = time.Second / defaultTargetTPS
+	defaultTargetTPS = 60
 )
-
-type GameStats struct {
-	accumulator   time.Duration
-	lastUpdate    time.Time
-	Ticks         int       // Raw counter for physics steps
-	lastTPSUpdate time.Time // Timer for resetting the counter
-}
 
 type GameProps struct {
 	Title                     string
 	TargetTPS                 int
-	PhysicsStep               time.Duration
 	ScreenWidth, ScreenHeight int
 }
 
 type Resources interface {
 	GetGameProps() *GameProps
-	Refresh(GameStats)
+	Refresh(int)
+	Reset()
 }
 
 type Game[T Resources] struct {
-	GameStats
-	resources T
-	ecs       *goke.ECS
-	renderSeq []RenderSystem
+	ticks       int
+	physicsStep time.Duration
+	timeTracker *TimeTracker
+	resources   T
+	ecs         *goke.ECS
+	renderSeq   []RenderSystem
 }
 
 var _ ebiten.Game = (*Game[Resources])(nil)
 
 func NewGame[T Resources](resources T) *Game[T] {
+	targetTPS := defaultTargetTPS
+	if resources.GetGameProps() != nil && resources.GetGameProps().TargetTPS != 0 {
+		targetTPS = resources.GetGameProps().TargetTPS
+	}
 	game := &Game[T]{
-		resources: resources,
-		GameStats: GameStats{},
-		ecs:       goke.New(),
+		resources:   resources,
+		physicsStep: time.Second / time.Duration(targetTPS),
+		timeTracker: NewTimeTracker(),
+		ecs:         goke.New(),
 	}
 	return game
 }
@@ -84,40 +83,15 @@ func (g *Game[T]) RenderSequence(sysFactories ...func(T) RenderSystem) {
 }
 
 func (g *Game[T]) Update() error {
-	// 1. Calculate the real time elapsed since the last update (Delta Time)
-	now := time.Now()
-	if g.lastUpdate.IsZero() {
-		g.lastUpdate = now
-		g.lastTPSUpdate = now
+	steps := g.timeTracker.CalculateSteps(g.physicsStep, 5)
+	for i := 0; i < steps; i++ {
+		goke.Tick(g.ecs, g.physicsStep)
+		g.ticks++
 	}
-	elapsed := time.Since(g.lastUpdate)
-	g.lastUpdate = now
-
-	// 3. Add the elapsed time to the accumulator ("time bank")
-	g.accumulator += elapsed
-
-	// 4. Consume the accumulated time in fixed increments
-	// If the frame rate drops, this loop will "catch up" by running multiple ticks
-	maxSteps := 5 // Nie symuluj więcej niż 5 kroków na klatkę, nawet jak laguje
-	steps := 0
-	PhysicsStep := g.resources.GetGameProps().PhysicsStep
-	for g.accumulator >= PhysicsStep && steps < maxSteps {
-		goke.Tick(g.ecs, PhysicsStep)
-		g.accumulator -= PhysicsStep
-		g.Ticks++
-		steps++
-	}
-	// Jeśli po 5 krokach nadal mamy "dług", po prostu go odpuszczamy,
-	// żeby gra zwolniła (slow-motion), a nie klatkowała.
-	if g.accumulator > PhysicsStep {
-		g.accumulator = 0
-	}
-
-	// --- CALCULATE ACTUAL PHYSICS TPS ONCE PER SECOND ---
-	if time.Since(g.lastTPSUpdate) >= time.Second {
-		g.resources.Refresh(g.GameStats)
-		g.Ticks = 0
-		g.lastTPSUpdate = time.Now()
+	if g.timeTracker.ProcessStatsInterval() {
+		g.resources.Refresh(g.ticks)
+		g.ticks = 0
+		g.resources.Reset()
 	}
 
 	return nil

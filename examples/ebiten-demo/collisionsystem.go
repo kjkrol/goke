@@ -6,6 +6,7 @@ import (
 
 	"github.com/kjkrol/goke"
 	"github.com/kjkrol/gokg/pkg/geom"
+	"github.com/kjkrol/gokg/pkg/plane"
 	"github.com/kjkrol/gokg/pkg/spatial"
 )
 
@@ -20,11 +21,13 @@ type CollisionSystem struct {
 		appDesc goke.ComponentDesc
 		colDesc goke.ComponentDesc
 	}
+	compensator penetrationCompensator
 }
 
 func NewCollisionSystem(resouces *Resources) goke.System {
 	return &CollisionSystem{
-		Resources: resouces,
+		Resources:   resouces,
+		compensator: penetrationCompensator{resouces.grid.space},
 	}
 }
 
@@ -61,20 +64,21 @@ func (s *CollisionSystem) Update(lookup goke.Lookup, sched *goke.Schedule, d tim
 				col2.timestamp = now
 				col2.counter++
 
-				if col.counter > 3 {
-					goke.ScheduleRemoveEntity(sched, head.Entity)
-					s.grid.spatialIndex.QueueRemove(uint64(head.Entity))
-				}
-				if col2.counter > 3 {
-					goke.ScheduleRemoveEntity(sched, entity2)
-					s.grid.spatialIndex.QueueRemove(uint64(entity2))
-				}
-				if col.counter > 3 || col2.counter > 3 {
-					return
-				}
+				s.collisionCounter++
+
+				// if col.counter > 3 {
+				// 	goke.ScheduleRemoveEntity(sched, head.Entity)
+				// 	s.grid.spatialIndex.QueueRemove(uint64(head.Entity))
+				// }
+				// if col2.counter > 3 {
+				// 	goke.ScheduleRemoveEntity(sched, entity2)
+				// 	s.grid.spatialIndex.QueueRemove(uint64(entity2))
+				// }
+				// if col.counter > 3 || col2.counter > 3 {
+				// 	return
+				// }
 
 				s.resolveCollision(pos, vel, pos2, vel2)
-				s.collisionCounter++
 
 				s.grid.spatialIndex.QueueUpdate(uint64(head.Entity), pos.AABB.AABB, true)
 				s.grid.spatialIndex.QueueUpdate(otherID, pos2.AABB.AABB, true)
@@ -87,20 +91,33 @@ func (s *CollisionSystem) Update(lookup goke.Lookup, sched *goke.Schedule, d tim
 func (s *CollisionSystem) resolveCollision(
 	pos1 *Position, vel1 *Velocity,
 	pos2 *Position, vel2 *Velocity,
-) bool {
-	pen := s.penetration(pos1, pos2)
-
-	if pen.X == 0 || pen.Y == 0 {
-		return false
-	}
-
+) {
 	// swap velocity
 	tempVel := vel1.Vec
 	vel1.Vec = vel2.Vec
 	vel2.Vec = tempVel
 
-	var mtv1, mtv2 geom.Vec[uint32]
+	s.compensator.compensate(pos1, pos2)
+}
 
+type penetrationCompensator struct {
+	space plane.Space2D[uint32]
+}
+
+func (p penetrationCompensator) compensate(pos1, pos2 *Position) {
+	if mtv1, mtv2, ok := p.minimumTranslationVector(pos1, pos2); ok == true {
+		p.space.Translate(&pos1.AABB, mtv1)
+		p.space.Translate(&pos2.AABB, mtv2)
+	}
+}
+
+func (p penetrationCompensator) minimumTranslationVector(pos1, pos2 *Position) (mtv1, mtv2 geom.Vec[uint32], res bool) {
+	pen := p.penetration(pos1, pos2)
+
+	if pen.X == 0 || pen.Y == 0 {
+		res = false
+		return
+	}
 	if math.Abs(float64(pen.X)) < math.Abs(float64(pen.Y)) {
 		push := pen.X / 2
 		if push == 0 {
@@ -116,14 +133,11 @@ func (s *CollisionSystem) resolveCollision(
 		mtv1 = geom.NewVec(0, uint32(-push))
 		mtv2 = geom.NewVec(0, uint32(push))
 	}
-
-	s.grid.space.Translate(&pos1.AABB, mtv1)
-	s.grid.space.Translate(&pos2.AABB, mtv2)
-
-	return true
+	res = true
+	return
 }
 
-func (s *CollisionSystem) penetration(pos1, pos2 *Position) geom.Vec[int32] {
+func (p *penetrationCompensator) penetration(pos1, pos2 *Position) geom.Vec[int32] {
 	r1 := pos1.AABB.AABB
 	r2 := pos2.AABB.AABB
 

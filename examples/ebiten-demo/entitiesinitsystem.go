@@ -26,7 +26,7 @@ func NewEntitiesInitSystem(reources *Resources) goke.System {
 }
 
 func (s *EntitiesInitSystem) Init(ecs *goke.ECS) {
-	spawnEntitiesNumber := s.entityCount
+	spawnEntitiesNumber := s.entityCounter
 	s.blueprint = goke.NewBlueprint4[Position, Velocity, Collision, Appearance](ecs)
 
 	gridSize := math.Ceil(math.Sqrt(float64(spawnEntitiesNumber)))

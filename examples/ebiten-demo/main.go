@@ -22,7 +22,11 @@ func main() {
 		ctx.Sync()
 	})
 
-	game.RenderSequence(NewEntitiesRendererSystem, NewStatsRendererSystem)
+	game.RenderSequence(
+		NewPreRenderSystem,
+		NewEntitiesRendererSystem,
+		NewStatsRendererSystem,
+	)
 
 	game.Run()
 }

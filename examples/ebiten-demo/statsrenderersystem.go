@@ -28,15 +28,16 @@ func (s *StatsRendererSystem) Update(_ goke.Lookup, _ *goke.Schedule, d time.Dur
 
 func (s *StatsRendererSystem) Draw(screen *ebiten.Image) {
 	avgCollisionsPerTick := float64(0)
-	if s.tps > 0 {
-		avgCollisionsPerTick = float64(s.collisionCounter) / float64(s.tps)
+	if s.measuredTPS > 0 {
+		avgCollisionsPerTick = float64(s.meeasuredCollisionCounter) / float64(s.measuredTPS)
 	}
 	debugMsg := fmt.Sprintf(
-		"FPS: %0.2f\nTPS (Ebiten): %0.2f\nTPS (Physics): %d\nEntities: %d\nCollisions/Tick: %0.2f",
+		"FPS: %0.2f\nTPS (Ebiten): %0.2f\nTPS (Physics): %d\nEntities: %d\nCollision/Sec: %d\nCollisions/Tick: %0.2f",
 		ebiten.ActualFPS(),
 		ebiten.ActualTPS(),
-		s.tps,
-		s.entityCount,
+		s.measuredTPS,
+		s.entityCounter,
+		s.meeasuredCollisionCounter,
 		avgCollisionsPerTick,
 	)
 	ebitenutil.DebugPrint(screen, debugMsg)
