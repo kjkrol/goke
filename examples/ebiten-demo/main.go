@@ -3,29 +3,18 @@ package main
 import (
 	"time"
 
-	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/kjkrol/goke"
 	"github.com/kjkrol/goke/examples/ebiten-demo/gokebiten"
 )
 
 func main() {
-	resource := NewResource()
-	game := gokebiten.NewGame(
-		resource.gameProps,
-		gokebiten.WithExtraFnPerSec(func(gs gokebiten.GameStats) {
-			resource.collisionCounter = 0
-			resource.tps = gs.Ticks
-		}),
-	)
-	game.RegisterComponents(InitBaseComponents)
+	resources := NewResources()
+	game := gokebiten.NewGame(resources)
 
-	initSystem := NewEntitiesInitSystem(resource)
-	game.RegisterSystem(initSystem)
+	game.RegisterSystem(NewEntitiesInitSystem)
 
-	moveSystem := NewMoveSystem(resource)
-	collisionSystem := NewCollisionSystem(resource)
-	game.RegisterScheduledSystem(moveSystem)
-	game.RegisterScheduledSystem(collisionSystem)
+	moveSystem := game.RegisterScheduledSystem(NewMoveSystem)
+	collisionSystem := game.RegisterScheduledSystem(NewCollisionSystem)
 	game.LogicPlan(func(ctx goke.ExecutionContext, d time.Duration) {
 		ctx.Run(moveSystem, d)
 		ctx.Sync()
@@ -33,14 +22,7 @@ func main() {
 		ctx.Sync()
 	})
 
-	entitiesRenderSystem := NewEntitiesRendererSystem(resource)
-	statsRendererSystem := NewStatsRendererSystem(resource)
-	game.RegisterRenderSystem(entitiesRenderSystem)
-	game.RegisterRenderSystem(statsRendererSystem)
-	game.RenderPlan(func(screen *ebiten.Image) {
-		entitiesRenderSystem.Draw(screen)
-		statsRendererSystem.Draw(screen)
-	})
+	game.RenderSequence(NewEntitiesRendererSystem, NewStatsRendererSystem)
 
 	game.Run()
 }

@@ -11,14 +11,14 @@ import (
 )
 
 type StatsRendererSystem struct {
-	*Resource
+	*Resources
 }
 
 var _ gokebiten.RenderSystem = (*StatsRendererSystem)(nil)
 
-func NewStatsRendererSystem(resource *Resource) *StatsRendererSystem {
+func NewStatsRendererSystem(resources *Resources) gokebiten.RenderSystem {
 	return &StatsRendererSystem{
-		Resource: resource,
+		Resources: resources,
 	}
 }
 

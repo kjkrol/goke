@@ -13,21 +13,21 @@ import (
 )
 
 type EntitiesInitSystem struct {
-	*Resource
-	blueprint *goke.Blueprint3[Position, Velocity, Appearance]
+	*Resources
+	blueprint *goke.Blueprint4[Position, Velocity, Collision, Appearance]
 }
 
 var _ goke.System = (*EntitiesInitSystem)(nil)
 
-func NewEntitiesInitSystem(reource *Resource) *EntitiesInitSystem {
+func NewEntitiesInitSystem(reources *Resources) goke.System {
 	return &EntitiesInitSystem{
-		Resource: reource,
+		Resources: reources,
 	}
 }
 
 func (s *EntitiesInitSystem) Init(ecs *goke.ECS) {
 	spawnEntitiesNumber := s.entityCount
-	s.blueprint = goke.NewBlueprint3[Position, Velocity, Appearance](ecs)
+	s.blueprint = goke.NewBlueprint4[Position, Velocity, Collision, Appearance](ecs)
 
 	gridSize := math.Ceil(math.Sqrt(float64(spawnEntitiesNumber)))
 	cols := uint32(gridSize)
@@ -37,11 +37,11 @@ func (s *EntitiesInitSystem) Init(ecs *goke.ECS) {
 	cellHeight := uint32(s.grid.gridConfig.Resolution.Side() / cols)
 
 	for i := 0; i < spawnEntitiesNumber; i++ {
-		entity, position, velocity, appearance := s.blueprint.Create()
+		entity, position, velocity, collision, appearance := s.blueprint.Create()
 		row := uint32(i) / cols
 		col := uint32(i) % cols
 
-		spawnEntity(entity, position, velocity, appearance,
+		spawnEntity(entity, position, velocity, collision, appearance,
 			cellWidth, cellHeight, row, col)
 
 		s.grid.spatialIndex.QueueInsert(uint64(entity.Index()), position.AABB.AABB)
@@ -55,6 +55,7 @@ func spawnEntity(
 	entity goke.Entity,
 	position *Position,
 	velocity *Velocity,
+	collistion *Collision,
 	appearance *Appearance,
 	cellWidth, cellHeight uint32,
 	row, col uint32,
@@ -86,6 +87,8 @@ func spawnEntity(
 	*velocity = Velocity{
 		Vec: geom.NewVec(dx, dy),
 	}
+
+	*collistion = Collision{}
 
 	*appearance = Appearance{
 		Color: color.RGBA{R: 255, G: 255, B: 255, A: 255},

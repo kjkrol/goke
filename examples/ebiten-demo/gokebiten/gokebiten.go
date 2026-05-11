@@ -27,59 +27,63 @@ type GameProps struct {
 	ScreenWidth, ScreenHeight int
 }
 
-type Game struct {
-	GameProps
+type Resources interface {
+	GetGameProps() *GameProps
+	Refresh(GameStats)
+}
+
+type Game[T Resources] struct {
 	GameStats
-	ecs           *goke.ECS
-	renderPlan    func(screen *ebiten.Image)
-	extraFnPerSec func(GameStats)
+	resources T
+	ecs       *goke.ECS
+	renderSeq []RenderSystem
 }
 
-var _ ebiten.Game = (*Game)(nil)
+var _ ebiten.Game = (*Game[Resources])(nil)
 
-type GameOption func(*Game)
-
-func WithExtraFnPerSec(fn func(GameStats)) GameOption {
-	return func(g *Game) { g.extraFnPerSec = fn }
-}
-
-func NewGame(props GameProps, opts ...GameOption) *Game {
-	game := &Game{
-		GameProps: props,
+func NewGame[T Resources](resources T) *Game[T] {
+	game := &Game[T]{
+		resources: resources,
 		GameStats: GameStats{},
 		ecs:       goke.New(),
-	}
-	for _, option := range opts {
-		option(game)
 	}
 	return game
 }
 
-func (g *Game) RegisterComponents(fn func(ecs *goke.ECS)) {
-	fn(g.ecs)
+func RegisterComponent[T Resources, C any](game *Game[T]) goke.ComponentDesc {
+	return goke.RegisterComponent[C](game.ecs)
 }
 
-func (g *Game) RegisterScheduledSystem(system goke.System) {
+func (g *Game[T]) RegisterScheduledSystem(factory func(T) goke.System) goke.System {
+	system := factory(g.resources)
 	goke.RegisterSystem(g.ecs, system)
+	return system
 }
 
-func (g *Game) RegisterRenderSystem(system RenderSystem) {
+func (g *Game[T]) registerRenderSystem(factory func(T) RenderSystem) RenderSystem {
+	system := factory(g.resources)
 	system.Init(g.ecs)
+	return system
 }
 
-func (g *Game) RegisterSystem(system goke.System) {
+func (g *Game[T]) RegisterSystem(factory func(T) goke.System) goke.System {
+	system := factory(g.resources)
 	system.Init(g.ecs)
+	return system
 }
 
-func (g *Game) LogicPlan(plan func(ctx goke.ExecutionContext, d time.Duration)) {
+func (g *Game[T]) LogicPlan(plan func(ctx goke.ExecutionContext, d time.Duration)) {
 	goke.Plan(g.ecs, plan)
 }
 
-func (g *Game) RenderPlan(plan func(screen *ebiten.Image)) {
-	g.renderPlan = plan
+func (g *Game[T]) RenderSequence(sysFactories ...func(T) RenderSystem) {
+	for _, factory := range sysFactories {
+		renderSystem := g.registerRenderSystem(factory)
+		g.renderSeq = append(g.renderSeq, renderSystem)
+	}
 }
 
-func (g *Game) Update() error {
+func (g *Game[T]) Update() error {
 	// 1. Calculate the real time elapsed since the last update (Delta Time)
 	now := time.Now()
 	if g.lastUpdate.IsZero() {
@@ -96,21 +100,22 @@ func (g *Game) Update() error {
 	// If the frame rate drops, this loop will "catch up" by running multiple ticks
 	maxSteps := 5 // Nie symuluj więcej niż 5 kroków na klatkę, nawet jak laguje
 	steps := 0
-	for g.accumulator >= g.PhysicsStep && steps < maxSteps {
-		goke.Tick(g.ecs, g.PhysicsStep)
-		g.accumulator -= g.PhysicsStep
+	PhysicsStep := g.resources.GetGameProps().PhysicsStep
+	for g.accumulator >= PhysicsStep && steps < maxSteps {
+		goke.Tick(g.ecs, PhysicsStep)
+		g.accumulator -= PhysicsStep
 		g.Ticks++
 		steps++
 	}
 	// Jeśli po 5 krokach nadal mamy "dług", po prostu go odpuszczamy,
 	// żeby gra zwolniła (slow-motion), a nie klatkowała.
-	if g.accumulator > g.PhysicsStep {
+	if g.accumulator > PhysicsStep {
 		g.accumulator = 0
 	}
 
 	// --- CALCULATE ACTUAL PHYSICS TPS ONCE PER SECOND ---
 	if time.Since(g.lastTPSUpdate) >= time.Second {
-		g.extraFnPerSec(g.GameStats)
+		g.resources.Refresh(g.GameStats)
 		g.Ticks = 0
 		g.lastTPSUpdate = time.Now()
 	}
@@ -118,17 +123,24 @@ func (g *Game) Update() error {
 	return nil
 }
 
-func (g *Game) Draw(screen *ebiten.Image) {
-	g.renderPlan(screen)
+func (g *Game[T]) Draw(screen *ebiten.Image) {
+	for _, sys := range g.renderSeq {
+		sys.Draw(screen)
+	}
 }
 
-func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	return g.ScreenWidth, g.ScreenHeight
+func (g *Game[T]) Layout(outsideWidth, outsideHeight int) (int, int) {
+	ScreenWidth := g.resources.GetGameProps().ScreenWidth
+	ScreenHeight := g.resources.GetGameProps().ScreenHeight
+	return ScreenWidth, ScreenHeight
 }
 
-func (g *Game) Run() {
-	ebiten.SetWindowSize(g.ScreenWidth, g.ScreenHeight)
-	ebiten.SetWindowTitle(g.Title)
+func (g *Game[T]) Run() {
+	ScreenWidth := g.resources.GetGameProps().ScreenWidth
+	ScreenHeight := g.resources.GetGameProps().ScreenHeight
+	Title := g.resources.GetGameProps().Title
+	ebiten.SetWindowSize(ScreenWidth, ScreenHeight)
+	ebiten.SetWindowTitle(Title)
 	if err := ebiten.RunGame(g); err != nil {
 		log.Fatal(err)
 	}

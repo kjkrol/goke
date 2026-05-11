@@ -1,7 +1,6 @@
 package main
 
 import (
-	"image/color"
 	"math"
 	"time"
 
@@ -13,39 +12,72 @@ import (
 var _ goke.System = (*CollisionSystem)(nil)
 
 type CollisionSystem struct {
-	*Resource
-	collisionView *goke.View3[Position, Velocity, Appearance]
+	*Resources
+	collisionView *goke.View3[Position, Velocity, Collision]
+	compDescs     struct {
+		posDesc goke.ComponentDesc
+		velDesc goke.ComponentDesc
+		appDesc goke.ComponentDesc
+		colDesc goke.ComponentDesc
+	}
 }
 
-func NewCollisionSystem(resouce *Resource) *CollisionSystem {
+func NewCollisionSystem(resouces *Resources) goke.System {
 	return &CollisionSystem{
-		Resource: resouce,
+		Resources: resouces,
 	}
 }
 
 func (s *CollisionSystem) Init(ecs *goke.ECS) {
-	s.collisionView = goke.NewView3[Position, Velocity, Appearance](ecs)
+	s.collisionView = goke.NewView3[Position, Velocity, Collision](ecs)
+	s.compDescs.posDesc = goke.RegisterComponent[Position](ecs)
+	s.compDescs.velDesc = goke.RegisterComponent[Velocity](ecs)
+	s.compDescs.colDesc = goke.RegisterComponent[Collision](ecs)
 }
 
-func (s *CollisionSystem) Update(lookup goke.Lookup, _ *goke.Schedule, d time.Duration) {
+func (s *CollisionSystem) Update(lookup goke.Lookup, sched *goke.Schedule, d time.Duration) {
 	for head := range s.collisionView.All() {
-		pos, vel, app := head.V1, head.V2, head.V3
+		pos, vel, col := head.V1, head.V2, head.V3
 
+		if vel.X == 0 && vel.Y == 0 {
+			return
+		}
+
+		now := time.Now()
 		s.grid.spatialIndex.QueryRange(pos.AABB.AABB, func(otherID uint64) {
 			entity2 := goke.Entity(otherID)
 			if head.Entity.Index() < entity2.Index() {
 
-				pos2, _ := lookup.ComponentGet(entity2, posDesc.ID)
-				vel2, _ := lookup.ComponentGet(entity2, velDesc.ID)
-				app2, _ := lookup.ComponentGet(entity2, appDesc.ID)
+				pos2ptr, _ := lookup.ComponentGet(entity2, s.compDescs.posDesc.ID)
+				vel2ptr, _ := lookup.ComponentGet(entity2, s.compDescs.velDesc.ID)
+				col2ptr, _ := lookup.ComponentGet(entity2, s.compDescs.colDesc.ID)
 
-				app.Color = color.RGBA{R: 255, A: 255}
-				(*Appearance)(app2).Color = color.RGBA{R: 255, A: 255}
-				s.resolveCollision(pos, vel, (*Position)(pos2), (*Velocity)(vel2))
+				pos2 := (*Position)(pos2ptr)
+				vel2 := (*Velocity)(vel2ptr)
+				col2 := (*Collision)(col2ptr)
+
+				col.timestamp = now
+				col.counter++
+				col2.timestamp = now
+				col2.counter++
+
+				if col.counter > 3 {
+					goke.ScheduleRemoveEntity(sched, head.Entity)
+					s.grid.spatialIndex.QueueRemove(uint64(head.Entity))
+				}
+				if col2.counter > 3 {
+					goke.ScheduleRemoveEntity(sched, entity2)
+					s.grid.spatialIndex.QueueRemove(uint64(entity2))
+				}
+				if col.counter > 3 || col2.counter > 3 {
+					return
+				}
+
+				s.resolveCollision(pos, vel, pos2, vel2)
 				s.collisionCounter++
 
 				s.grid.spatialIndex.QueueUpdate(uint64(head.Entity), pos.AABB.AABB, true)
-				s.grid.spatialIndex.QueueUpdate(otherID, (*Position)(pos2).AABB.AABB, true)
+				s.grid.spatialIndex.QueueUpdate(otherID, pos2.AABB.AABB, true)
 			}
 		})
 	}

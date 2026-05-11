@@ -1,7 +1,6 @@
 package main
 
 import (
-	"image/color"
 	"time"
 
 	"github.com/kjkrol/goke"
@@ -10,28 +9,26 @@ import (
 )
 
 type MovementSystem struct {
-	*Resource
-	moveView *goke.View3[Position, Velocity, Appearance]
+	*Resources
+	moveView *goke.View2[Position, Velocity]
 }
 
 var _ goke.System = (*MovementSystem)(nil)
 
-func NewMoveSystem(resource *Resource) *MovementSystem {
+func NewMoveSystem(resources *Resources) goke.System {
 	return &MovementSystem{
-		Resource: resource,
+		Resources: resources,
 	}
 }
 
 func (s *MovementSystem) Init(ecs *goke.ECS) {
-	s.moveView = goke.NewView3[Position, Velocity, Appearance](ecs)
+	s.moveView = goke.NewView2[Position, Velocity](ecs)
 }
 
 func (s *MovementSystem) Update(_ goke.Lookup, _ *goke.Schedule, d time.Duration) {
 	dt := d.Seconds()
 	for head := range s.moveView.All() {
 		pos, vel := head.V1, head.V2
-		app := head.V3
-		app.Color = color.RGBA{R: 255, G: 255, B: 255, A: 255}
 		pos.accX += float64(vel.X) * dt
 		pos.accY += float64(vel.Y) * dt
 
