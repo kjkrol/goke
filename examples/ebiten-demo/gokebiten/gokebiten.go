@@ -20,31 +20,37 @@ type GameProps struct {
 
 type Resources interface {
 	GetGameProps() *GameProps
+	GetInputEvents() *InputEvents
 	Refresh(int)
 	Reset()
 }
 
 type Game[T Resources] struct {
-	ticks       int
-	physicsStep time.Duration
-	timeTracker *TimeTracker
-	resources   T
-	ecs         *goke.ECS
-	renderSeq   []RenderSystem
+	ticks        int
+	physicsStep  time.Duration
+	timeTracker  *TimeTracker
+	resources    T
+	ecs          *goke.ECS
+	renderSeq    []RenderSystem
+	inputAdapter InputAdapter
 }
 
 var _ ebiten.Game = (*Game[Resources])(nil)
 
-func NewGame[T Resources](resources T) *Game[T] {
+func NewGame[T Resources](resources T, inputAdapter InputAdapter) *Game[T] {
+	if inputAdapter == nil {
+		panic("InputAdapter has to be set")
+	}
 	targetTPS := defaultTargetTPS
 	if resources.GetGameProps() != nil && resources.GetGameProps().TargetTPS != 0 {
 		targetTPS = resources.GetGameProps().TargetTPS
 	}
 	game := &Game[T]{
-		resources:   resources,
-		physicsStep: time.Second / time.Duration(targetTPS),
-		timeTracker: NewTimeTracker(),
-		ecs:         goke.New(),
+		resources:    resources,
+		physicsStep:  time.Second / time.Duration(targetTPS),
+		timeTracker:  NewTimeTracker(),
+		ecs:          goke.New(),
+		inputAdapter: inputAdapter,
 	}
 	return game
 }
@@ -83,11 +89,15 @@ func (g *Game[T]) RenderSequence(sysFactories ...func(T) RenderSystem) {
 }
 
 func (g *Game[T]) Update() error {
+	g.inputAdapter.Capture(g.resources.GetInputEvents())
+
 	steps := g.timeTracker.CalculateSteps(g.physicsStep, 5)
-	for i := 0; i < steps; i++ {
+	for range steps {
 		goke.Tick(g.ecs, g.physicsStep)
+		g.resources.GetInputEvents().ResetTransient()
 		g.ticks++
 	}
+
 	if g.timeTracker.ProcessStatsInterval() {
 		g.resources.Refresh(g.ticks)
 		g.ticks = 0

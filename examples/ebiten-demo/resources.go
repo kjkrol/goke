@@ -10,9 +10,9 @@ const (
 	TPS            = 60
 	ScreenWidth    = 1024
 	ScreenHeight   = 1024
-	RectSize       = 8
+	RectSize       = 20
 	BucketCapacity = 16
-	EntityCount    = 256
+	EntityCount    = 128
 )
 
 type Statistics struct {
@@ -26,6 +26,7 @@ type Resources struct {
 	gameProps *gokebiten.GameProps
 	grid      *Grid
 	rectSize  int
+	inputs    gokebiten.InputEvents
 	Statistics
 }
 
@@ -64,3 +65,5 @@ func (r *Resources) Refresh(tick int) {
 	r.measuredTPS = tick
 	r.meeasuredCollisionCounter = r.collisionCounter
 }
+
+func (r *Resources) GetInputEvents() *gokebiten.InputEvents { return &r.inputs }
