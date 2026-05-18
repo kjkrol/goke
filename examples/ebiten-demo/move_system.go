@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/kjkrol/goke"
-	"github.com/kjkrol/gokg/pkg/geom"
-	"github.com/kjkrol/gokg/pkg/spatial"
+	"github.com/kjkrol/gokg/geom"
+	"github.com/kjkrol/gokg/spatial"
 )
 
 type MovementSystem struct {
@@ -44,9 +44,8 @@ func (s *MovementSystem) Update(_ goke.Lookup, _ *goke.Schedule, d time.Duration
 
 		if dx != 0 || dy != 0 {
 			delta := geom.NewVec(uint32(dx), uint32(dy))
-			s.grid.space.Translate(&pos.AABB, delta)
-			s.grid.spatialIndex.QueueUpdate(uint64(head.Entity), pos.AABB, true)
+			s.space.Translate(uint64(head.Entity), &pos.AABB, delta)
 		}
 	}
-	s.grid.spatialIndex.Flush(func(a spatial.AABB) {})
+	s.space.Flush(func(a spatial.AABB) {})
 }

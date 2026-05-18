@@ -7,9 +7,8 @@ import (
 	"time"
 
 	"github.com/kjkrol/goke"
-	"github.com/kjkrol/gokg/pkg/geom"
-	"github.com/kjkrol/gokg/pkg/plane"
-	"github.com/kjkrol/gokg/pkg/spatial"
+	"github.com/kjkrol/gokg/geom"
+	"github.com/kjkrol/gokg/plane"
 )
 
 type EntitiesInitSystem struct {
@@ -33,8 +32,8 @@ func (s *EntitiesInitSystem) Init(ecs *goke.ECS) {
 	cols := uint32(gridSize)
 
 	// 2. Calculate dynamic spacing to fill the whole ScreenWidth/Height
-	cellWidth := uint32(s.grid.gridConfig.Resolution.Side() / cols)
-	cellHeight := uint32(s.grid.gridConfig.Resolution.Side() / cols)
+	cellWidth := s.space.Width / cols
+	cellHeight := s.space.Height / cols
 
 	for i := 0; i < spawnEntitiesNumber; i++ {
 		entity, position, velocity, collision, appearance := s.blueprint.Create()
@@ -44,9 +43,9 @@ func (s *EntitiesInitSystem) Init(ecs *goke.ECS) {
 		spawnEntity(entity, position, velocity, collision, appearance,
 			cellWidth, cellHeight, row, col)
 
-		s.grid.spatialIndex.QueueInsert(uint64(entity.Index()), position.AABB)
+		s.space.Insert(uint64(entity.Index()), position.AABB)
 	}
-	s.grid.spatialIndex.Flush(func(a spatial.AABB) {})
+	s.space.Flush(nil)
 }
 
 func (s *EntitiesInitSystem) Update(goke.Lookup, *goke.Schedule, time.Duration) {}

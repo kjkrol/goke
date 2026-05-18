@@ -2,17 +2,18 @@ package main
 
 import (
 	"github.com/kjkrol/goke/examples/ebiten-demo/gokebiten"
-	"github.com/kjkrol/gokg/pkg/spatial"
+	"github.com/kjkrol/gokg"
+	"github.com/kjkrol/gokg/spatial"
 )
 
 // --- Configuration ---
 const (
-	TPS            = 60
+	TPS            = 2 * 60
 	ScreenWidth    = 1024
 	ScreenHeight   = 1024
-	RectSize       = 120
-	BucketCapacity = 16
-	EntityCount    = 32
+	RectSize       = 8
+	BucketCapacity = 64
+	EntityCount    = 2 * 1024
 )
 
 type Statistics struct {
@@ -24,7 +25,7 @@ type Statistics struct {
 
 type Resources struct {
 	gameProps *gokebiten.GameProps
-	grid      *Grid
+	space     *gokg.Space
 	rectSize  int
 	inputs    gokebiten.InputEvents
 	Statistics
@@ -33,6 +34,14 @@ type Resources struct {
 var _ (gokebiten.Resources) = (*Resources)(nil)
 
 func NewResources() *Resources {
+	space, _ := gokg.NewSpace(gokg.Config{
+		Width:          ScreenWidth,
+		Height:         ScreenHeight,
+		Toroidal:       true,
+		BucketSize:     spatial.Size64x64,
+		BucketCapacity: BucketCapacity,
+		OpsBufferSize:  EntityCount * 4,
+	})
 	return &Resources{
 		gameProps: &gokebiten.GameProps{
 			Title:        "GOKe + GOKg + Ebiten Integration",
@@ -40,12 +49,7 @@ func NewResources() *Resources {
 			ScreenHeight: ScreenHeight,
 			TargetTPS:    TPS,
 		},
-		grid: NewGrid(spatial.GridIndexConfig{
-			Resolution:       spatial.Size1024x1024,
-			BucketResolution: spatial.Size64x64,
-			BucketCapacity:   BucketCapacity,
-			OpsBufferSize:    EntityCount * 4,
-		}),
+		space:    space,
 		rectSize: RectSize,
 		Statistics: Statistics{
 			entityCounter: EntityCount,

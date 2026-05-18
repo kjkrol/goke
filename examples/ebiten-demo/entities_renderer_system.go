@@ -7,8 +7,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/kjkrol/goke"
 	"github.com/kjkrol/goke/examples/ebiten-demo/gokebiten"
-	"github.com/kjkrol/gokg/pkg/geom"
-	"github.com/kjkrol/gokg/pkg/plane"
+	"github.com/kjkrol/gokg/geom"
+	"github.com/kjkrol/gokg/plane"
 )
 
 type EntitiesRendererSystem struct {
@@ -73,7 +73,7 @@ func (s *EntitiesRendererSystem) draw(
 
 	// Kolorowanie
 	op.ColorScale.Reset()
-	if now.Sub(col.timestamp) < 200*time.Millisecond {
+	if now.Sub(col.timestamp) < 40*time.Millisecond {
 		op.ColorScale.ScaleWithColor(color.RGBA{R: 255, A: 255})
 	} else {
 		op.ColorScale.ScaleWithColor(app.Color)

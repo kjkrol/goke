@@ -4,9 +4,9 @@ import (
 	"time"
 
 	"github.com/kjkrol/goke"
-	"github.com/kjkrol/gokg/pkg/geom"
-	"github.com/kjkrol/gokg/pkg/plane"
-	"github.com/kjkrol/gokg/pkg/spatial"
+	"github.com/kjkrol/gokg/geom"
+	"github.com/kjkrol/gokg/plane"
+	"github.com/kjkrol/gokg/spatial"
 )
 
 var _ goke.System = (*CollisionSystem)(nil)
@@ -36,14 +36,11 @@ func (s *CollisionSystem) Init(ecs *goke.ECS) {
 }
 
 func (s *CollisionSystem) Update(lookup goke.Lookup, sched *goke.Schedule, d time.Duration) {
-	const solverIterations = 8
+	const solverIterations = 3
 	const probeExpandMaring = 16
 	var contacts []Contact = s.broadPhase(lookup, probeExpandMaring)
 	s.narrowPhase(contacts, solverIterations)
-	for _, contact := range contacts {
-		s.grid.spatialIndex.QueueUpdate(uint64(contact.EntityA), contact.PosA.AABB, true)
-	}
-	s.grid.spatialIndex.Flush(func(spatial.AABB) {})
+	s.space.Flush(func(spatial.AABB) {})
 }
 
 func (s *CollisionSystem) broadPhase(lookup goke.Lookup, probeExpandMargin uint32) (contacts []Contact) {
@@ -56,7 +53,7 @@ func (s *CollisionSystem) broadPhase(lookup goke.Lookup, probeExpandMargin uint3
 		}
 
 		checkFunc := func(boxA geom.AABB[uint32], fragA plane.FragPosition) {
-			s.grid.spatialIndex.QueryRange(boxA, func(idB uint64, fragB plane.FragPosition) {
+			s.space.Query(boxA, func(idB uint64, fragB plane.FragPosition) {
 				entityB := goke.Entity(idB)
 
 				if entityA.Index() < entityB.Index() {
@@ -77,7 +74,7 @@ func (s *CollisionSystem) broadPhase(lookup goke.Lookup, probeExpandMargin uint3
 		}
 
 		probeBoxA := pos.AABB
-		s.grid.space.Expand(&probeBoxA, probeExpandMargin)
+		s.space.ExpandOnly(&probeBoxA, probeExpandMargin)
 		checkFunc(probeBoxA.AABB, plane.FRAG_MAIN)
 		probeBoxA.VisitFragments(func(fragA plane.FragPosition, boxA geom.AABB[uint32]) bool {
 			checkFunc(boxA, fragA)
@@ -109,8 +106,8 @@ func (s *CollisionSystem) narrowPhase(contacts []Contact, solverIterations int) 
 			}
 
 			if mtv1, mtv2, ok := c.calculateMtv(boxA, boxB, false); ok == true {
-				s.grid.space.Translate(&c.PosA.AABB, mtv1)
-				s.grid.space.Translate(&c.PosB.AABB, mtv2)
+				s.space.Translate(uint64(c.EntityA.Index()), &c.PosA.AABB, mtv1)
+				s.space.Translate(uint64(c.EntityB.Index()), &c.PosB.AABB, mtv2)
 			}
 		}
 	}
