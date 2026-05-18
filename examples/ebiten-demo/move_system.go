@@ -45,7 +45,7 @@ func (s *MovementSystem) Update(_ goke.Lookup, _ *goke.Schedule, d time.Duration
 		if dx != 0 || dy != 0 {
 			delta := geom.NewVec(uint32(dx), uint32(dy))
 			s.grid.space.Translate(&pos.AABB, delta)
-			s.grid.spatialIndex.QueueUpdate(uint64(head.Entity), pos.AABB.AABB, true)
+			s.grid.spatialIndex.QueueUpdate(uint64(head.Entity), pos.AABB, true)
 		}
 	}
 	s.grid.spatialIndex.Flush(func(a spatial.AABB) {})

@@ -10,8 +10,8 @@ github.com/hajimehoshi/ebiten/v2 v2.9.8 h1:xI0hIctuTMjFFk8lqEcUzoLjFy8d/FOBa9PDT
 github.com/hajimehoshi/ebiten/v2 v2.9.8/go.mod h1:DAt4tnkYYpCvu3x9i1X/nK/vOruNXIlYq/tBXxnhrXM=
 github.com/jezek/xgb v1.1.1 h1:bE/r8ZZtSv7l9gk6nU0mYx51aXrvnyb44892TwSaqS4=
 github.com/jezek/xgb v1.1.1/go.mod h1:nrhwO0FX/enq75I7Y7G8iN1ubpSGZEiA3v9e9GyRFlk=
-github.com/kjkrol/gokg v1.2.7 h1:xKdapQ9+Ol9Uhd/sB1KJAT6aHfArLSnh6P75aSdt7zM=
-github.com/kjkrol/gokg v1.2.7/go.mod h1:oikIaIbD2FOWCsbSjnPmfkxOzUFjv9MsvCvewjE5Y4k=
+github.com/kjkrol/gokg v1.2.8 h1:jfaGzof5IoLAd5tZSgAIx+Spe9PELSlmnCzFzNoBqOM=
+github.com/kjkrol/gokg v1.2.8/go.mod h1:oikIaIbD2FOWCsbSjnPmfkxOzUFjv9MsvCvewjE5Y4k=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=

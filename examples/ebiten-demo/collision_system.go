@@ -36,15 +36,17 @@ func (s *CollisionSystem) Init(ecs *goke.ECS) {
 }
 
 func (s *CollisionSystem) Update(lookup goke.Lookup, sched *goke.Schedule, d time.Duration) {
-	var contacts []Contact = s.broadPhase(lookup)
-	s.narrowPhase(contacts)
+	const solverIterations = 8
+	const probeExpandMaring = 16
+	var contacts []Contact = s.broadPhase(lookup, probeExpandMaring)
+	s.narrowPhase(contacts, solverIterations)
 	for _, contact := range contacts {
-		s.grid.spatialIndex.QueueUpdate(uint64(contact.EntityA), contact.PosA.AABB.AABB, true)
+		s.grid.spatialIndex.QueueUpdate(uint64(contact.EntityA), contact.PosA.AABB, true)
 	}
 	s.grid.spatialIndex.Flush(func(spatial.AABB) {})
 }
 
-func (s *CollisionSystem) broadPhase(lookup goke.Lookup) (contacts []Contact) {
+func (s *CollisionSystem) broadPhase(lookup goke.Lookup, probeExpandMargin uint32) (contacts []Contact) {
 	for head := range s.collisionView.All() {
 		pos, vel, col := head.V1, head.V2, head.V3
 		entityA := head.Entity
@@ -68,15 +70,16 @@ func (s *CollisionSystem) broadPhase(lookup goke.Lookup) (contacts []Contact) {
 						PosA: pos, PosB: (*Position)(posBptr),
 						VelA: vel, VelB: (*Velocity)(velBptr),
 						ColA: col, ColB: (*Collision)(colBptr),
-						FragA: fragA,
-						FragB: fragB,
+						FragA: fragA, FragB: fragB,
 					})
 				}
 			})
 		}
 
-		checkFunc(pos.AABB.AABB, plane.FRAG_MAIN)
-		pos.AABB.VisitFragments(func(fragA plane.FragPosition, boxA geom.AABB[uint32]) bool {
+		probeBoxA := pos.AABB
+		s.grid.space.Expand(&probeBoxA, probeExpandMargin)
+		checkFunc(probeBoxA.AABB, plane.FRAG_MAIN)
+		probeBoxA.VisitFragments(func(fragA plane.FragPosition, boxA geom.AABB[uint32]) bool {
 			checkFunc(boxA, fragA)
 			return true
 		})
@@ -84,9 +87,8 @@ func (s *CollisionSystem) broadPhase(lookup goke.Lookup) (contacts []Contact) {
 	return
 }
 
-func (s *CollisionSystem) narrowPhase(contacts []Contact) {
+func (s *CollisionSystem) narrowPhase(contacts []Contact, solverIterations int) {
 	now := time.Now()
-	const solverIterations = 3
 
 	for iter := 0; iter < solverIterations; iter++ {
 		for _, c := range contacts {

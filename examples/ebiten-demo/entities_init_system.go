@@ -44,7 +44,7 @@ func (s *EntitiesInitSystem) Init(ecs *goke.ECS) {
 		spawnEntity(entity, position, velocity, collision, appearance,
 			cellWidth, cellHeight, row, col)
 
-		s.grid.spatialIndex.QueueInsert(uint64(entity.Index()), position.AABB.AABB)
+		s.grid.spatialIndex.QueueInsert(uint64(entity.Index()), position.AABB)
 	}
 	s.grid.spatialIndex.Flush(func(a spatial.AABB) {})
 }

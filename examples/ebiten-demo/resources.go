@@ -10,7 +10,7 @@ const (
 	TPS            = 60
 	ScreenWidth    = 1024
 	ScreenHeight   = 1024
-	RectSize       = 90
+	RectSize       = 120
 	BucketCapacity = 16
 	EntityCount    = 32
 )
@@ -44,7 +44,7 @@ func NewResources() *Resources {
 			Resolution:       spatial.Size1024x1024,
 			BucketResolution: spatial.Size64x64,
 			BucketCapacity:   BucketCapacity,
-			OpsBufferSize:    EntityCount,
+			OpsBufferSize:    EntityCount * 4,
 		}),
 		rectSize: RectSize,
 		Statistics: Statistics{
