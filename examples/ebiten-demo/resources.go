@@ -11,9 +11,9 @@ const (
 	TPS            = 2 * 60
 	ScreenWidth    = 1024
 	ScreenHeight   = 1024
-	RectSize       = 8
+	RectSize       = 16
 	BucketCapacity = 64
-	EntityCount    = 2 * 1024
+	EntityCount    = 256
 )
 
 type Statistics struct {
