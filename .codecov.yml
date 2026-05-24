@@ -2,3 +2,4 @@ ignore:
   - "examples/**/*"
   - "internal/cmd/**/*"
   - "**/*_gen.go"
+  - "*_gen.go"
