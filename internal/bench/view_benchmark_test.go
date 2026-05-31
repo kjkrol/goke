@@ -18,6 +18,8 @@ type Spin struct{ S [32]float32 }
 type Char struct{ V [32]float32 }
 type Elec struct{ V float64 }
 type Magn struct{ V float64 }
+type T09 struct{ V float64 }
+type T10 struct{ V float64 }
 
 func setupBenchmark(_ *testing.B, count int) (*goke.ECS, []core.Entity) {
 	ecs := goke.New()
@@ -29,11 +31,13 @@ func setupBenchmark(_ *testing.B, count int) (*goke.ECS, []core.Entity) {
 	_ = goke.RegisterComponent[Char](ecs)
 	_ = goke.RegisterComponent[Elec](ecs)
 	_ = goke.RegisterComponent[Magn](ecs)
+	_ = goke.RegisterComponent[T09](ecs)
+	_ = goke.RegisterComponent[T10](ecs)
 
 	var entities []core.Entity
-	blueprint := goke.NewBlueprint8[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn](ecs)
+	blueprint := goke.NewBlueprint10[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn, T09, T10](ecs)
 	for range count {
-		e, pos, vel, acc, mass, spin, char, elec, magn := blueprint.Create()
+		e, pos, vel, acc, mass, spin, char, elec, magn, v09, v10 := blueprint.Create()
 
 		*pos = Pos{rand.Float32() * 100, rand.Float32() * 100}
 		*vel = Vel{rand.Float32() * 40, 1}
@@ -43,6 +47,8 @@ func setupBenchmark(_ *testing.B, count int) (*goke.ECS, []core.Entity) {
 		*char = Char{}
 		*elec = Elec{1}
 		*magn = Magn{1}
+		*v09 = T09{}
+		*v10 = T10{}
 
 		entities = append(entities, e)
 	}
@@ -243,6 +249,46 @@ func BenchmarkView8_All(b *testing.B) {
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
 		for head := range view8.All() {
+			pos, vel, acc := head.V1, head.V2, head.V3
+			vel.X += acc.X
+			pos.X += vel.X
+		}
+	}
+
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		fn()
+	}
+}
+
+func BenchmarkView9_All(b *testing.B) {
+	b.StopTimer()
+	ecs, _ := setupBenchmark(b, entitiesNumber)
+	view10 := goke.NewView9[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn, T09](ecs)
+
+	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
+	fn := func() {
+		for head := range view10.All() {
+			pos, vel, acc := head.V1, head.V2, head.V3
+			vel.X += acc.X
+			pos.X += vel.X
+		}
+	}
+
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		fn()
+	}
+}
+
+func BenchmarkView10_All(b *testing.B) {
+	b.StopTimer()
+	ecs, _ := setupBenchmark(b, entitiesNumber)
+	view10 := goke.NewView10[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn, T09, T10](ecs)
+
+	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
+	fn := func() {
+		for head := range view10.All() {
 			pos, vel, acc := head.V1, head.V2, head.V3
 			vel.X += acc.X
 			pos.X += vel.X
@@ -465,6 +511,46 @@ func BenchmarkView8_Values(b *testing.B) {
 	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
 	fn := func() {
 		for head := range view8.Values() {
+			pos, vel, acc := head.V1, head.V2, head.V3
+			vel.X += acc.X
+			pos.X += vel.X
+		}
+	}
+
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		fn()
+	}
+}
+
+func BenchmarkView9_Values(b *testing.B) {
+	b.StopTimer()
+	ecs, _ := setupBenchmark(b, entitiesNumber)
+	view9 := goke.NewView9[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn, T09](ecs)
+
+	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
+	fn := func() {
+		for head := range view9.Values() {
+			pos, vel, acc := head.V1, head.V2, head.V3
+			vel.X += acc.X
+			pos.X += vel.X
+		}
+	}
+
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		fn()
+	}
+}
+
+func BenchmarkView10_Values(b *testing.B) {
+	b.StopTimer()
+	ecs, _ := setupBenchmark(b, entitiesNumber)
+	view10 := goke.NewView10[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn, T09, T10](ecs)
+
+	// The fn function is essential as it allows inlining logic and iteration, enabling faster reads using CPU L1/L2 Cache.
+	fn := func() {
+		for head := range view10.Values() {
 			pos, vel, acc := head.V1, head.V2, head.V3
 			vel.X += acc.X
 			pos.X += vel.X

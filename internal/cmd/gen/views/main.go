@@ -62,7 +62,7 @@ func main() {
 	f.WriteString("\t\"github.com/kjkrol/goke/internal/core\"\n")
 	f.WriteString(")\n\n")
 
-	for i := 1; i <= 8; i++ {
+	for i := 1; i <= 10; i++ {
 		data := prepareData(i)
 		err = tmpl.Execute(f, data)
 		if err != nil {
@@ -80,7 +80,7 @@ func main() {
 func prepareData(n int) ViewData {
 	allTypes := make([]string, n)
 	indices := make([]int, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		allTypes[i] = fmt.Sprintf("T%d", i+1)
 		indices[i] = i
 	}
