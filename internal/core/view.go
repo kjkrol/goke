@@ -113,7 +113,8 @@ func (v *View) AddArchetype(arch *Archetype) {
 	// Check if there is "hidden" capacity in the Baked slice
 	if cap(v.Baked) > len(v.Baked) {
 		// Access the "garbage" element that is about to be overwritten
-		oldArchStruct := &v.Baked[len(v.Baked)]
+		extended := v.Baked[:len(v.Baked)+1]
+		oldArchStruct := &extended[len(v.Baked)]
 
 		// Check if the recycled slices are big enough for current layout
 		if cap(oldArchStruct.FieldsOffsets) >= len(v.Layout) {

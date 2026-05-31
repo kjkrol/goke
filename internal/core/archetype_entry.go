@@ -2,7 +2,7 @@ package core
 
 import "unsafe"
 
-const ArchetypeEntryCap = 8
+const ArchetypeEntryCap = 10
 
 type ArchetypeEntryBlueprint struct {
 	reg       *Registry

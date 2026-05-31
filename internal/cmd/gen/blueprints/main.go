@@ -33,7 +33,7 @@ func main() {
 	f, _ := os.Create("blueprints_gen.go")
 	defer f.Close()
 
-	tmpl.Execute(f, map[string]interface{}{
-		"Range": []int{1, 2, 3, 4, 5, 6, 7, 8},
+	tmpl.Execute(f, map[string]any{
+		"Range": []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
 	})
 }

@@ -640,3 +640,181 @@ func (b *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]) Create() (Entity, *T1, *T2,
     entity, ptrs := b.blueprint.Create()
     return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1]), (*T3)(ptrs[2]), (*T4)(ptrs[3]), (*T5)(ptrs[4]), (*T6)(ptrs[5]), (*T7)(ptrs[6]), (*T8)(ptrs[7])
 }
+// Blueprint9 defines a static template (recipe) for the mass construction 
+// of entities with a predefined set of 9 stateful components. It allows 
+// for precise memory layout planning before allocation, which is essential 
+// for high-performance data access patterns.
+//
+// For example, a Blueprint9 could be used to define complex actors that 
+// require exactly 9 distinct data structures to be stored contiguously, 
+// ensuring optimal data locality and cache efficiency.
+type Blueprint9[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T9 any] struct {
+    blueprint *core.ArchetypeEntryBlueprint
+}
+
+// NewBlueprint9 initializes a new template for a specific combination of 9 components.
+// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the 
+// template with any number of stateless components (Tags). Tags do not occupy 
+// space in the data columns but allow for precise population filtering within Views.
+//
+// By using a static definition, archetype metadata is registered once, 
+// enabling rapid entity spawning with minimal memory management overhead.
+//
+// This constructor panics if component registration fails or if there are 
+// configuration conflicts, ensuring a fail-fast behavior during system initialization.
+func NewBlueprint9[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T9 any](
+    ecs *ECS,
+    opts ...BlueprintOption,
+) *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9] {
+    registry := ecs.registry
+    blueprint := core.NewBlueprint(registry)
+
+    // mustAdd ensures that component registration and blueprint assignment
+    // are successful. Panics immediately on failure to support fail-fast startup.
+    mustAdd := func(info core.ComponentInfo) {
+        if err := blueprint.WithComp(info); err != nil {
+            panic(fmt.Sprintf("goke: blueprint9 init failed: %v", err))
+        }
+    }
+
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T2]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T3]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T4]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T5]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T6]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T7]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T8]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T9]()))
+    
+
+    // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
+    for _, opt := range opts {
+        if err := opt(blueprint); err != nil {
+            panic(fmt.Sprintf("goke: blueprint9 option failed: %v", err))
+        }
+    }
+
+    return &Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]{
+        blueprint: core.NewArchetypeEntry(blueprint),
+    }
+}
+
+// Create instantiates a new entity based on the blueprint's static configuration.
+// It returns the unique Entity identifier along with direct pointers to the 
+// newly allocated memory for each of the 9 stateful components.
+//
+// The resulting entity is created with the full set of predefined Tags 
+// (stateless components) configured via BlueprintOptions, making it 
+// immediately discoverable by relevant Views and Filters.
+//
+// Example usage for Blueprint9:
+//
+//    entity, v1, v2, v3, v4, v5, v6, v7, v8, v9 := blueprint.Create()
+//    *v1 = T1{ /* initialize */ }
+//    *v2 = T2{ /* initialize */ }
+//    *v3 = T3{ /* initialize */ }
+//    *v4 = T4{ /* initialize */ }
+//    *v5 = T5{ /* initialize */ }
+//    *v6 = T6{ /* initialize */ }
+//    *v7 = T7{ /* initialize */ }
+//    *v8 = T8{ /* initialize */ }
+//    *v9 = T9{ /* initialize */ }
+//
+// These pointers allow for immediate initialization of the entity's state 
+// without the need for additional lookups, ensuring a highly efficient 
+// construction process.
+func (b *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Create() (Entity, *T1, *T2, *T3, *T4, *T5, *T6, *T7, *T8, *T9) {
+    entity, ptrs := b.blueprint.Create()
+    return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1]), (*T3)(ptrs[2]), (*T4)(ptrs[3]), (*T5)(ptrs[4]), (*T6)(ptrs[5]), (*T7)(ptrs[6]), (*T8)(ptrs[7]), (*T9)(ptrs[8])
+}
+// Blueprint10 defines a static template (recipe) for the mass construction 
+// of entities with a predefined set of 10 stateful components. It allows 
+// for precise memory layout planning before allocation, which is essential 
+// for high-performance data access patterns.
+//
+// For example, a Blueprint10 could be used to define complex actors that 
+// require exactly 10 distinct data structures to be stored contiguously, 
+// ensuring optimal data locality and cache efficiency.
+type Blueprint10[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T9 any, T10 any] struct {
+    blueprint *core.ArchetypeEntryBlueprint
+}
+
+// NewBlueprint10 initializes a new template for a specific combination of 10 components.
+// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the 
+// template with any number of stateless components (Tags). Tags do not occupy 
+// space in the data columns but allow for precise population filtering within Views.
+//
+// By using a static definition, archetype metadata is registered once, 
+// enabling rapid entity spawning with minimal memory management overhead.
+//
+// This constructor panics if component registration fails or if there are 
+// configuration conflicts, ensuring a fail-fast behavior during system initialization.
+func NewBlueprint10[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T9 any, T10 any](
+    ecs *ECS,
+    opts ...BlueprintOption,
+) *Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10] {
+    registry := ecs.registry
+    blueprint := core.NewBlueprint(registry)
+
+    // mustAdd ensures that component registration and blueprint assignment
+    // are successful. Panics immediately on failure to support fail-fast startup.
+    mustAdd := func(info core.ComponentInfo) {
+        if err := blueprint.WithComp(info); err != nil {
+            panic(fmt.Sprintf("goke: blueprint10 init failed: %v", err))
+        }
+    }
+
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T2]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T3]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T4]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T5]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T6]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T7]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T8]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T9]()))
+    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T10]()))
+    
+
+    // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
+    for _, opt := range opts {
+        if err := opt(blueprint); err != nil {
+            panic(fmt.Sprintf("goke: blueprint10 option failed: %v", err))
+        }
+    }
+
+    return &Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]{
+        blueprint: core.NewArchetypeEntry(blueprint),
+    }
+}
+
+// Create instantiates a new entity based on the blueprint's static configuration.
+// It returns the unique Entity identifier along with direct pointers to the 
+// newly allocated memory for each of the 10 stateful components.
+//
+// The resulting entity is created with the full set of predefined Tags 
+// (stateless components) configured via BlueprintOptions, making it 
+// immediately discoverable by relevant Views and Filters.
+//
+// Example usage for Blueprint10:
+//
+//    entity, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10 := blueprint.Create()
+//    *v1 = T1{ /* initialize */ }
+//    *v2 = T2{ /* initialize */ }
+//    *v3 = T3{ /* initialize */ }
+//    *v4 = T4{ /* initialize */ }
+//    *v5 = T5{ /* initialize */ }
+//    *v6 = T6{ /* initialize */ }
+//    *v7 = T7{ /* initialize */ }
+//    *v8 = T8{ /* initialize */ }
+//    *v9 = T9{ /* initialize */ }
+//    *v10 = T10{ /* initialize */ }
+//
+// These pointers allow for immediate initialization of the entity's state 
+// without the need for additional lookups, ensuring a highly efficient 
+// construction process.
+func (b *Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Create() (Entity, *T1, *T2, *T3, *T4, *T5, *T6, *T7, *T8, *T9, *T10) {
+    entity, ptrs := b.blueprint.Create()
+    return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1]), (*T3)(ptrs[2]), (*T4)(ptrs[3]), (*T5)(ptrs[4]), (*T6)(ptrs[5]), (*T7)(ptrs[6]), (*T8)(ptrs[7]), (*T9)(ptrs[8]), (*T10)(ptrs[9])
+}

@@ -4044,3 +4044,1337 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) FilterValues(selected []core.Ent
 		}
 	}
 }
+
+// --------------- View9 ---------------
+
+// View9 provides a type-safe iterator and access layer for entities that
+// possess exactly 9 specific stateful components. It acts as a specialized
+// window into the ECS world, filtering archetypes that satisfy the required
+// component mask and any additional constraints defined via BlueprintOptions.
+//
+// By leveraging pre-calculated component offsets, View9 enables
+// O(1) access to component data during iteration, making it the primary
+// tool for implementing high-performance systems and logic loops.
+type View9[T1, T2, T3, T4, T5, T6, T7, T8, T9 any] struct {
+	*core.View
+}
+
+// NewView9 initializes a query for exactly 9 components.
+// It panics if the component registration fails, if there are duplicate
+// components, or if options (like Exclude) create a logical contradiction.
+//
+// This ensures that the View is valid and ready for high-performance
+// iteration immediately after creation.
+func NewView9[T1, T2, T3, T4, T5, T6, T7, T8, T9 any](ecs *ECS, opts ...BlueprintOption) *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9] {
+	registry := ecs.registry
+	blueprint := core.NewBlueprint(registry)
+	componentsRegistry := &registry.ComponentsRegistry
+
+	// Helper: Validates that the required component can be part of the view.
+	mustAdd := func(info core.ComponentInfo) {
+		if err := blueprint.WithComp(info); err != nil {
+			panic(fmt.Sprintf("goke: view9 init failed: %v", err))
+		}
+	}
+
+	// 1. Resolve Component Infos (Type -> ID)
+
+	info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
+
+	info2 := componentsRegistry.GetOrRegister(reflect.TypeFor[T2]())
+
+	info3 := componentsRegistry.GetOrRegister(reflect.TypeFor[T3]())
+
+	info4 := componentsRegistry.GetOrRegister(reflect.TypeFor[T4]())
+
+	info5 := componentsRegistry.GetOrRegister(reflect.TypeFor[T5]())
+
+	info6 := componentsRegistry.GetOrRegister(reflect.TypeFor[T6]())
+
+	info7 := componentsRegistry.GetOrRegister(reflect.TypeFor[T7]())
+
+	info8 := componentsRegistry.GetOrRegister(reflect.TypeFor[T8]())
+
+	info9 := componentsRegistry.GetOrRegister(reflect.TypeFor[T9]())
+
+	// 2. Add to Blueprint (Build Mask)
+
+	mustAdd(info1)
+
+	mustAdd(info2)
+
+	mustAdd(info3)
+
+	mustAdd(info4)
+
+	mustAdd(info5)
+
+	mustAdd(info6)
+
+	mustAdd(info7)
+
+	mustAdd(info8)
+
+	mustAdd(info9)
+
+	// 3. Apply dynamic options (Include/Exclude)
+	for _, opt := range opts {
+		if err := opt(blueprint); err != nil {
+			panic(fmt.Sprintf("goke: view9 option failed: %v", err))
+		}
+	}
+
+	// 4. Define Rigid Layout (Slice Literal - Zero Allocation Overhead)
+	// This guarantees that T1 is at index 0, T2 at index 1, etc.
+	layout := []core.ComponentInfo{
+		info1, info2, info3, info4, info5, info6, info7, info8, info9,
+	}
+
+	view := core.NewView(blueprint, layout, registry)
+	return &View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]{View: view}
+}
+
+// All returns an iterator (iter.Seq2) that yields the unique Entity identifier
+// and a tuple of pointers to its 9 components. This is designed for use
+// in range loops, providing a clean, idiomatic Go way to process data while
+// maintaining maximum cache efficiency.
+//
+// The iteration is performed archetype by archetype, ensuring that data is
+// accessed contiguously in memory, which significantly reduces CPU cache misses.
+//
+// Example usage:
+//
+//	for head, tail := range view9.All() {
+//	    entity := head.Entity
+//	    v1 := head.V1
+//
+//	    v9 := tail.V9
+//
+//	}
+func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) All() iter.Seq2[
+	struct {
+		Entity core.Entity
+		V1     *T1
+		V2     *T2
+		V3     *T3
+	},
+	struct {
+		V4 *T4
+		V5 *T5
+		V6 *T6
+		V7 *T7
+		V8 *T8
+		V9 *T9
+	},
+] {
+	return func(yield func(
+		struct {
+			Entity core.Entity
+			V1     *T1
+			V2     *T2
+			V3     *T3
+		},
+		struct {
+			V4 *T4
+			V5 *T5
+			V6 *T6
+			V7 *T7
+			V8 *T8
+			V9 *T9
+		},
+	) bool) {
+		// 1. Pre-calculate Strides (Invariant)
+		stride1 := unsafe.Sizeof(*new(T1))
+		stride2 := unsafe.Sizeof(*new(T2))
+		stride3 := unsafe.Sizeof(*new(T3))
+		stride4 := unsafe.Sizeof(*new(T4))
+		stride5 := unsafe.Sizeof(*new(T5))
+		stride6 := unsafe.Sizeof(*new(T6))
+		stride7 := unsafe.Sizeof(*new(T7))
+		stride8 := unsafe.Sizeof(*new(T8))
+		stride9 := unsafe.Sizeof(*new(T9))
+
+		// Loop over matched archetypes - Value Copy is fast enough (stack allocation)
+		for _, ma := range v.Baked {
+			// 2. Load Offsets from Cache (L1 Cache Friendly)
+			// Accessing fields on stack-allocated 'ma' is blazing fast
+			offsetEntity := ma.EntityChunkOffset
+			offset1 := ma.FieldsOffsets[0]
+			offset2 := ma.FieldsOffsets[1]
+			offset3 := ma.FieldsOffsets[2]
+			offset4 := ma.FieldsOffsets[3]
+			offset5 := ma.FieldsOffsets[4]
+			offset6 := ma.FieldsOffsets[5]
+			offset7 := ma.FieldsOffsets[6]
+			offset8 := ma.FieldsOffsets[7]
+			offset9 := ma.FieldsOffsets[8]
+
+			// 3. Loop over Physical Memory Pages (CHUNKS)
+			for _, chunk := range ma.Arch.Memory.Pages {
+				count := chunk.Len
+				if count == 0 {
+					continue
+				}
+
+				// 4. Resolve Base Pointers for this Chunk (Pure Math)
+				base := chunk.Ptr
+				ptrEntity := unsafe.Add(base, offsetEntity)
+				ptr1 := unsafe.Add(base, offset1)
+				ptr2 := unsafe.Add(base, offset2)
+				ptr3 := unsafe.Add(base, offset3)
+				ptr4 := unsafe.Add(base, offset4)
+				ptr5 := unsafe.Add(base, offset5)
+				ptr6 := unsafe.Add(base, offset6)
+				ptr7 := unsafe.Add(base, offset7)
+				ptr8 := unsafe.Add(base, offset8)
+				ptr9 := unsafe.Add(base, offset9)
+
+				// 5. Hot Loop (Death Loop)
+				for count > 0 {
+					// Construct Head
+					head := struct {
+						Entity core.Entity
+						V1     *T1
+						V2     *T2
+						V3     *T3
+					}{
+						Entity: *(*core.Entity)(ptrEntity),
+						V1:     (*T1)(ptr1),
+						V2:     (*T2)(ptr2),
+						V3:     (*T3)(ptr3),
+					}
+
+					// Construct Tail (if exists)
+
+					tail := struct {
+						V4 *T4
+						V5 *T5
+						V6 *T6
+						V7 *T7
+						V8 *T8
+						V9 *T9
+					}{
+						V4: (*T4)(ptr4),
+						V5: (*T5)(ptr5),
+						V6: (*T6)(ptr6),
+						V7: (*T7)(ptr7),
+						V8: (*T8)(ptr8),
+						V9: (*T9)(ptr9),
+					}
+
+					// Yield execution to the user
+					if !yield(head, tail) {
+						return
+					}
+
+					// 6. Pointer Arithmetic (Move to next row)
+					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
+					ptr1 = unsafe.Add(ptr1, stride1)
+					ptr2 = unsafe.Add(ptr2, stride2)
+					ptr3 = unsafe.Add(ptr3, stride3)
+					ptr4 = unsafe.Add(ptr4, stride4)
+					ptr5 = unsafe.Add(ptr5, stride5)
+					ptr6 = unsafe.Add(ptr6, stride6)
+					ptr7 = unsafe.Add(ptr7, stride7)
+					ptr8 = unsafe.Add(ptr8, stride8)
+					ptr9 = unsafe.Add(ptr9, stride9)
+
+					count--
+				}
+			}
+		}
+	}
+}
+
+// Filter returns an iterator (iter.Seq2) that yields only the entities
+// specified in the selected slice, provided they match the View's archetype
+// constraints. It is optimized for scenarios where a subset of entities
+// is pre-determined (e.g., via spatial partitioning or sorted results)
+// but requires high-speed access to their component data.
+//
+// The iterator performs an internal validation for each entity to ensure
+// it still belongs to an archetype compatible with this View, preventing
+// invalid memory access if the entity's composition has changed.
+//
+// Example usage:
+//
+//	selected := []Entity{e1, e5, e10}
+//	for head, tail := range view9.Filter(selected) {
+//	    entity := head.Entity
+//	    v1 := head.V1
+//
+//
+//	    v9 := tail.V9
+//
+//
+//	}
+func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Filter(selected []Entity) iter.Seq2[
+	struct {
+		Entity Entity
+		V1     *T1
+		V2     *T2
+		V3     *T3
+	},
+	struct {
+		V4 *T4
+		V5 *T5
+		V6 *T6
+		V7 *T7
+		V8 *T8
+		V9 *T9
+	},
+] {
+	return func(yield func(
+		struct {
+			Entity core.Entity
+			V1     *T1
+			V2     *T2
+			V3     *T3
+		},
+		struct {
+			V4 *T4
+			V5 *T5
+			V6 *T6
+			V7 *T7
+			V8 *T8
+			V9 *T9
+		},
+	) bool) {
+		var lastArchID core.ArchetypeId = core.NullArchetypeId
+		var currentArch *core.Archetype
+
+		// Column descriptor cache
+		var col1 *core.Column
+		var col2 *core.Column
+		var col3 *core.Column
+		var col4 *core.Column
+		var col5 *core.Column
+		var col6 *core.Column
+		var col7 *core.Column
+		var col8 *core.Column
+		var col9 *core.Column
+
+		registry := v.Reg.ArchetypeRegistry
+
+		for _, e := range selected {
+			link, ok := registry.EntityLinkStore.Get(e)
+			if !ok {
+				continue
+			}
+
+			// 1. Archetype Change Detection (Cache descriptors)
+			if link.ArchId != lastArchID {
+				currentArch = &registry.Archetypes[link.ArchId]
+
+				if !v.View.Matches(currentArch.Mask) {
+					lastArchID = core.NullArchetypeId
+					currentArch = nil
+					continue
+				}
+
+				// Cache all column descriptors for this archetype
+				col1 = currentArch.GetColumn(v.Layout[0].ID)
+				col2 = currentArch.GetColumn(v.Layout[1].ID)
+				col3 = currentArch.GetColumn(v.Layout[2].ID)
+				col4 = currentArch.GetColumn(v.Layout[3].ID)
+				col5 = currentArch.GetColumn(v.Layout[4].ID)
+				col6 = currentArch.GetColumn(v.Layout[5].ID)
+				col7 = currentArch.GetColumn(v.Layout[6].ID)
+				col8 = currentArch.GetColumn(v.Layout[7].ID)
+				col9 = currentArch.GetColumn(v.Layout[8].ID)
+
+				lastArchID = link.ArchId
+			}
+
+			if currentArch == nil {
+				continue
+			}
+
+			// 2. Resolve Chunk
+			// Access the physical page using the index from the link
+			chunk := currentArch.Memory.Pages[link.ChunkIdx]
+
+			// 3. Construct Result (Head)
+			head := struct {
+				Entity core.Entity
+				V1     *T1
+				V2     *T2
+				V3     *T3
+			}{
+				Entity: e,
+				V1:     (*T1)(col1.GetPointer(chunk, link.ChunkRow)),
+				V2:     (*T2)(col2.GetPointer(chunk, link.ChunkRow)),
+				V3:     (*T3)(col3.GetPointer(chunk, link.ChunkRow)),
+			}
+
+			// 4. Construct Result (Tail)
+
+			tail := struct {
+				V4 *T4
+				V5 *T5
+				V6 *T6
+				V7 *T7
+				V8 *T8
+				V9 *T9
+			}{
+				V4: (*T4)(col4.GetPointer(chunk, link.ChunkRow)),
+				V5: (*T5)(col5.GetPointer(chunk, link.ChunkRow)),
+				V6: (*T6)(col6.GetPointer(chunk, link.ChunkRow)),
+				V7: (*T7)(col7.GetPointer(chunk, link.ChunkRow)),
+				V8: (*T8)(col8.GetPointer(chunk, link.ChunkRow)),
+				V9: (*T9)(col9.GetPointer(chunk, link.ChunkRow)),
+			}
+
+			if !yield(head, tail) {
+				return
+			}
+		}
+	}
+}
+
+// Values returns a performance-critical iterator (iter.Seq2) that yields only
+// component pointers, grouped into anonymous head and tail structures.
+// This method is specifically designed for high-throughput data processing
+// where the Entity identifier is not required.
+//
+// By omitting the Entity ID, this method minimizes stack pressure and
+// register usage, focusing purely on data-driven transformation.
+//
+// Example usage:
+//
+//	for head, tail := range view9.Values() {
+//	    v1 := head.V1
+//
+//
+//	    v9 := tail.V9
+//
+//	}
+func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Values() iter.Seq2[
+	struct {
+		V1 *T1
+		V2 *T2
+		V3 *T3
+		V4 *T4
+	},
+	struct {
+		V5 *T5
+		V6 *T6
+		V7 *T7
+		V8 *T8
+		V9 *T9
+	},
+] {
+	return func(yield func(
+		struct {
+			V1 *T1
+			V2 *T2
+			V3 *T3
+			V4 *T4
+		},
+		struct {
+			V5 *T5
+			V6 *T6
+			V7 *T7
+			V8 *T8
+			V9 *T9
+		},
+	) bool) {
+		// 1. Pre-calculate Strides (Invariant)
+		stride1 := unsafe.Sizeof(*new(T1))
+		stride2 := unsafe.Sizeof(*new(T2))
+		stride3 := unsafe.Sizeof(*new(T3))
+		stride4 := unsafe.Sizeof(*new(T4))
+		stride5 := unsafe.Sizeof(*new(T5))
+		stride6 := unsafe.Sizeof(*new(T6))
+		stride7 := unsafe.Sizeof(*new(T7))
+		stride8 := unsafe.Sizeof(*new(T8))
+		stride9 := unsafe.Sizeof(*new(T9))
+
+		// Loop over matched archetypes
+		for _, ma := range v.Baked {
+
+			// 2. Load Offsets from Cache (L1 Cache Friendly)
+			// We use the same lookup array as in All(), just skipping the Entity offset.
+			offset1 := ma.FieldsOffsets[0]
+			offset2 := ma.FieldsOffsets[1]
+			offset3 := ma.FieldsOffsets[2]
+			offset4 := ma.FieldsOffsets[3]
+			offset5 := ma.FieldsOffsets[4]
+			offset6 := ma.FieldsOffsets[5]
+			offset7 := ma.FieldsOffsets[6]
+			offset8 := ma.FieldsOffsets[7]
+			offset9 := ma.FieldsOffsets[8]
+
+			// 3. Loop over Physical Memory Pages (CHUNKS)
+			for _, chunk := range ma.Arch.Memory.Pages {
+				count := chunk.Len
+				if count == 0 {
+					continue
+				}
+
+				// 4. Resolve Base Pointers for this Chunk
+				// Pure math: ChunkBase + ComponentOffset
+				base := chunk.Ptr
+				ptr1 := unsafe.Add(base, offset1)
+				ptr2 := unsafe.Add(base, offset2)
+				ptr3 := unsafe.Add(base, offset3)
+				ptr4 := unsafe.Add(base, offset4)
+				ptr5 := unsafe.Add(base, offset5)
+				ptr6 := unsafe.Add(base, offset6)
+				ptr7 := unsafe.Add(base, offset7)
+				ptr8 := unsafe.Add(base, offset8)
+				ptr9 := unsafe.Add(base, offset9)
+
+				// 5. Hot Loop (Death Loop)
+				for count > 0 {
+
+					// Construct Head
+					head := struct {
+						V1 *T1
+						V2 *T2
+						V3 *T3
+						V4 *T4
+					}{V1: (*T1)(ptr1), V2: (*T2)(ptr2), V3: (*T3)(ptr3), V4: (*T4)(ptr4)}
+
+					// Construct Tail
+
+					tail := struct {
+						V5 *T5
+						V6 *T6
+						V7 *T7
+						V8 *T8
+						V9 *T9
+					}{V5: (*T5)(ptr5), V6: (*T6)(ptr6), V7: (*T7)(ptr7), V8: (*T8)(ptr8), V9: (*T9)(ptr9)}
+
+					if !yield(head, tail) {
+						return
+					}
+
+					// 6. Increment Pointers (Pointer Arithmetic)
+					ptr1 = unsafe.Add(ptr1, stride1)
+					ptr2 = unsafe.Add(ptr2, stride2)
+					ptr3 = unsafe.Add(ptr3, stride3)
+					ptr4 = unsafe.Add(ptr4, stride4)
+					ptr5 = unsafe.Add(ptr5, stride5)
+					ptr6 = unsafe.Add(ptr6, stride6)
+					ptr7 = unsafe.Add(ptr7, stride7)
+					ptr8 = unsafe.Add(ptr8, stride8)
+					ptr9 = unsafe.Add(ptr9, stride9)
+
+					count--
+				}
+			}
+		}
+	}
+}
+
+// FilterValues returns an iterator (iter.Seq2) that yields component pointers
+// for a pre-selected subset of entities, skipping the Entity identifier.
+// It is optimized for cases where the entity list is already known (e.g., from spatial partitioning).
+//
+// Like the Values method, it uses anonymous structures to ensure the Go compiler
+// can perform aggressive register allocation by avoiding Entity ID overhead.
+//
+// Example usage:
+//
+//	selected := []Entity{e1, e5, e10}
+//	for head, tail := range view9.FilterValues(selected) {
+//	    v1 := head.V1
+//
+//
+//	    v9 := tail.V9
+//
+//	}
+func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) FilterValues(selected []core.Entity) iter.Seq2[
+	struct {
+		V1 *T1
+		V2 *T2
+		V3 *T3
+		V4 *T4
+	},
+	struct {
+		V5 *T5
+		V6 *T6
+		V7 *T7
+		V8 *T8
+		V9 *T9
+	},
+] {
+	return func(yield func(
+		struct {
+			V1 *T1
+			V2 *T2
+			V3 *T3
+			V4 *T4
+		},
+		struct {
+			V5 *T5
+			V6 *T6
+			V7 *T7
+			V8 *T8
+			V9 *T9
+		},
+	) bool) {
+		var lastArchID core.ArchetypeId = core.NullArchetypeId
+		var currentArch *core.Archetype
+
+		// Cache for column descriptors to avoid repeated map lookups
+		var col1 *core.Column
+		var col2 *core.Column
+		var col3 *core.Column
+		var col4 *core.Column
+		var col5 *core.Column
+		var col6 *core.Column
+		var col7 *core.Column
+		var col8 *core.Column
+		var col9 *core.Column
+
+		registry := v.Reg.ArchetypeRegistry
+
+		for _, e := range selected {
+			link, ok := registry.EntityLinkStore.Get(e)
+			if !ok {
+				continue
+			}
+
+			// 1. Archetype Transition Detection
+			// We only refresh column descriptors when the archetype changes.
+			if link.ArchId != lastArchID {
+				currentArch = &registry.Archetypes[link.ArchId]
+
+				// Verify if the archetype matches the view's mask requirements
+				if !v.View.Matches(currentArch.Mask) {
+					lastArchID = core.NullArchetypeId
+					currentArch = nil
+					continue
+				}
+
+				// Cache column accessors for this specific archetype
+				col1 = currentArch.GetColumn(v.Layout[0].ID)
+				col2 = currentArch.GetColumn(v.Layout[1].ID)
+				col3 = currentArch.GetColumn(v.Layout[2].ID)
+				col4 = currentArch.GetColumn(v.Layout[3].ID)
+				col5 = currentArch.GetColumn(v.Layout[4].ID)
+				col6 = currentArch.GetColumn(v.Layout[5].ID)
+				col7 = currentArch.GetColumn(v.Layout[6].ID)
+				col8 = currentArch.GetColumn(v.Layout[7].ID)
+				col9 = currentArch.GetColumn(v.Layout[8].ID)
+
+				lastArchID = link.ArchId
+			}
+
+			// If currentArch is nil, it means the current entity's archetype doesn't match the view
+			if currentArch == nil {
+				continue
+			}
+
+			// 2. Resolve Physical Chunk
+			// Access the memory page (Chunk) using the index from the link store.
+			chunk := currentArch.Memory.Pages[link.ChunkIdx]
+
+			// 3. Construct Result (Head)
+			vhead := struct {
+				V1 *T1
+				V2 *T2
+				V3 *T3
+				V4 *T4
+			}{V1: (*T1)(col1.GetPointer(chunk, link.ChunkRow)), V2: (*T2)(col2.GetPointer(chunk, link.ChunkRow)), V3: (*T3)(col3.GetPointer(chunk, link.ChunkRow)), V4: (*T4)(col4.GetPointer(chunk, link.ChunkRow))}
+
+			// 4. Construct Result (Tail)
+
+			vtail := struct {
+				V5 *T5
+				V6 *T6
+				V7 *T7
+				V8 *T8
+				V9 *T9
+			}{V5: (*T5)(col5.GetPointer(chunk, link.ChunkRow)), V6: (*T6)(col6.GetPointer(chunk, link.ChunkRow)), V7: (*T7)(col7.GetPointer(chunk, link.ChunkRow)), V8: (*T8)(col8.GetPointer(chunk, link.ChunkRow)), V9: (*T9)(col9.GetPointer(chunk, link.ChunkRow))}
+
+			if !yield(vhead, vtail) {
+				return
+			}
+		}
+	}
+}
+
+// --------------- View10 ---------------
+
+// View10 provides a type-safe iterator and access layer for entities that
+// possess exactly 10 specific stateful components. It acts as a specialized
+// window into the ECS world, filtering archetypes that satisfy the required
+// component mask and any additional constraints defined via BlueprintOptions.
+//
+// By leveraging pre-calculated component offsets, View10 enables
+// O(1) access to component data during iteration, making it the primary
+// tool for implementing high-performance systems and logic loops.
+type View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10 any] struct {
+	*core.View
+}
+
+// NewView10 initializes a query for exactly 10 components.
+// It panics if the component registration fails, if there are duplicate
+// components, or if options (like Exclude) create a logical contradiction.
+//
+// This ensures that the View is valid and ready for high-performance
+// iteration immediately after creation.
+func NewView10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10 any](ecs *ECS, opts ...BlueprintOption) *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10] {
+	registry := ecs.registry
+	blueprint := core.NewBlueprint(registry)
+	componentsRegistry := &registry.ComponentsRegistry
+
+	// Helper: Validates that the required component can be part of the view.
+	mustAdd := func(info core.ComponentInfo) {
+		if err := blueprint.WithComp(info); err != nil {
+			panic(fmt.Sprintf("goke: view10 init failed: %v", err))
+		}
+	}
+
+	// 1. Resolve Component Infos (Type -> ID)
+
+	info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
+
+	info2 := componentsRegistry.GetOrRegister(reflect.TypeFor[T2]())
+
+	info3 := componentsRegistry.GetOrRegister(reflect.TypeFor[T3]())
+
+	info4 := componentsRegistry.GetOrRegister(reflect.TypeFor[T4]())
+
+	info5 := componentsRegistry.GetOrRegister(reflect.TypeFor[T5]())
+
+	info6 := componentsRegistry.GetOrRegister(reflect.TypeFor[T6]())
+
+	info7 := componentsRegistry.GetOrRegister(reflect.TypeFor[T7]())
+
+	info8 := componentsRegistry.GetOrRegister(reflect.TypeFor[T8]())
+
+	info9 := componentsRegistry.GetOrRegister(reflect.TypeFor[T9]())
+
+	info10 := componentsRegistry.GetOrRegister(reflect.TypeFor[T10]())
+
+	// 2. Add to Blueprint (Build Mask)
+
+	mustAdd(info1)
+
+	mustAdd(info2)
+
+	mustAdd(info3)
+
+	mustAdd(info4)
+
+	mustAdd(info5)
+
+	mustAdd(info6)
+
+	mustAdd(info7)
+
+	mustAdd(info8)
+
+	mustAdd(info9)
+
+	mustAdd(info10)
+
+	// 3. Apply dynamic options (Include/Exclude)
+	for _, opt := range opts {
+		if err := opt(blueprint); err != nil {
+			panic(fmt.Sprintf("goke: view10 option failed: %v", err))
+		}
+	}
+
+	// 4. Define Rigid Layout (Slice Literal - Zero Allocation Overhead)
+	// This guarantees that T1 is at index 0, T2 at index 1, etc.
+	layout := []core.ComponentInfo{
+		info1, info2, info3, info4, info5, info6, info7, info8, info9, info10,
+	}
+
+	view := core.NewView(blueprint, layout, registry)
+	return &View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]{View: view}
+}
+
+// All returns an iterator (iter.Seq2) that yields the unique Entity identifier
+// and a tuple of pointers to its 10 components. This is designed for use
+// in range loops, providing a clean, idiomatic Go way to process data while
+// maintaining maximum cache efficiency.
+//
+// The iteration is performed archetype by archetype, ensuring that data is
+// accessed contiguously in memory, which significantly reduces CPU cache misses.
+//
+// Example usage:
+//
+//	for head, tail := range view10.All() {
+//	    entity := head.Entity
+//	    v1 := head.V1
+//
+//	    v10 := tail.V10
+//
+//	}
+func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) All() iter.Seq2[
+	struct {
+		Entity core.Entity
+		V1     *T1
+		V2     *T2
+		V3     *T3
+	},
+	struct {
+		V4  *T4
+		V5  *T5
+		V6  *T6
+		V7  *T7
+		V8  *T8
+		V9  *T9
+		V10 *T10
+	},
+] {
+	return func(yield func(
+		struct {
+			Entity core.Entity
+			V1     *T1
+			V2     *T2
+			V3     *T3
+		},
+		struct {
+			V4  *T4
+			V5  *T5
+			V6  *T6
+			V7  *T7
+			V8  *T8
+			V9  *T9
+			V10 *T10
+		},
+	) bool) {
+		// 1. Pre-calculate Strides (Invariant)
+		stride1 := unsafe.Sizeof(*new(T1))
+		stride2 := unsafe.Sizeof(*new(T2))
+		stride3 := unsafe.Sizeof(*new(T3))
+		stride4 := unsafe.Sizeof(*new(T4))
+		stride5 := unsafe.Sizeof(*new(T5))
+		stride6 := unsafe.Sizeof(*new(T6))
+		stride7 := unsafe.Sizeof(*new(T7))
+		stride8 := unsafe.Sizeof(*new(T8))
+		stride9 := unsafe.Sizeof(*new(T9))
+		stride10 := unsafe.Sizeof(*new(T10))
+
+		// Loop over matched archetypes - Value Copy is fast enough (stack allocation)
+		for _, ma := range v.Baked {
+			// 2. Load Offsets from Cache (L1 Cache Friendly)
+			// Accessing fields on stack-allocated 'ma' is blazing fast
+			offsetEntity := ma.EntityChunkOffset
+			offset1 := ma.FieldsOffsets[0]
+			offset2 := ma.FieldsOffsets[1]
+			offset3 := ma.FieldsOffsets[2]
+			offset4 := ma.FieldsOffsets[3]
+			offset5 := ma.FieldsOffsets[4]
+			offset6 := ma.FieldsOffsets[5]
+			offset7 := ma.FieldsOffsets[6]
+			offset8 := ma.FieldsOffsets[7]
+			offset9 := ma.FieldsOffsets[8]
+			offset10 := ma.FieldsOffsets[9]
+
+			// 3. Loop over Physical Memory Pages (CHUNKS)
+			for _, chunk := range ma.Arch.Memory.Pages {
+				count := chunk.Len
+				if count == 0 {
+					continue
+				}
+
+				// 4. Resolve Base Pointers for this Chunk (Pure Math)
+				base := chunk.Ptr
+				ptrEntity := unsafe.Add(base, offsetEntity)
+				ptr1 := unsafe.Add(base, offset1)
+				ptr2 := unsafe.Add(base, offset2)
+				ptr3 := unsafe.Add(base, offset3)
+				ptr4 := unsafe.Add(base, offset4)
+				ptr5 := unsafe.Add(base, offset5)
+				ptr6 := unsafe.Add(base, offset6)
+				ptr7 := unsafe.Add(base, offset7)
+				ptr8 := unsafe.Add(base, offset8)
+				ptr9 := unsafe.Add(base, offset9)
+				ptr10 := unsafe.Add(base, offset10)
+
+				// 5. Hot Loop (Death Loop)
+				for count > 0 {
+					// Construct Head
+					head := struct {
+						Entity core.Entity
+						V1     *T1
+						V2     *T2
+						V3     *T3
+					}{
+						Entity: *(*core.Entity)(ptrEntity),
+						V1:     (*T1)(ptr1),
+						V2:     (*T2)(ptr2),
+						V3:     (*T3)(ptr3),
+					}
+
+					// Construct Tail (if exists)
+
+					tail := struct {
+						V4  *T4
+						V5  *T5
+						V6  *T6
+						V7  *T7
+						V8  *T8
+						V9  *T9
+						V10 *T10
+					}{
+						V4:  (*T4)(ptr4),
+						V5:  (*T5)(ptr5),
+						V6:  (*T6)(ptr6),
+						V7:  (*T7)(ptr7),
+						V8:  (*T8)(ptr8),
+						V9:  (*T9)(ptr9),
+						V10: (*T10)(ptr10),
+					}
+
+					// Yield execution to the user
+					if !yield(head, tail) {
+						return
+					}
+
+					// 6. Pointer Arithmetic (Move to next row)
+					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
+					ptr1 = unsafe.Add(ptr1, stride1)
+					ptr2 = unsafe.Add(ptr2, stride2)
+					ptr3 = unsafe.Add(ptr3, stride3)
+					ptr4 = unsafe.Add(ptr4, stride4)
+					ptr5 = unsafe.Add(ptr5, stride5)
+					ptr6 = unsafe.Add(ptr6, stride6)
+					ptr7 = unsafe.Add(ptr7, stride7)
+					ptr8 = unsafe.Add(ptr8, stride8)
+					ptr9 = unsafe.Add(ptr9, stride9)
+					ptr10 = unsafe.Add(ptr10, stride10)
+
+					count--
+				}
+			}
+		}
+	}
+}
+
+// Filter returns an iterator (iter.Seq2) that yields only the entities
+// specified in the selected slice, provided they match the View's archetype
+// constraints. It is optimized for scenarios where a subset of entities
+// is pre-determined (e.g., via spatial partitioning or sorted results)
+// but requires high-speed access to their component data.
+//
+// The iterator performs an internal validation for each entity to ensure
+// it still belongs to an archetype compatible with this View, preventing
+// invalid memory access if the entity's composition has changed.
+//
+// Example usage:
+//
+//	selected := []Entity{e1, e5, e10}
+//	for head, tail := range view10.Filter(selected) {
+//	    entity := head.Entity
+//	    v1 := head.V1
+//
+//
+//	    v10 := tail.V10
+//
+//
+//	}
+func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Filter(selected []Entity) iter.Seq2[
+	struct {
+		Entity Entity
+		V1     *T1
+		V2     *T2
+		V3     *T3
+	},
+	struct {
+		V4  *T4
+		V5  *T5
+		V6  *T6
+		V7  *T7
+		V8  *T8
+		V9  *T9
+		V10 *T10
+	},
+] {
+	return func(yield func(
+		struct {
+			Entity core.Entity
+			V1     *T1
+			V2     *T2
+			V3     *T3
+		},
+		struct {
+			V4  *T4
+			V5  *T5
+			V6  *T6
+			V7  *T7
+			V8  *T8
+			V9  *T9
+			V10 *T10
+		},
+	) bool) {
+		var lastArchID core.ArchetypeId = core.NullArchetypeId
+		var currentArch *core.Archetype
+
+		// Column descriptor cache
+		var col1 *core.Column
+		var col2 *core.Column
+		var col3 *core.Column
+		var col4 *core.Column
+		var col5 *core.Column
+		var col6 *core.Column
+		var col7 *core.Column
+		var col8 *core.Column
+		var col9 *core.Column
+		var col10 *core.Column
+
+		registry := v.Reg.ArchetypeRegistry
+
+		for _, e := range selected {
+			link, ok := registry.EntityLinkStore.Get(e)
+			if !ok {
+				continue
+			}
+
+			// 1. Archetype Change Detection (Cache descriptors)
+			if link.ArchId != lastArchID {
+				currentArch = &registry.Archetypes[link.ArchId]
+
+				if !v.View.Matches(currentArch.Mask) {
+					lastArchID = core.NullArchetypeId
+					currentArch = nil
+					continue
+				}
+
+				// Cache all column descriptors for this archetype
+				col1 = currentArch.GetColumn(v.Layout[0].ID)
+				col2 = currentArch.GetColumn(v.Layout[1].ID)
+				col3 = currentArch.GetColumn(v.Layout[2].ID)
+				col4 = currentArch.GetColumn(v.Layout[3].ID)
+				col5 = currentArch.GetColumn(v.Layout[4].ID)
+				col6 = currentArch.GetColumn(v.Layout[5].ID)
+				col7 = currentArch.GetColumn(v.Layout[6].ID)
+				col8 = currentArch.GetColumn(v.Layout[7].ID)
+				col9 = currentArch.GetColumn(v.Layout[8].ID)
+				col10 = currentArch.GetColumn(v.Layout[9].ID)
+
+				lastArchID = link.ArchId
+			}
+
+			if currentArch == nil {
+				continue
+			}
+
+			// 2. Resolve Chunk
+			// Access the physical page using the index from the link
+			chunk := currentArch.Memory.Pages[link.ChunkIdx]
+
+			// 3. Construct Result (Head)
+			head := struct {
+				Entity core.Entity
+				V1     *T1
+				V2     *T2
+				V3     *T3
+			}{
+				Entity: e,
+				V1:     (*T1)(col1.GetPointer(chunk, link.ChunkRow)),
+				V2:     (*T2)(col2.GetPointer(chunk, link.ChunkRow)),
+				V3:     (*T3)(col3.GetPointer(chunk, link.ChunkRow)),
+			}
+
+			// 4. Construct Result (Tail)
+
+			tail := struct {
+				V4  *T4
+				V5  *T5
+				V6  *T6
+				V7  *T7
+				V8  *T8
+				V9  *T9
+				V10 *T10
+			}{
+				V4:  (*T4)(col4.GetPointer(chunk, link.ChunkRow)),
+				V5:  (*T5)(col5.GetPointer(chunk, link.ChunkRow)),
+				V6:  (*T6)(col6.GetPointer(chunk, link.ChunkRow)),
+				V7:  (*T7)(col7.GetPointer(chunk, link.ChunkRow)),
+				V8:  (*T8)(col8.GetPointer(chunk, link.ChunkRow)),
+				V9:  (*T9)(col9.GetPointer(chunk, link.ChunkRow)),
+				V10: (*T10)(col10.GetPointer(chunk, link.ChunkRow)),
+			}
+
+			if !yield(head, tail) {
+				return
+			}
+		}
+	}
+}
+
+// Values returns a performance-critical iterator (iter.Seq2) that yields only
+// component pointers, grouped into anonymous head and tail structures.
+// This method is specifically designed for high-throughput data processing
+// where the Entity identifier is not required.
+//
+// By omitting the Entity ID, this method minimizes stack pressure and
+// register usage, focusing purely on data-driven transformation.
+//
+// Example usage:
+//
+//	for head, tail := range view10.Values() {
+//	    v1 := head.V1
+//
+//
+//	    v10 := tail.V10
+//
+//	}
+func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Values() iter.Seq2[
+	struct {
+		V1 *T1
+		V2 *T2
+		V3 *T3
+		V4 *T4
+	},
+	struct {
+		V5  *T5
+		V6  *T6
+		V7  *T7
+		V8  *T8
+		V9  *T9
+		V10 *T10
+	},
+] {
+	return func(yield func(
+		struct {
+			V1 *T1
+			V2 *T2
+			V3 *T3
+			V4 *T4
+		},
+		struct {
+			V5  *T5
+			V6  *T6
+			V7  *T7
+			V8  *T8
+			V9  *T9
+			V10 *T10
+		},
+	) bool) {
+		// 1. Pre-calculate Strides (Invariant)
+		stride1 := unsafe.Sizeof(*new(T1))
+		stride2 := unsafe.Sizeof(*new(T2))
+		stride3 := unsafe.Sizeof(*new(T3))
+		stride4 := unsafe.Sizeof(*new(T4))
+		stride5 := unsafe.Sizeof(*new(T5))
+		stride6 := unsafe.Sizeof(*new(T6))
+		stride7 := unsafe.Sizeof(*new(T7))
+		stride8 := unsafe.Sizeof(*new(T8))
+		stride9 := unsafe.Sizeof(*new(T9))
+		stride10 := unsafe.Sizeof(*new(T10))
+
+		// Loop over matched archetypes
+		for _, ma := range v.Baked {
+
+			// 2. Load Offsets from Cache (L1 Cache Friendly)
+			// We use the same lookup array as in All(), just skipping the Entity offset.
+			offset1 := ma.FieldsOffsets[0]
+			offset2 := ma.FieldsOffsets[1]
+			offset3 := ma.FieldsOffsets[2]
+			offset4 := ma.FieldsOffsets[3]
+			offset5 := ma.FieldsOffsets[4]
+			offset6 := ma.FieldsOffsets[5]
+			offset7 := ma.FieldsOffsets[6]
+			offset8 := ma.FieldsOffsets[7]
+			offset9 := ma.FieldsOffsets[8]
+			offset10 := ma.FieldsOffsets[9]
+
+			// 3. Loop over Physical Memory Pages (CHUNKS)
+			for _, chunk := range ma.Arch.Memory.Pages {
+				count := chunk.Len
+				if count == 0 {
+					continue
+				}
+
+				// 4. Resolve Base Pointers for this Chunk
+				// Pure math: ChunkBase + ComponentOffset
+				base := chunk.Ptr
+				ptr1 := unsafe.Add(base, offset1)
+				ptr2 := unsafe.Add(base, offset2)
+				ptr3 := unsafe.Add(base, offset3)
+				ptr4 := unsafe.Add(base, offset4)
+				ptr5 := unsafe.Add(base, offset5)
+				ptr6 := unsafe.Add(base, offset6)
+				ptr7 := unsafe.Add(base, offset7)
+				ptr8 := unsafe.Add(base, offset8)
+				ptr9 := unsafe.Add(base, offset9)
+				ptr10 := unsafe.Add(base, offset10)
+
+				// 5. Hot Loop (Death Loop)
+				for count > 0 {
+
+					// Construct Head
+					head := struct {
+						V1 *T1
+						V2 *T2
+						V3 *T3
+						V4 *T4
+					}{V1: (*T1)(ptr1), V2: (*T2)(ptr2), V3: (*T3)(ptr3), V4: (*T4)(ptr4)}
+
+					// Construct Tail
+
+					tail := struct {
+						V5  *T5
+						V6  *T6
+						V7  *T7
+						V8  *T8
+						V9  *T9
+						V10 *T10
+					}{V5: (*T5)(ptr5), V6: (*T6)(ptr6), V7: (*T7)(ptr7), V8: (*T8)(ptr8), V9: (*T9)(ptr9), V10: (*T10)(ptr10)}
+
+					if !yield(head, tail) {
+						return
+					}
+
+					// 6. Increment Pointers (Pointer Arithmetic)
+					ptr1 = unsafe.Add(ptr1, stride1)
+					ptr2 = unsafe.Add(ptr2, stride2)
+					ptr3 = unsafe.Add(ptr3, stride3)
+					ptr4 = unsafe.Add(ptr4, stride4)
+					ptr5 = unsafe.Add(ptr5, stride5)
+					ptr6 = unsafe.Add(ptr6, stride6)
+					ptr7 = unsafe.Add(ptr7, stride7)
+					ptr8 = unsafe.Add(ptr8, stride8)
+					ptr9 = unsafe.Add(ptr9, stride9)
+					ptr10 = unsafe.Add(ptr10, stride10)
+
+					count--
+				}
+			}
+		}
+	}
+}
+
+// FilterValues returns an iterator (iter.Seq2) that yields component pointers
+// for a pre-selected subset of entities, skipping the Entity identifier.
+// It is optimized for cases where the entity list is already known (e.g., from spatial partitioning).
+//
+// Like the Values method, it uses anonymous structures to ensure the Go compiler
+// can perform aggressive register allocation by avoiding Entity ID overhead.
+//
+// Example usage:
+//
+//	selected := []Entity{e1, e5, e10}
+//	for head, tail := range view10.FilterValues(selected) {
+//	    v1 := head.V1
+//
+//
+//	    v10 := tail.V10
+//
+//	}
+func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) FilterValues(selected []core.Entity) iter.Seq2[
+	struct {
+		V1 *T1
+		V2 *T2
+		V3 *T3
+		V4 *T4
+	},
+	struct {
+		V5  *T5
+		V6  *T6
+		V7  *T7
+		V8  *T8
+		V9  *T9
+		V10 *T10
+	},
+] {
+	return func(yield func(
+		struct {
+			V1 *T1
+			V2 *T2
+			V3 *T3
+			V4 *T4
+		},
+		struct {
+			V5  *T5
+			V6  *T6
+			V7  *T7
+			V8  *T8
+			V9  *T9
+			V10 *T10
+		},
+	) bool) {
+		var lastArchID core.ArchetypeId = core.NullArchetypeId
+		var currentArch *core.Archetype
+
+		// Cache for column descriptors to avoid repeated map lookups
+		var col1 *core.Column
+		var col2 *core.Column
+		var col3 *core.Column
+		var col4 *core.Column
+		var col5 *core.Column
+		var col6 *core.Column
+		var col7 *core.Column
+		var col8 *core.Column
+		var col9 *core.Column
+		var col10 *core.Column
+
+		registry := v.Reg.ArchetypeRegistry
+
+		for _, e := range selected {
+			link, ok := registry.EntityLinkStore.Get(e)
+			if !ok {
+				continue
+			}
+
+			// 1. Archetype Transition Detection
+			// We only refresh column descriptors when the archetype changes.
+			if link.ArchId != lastArchID {
+				currentArch = &registry.Archetypes[link.ArchId]
+
+				// Verify if the archetype matches the view's mask requirements
+				if !v.View.Matches(currentArch.Mask) {
+					lastArchID = core.NullArchetypeId
+					currentArch = nil
+					continue
+				}
+
+				// Cache column accessors for this specific archetype
+				col1 = currentArch.GetColumn(v.Layout[0].ID)
+				col2 = currentArch.GetColumn(v.Layout[1].ID)
+				col3 = currentArch.GetColumn(v.Layout[2].ID)
+				col4 = currentArch.GetColumn(v.Layout[3].ID)
+				col5 = currentArch.GetColumn(v.Layout[4].ID)
+				col6 = currentArch.GetColumn(v.Layout[5].ID)
+				col7 = currentArch.GetColumn(v.Layout[6].ID)
+				col8 = currentArch.GetColumn(v.Layout[7].ID)
+				col9 = currentArch.GetColumn(v.Layout[8].ID)
+				col10 = currentArch.GetColumn(v.Layout[9].ID)
+
+				lastArchID = link.ArchId
+			}
+
+			// If currentArch is nil, it means the current entity's archetype doesn't match the view
+			if currentArch == nil {
+				continue
+			}
+
+			// 2. Resolve Physical Chunk
+			// Access the memory page (Chunk) using the index from the link store.
+			chunk := currentArch.Memory.Pages[link.ChunkIdx]
+
+			// 3. Construct Result (Head)
+			vhead := struct {
+				V1 *T1
+				V2 *T2
+				V3 *T3
+				V4 *T4
+			}{V1: (*T1)(col1.GetPointer(chunk, link.ChunkRow)), V2: (*T2)(col2.GetPointer(chunk, link.ChunkRow)), V3: (*T3)(col3.GetPointer(chunk, link.ChunkRow)), V4: (*T4)(col4.GetPointer(chunk, link.ChunkRow))}
+
+			// 4. Construct Result (Tail)
+
+			vtail := struct {
+				V5  *T5
+				V6  *T6
+				V7  *T7
+				V8  *T8
+				V9  *T9
+				V10 *T10
+			}{V5: (*T5)(col5.GetPointer(chunk, link.ChunkRow)), V6: (*T6)(col6.GetPointer(chunk, link.ChunkRow)), V7: (*T7)(col7.GetPointer(chunk, link.ChunkRow)), V8: (*T8)(col8.GetPointer(chunk, link.ChunkRow)), V9: (*T9)(col9.GetPointer(chunk, link.ChunkRow)), V10: (*T10)(col10.GetPointer(chunk, link.ChunkRow))}
+
+			if !yield(vhead, vtail) {
+				return
+			}
+		}
+	}
+}
