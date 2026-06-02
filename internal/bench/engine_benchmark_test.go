@@ -1,6 +1,7 @@
 package bench
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/kjkrol/goke"
@@ -67,6 +68,110 @@ func BenchmarkEngine_Structural(b *testing.B) {
 			b.V = 2
 			c.V = 3
 			d.V = 4
+		}
+	})
+
+	b.Run("Create Entity With 10 comp", func(b *testing.B) {
+		goke.Reset(ecs)
+		blueprint := goke.NewBlueprint10[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn, T09, T10](ecs)
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			_, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10 := blueprint.Create()
+			a1.X = 1
+			a2.X = 2
+			a3.X = 3
+			a4.M = 4
+			a5.S[0] = 5
+			a6.V[0] = 6
+			a7.V = 7
+			a8.V = 8
+			a9.V = 9
+			a10.V = 10
+
+		}
+	})
+
+	const batchSize = 1024
+
+	b.Run(fmt.Sprintf("CreateBatch(%d)_1_comp", batchSize), func(b *testing.B) {
+		goke.Reset(ecs)
+		blueprint := goke.NewBlueprint1[Pos](ecs)
+		buf := make([]goke.Item1[Pos], batchSize)
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			items := blueprint.CreateBatch(batchSize, buf)
+			for j := range items {
+				items[j].V1.X = 1
+			}
+		}
+	})
+
+	b.Run(fmt.Sprintf("CreateBatch(%d)_2_comp", batchSize), func(b *testing.B) {
+		goke.Reset(ecs)
+		blueprint := goke.NewBlueprint2[Pos, Vel](ecs)
+		buf := make([]goke.Item2[Pos, Vel], batchSize)
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			for _, item := range blueprint.CreateBatch(batchSize, buf) {
+				item.V1.X = 1
+				item.V2.X = 2
+			}
+		}
+	})
+
+	b.Run(fmt.Sprintf("CreateBatch(%d)_3_comp", batchSize), func(b *testing.B) {
+		goke.Reset(ecs)
+		blueprint := goke.NewBlueprint3[Pos, Vel, Acc](ecs)
+		buf := make([]goke.Item3[Pos, Vel, Acc], batchSize)
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			for _, item := range blueprint.CreateBatch(batchSize, buf) {
+				item.V1.X = 1
+				item.V2.X = 2
+				item.V3.X = 3
+			}
+		}
+	})
+
+	b.Run(fmt.Sprintf("CreateBatch(%d)_4_comp", batchSize), func(b *testing.B) {
+		goke.Reset(ecs)
+		blueprint := goke.NewBlueprint4[Pos, Vel, Acc, Mass](ecs)
+		buf := make([]goke.Item4[Pos, Vel, Acc, Mass], batchSize)
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			for _, item := range blueprint.CreateBatch(batchSize, buf) {
+				item.V1.X = 1
+				item.V2.X = 2
+				item.V3.X = 3
+				item.V4.M = 4
+			}
+		}
+	})
+
+	b.Run(fmt.Sprintf("CreateBatch(%d)_10_comp", batchSize), func(b *testing.B) {
+		goke.Reset(ecs)
+		blueprint := goke.NewBlueprint10[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn, T09, T10](ecs)
+		buf := make([]goke.Item10[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn, T09, T10], batchSize)
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			for _, item := range blueprint.CreateBatch(batchSize, buf) {
+				item.V1.X = 1
+				item.V2.X = 2
+				item.V3.X = 3
+				item.V4.M = 4
+				item.V5.S[0] = 5
+				item.V6.V[0] = 6
+				item.V7.V = 7
+				item.V8.V = 8
+				item.V9.V = 9
+				item.V10.V = 10
+			}
 		}
 	})
 

@@ -8,27 +8,27 @@ import (
     "github.com/kjkrol/goke/internal/core"
 )
 
-// Blueprint1 defines a static template (recipe) for the mass construction 
-// of entities with a predefined set of 1 stateful components. It allows 
-// for precise memory layout planning before allocation, which is essential 
+// Blueprint1 defines a static template (recipe) for the mass construction
+// of entities with a predefined set of 1 stateful components. It allows
+// for precise memory layout planning before allocation, which is essential
 // for high-performance data access patterns.
 //
-// For example, a Blueprint1 could be used to define complex actors that 
-// require exactly 1 distinct data structures to be stored contiguously, 
+// For example, a Blueprint1 could be used to define complex actors that
+// require exactly 1 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint1[T1 any] struct {
     blueprint *core.ArchetypeEntryBlueprint
 }
 
 // NewBlueprint1 initializes a new template for a specific combination of 1 components.
-// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the 
-// template with any number of stateless components (Tags). Tags do not occupy 
+// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the
+// template with any number of stateless components (Tags). Tags do not occupy
 // space in the data columns but allow for precise population filtering within Views.
 //
-// By using a static definition, archetype metadata is registered once, 
+// By using a static definition, archetype metadata is registered once,
 // enabling rapid entity spawning with minimal memory management overhead.
 //
-// This constructor panics if component registration fails or if there are 
+// This constructor panics if component registration fails or if there are
 // configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint1[T1 any](
     ecs *ECS,
@@ -61,11 +61,11 @@ func NewBlueprint1[T1 any](
 }
 
 // Create instantiates a new entity based on the blueprint's static configuration.
-// It returns the unique Entity identifier along with direct pointers to the 
+// It returns the unique Entity identifier along with direct pointers to the
 // newly allocated memory for each of the 1 stateful components.
 //
-// The resulting entity is created with the full set of predefined Tags 
-// (stateless components) configured via BlueprintOptions, making it 
+// The resulting entity is created with the full set of predefined Tags
+// (stateless components) configured via BlueprintOptions, making it
 // immediately discoverable by relevant Views and Filters.
 //
 // Example usage for Blueprint1:
@@ -73,34 +73,71 @@ func NewBlueprint1[T1 any](
 //    entity, v1 := blueprint.Create()
 //    *v1 = T1{ /* initialize */ }
 //
-// These pointers allow for immediate initialization of the entity's state 
-// without the need for additional lookups, ensuring a highly efficient 
+// These pointers allow for immediate initialization of the entity's state
+// without the need for additional lookups, ensuring a highly efficient
 // construction process.
 func (b *Blueprint1[T1]) Create() (Entity, *T1) {
     entity, ptrs := b.blueprint.Create()
     return entity, (*T1)(ptrs[0])
 }
-// Blueprint2 defines a static template (recipe) for the mass construction 
-// of entities with a predefined set of 2 stateful components. It allows 
-// for precise memory layout planning before allocation, which is essential 
+
+
+// Item1 represents a batch data container for an entity with exactly 1 components.
+// It is used in bulk operations to provide direct access to component pointers.
+//
+// Type parameters:
+type Item1[T1 any] struct {
+	Entity Entity
+	V1 *T1
+}
+
+
+// CreateBatch performs bulk entity instantiation using a pre-allocated buffer.
+// It fills 'buf' with pointers to components, returning a slice of initialized
+// Item1 containers. If 'buf' is too small, it is capped at 'count'.
+//
+// Example usage:
+//
+//    items := blueprint.CreateBatch(count, buf)
+//    for _, item := range items {
+//        item.V1.X = 1
+//    }
+func (b *Blueprint1[T1]) CreateBatch(count int, buf []Item1[T1]) []Item1[T1] {
+	if len(buf) < count {
+		count = len(buf)
+	}
+	output := buf[:count]
+
+	items := b.blueprint.CreateBatch(count)
+
+	for i := range items {
+		output[i].Entity = items[i].Entity
+		output[i].V1 = (*T1)(items[i].Ptrs[0])
+	}
+
+	return output
+}
+// Blueprint2 defines a static template (recipe) for the mass construction
+// of entities with a predefined set of 2 stateful components. It allows
+// for precise memory layout planning before allocation, which is essential
 // for high-performance data access patterns.
 //
-// For example, a Blueprint2 could be used to define complex actors that 
-// require exactly 2 distinct data structures to be stored contiguously, 
+// For example, a Blueprint2 could be used to define complex actors that
+// require exactly 2 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint2[T1 any, T2 any] struct {
     blueprint *core.ArchetypeEntryBlueprint
 }
 
 // NewBlueprint2 initializes a new template for a specific combination of 2 components.
-// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the 
-// template with any number of stateless components (Tags). Tags do not occupy 
+// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the
+// template with any number of stateless components (Tags). Tags do not occupy
 // space in the data columns but allow for precise population filtering within Views.
 //
-// By using a static definition, archetype metadata is registered once, 
+// By using a static definition, archetype metadata is registered once,
 // enabling rapid entity spawning with minimal memory management overhead.
 //
-// This constructor panics if component registration fails or if there are 
+// This constructor panics if component registration fails or if there are
 // configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint2[T1 any, T2 any](
     ecs *ECS,
@@ -134,11 +171,11 @@ func NewBlueprint2[T1 any, T2 any](
 }
 
 // Create instantiates a new entity based on the blueprint's static configuration.
-// It returns the unique Entity identifier along with direct pointers to the 
+// It returns the unique Entity identifier along with direct pointers to the
 // newly allocated memory for each of the 2 stateful components.
 //
-// The resulting entity is created with the full set of predefined Tags 
-// (stateless components) configured via BlueprintOptions, making it 
+// The resulting entity is created with the full set of predefined Tags
+// (stateless components) configured via BlueprintOptions, making it
 // immediately discoverable by relevant Views and Filters.
 //
 // Example usage for Blueprint2:
@@ -147,34 +184,74 @@ func NewBlueprint2[T1 any, T2 any](
 //    *v1 = T1{ /* initialize */ }
 //    *v2 = T2{ /* initialize */ }
 //
-// These pointers allow for immediate initialization of the entity's state 
-// without the need for additional lookups, ensuring a highly efficient 
+// These pointers allow for immediate initialization of the entity's state
+// without the need for additional lookups, ensuring a highly efficient
 // construction process.
 func (b *Blueprint2[T1, T2]) Create() (Entity, *T1, *T2) {
     entity, ptrs := b.blueprint.Create()
     return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1])
 }
-// Blueprint3 defines a static template (recipe) for the mass construction 
-// of entities with a predefined set of 3 stateful components. It allows 
-// for precise memory layout planning before allocation, which is essential 
+
+
+// Item2 represents a batch data container for an entity with exactly 2 components.
+// It is used in bulk operations to provide direct access to component pointers.
+//
+// Type parameters:
+type Item2[T1, T2 any] struct {
+	Entity Entity
+	V1 *T1
+	V2 *T2
+}
+
+
+// CreateBatch performs bulk entity instantiation using a pre-allocated buffer.
+// It fills 'buf' with pointers to components, returning a slice of initialized
+// Item2 containers. If 'buf' is too small, it is capped at 'count'.
+//
+// Example usage:
+//
+//    items := blueprint.CreateBatch(count, buf)
+//    for _, item := range items {
+//        item.V1.X = 1
+//        item.V2.X = 1
+//    }
+func (b *Blueprint2[T1, T2]) CreateBatch(count int, buf []Item2[T1, T2]) []Item2[T1, T2] {
+	if len(buf) < count {
+		count = len(buf)
+	}
+	output := buf[:count]
+
+	items := b.blueprint.CreateBatch(count)
+
+	for i := range items {
+		output[i].Entity = items[i].Entity
+		output[i].V1 = (*T1)(items[i].Ptrs[0])
+		output[i].V2 = (*T2)(items[i].Ptrs[1])
+	}
+
+	return output
+}
+// Blueprint3 defines a static template (recipe) for the mass construction
+// of entities with a predefined set of 3 stateful components. It allows
+// for precise memory layout planning before allocation, which is essential
 // for high-performance data access patterns.
 //
-// For example, a Blueprint3 could be used to define complex actors that 
-// require exactly 3 distinct data structures to be stored contiguously, 
+// For example, a Blueprint3 could be used to define complex actors that
+// require exactly 3 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint3[T1 any, T2 any, T3 any] struct {
     blueprint *core.ArchetypeEntryBlueprint
 }
 
 // NewBlueprint3 initializes a new template for a specific combination of 3 components.
-// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the 
-// template with any number of stateless components (Tags). Tags do not occupy 
+// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the
+// template with any number of stateless components (Tags). Tags do not occupy
 // space in the data columns but allow for precise population filtering within Views.
 //
-// By using a static definition, archetype metadata is registered once, 
+// By using a static definition, archetype metadata is registered once,
 // enabling rapid entity spawning with minimal memory management overhead.
 //
-// This constructor panics if component registration fails or if there are 
+// This constructor panics if component registration fails or if there are
 // configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint3[T1 any, T2 any, T3 any](
     ecs *ECS,
@@ -209,11 +286,11 @@ func NewBlueprint3[T1 any, T2 any, T3 any](
 }
 
 // Create instantiates a new entity based on the blueprint's static configuration.
-// It returns the unique Entity identifier along with direct pointers to the 
+// It returns the unique Entity identifier along with direct pointers to the
 // newly allocated memory for each of the 3 stateful components.
 //
-// The resulting entity is created with the full set of predefined Tags 
-// (stateless components) configured via BlueprintOptions, making it 
+// The resulting entity is created with the full set of predefined Tags
+// (stateless components) configured via BlueprintOptions, making it
 // immediately discoverable by relevant Views and Filters.
 //
 // Example usage for Blueprint3:
@@ -223,34 +300,77 @@ func NewBlueprint3[T1 any, T2 any, T3 any](
 //    *v2 = T2{ /* initialize */ }
 //    *v3 = T3{ /* initialize */ }
 //
-// These pointers allow for immediate initialization of the entity's state 
-// without the need for additional lookups, ensuring a highly efficient 
+// These pointers allow for immediate initialization of the entity's state
+// without the need for additional lookups, ensuring a highly efficient
 // construction process.
 func (b *Blueprint3[T1, T2, T3]) Create() (Entity, *T1, *T2, *T3) {
     entity, ptrs := b.blueprint.Create()
     return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1]), (*T3)(ptrs[2])
 }
-// Blueprint4 defines a static template (recipe) for the mass construction 
-// of entities with a predefined set of 4 stateful components. It allows 
-// for precise memory layout planning before allocation, which is essential 
+
+
+// Item3 represents a batch data container for an entity with exactly 3 components.
+// It is used in bulk operations to provide direct access to component pointers.
+//
+// Type parameters:
+type Item3[T1, T2, T3 any] struct {
+	Entity Entity
+	V1 *T1
+	V2 *T2
+	V3 *T3
+}
+
+
+// CreateBatch performs bulk entity instantiation using a pre-allocated buffer.
+// It fills 'buf' with pointers to components, returning a slice of initialized
+// Item3 containers. If 'buf' is too small, it is capped at 'count'.
+//
+// Example usage:
+//
+//    items := blueprint.CreateBatch(count, buf)
+//    for _, item := range items {
+//        item.V1.X = 1
+//        item.V2.X = 1
+//        item.V3.X = 1
+//    }
+func (b *Blueprint3[T1, T2, T3]) CreateBatch(count int, buf []Item3[T1, T2, T3]) []Item3[T1, T2, T3] {
+	if len(buf) < count {
+		count = len(buf)
+	}
+	output := buf[:count]
+
+	items := b.blueprint.CreateBatch(count)
+
+	for i := range items {
+		output[i].Entity = items[i].Entity
+		output[i].V1 = (*T1)(items[i].Ptrs[0])
+		output[i].V2 = (*T2)(items[i].Ptrs[1])
+		output[i].V3 = (*T3)(items[i].Ptrs[2])
+	}
+
+	return output
+}
+// Blueprint4 defines a static template (recipe) for the mass construction
+// of entities with a predefined set of 4 stateful components. It allows
+// for precise memory layout planning before allocation, which is essential
 // for high-performance data access patterns.
 //
-// For example, a Blueprint4 could be used to define complex actors that 
-// require exactly 4 distinct data structures to be stored contiguously, 
+// For example, a Blueprint4 could be used to define complex actors that
+// require exactly 4 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint4[T1 any, T2 any, T3 any, T4 any] struct {
     blueprint *core.ArchetypeEntryBlueprint
 }
 
 // NewBlueprint4 initializes a new template for a specific combination of 4 components.
-// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the 
-// template with any number of stateless components (Tags). Tags do not occupy 
+// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the
+// template with any number of stateless components (Tags). Tags do not occupy
 // space in the data columns but allow for precise population filtering within Views.
 //
-// By using a static definition, archetype metadata is registered once, 
+// By using a static definition, archetype metadata is registered once,
 // enabling rapid entity spawning with minimal memory management overhead.
 //
-// This constructor panics if component registration fails or if there are 
+// This constructor panics if component registration fails or if there are
 // configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint4[T1 any, T2 any, T3 any, T4 any](
     ecs *ECS,
@@ -286,11 +406,11 @@ func NewBlueprint4[T1 any, T2 any, T3 any, T4 any](
 }
 
 // Create instantiates a new entity based on the blueprint's static configuration.
-// It returns the unique Entity identifier along with direct pointers to the 
+// It returns the unique Entity identifier along with direct pointers to the
 // newly allocated memory for each of the 4 stateful components.
 //
-// The resulting entity is created with the full set of predefined Tags 
-// (stateless components) configured via BlueprintOptions, making it 
+// The resulting entity is created with the full set of predefined Tags
+// (stateless components) configured via BlueprintOptions, making it
 // immediately discoverable by relevant Views and Filters.
 //
 // Example usage for Blueprint4:
@@ -301,34 +421,80 @@ func NewBlueprint4[T1 any, T2 any, T3 any, T4 any](
 //    *v3 = T3{ /* initialize */ }
 //    *v4 = T4{ /* initialize */ }
 //
-// These pointers allow for immediate initialization of the entity's state 
-// without the need for additional lookups, ensuring a highly efficient 
+// These pointers allow for immediate initialization of the entity's state
+// without the need for additional lookups, ensuring a highly efficient
 // construction process.
 func (b *Blueprint4[T1, T2, T3, T4]) Create() (Entity, *T1, *T2, *T3, *T4) {
     entity, ptrs := b.blueprint.Create()
     return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1]), (*T3)(ptrs[2]), (*T4)(ptrs[3])
 }
-// Blueprint5 defines a static template (recipe) for the mass construction 
-// of entities with a predefined set of 5 stateful components. It allows 
-// for precise memory layout planning before allocation, which is essential 
+
+
+// Item4 represents a batch data container for an entity with exactly 4 components.
+// It is used in bulk operations to provide direct access to component pointers.
+//
+// Type parameters:
+type Item4[T1, T2, T3, T4 any] struct {
+	Entity Entity
+	V1 *T1
+	V2 *T2
+	V3 *T3
+	V4 *T4
+}
+
+
+// CreateBatch performs bulk entity instantiation using a pre-allocated buffer.
+// It fills 'buf' with pointers to components, returning a slice of initialized
+// Item4 containers. If 'buf' is too small, it is capped at 'count'.
+//
+// Example usage:
+//
+//    items := blueprint.CreateBatch(count, buf)
+//    for _, item := range items {
+//        item.V1.X = 1
+//        item.V2.X = 1
+//        item.V3.X = 1
+//        item.V4.X = 1
+//    }
+func (b *Blueprint4[T1, T2, T3, T4]) CreateBatch(count int, buf []Item4[T1, T2, T3, T4]) []Item4[T1, T2, T3, T4] {
+	if len(buf) < count {
+		count = len(buf)
+	}
+	output := buf[:count]
+
+	items := b.blueprint.CreateBatch(count)
+
+	for i := range items {
+		output[i].Entity = items[i].Entity
+		output[i].V1 = (*T1)(items[i].Ptrs[0])
+		output[i].V2 = (*T2)(items[i].Ptrs[1])
+		output[i].V3 = (*T3)(items[i].Ptrs[2])
+		output[i].V4 = (*T4)(items[i].Ptrs[3])
+	}
+
+	return output
+}
+// Blueprint5 defines a static template (recipe) for the mass construction
+// of entities with a predefined set of 5 stateful components. It allows
+// for precise memory layout planning before allocation, which is essential
 // for high-performance data access patterns.
 //
-// For example, a Blueprint5 could be used to define complex actors that 
-// require exactly 5 distinct data structures to be stored contiguously, 
+// For example, a Blueprint5 could be used to define complex actors that
+// require exactly 5 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint5[T1 any, T2 any, T3 any, T4 any, T5 any] struct {
     blueprint *core.ArchetypeEntryBlueprint
 }
 
 // NewBlueprint5 initializes a new template for a specific combination of 5 components.
-// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the 
-// template with any number of stateless components (Tags). Tags do not occupy 
+// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the
+// template with any number of stateless components (Tags). Tags do not occupy
 // space in the data columns but allow for precise population filtering within Views.
 //
-// By using a static definition, archetype metadata is registered once, 
+// By using a static definition, archetype metadata is registered once,
 // enabling rapid entity spawning with minimal memory management overhead.
 //
-// This constructor panics if component registration fails or if there are 
+// This constructor panics if component registration fails or if there are
 // configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint5[T1 any, T2 any, T3 any, T4 any, T5 any](
     ecs *ECS,
@@ -365,11 +531,11 @@ func NewBlueprint5[T1 any, T2 any, T3 any, T4 any, T5 any](
 }
 
 // Create instantiates a new entity based on the blueprint's static configuration.
-// It returns the unique Entity identifier along with direct pointers to the 
+// It returns the unique Entity identifier along with direct pointers to the
 // newly allocated memory for each of the 5 stateful components.
 //
-// The resulting entity is created with the full set of predefined Tags 
-// (stateless components) configured via BlueprintOptions, making it 
+// The resulting entity is created with the full set of predefined Tags
+// (stateless components) configured via BlueprintOptions, making it
 // immediately discoverable by relevant Views and Filters.
 //
 // Example usage for Blueprint5:
@@ -381,34 +547,83 @@ func NewBlueprint5[T1 any, T2 any, T3 any, T4 any, T5 any](
 //    *v4 = T4{ /* initialize */ }
 //    *v5 = T5{ /* initialize */ }
 //
-// These pointers allow for immediate initialization of the entity's state 
-// without the need for additional lookups, ensuring a highly efficient 
+// These pointers allow for immediate initialization of the entity's state
+// without the need for additional lookups, ensuring a highly efficient
 // construction process.
 func (b *Blueprint5[T1, T2, T3, T4, T5]) Create() (Entity, *T1, *T2, *T3, *T4, *T5) {
     entity, ptrs := b.blueprint.Create()
     return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1]), (*T3)(ptrs[2]), (*T4)(ptrs[3]), (*T5)(ptrs[4])
 }
-// Blueprint6 defines a static template (recipe) for the mass construction 
-// of entities with a predefined set of 6 stateful components. It allows 
-// for precise memory layout planning before allocation, which is essential 
+
+
+// Item5 represents a batch data container for an entity with exactly 5 components.
+// It is used in bulk operations to provide direct access to component pointers.
+//
+// Type parameters:
+type Item5[T1, T2, T3, T4, T5 any] struct {
+	Entity Entity
+	V1 *T1
+	V2 *T2
+	V3 *T3
+	V4 *T4
+	V5 *T5
+}
+
+
+// CreateBatch performs bulk entity instantiation using a pre-allocated buffer.
+// It fills 'buf' with pointers to components, returning a slice of initialized
+// Item5 containers. If 'buf' is too small, it is capped at 'count'.
+//
+// Example usage:
+//
+//    items := blueprint.CreateBatch(count, buf)
+//    for _, item := range items {
+//        item.V1.X = 1
+//        item.V2.X = 1
+//        item.V3.X = 1
+//        item.V4.X = 1
+//        item.V5.X = 1
+//    }
+func (b *Blueprint5[T1, T2, T3, T4, T5]) CreateBatch(count int, buf []Item5[T1, T2, T3, T4, T5]) []Item5[T1, T2, T3, T4, T5] {
+	if len(buf) < count {
+		count = len(buf)
+	}
+	output := buf[:count]
+
+	items := b.blueprint.CreateBatch(count)
+
+	for i := range items {
+		output[i].Entity = items[i].Entity
+		output[i].V1 = (*T1)(items[i].Ptrs[0])
+		output[i].V2 = (*T2)(items[i].Ptrs[1])
+		output[i].V3 = (*T3)(items[i].Ptrs[2])
+		output[i].V4 = (*T4)(items[i].Ptrs[3])
+		output[i].V5 = (*T5)(items[i].Ptrs[4])
+	}
+
+	return output
+}
+// Blueprint6 defines a static template (recipe) for the mass construction
+// of entities with a predefined set of 6 stateful components. It allows
+// for precise memory layout planning before allocation, which is essential
 // for high-performance data access patterns.
 //
-// For example, a Blueprint6 could be used to define complex actors that 
-// require exactly 6 distinct data structures to be stored contiguously, 
+// For example, a Blueprint6 could be used to define complex actors that
+// require exactly 6 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any] struct {
     blueprint *core.ArchetypeEntryBlueprint
 }
 
 // NewBlueprint6 initializes a new template for a specific combination of 6 components.
-// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the 
-// template with any number of stateless components (Tags). Tags do not occupy 
+// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the
+// template with any number of stateless components (Tags). Tags do not occupy
 // space in the data columns but allow for precise population filtering within Views.
 //
-// By using a static definition, archetype metadata is registered once, 
+// By using a static definition, archetype metadata is registered once,
 // enabling rapid entity spawning with minimal memory management overhead.
 //
-// This constructor panics if component registration fails or if there are 
+// This constructor panics if component registration fails or if there are
 // configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any](
     ecs *ECS,
@@ -446,11 +661,11 @@ func NewBlueprint6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any](
 }
 
 // Create instantiates a new entity based on the blueprint's static configuration.
-// It returns the unique Entity identifier along with direct pointers to the 
+// It returns the unique Entity identifier along with direct pointers to the
 // newly allocated memory for each of the 6 stateful components.
 //
-// The resulting entity is created with the full set of predefined Tags 
-// (stateless components) configured via BlueprintOptions, making it 
+// The resulting entity is created with the full set of predefined Tags
+// (stateless components) configured via BlueprintOptions, making it
 // immediately discoverable by relevant Views and Filters.
 //
 // Example usage for Blueprint6:
@@ -463,34 +678,86 @@ func NewBlueprint6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any](
 //    *v5 = T5{ /* initialize */ }
 //    *v6 = T6{ /* initialize */ }
 //
-// These pointers allow for immediate initialization of the entity's state 
-// without the need for additional lookups, ensuring a highly efficient 
+// These pointers allow for immediate initialization of the entity's state
+// without the need for additional lookups, ensuring a highly efficient
 // construction process.
 func (b *Blueprint6[T1, T2, T3, T4, T5, T6]) Create() (Entity, *T1, *T2, *T3, *T4, *T5, *T6) {
     entity, ptrs := b.blueprint.Create()
     return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1]), (*T3)(ptrs[2]), (*T4)(ptrs[3]), (*T5)(ptrs[4]), (*T6)(ptrs[5])
 }
-// Blueprint7 defines a static template (recipe) for the mass construction 
-// of entities with a predefined set of 7 stateful components. It allows 
-// for precise memory layout planning before allocation, which is essential 
+
+
+// Item6 represents a batch data container for an entity with exactly 6 components.
+// It is used in bulk operations to provide direct access to component pointers.
+//
+// Type parameters:
+type Item6[T1, T2, T3, T4, T5, T6 any] struct {
+	Entity Entity
+	V1 *T1
+	V2 *T2
+	V3 *T3
+	V4 *T4
+	V5 *T5
+	V6 *T6
+}
+
+
+// CreateBatch performs bulk entity instantiation using a pre-allocated buffer.
+// It fills 'buf' with pointers to components, returning a slice of initialized
+// Item6 containers. If 'buf' is too small, it is capped at 'count'.
+//
+// Example usage:
+//
+//    items := blueprint.CreateBatch(count, buf)
+//    for _, item := range items {
+//        item.V1.X = 1
+//        item.V2.X = 1
+//        item.V3.X = 1
+//        item.V4.X = 1
+//        item.V5.X = 1
+//        item.V6.X = 1
+//    }
+func (b *Blueprint6[T1, T2, T3, T4, T5, T6]) CreateBatch(count int, buf []Item6[T1, T2, T3, T4, T5, T6]) []Item6[T1, T2, T3, T4, T5, T6] {
+	if len(buf) < count {
+		count = len(buf)
+	}
+	output := buf[:count]
+
+	items := b.blueprint.CreateBatch(count)
+
+	for i := range items {
+		output[i].Entity = items[i].Entity
+		output[i].V1 = (*T1)(items[i].Ptrs[0])
+		output[i].V2 = (*T2)(items[i].Ptrs[1])
+		output[i].V3 = (*T3)(items[i].Ptrs[2])
+		output[i].V4 = (*T4)(items[i].Ptrs[3])
+		output[i].V5 = (*T5)(items[i].Ptrs[4])
+		output[i].V6 = (*T6)(items[i].Ptrs[5])
+	}
+
+	return output
+}
+// Blueprint7 defines a static template (recipe) for the mass construction
+// of entities with a predefined set of 7 stateful components. It allows
+// for precise memory layout planning before allocation, which is essential
 // for high-performance data access patterns.
 //
-// For example, a Blueprint7 could be used to define complex actors that 
-// require exactly 7 distinct data structures to be stored contiguously, 
+// For example, a Blueprint7 could be used to define complex actors that
+// require exactly 7 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any] struct {
     blueprint *core.ArchetypeEntryBlueprint
 }
 
 // NewBlueprint7 initializes a new template for a specific combination of 7 components.
-// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the 
-// template with any number of stateless components (Tags). Tags do not occupy 
+// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the
+// template with any number of stateless components (Tags). Tags do not occupy
 // space in the data columns but allow for precise population filtering within Views.
 //
-// By using a static definition, archetype metadata is registered once, 
+// By using a static definition, archetype metadata is registered once,
 // enabling rapid entity spawning with minimal memory management overhead.
 //
-// This constructor panics if component registration fails or if there are 
+// This constructor panics if component registration fails or if there are
 // configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any](
     ecs *ECS,
@@ -529,11 +796,11 @@ func NewBlueprint7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any](
 }
 
 // Create instantiates a new entity based on the blueprint's static configuration.
-// It returns the unique Entity identifier along with direct pointers to the 
+// It returns the unique Entity identifier along with direct pointers to the
 // newly allocated memory for each of the 7 stateful components.
 //
-// The resulting entity is created with the full set of predefined Tags 
-// (stateless components) configured via BlueprintOptions, making it 
+// The resulting entity is created with the full set of predefined Tags
+// (stateless components) configured via BlueprintOptions, making it
 // immediately discoverable by relevant Views and Filters.
 //
 // Example usage for Blueprint7:
@@ -547,34 +814,89 @@ func NewBlueprint7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any](
 //    *v6 = T6{ /* initialize */ }
 //    *v7 = T7{ /* initialize */ }
 //
-// These pointers allow for immediate initialization of the entity's state 
-// without the need for additional lookups, ensuring a highly efficient 
+// These pointers allow for immediate initialization of the entity's state
+// without the need for additional lookups, ensuring a highly efficient
 // construction process.
 func (b *Blueprint7[T1, T2, T3, T4, T5, T6, T7]) Create() (Entity, *T1, *T2, *T3, *T4, *T5, *T6, *T7) {
     entity, ptrs := b.blueprint.Create()
     return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1]), (*T3)(ptrs[2]), (*T4)(ptrs[3]), (*T5)(ptrs[4]), (*T6)(ptrs[5]), (*T7)(ptrs[6])
 }
-// Blueprint8 defines a static template (recipe) for the mass construction 
-// of entities with a predefined set of 8 stateful components. It allows 
-// for precise memory layout planning before allocation, which is essential 
+
+
+// Item7 represents a batch data container for an entity with exactly 7 components.
+// It is used in bulk operations to provide direct access to component pointers.
+//
+// Type parameters:
+type Item7[T1, T2, T3, T4, T5, T6, T7 any] struct {
+	Entity Entity
+	V1 *T1
+	V2 *T2
+	V3 *T3
+	V4 *T4
+	V5 *T5
+	V6 *T6
+	V7 *T7
+}
+
+
+// CreateBatch performs bulk entity instantiation using a pre-allocated buffer.
+// It fills 'buf' with pointers to components, returning a slice of initialized
+// Item7 containers. If 'buf' is too small, it is capped at 'count'.
+//
+// Example usage:
+//
+//    items := blueprint.CreateBatch(count, buf)
+//    for _, item := range items {
+//        item.V1.X = 1
+//        item.V2.X = 1
+//        item.V3.X = 1
+//        item.V4.X = 1
+//        item.V5.X = 1
+//        item.V6.X = 1
+//        item.V7.X = 1
+//    }
+func (b *Blueprint7[T1, T2, T3, T4, T5, T6, T7]) CreateBatch(count int, buf []Item7[T1, T2, T3, T4, T5, T6, T7]) []Item7[T1, T2, T3, T4, T5, T6, T7] {
+	if len(buf) < count {
+		count = len(buf)
+	}
+	output := buf[:count]
+
+	items := b.blueprint.CreateBatch(count)
+
+	for i := range items {
+		output[i].Entity = items[i].Entity
+		output[i].V1 = (*T1)(items[i].Ptrs[0])
+		output[i].V2 = (*T2)(items[i].Ptrs[1])
+		output[i].V3 = (*T3)(items[i].Ptrs[2])
+		output[i].V4 = (*T4)(items[i].Ptrs[3])
+		output[i].V5 = (*T5)(items[i].Ptrs[4])
+		output[i].V6 = (*T6)(items[i].Ptrs[5])
+		output[i].V7 = (*T7)(items[i].Ptrs[6])
+	}
+
+	return output
+}
+// Blueprint8 defines a static template (recipe) for the mass construction
+// of entities with a predefined set of 8 stateful components. It allows
+// for precise memory layout planning before allocation, which is essential
 // for high-performance data access patterns.
 //
-// For example, a Blueprint8 could be used to define complex actors that 
-// require exactly 8 distinct data structures to be stored contiguously, 
+// For example, a Blueprint8 could be used to define complex actors that
+// require exactly 8 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any] struct {
     blueprint *core.ArchetypeEntryBlueprint
 }
 
 // NewBlueprint8 initializes a new template for a specific combination of 8 components.
-// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the 
-// template with any number of stateless components (Tags). Tags do not occupy 
+// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the
+// template with any number of stateless components (Tags). Tags do not occupy
 // space in the data columns but allow for precise population filtering within Views.
 //
-// By using a static definition, archetype metadata is registered once, 
+// By using a static definition, archetype metadata is registered once,
 // enabling rapid entity spawning with minimal memory management overhead.
 //
-// This constructor panics if component registration fails or if there are 
+// This constructor panics if component registration fails or if there are
 // configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any](
     ecs *ECS,
@@ -614,11 +936,11 @@ func NewBlueprint8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 an
 }
 
 // Create instantiates a new entity based on the blueprint's static configuration.
-// It returns the unique Entity identifier along with direct pointers to the 
+// It returns the unique Entity identifier along with direct pointers to the
 // newly allocated memory for each of the 8 stateful components.
 //
-// The resulting entity is created with the full set of predefined Tags 
-// (stateless components) configured via BlueprintOptions, making it 
+// The resulting entity is created with the full set of predefined Tags
+// (stateless components) configured via BlueprintOptions, making it
 // immediately discoverable by relevant Views and Filters.
 //
 // Example usage for Blueprint8:
@@ -633,34 +955,92 @@ func NewBlueprint8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 an
 //    *v7 = T7{ /* initialize */ }
 //    *v8 = T8{ /* initialize */ }
 //
-// These pointers allow for immediate initialization of the entity's state 
-// without the need for additional lookups, ensuring a highly efficient 
+// These pointers allow for immediate initialization of the entity's state
+// without the need for additional lookups, ensuring a highly efficient
 // construction process.
 func (b *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]) Create() (Entity, *T1, *T2, *T3, *T4, *T5, *T6, *T7, *T8) {
     entity, ptrs := b.blueprint.Create()
     return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1]), (*T3)(ptrs[2]), (*T4)(ptrs[3]), (*T5)(ptrs[4]), (*T6)(ptrs[5]), (*T7)(ptrs[6]), (*T8)(ptrs[7])
 }
-// Blueprint9 defines a static template (recipe) for the mass construction 
-// of entities with a predefined set of 9 stateful components. It allows 
-// for precise memory layout planning before allocation, which is essential 
+
+
+// Item8 represents a batch data container for an entity with exactly 8 components.
+// It is used in bulk operations to provide direct access to component pointers.
+//
+// Type parameters:
+type Item8[T1, T2, T3, T4, T5, T6, T7, T8 any] struct {
+	Entity Entity
+	V1 *T1
+	V2 *T2
+	V3 *T3
+	V4 *T4
+	V5 *T5
+	V6 *T6
+	V7 *T7
+	V8 *T8
+}
+
+
+// CreateBatch performs bulk entity instantiation using a pre-allocated buffer.
+// It fills 'buf' with pointers to components, returning a slice of initialized
+// Item8 containers. If 'buf' is too small, it is capped at 'count'.
+//
+// Example usage:
+//
+//    items := blueprint.CreateBatch(count, buf)
+//    for _, item := range items {
+//        item.V1.X = 1
+//        item.V2.X = 1
+//        item.V3.X = 1
+//        item.V4.X = 1
+//        item.V5.X = 1
+//        item.V6.X = 1
+//        item.V7.X = 1
+//        item.V8.X = 1
+//    }
+func (b *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]) CreateBatch(count int, buf []Item8[T1, T2, T3, T4, T5, T6, T7, T8]) []Item8[T1, T2, T3, T4, T5, T6, T7, T8] {
+	if len(buf) < count {
+		count = len(buf)
+	}
+	output := buf[:count]
+
+	items := b.blueprint.CreateBatch(count)
+
+	for i := range items {
+		output[i].Entity = items[i].Entity
+		output[i].V1 = (*T1)(items[i].Ptrs[0])
+		output[i].V2 = (*T2)(items[i].Ptrs[1])
+		output[i].V3 = (*T3)(items[i].Ptrs[2])
+		output[i].V4 = (*T4)(items[i].Ptrs[3])
+		output[i].V5 = (*T5)(items[i].Ptrs[4])
+		output[i].V6 = (*T6)(items[i].Ptrs[5])
+		output[i].V7 = (*T7)(items[i].Ptrs[6])
+		output[i].V8 = (*T8)(items[i].Ptrs[7])
+	}
+
+	return output
+}
+// Blueprint9 defines a static template (recipe) for the mass construction
+// of entities with a predefined set of 9 stateful components. It allows
+// for precise memory layout planning before allocation, which is essential
 // for high-performance data access patterns.
 //
-// For example, a Blueprint9 could be used to define complex actors that 
-// require exactly 9 distinct data structures to be stored contiguously, 
+// For example, a Blueprint9 could be used to define complex actors that
+// require exactly 9 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint9[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T9 any] struct {
     blueprint *core.ArchetypeEntryBlueprint
 }
 
 // NewBlueprint9 initializes a new template for a specific combination of 9 components.
-// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the 
-// template with any number of stateless components (Tags). Tags do not occupy 
+// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the
+// template with any number of stateless components (Tags). Tags do not occupy
 // space in the data columns but allow for precise population filtering within Views.
 //
-// By using a static definition, archetype metadata is registered once, 
+// By using a static definition, archetype metadata is registered once,
 // enabling rapid entity spawning with minimal memory management overhead.
 //
-// This constructor panics if component registration fails or if there are 
+// This constructor panics if component registration fails or if there are
 // configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint9[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T9 any](
     ecs *ECS,
@@ -701,11 +1081,11 @@ func NewBlueprint9[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 an
 }
 
 // Create instantiates a new entity based on the blueprint's static configuration.
-// It returns the unique Entity identifier along with direct pointers to the 
+// It returns the unique Entity identifier along with direct pointers to the
 // newly allocated memory for each of the 9 stateful components.
 //
-// The resulting entity is created with the full set of predefined Tags 
-// (stateless components) configured via BlueprintOptions, making it 
+// The resulting entity is created with the full set of predefined Tags
+// (stateless components) configured via BlueprintOptions, making it
 // immediately discoverable by relevant Views and Filters.
 //
 // Example usage for Blueprint9:
@@ -721,34 +1101,95 @@ func NewBlueprint9[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 an
 //    *v8 = T8{ /* initialize */ }
 //    *v9 = T9{ /* initialize */ }
 //
-// These pointers allow for immediate initialization of the entity's state 
-// without the need for additional lookups, ensuring a highly efficient 
+// These pointers allow for immediate initialization of the entity's state
+// without the need for additional lookups, ensuring a highly efficient
 // construction process.
 func (b *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Create() (Entity, *T1, *T2, *T3, *T4, *T5, *T6, *T7, *T8, *T9) {
     entity, ptrs := b.blueprint.Create()
     return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1]), (*T3)(ptrs[2]), (*T4)(ptrs[3]), (*T5)(ptrs[4]), (*T6)(ptrs[5]), (*T7)(ptrs[6]), (*T8)(ptrs[7]), (*T9)(ptrs[8])
 }
-// Blueprint10 defines a static template (recipe) for the mass construction 
-// of entities with a predefined set of 10 stateful components. It allows 
-// for precise memory layout planning before allocation, which is essential 
+
+
+// Item9 represents a batch data container for an entity with exactly 9 components.
+// It is used in bulk operations to provide direct access to component pointers.
+//
+// Type parameters:
+type Item9[T1, T2, T3, T4, T5, T6, T7, T8, T9 any] struct {
+	Entity Entity
+	V1 *T1
+	V2 *T2
+	V3 *T3
+	V4 *T4
+	V5 *T5
+	V6 *T6
+	V7 *T7
+	V8 *T8
+	V9 *T9
+}
+
+
+// CreateBatch performs bulk entity instantiation using a pre-allocated buffer.
+// It fills 'buf' with pointers to components, returning a slice of initialized
+// Item9 containers. If 'buf' is too small, it is capped at 'count'.
+//
+// Example usage:
+//
+//    items := blueprint.CreateBatch(count, buf)
+//    for _, item := range items {
+//        item.V1.X = 1
+//        item.V2.X = 1
+//        item.V3.X = 1
+//        item.V4.X = 1
+//        item.V5.X = 1
+//        item.V6.X = 1
+//        item.V7.X = 1
+//        item.V8.X = 1
+//        item.V9.X = 1
+//    }
+func (b *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) CreateBatch(count int, buf []Item9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) []Item9[T1, T2, T3, T4, T5, T6, T7, T8, T9] {
+	if len(buf) < count {
+		count = len(buf)
+	}
+	output := buf[:count]
+
+	items := b.blueprint.CreateBatch(count)
+
+	for i := range items {
+		output[i].Entity = items[i].Entity
+		output[i].V1 = (*T1)(items[i].Ptrs[0])
+		output[i].V2 = (*T2)(items[i].Ptrs[1])
+		output[i].V3 = (*T3)(items[i].Ptrs[2])
+		output[i].V4 = (*T4)(items[i].Ptrs[3])
+		output[i].V5 = (*T5)(items[i].Ptrs[4])
+		output[i].V6 = (*T6)(items[i].Ptrs[5])
+		output[i].V7 = (*T7)(items[i].Ptrs[6])
+		output[i].V8 = (*T8)(items[i].Ptrs[7])
+		output[i].V9 = (*T9)(items[i].Ptrs[8])
+	}
+
+	return output
+}
+// Blueprint10 defines a static template (recipe) for the mass construction
+// of entities with a predefined set of 10 stateful components. It allows
+// for precise memory layout planning before allocation, which is essential
 // for high-performance data access patterns.
 //
-// For example, a Blueprint10 could be used to define complex actors that 
-// require exactly 10 distinct data structures to be stored contiguously, 
+// For example, a Blueprint10 could be used to define complex actors that
+// require exactly 10 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint10[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T9 any, T10 any] struct {
     blueprint *core.ArchetypeEntryBlueprint
 }
 
 // NewBlueprint10 initializes a new template for a specific combination of 10 components.
-// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the 
-// template with any number of stateless components (Tags). Tags do not occupy 
+// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the
+// template with any number of stateless components (Tags). Tags do not occupy
 // space in the data columns but allow for precise population filtering within Views.
 //
-// By using a static definition, archetype metadata is registered once, 
+// By using a static definition, archetype metadata is registered once,
 // enabling rapid entity spawning with minimal memory management overhead.
 //
-// This constructor panics if component registration fails or if there are 
+// This constructor panics if component registration fails or if there are
 // configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint10[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T9 any, T10 any](
     ecs *ECS,
@@ -790,11 +1231,11 @@ func NewBlueprint10[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 a
 }
 
 // Create instantiates a new entity based on the blueprint's static configuration.
-// It returns the unique Entity identifier along with direct pointers to the 
+// It returns the unique Entity identifier along with direct pointers to the
 // newly allocated memory for each of the 10 stateful components.
 //
-// The resulting entity is created with the full set of predefined Tags 
-// (stateless components) configured via BlueprintOptions, making it 
+// The resulting entity is created with the full set of predefined Tags
+// (stateless components) configured via BlueprintOptions, making it
 // immediately discoverable by relevant Views and Filters.
 //
 // Example usage for Blueprint10:
@@ -811,10 +1252,75 @@ func NewBlueprint10[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 a
 //    *v9 = T9{ /* initialize */ }
 //    *v10 = T10{ /* initialize */ }
 //
-// These pointers allow for immediate initialization of the entity's state 
-// without the need for additional lookups, ensuring a highly efficient 
+// These pointers allow for immediate initialization of the entity's state
+// without the need for additional lookups, ensuring a highly efficient
 // construction process.
 func (b *Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Create() (Entity, *T1, *T2, *T3, *T4, *T5, *T6, *T7, *T8, *T9, *T10) {
     entity, ptrs := b.blueprint.Create()
     return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1]), (*T3)(ptrs[2]), (*T4)(ptrs[3]), (*T5)(ptrs[4]), (*T6)(ptrs[5]), (*T7)(ptrs[6]), (*T8)(ptrs[7]), (*T9)(ptrs[8]), (*T10)(ptrs[9])
 }
+
+
+// Item10 represents a batch data container for an entity with exactly 10 components.
+// It is used in bulk operations to provide direct access to component pointers.
+//
+// Type parameters:
+type Item10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10 any] struct {
+	Entity Entity
+	V1 *T1
+	V2 *T2
+	V3 *T3
+	V4 *T4
+	V5 *T5
+	V6 *T6
+	V7 *T7
+	V8 *T8
+	V9 *T9
+	V10 *T10
+}
+
+
+// CreateBatch performs bulk entity instantiation using a pre-allocated buffer.
+// It fills 'buf' with pointers to components, returning a slice of initialized
+// Item10 containers. If 'buf' is too small, it is capped at 'count'.
+//
+// Example usage:
+//
+//    items := blueprint.CreateBatch(count, buf)
+//    for _, item := range items {
+//        item.V1.X = 1
+//        item.V2.X = 1
+//        item.V3.X = 1
+//        item.V4.X = 1
+//        item.V5.X = 1
+//        item.V6.X = 1
+//        item.V7.X = 1
+//        item.V8.X = 1
+//        item.V9.X = 1
+//        item.V10.X = 1
+//    }
+func (b *Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) CreateBatch(count int, buf []Item10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) []Item10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10] {
+	if len(buf) < count {
+		count = len(buf)
+	}
+	output := buf[:count]
+
+	items := b.blueprint.CreateBatch(count)
+
+	for i := range items {
+		output[i].Entity = items[i].Entity
+		output[i].V1 = (*T1)(items[i].Ptrs[0])
+		output[i].V2 = (*T2)(items[i].Ptrs[1])
+		output[i].V3 = (*T3)(items[i].Ptrs[2])
+		output[i].V4 = (*T4)(items[i].Ptrs[3])
+		output[i].V5 = (*T5)(items[i].Ptrs[4])
+		output[i].V6 = (*T6)(items[i].Ptrs[5])
+		output[i].V7 = (*T7)(items[i].Ptrs[6])
+		output[i].V8 = (*T8)(items[i].Ptrs[7])
+		output[i].V9 = (*T9)(items[i].Ptrs[8])
+		output[i].V10 = (*T10)(items[i].Ptrs[9])
+	}
+
+	return output
+}
+

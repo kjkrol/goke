@@ -56,6 +56,38 @@ func (b *Memo) AllocSlot() (*chunk, ChunkIdx, ChunkRow) {
 	return c, lastIdx, row
 }
 
+// AllocBatch reserves up to 'count' slots in a SINGLE contiguous chunk.
+// It returns:
+// 1. *chunk   -> Pointer for data writing
+// 2. ChunkIdx -> Index of the chunk
+// 3. ChunkRow -> Starting row in the chunk
+// 4. int      -> How many slots were actually allocated (could be less than count)
+func (b *Memo) AllocBatch(count int) (*chunk, ChunkIdx, ChunkRow, int) {
+	lastIdx := ChunkIdx(len(b.Pages) - 1)
+	c := b.Pages[lastIdx]
+
+	available := int(b.Layout.ChunkCap) - int(c.Len)
+
+	if available == 0 {
+		b.addChunk()
+		lastIdx++
+		c = b.Pages[lastIdx]
+		available = int(b.Layout.ChunkCap)
+	}
+
+	allocated := count
+	if allocated > available {
+		allocated = available
+	}
+
+	startRow := c.Len
+
+	c.Len += ChunkRow(allocated)
+	b.Len += uint32(allocated)
+
+	return c, lastIdx, startRow, allocated
+}
+
 // GetChunk provides O(1) access to a chunk by its index.
 // Used when moving/removing entities based on EntityLinkStore data.
 func (b *Memo) GetChunk(idx ChunkIdx) *chunk {
