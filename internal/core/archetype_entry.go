@@ -17,7 +17,7 @@ type ArchetypeEntryBlueprint struct {
 	Buf       []ArchetypeBatchItem
 }
 
-func NewArchetypeEntry(blueprint *Blueprint) *ArchetypeEntryBlueprint {
+func NewArchetypeEntryBlueprint(blueprint *Blueprint) *ArchetypeEntryBlueprint {
 	var mask ArchetypeMask
 
 	for _, info := range blueprint.compInfos {

@@ -16,11 +16,7 @@ type Props3 struct{ V float64 }
 type Props4 struct{ V float64 }
 
 func BenchmarkEngine_Structural(b *testing.B) {
-	ecs := goke.New(
-		goke.WithInitialEntityCap(100000),
-		goke.WithFreeIndicesCap(100000),
-	)
-	// Pre-registering for "Turbo" performance in bench
+	ecs := goke.New()
 
 	// --- 1. ENTITY CREATION & INITIALIZATION ---
 	// Tests CreateEntity

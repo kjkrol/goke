@@ -60,7 +60,7 @@ func NewBlueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $
     }
 
     return &Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]{
-        blueprint: core.NewArchetypeEntry(blueprint),
+        blueprint: core.NewArchetypeEntryBlueprint(blueprint),
     }
 }
 

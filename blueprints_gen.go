@@ -56,7 +56,7 @@ func NewBlueprint1[T1 any](
     }
 
     return &Blueprint1[T1]{
-        blueprint: core.NewArchetypeEntry(blueprint),
+        blueprint: core.NewArchetypeEntryBlueprint(blueprint),
     }
 }
 
@@ -166,7 +166,7 @@ func NewBlueprint2[T1 any, T2 any](
     }
 
     return &Blueprint2[T1, T2]{
-        blueprint: core.NewArchetypeEntry(blueprint),
+        blueprint: core.NewArchetypeEntryBlueprint(blueprint),
     }
 }
 
@@ -281,7 +281,7 @@ func NewBlueprint3[T1 any, T2 any, T3 any](
     }
 
     return &Blueprint3[T1, T2, T3]{
-        blueprint: core.NewArchetypeEntry(blueprint),
+        blueprint: core.NewArchetypeEntryBlueprint(blueprint),
     }
 }
 
@@ -401,7 +401,7 @@ func NewBlueprint4[T1 any, T2 any, T3 any, T4 any](
     }
 
     return &Blueprint4[T1, T2, T3, T4]{
-        blueprint: core.NewArchetypeEntry(blueprint),
+        blueprint: core.NewArchetypeEntryBlueprint(blueprint),
     }
 }
 
@@ -526,7 +526,7 @@ func NewBlueprint5[T1 any, T2 any, T3 any, T4 any, T5 any](
     }
 
     return &Blueprint5[T1, T2, T3, T4, T5]{
-        blueprint: core.NewArchetypeEntry(blueprint),
+        blueprint: core.NewArchetypeEntryBlueprint(blueprint),
     }
 }
 
@@ -656,7 +656,7 @@ func NewBlueprint6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any](
     }
 
     return &Blueprint6[T1, T2, T3, T4, T5, T6]{
-        blueprint: core.NewArchetypeEntry(blueprint),
+        blueprint: core.NewArchetypeEntryBlueprint(blueprint),
     }
 }
 
@@ -791,7 +791,7 @@ func NewBlueprint7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any](
     }
 
     return &Blueprint7[T1, T2, T3, T4, T5, T6, T7]{
-        blueprint: core.NewArchetypeEntry(blueprint),
+        blueprint: core.NewArchetypeEntryBlueprint(blueprint),
     }
 }
 
@@ -931,7 +931,7 @@ func NewBlueprint8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 an
     }
 
     return &Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]{
-        blueprint: core.NewArchetypeEntry(blueprint),
+        blueprint: core.NewArchetypeEntryBlueprint(blueprint),
     }
 }
 
@@ -1076,7 +1076,7 @@ func NewBlueprint9[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 an
     }
 
     return &Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]{
-        blueprint: core.NewArchetypeEntry(blueprint),
+        blueprint: core.NewArchetypeEntryBlueprint(blueprint),
     }
 }
 
@@ -1226,7 +1226,7 @@ func NewBlueprint10[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 a
     }
 
     return &Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]{
-        blueprint: core.NewArchetypeEntry(blueprint),
+        blueprint: core.NewArchetypeEntryBlueprint(blueprint),
     }
 }
 
