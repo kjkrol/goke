@@ -30,7 +30,8 @@ func main() {
 	blueprint := goke.NewBlueprint3[Pos, Vel, Acc](ecs)
 
 	// Create the entity and get direct access to its memory slots.
-	entity, pos, vel, acc := blueprint.Create()
+	item := blueprint.Create()
+	entity, pos, vel, acc := item.Entity, item.Comp1, item.Comp2, item.Comp3
 	*pos = Pos{X: 0, Y: 0}
 	*vel = Vel{X: 1, Y: 1}
 	*acc = Acc{X: 0.1, Y: 0.1}

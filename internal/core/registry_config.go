@@ -6,9 +6,9 @@ type RegistryConfig struct {
 	// This affects EntityPool.generations and ArchetypeRegistry.EntityArchLinks.
 	InitialEntityCap int
 
-	// DefaultArchetypeChunkSize sets the default capacity for component columns
+	// DefaultArchetypePageSize sets the default capacity for component columns
 	// when a new Archetype is created.
-	DefaultArchetypeChunkSize int
+	DefaultArchetypePageSize int
 
 	// InitialArchetypeRegistryCap sets the initial capacity for the unique
 	// archetype combinations map.
@@ -25,7 +25,7 @@ type RegistryConfig struct {
 func DefaultRegistryConfig() RegistryConfig {
 	return RegistryConfig{
 		InitialEntityCap:            1000,
-		DefaultArchetypeChunkSize:   100,
+		DefaultArchetypePageSize:    100,
 		InitialArchetypeRegistryCap: 64,
 		FreeIndicesCap:              1024,
 		ViewRegistryInitCap:         32,

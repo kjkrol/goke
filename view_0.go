@@ -49,7 +49,7 @@ func NewView0(ecs *ECS, opts ...BlueprintOption) *View0 {
 func (v *View0) All() iter.Seq[struct{ Entity core.Entity }] {
 	return func(yield func(struct{ Entity core.Entity }) bool) {
 		for _, ma := range v.Baked {
-			offEntity := ma.EntityChunkOffset
+			offEntity := ma.EntityPageOffset
 			for _, chunk := range ma.Arch.Memory.Pages {
 				count := chunk.Len
 				if count == 0 {

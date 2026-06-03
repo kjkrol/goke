@@ -2,9 +2,9 @@ package core
 
 type EntityArchLink struct {
 	ArchId     ArchetypeId
-	ChunkIdx   ChunkIdx // Index of the memory page (Chunk) in Archetype.Memory.Pages
-	ChunkRow   ChunkRow // Index of the row within that specific Chunk
-	Generation uint32   // Entity generation for validation
+	PageIdx    PageIdx // Index of the memory page (Page) in Archetype.Memory.Pages
+	PageRow    PageRow // Index of the row within that specific Page
+	Generation uint32  // Entity generation for validation
 }
 
 type EntityLinkStore struct {
@@ -39,18 +39,18 @@ func (s *EntityLinkStore) Get(entity Entity) (EntityArchLink, bool) {
 	return link, true
 }
 
-// Update updates the entity's location using the new Chunk Index and Chunk Row.
-func (s *EntityLinkStore) Update(entity Entity, archId ArchetypeId, chunkIdx ChunkIdx, row ChunkRow) {
+// Update updates the entity's location using the new Page Index and Page Row.
+func (s *EntityLinkStore) Update(entity Entity, archId ArchetypeId, pageIdx PageIdx, row PageRow) {
 	index := entity.Index()
 	if index >= uint32(cap(s.links)) {
 		s.grow(index + 1)
 	}
 
-	// Store location (Chunk Index + Row) AND the current generation
+	// Store location (Page Index + Row) AND the current generation
 	s.links[index] = EntityArchLink{
 		ArchId:     archId,
-		ChunkIdx:   chunkIdx,
-		ChunkRow:   row,
+		PageIdx:    pageIdx,
+		PageRow:    row,
 		Generation: entity.Generation(),
 	}
 }
@@ -66,18 +66,15 @@ func (s *EntityLinkStore) Clear(entity Entity) {
 	if s.links[index].Generation == entity.Generation() {
 		s.links[index] = EntityArchLink{
 			ArchId:     NullArchetypeId,
-			ChunkIdx:   0,
-			ChunkRow:   0,
+			PageIdx:    0,
+			PageRow:    0,
 			Generation: 0, // Reset to 0 to prevent any stale handle matches
 		}
 	}
 }
 
 func (s *EntityLinkStore) grow(minLen uint32) {
-	newCap := uint32(len(s.links)) * 2
-	if newCap < minLen {
-		newCap = minLen
-	}
+	newCap := max(uint32(len(s.links))*2, minLen)
 
 	newLinks := make([]EntityArchLink, newCap)
 	copy(newLinks, s.links)

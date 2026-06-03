@@ -52,16 +52,16 @@ func (m *ColumnMap) Get(globalID ComponentID) LocalColumnID {
 // -----------------------------------------------------------------------------
 
 type Column struct {
-	CompID      ComponentID
-	ItemSize    uintptr
-	ChunkOffset uintptr // Offset from the start of the chunk data to this column's start
+	CompID     ComponentID
+	ItemSize   uintptr
+	PageOffset uintptr // Offset from the start of the page data to this column's start
 }
 
-// GetPointer returns the unsafe pointer to the specific element in the given chunk.
+// GetPointer returns the unsafe pointer to the specific element in the given page.
 // Formula: Chunk.Data + ColumnOffset + (Row * ItemSize)
 // Cost: Simple pointer arithmetic, very fast.
-func (c *Column) GetPointer(chunk *chunk, row ChunkRow) unsafe.Pointer {
-	return unsafe.Add(chunk.Ptr, c.ChunkOffset+uintptr(row)*c.ItemSize)
+func (c *Column) GetPointer(page *page, pageRow PageRow) unsafe.Pointer {
+	return unsafe.Add(page.Ptr, c.PageOffset+uintptr(pageRow)*c.ItemSize)
 }
 
 // -----------------------------------------------------------------------------
@@ -109,9 +109,9 @@ func (a *Archetype) InitArchetype(
 	// --- A. Setup Entity Column ---
 	// a.Map.Set(EntityID, EntityColumnIndex)
 	a.Columns[EntityColumnIndex] = Column{
-		CompID:      EntityID,
-		ItemSize:    unsafe.Sizeof(Entity(0)),
-		ChunkOffset: a.Memory.Layout.Offsets[0], // Offset from Layout calculation
+		CompID:     EntityID,
+		ItemSize:   unsafe.Sizeof(Entity(0)),
+		PageOffset: a.Memory.Layout.Offsets[0], // Offset from Layout calculation
 	}
 
 	// --- B. Setup Component Columns (LocalID 1..N) ---
@@ -121,9 +121,9 @@ func (a *Archetype) InitArchetype(
 		a.Map.Set(info.ID, localIdx)
 
 		a.Columns[localIdx] = Column{
-			CompID:      info.ID,
-			ItemSize:    info.Size,
-			ChunkOffset: a.Memory.Layout.Offsets[i+1], // +1 because index 0 is Entity
+			CompID:     info.ID,
+			ItemSize:   info.Size,
+			PageOffset: a.Memory.Layout.Offsets[i+1], // +1 because index 0 is Entity
 		}
 	}
 }
@@ -150,24 +150,24 @@ func (a *Archetype) GetColumn(id ComponentID) *Column {
 }
 
 // AddEntity reserves a slot and writes the Entity ID.
-func (a *Archetype) AddEntity(entity Entity) (ChunkIdx, ChunkRow) {
-	chunk, chunkIdx, row := a.Memory.AllocSlot()
+func (a *Archetype) AddEntity(entity Entity) (PageIdx, PageRow) {
+	page, pageIdx, pageRow := a.Memory.AllocSlot()
 
 	entityCol := &a.Columns[EntityColumnIndex]
-	destPtr := entityCol.GetPointer(chunk, row)
+	destPtr := entityCol.GetPointer(page, pageRow)
 	*(*Entity)(destPtr) = entity
 
-	return chunkIdx, row
+	return pageIdx, pageRow
 }
 
 // SwapRemoveEntity removes an entity at the specified location (O(1)).
 // It moves the last entity of the archetype into the empty slot (Swap).
 // Returns the entity that was moved (swappedEntity) and true if a move happened.
-func (a *Archetype) SwapRemoveEntity(targetChunkIdx ChunkIdx, targetRow ChunkRow) (swappedEntity Entity, swapped bool) {
+func (a *Archetype) SwapRemoveEntity(targetChunkIdx PageIdx, targetRow PageRow) (swappedEntity Entity, swapped bool) {
 
 	// 1. Get the real, verified tail
 	lastChunkIdx, lastChunk := a.Memory.ResolveTail()
-	lastRow := ChunkRow(lastChunk.Len - 1) // Safe now because lastChunk.Len > 0
+	lastRow := PageRow(lastChunk.Len - 1) // Safe now because lastChunk.Len > 0
 	targetChunk := a.Memory.Pages[targetChunkIdx]
 
 	// 2. Case: Removing the last entity of the archetype
@@ -201,10 +201,10 @@ func (a *Archetype) SwapRemoveEntity(targetChunkIdx ChunkIdx, targetRow ChunkRow
 }
 
 // zeroEntityAt clears memory at the given location to prevent stale pointers (GC).
-func (a *Archetype) zeroEntityAt(c *chunk, row ChunkRow) {
+func (a *Archetype) zeroEntityAt(page *page, pageRow PageRow) {
 	for i := range a.Columns {
 		col := &a.Columns[i]
-		ptr := col.GetPointer(c, row)
+		ptr := col.GetPointer(page, pageRow)
 		zeroMemory(ptr, col.ItemSize)
 	}
 }

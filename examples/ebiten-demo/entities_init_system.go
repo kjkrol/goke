@@ -36,7 +36,8 @@ func (s *EntitiesInitSystem) Init(ecs *goke.ECS) {
 	cellHeight := s.space.Height / cols
 
 	for i := 0; i < spawnEntitiesNumber; i++ {
-		entity, position, velocity, collision, appearance := s.blueprint.Create()
+		item := s.blueprint.Create()
+		entity, position, velocity, collision, appearance := item.Entity, item.Comp1, item.Comp2, item.Comp3, item.Comp4
 		row := uint32(i) / cols
 		col := uint32(i) % cols
 

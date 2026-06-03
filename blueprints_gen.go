@@ -17,7 +17,7 @@ import (
 // require exactly 1 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint1[T1 any] struct {
-    blueprint *core.ArchetypeEntryBlueprint
+    itemFactory *core.ItemFactory
 }
 
 // NewBlueprint1 initializes a new template for a specific combination of 1 components.
@@ -56,13 +56,13 @@ func NewBlueprint1[T1 any](
     }
 
     return &Blueprint1[T1]{
-        blueprint: core.NewArchetypeEntryBlueprint(blueprint),
+        itemFactory: core.NewItemFactory(blueprint),
     }
 }
 
 // Create instantiates a new entity based on the blueprint's static configuration.
-// It returns the unique Entity identifier along with direct pointers to the
-// newly allocated memory for each of the 1 stateful components.
+// It returns an Item1 struct containing the unique Entity identifier along
+// with direct pointers to the newly allocated memory for each of the 1 stateful components.
 //
 // The resulting entity is created with the full set of predefined Tags
 // (stateless components) configured via BlueprintOptions, making it
@@ -70,50 +70,38 @@ func NewBlueprint1[T1 any](
 //
 // Example usage for Blueprint1:
 //
-//    entity, v1 := blueprint.Create()
-//    *v1 = T1{ /* initialize */ }
+// 	item := blueprint.Create()
+// 	*item.V1 = T1{ /* initialize */ }
 //
 // These pointers allow for immediate initialization of the entity's state
 // without the need for additional lookups, ensuring a highly efficient
 // construction process.
-func (b *Blueprint1[T1]) Create() (Entity, *T1) {
-    entity, ptrs := b.blueprint.Create()
-    return entity, (*T1)(ptrs[0])
+func (b *Blueprint1[T1]) Create() Item1[T1] {
+	item := b.itemFactory.Create()
+	return NewItem1[T1](item)
 }
 
-
-// Item1 represents a batch data container for an entity with exactly 1 components.
-// It is used in bulk operations to provide direct access to component pointers.
-//
-// Type parameters:
-type Item1[T1 any] struct {
-	Entity Entity
-	V1 *T1
-}
-
-
-// CreateBatch performs bulk entity instantiation using a pre-allocated buffer.
+// BatchCreate performs bulk entity instantiation using a pre-allocated buffer.
 // It fills 'buf' with pointers to components, returning a slice of initialized
 // Item1 containers. If 'buf' is too small, it is capped at 'count'.
 //
 // Example usage:
 //
-//    items := blueprint.CreateBatch(count, buf)
+//    items := blueprint.BatchCreate(count, buf)
 //    for _, item := range items {
 //        item.V1.X = 1
 //    }
-func (b *Blueprint1[T1]) CreateBatch(count int, buf []Item1[T1]) []Item1[T1] {
+func (b *Blueprint1[T1]) BatchCreate(count int, buf []Item1[T1]) []Item1[T1] {
 	if len(buf) < count {
 		count = len(buf)
 	}
 	output := buf[:count]
 
-	items := b.blueprint.CreateBatch(count)
-
-	for i := range items {
-		output[i].Entity = items[i].Entity
-		output[i].V1 = (*T1)(items[i].Ptrs[0])
-	}
+	b.itemFactory.BatchCreate(count, func(items []core.Item) {
+    	for i := range items {
+    		output[i] = NewItem1[T1](items[i])
+    	}
+	})
 
 	return output
 }
@@ -126,7 +114,7 @@ func (b *Blueprint1[T1]) CreateBatch(count int, buf []Item1[T1]) []Item1[T1] {
 // require exactly 2 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint2[T1 any, T2 any] struct {
-    blueprint *core.ArchetypeEntryBlueprint
+    itemFactory *core.ItemFactory
 }
 
 // NewBlueprint2 initializes a new template for a specific combination of 2 components.
@@ -166,13 +154,13 @@ func NewBlueprint2[T1 any, T2 any](
     }
 
     return &Blueprint2[T1, T2]{
-        blueprint: core.NewArchetypeEntryBlueprint(blueprint),
+        itemFactory: core.NewItemFactory(blueprint),
     }
 }
 
 // Create instantiates a new entity based on the blueprint's static configuration.
-// It returns the unique Entity identifier along with direct pointers to the
-// newly allocated memory for each of the 2 stateful components.
+// It returns an Item2 struct containing the unique Entity identifier along
+// with direct pointers to the newly allocated memory for each of the 2 stateful components.
 //
 // The resulting entity is created with the full set of predefined Tags
 // (stateless components) configured via BlueprintOptions, making it
@@ -180,54 +168,40 @@ func NewBlueprint2[T1 any, T2 any](
 //
 // Example usage for Blueprint2:
 //
-//    entity, v1, v2 := blueprint.Create()
-//    *v1 = T1{ /* initialize */ }
-//    *v2 = T2{ /* initialize */ }
+// 	item := blueprint.Create()
+// 	*item.V1 = T1{ /* initialize */ }
+// 	*item.V2 = T2{ /* initialize */ }
 //
 // These pointers allow for immediate initialization of the entity's state
 // without the need for additional lookups, ensuring a highly efficient
 // construction process.
-func (b *Blueprint2[T1, T2]) Create() (Entity, *T1, *T2) {
-    entity, ptrs := b.blueprint.Create()
-    return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1])
+func (b *Blueprint2[T1, T2]) Create() Item2[T1, T2] {
+	item := b.itemFactory.Create()
+	return NewItem2[T1, T2](item)
 }
 
-
-// Item2 represents a batch data container for an entity with exactly 2 components.
-// It is used in bulk operations to provide direct access to component pointers.
-//
-// Type parameters:
-type Item2[T1, T2 any] struct {
-	Entity Entity
-	V1 *T1
-	V2 *T2
-}
-
-
-// CreateBatch performs bulk entity instantiation using a pre-allocated buffer.
+// BatchCreate performs bulk entity instantiation using a pre-allocated buffer.
 // It fills 'buf' with pointers to components, returning a slice of initialized
 // Item2 containers. If 'buf' is too small, it is capped at 'count'.
 //
 // Example usage:
 //
-//    items := blueprint.CreateBatch(count, buf)
+//    items := blueprint.BatchCreate(count, buf)
 //    for _, item := range items {
 //        item.V1.X = 1
 //        item.V2.X = 1
 //    }
-func (b *Blueprint2[T1, T2]) CreateBatch(count int, buf []Item2[T1, T2]) []Item2[T1, T2] {
+func (b *Blueprint2[T1, T2]) BatchCreate(count int, buf []Item2[T1, T2]) []Item2[T1, T2] {
 	if len(buf) < count {
 		count = len(buf)
 	}
 	output := buf[:count]
 
-	items := b.blueprint.CreateBatch(count)
-
-	for i := range items {
-		output[i].Entity = items[i].Entity
-		output[i].V1 = (*T1)(items[i].Ptrs[0])
-		output[i].V2 = (*T2)(items[i].Ptrs[1])
-	}
+	b.itemFactory.BatchCreate(count, func(items []core.Item) {
+    	for i := range items {
+    		output[i] = NewItem2[T1, T2](items[i])
+    	}
+	})
 
 	return output
 }
@@ -240,7 +214,7 @@ func (b *Blueprint2[T1, T2]) CreateBatch(count int, buf []Item2[T1, T2]) []Item2
 // require exactly 3 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint3[T1 any, T2 any, T3 any] struct {
-    blueprint *core.ArchetypeEntryBlueprint
+    itemFactory *core.ItemFactory
 }
 
 // NewBlueprint3 initializes a new template for a specific combination of 3 components.
@@ -281,13 +255,13 @@ func NewBlueprint3[T1 any, T2 any, T3 any](
     }
 
     return &Blueprint3[T1, T2, T3]{
-        blueprint: core.NewArchetypeEntryBlueprint(blueprint),
+        itemFactory: core.NewItemFactory(blueprint),
     }
 }
 
 // Create instantiates a new entity based on the blueprint's static configuration.
-// It returns the unique Entity identifier along with direct pointers to the
-// newly allocated memory for each of the 3 stateful components.
+// It returns an Item3 struct containing the unique Entity identifier along
+// with direct pointers to the newly allocated memory for each of the 3 stateful components.
 //
 // The resulting entity is created with the full set of predefined Tags
 // (stateless components) configured via BlueprintOptions, making it
@@ -295,58 +269,42 @@ func NewBlueprint3[T1 any, T2 any, T3 any](
 //
 // Example usage for Blueprint3:
 //
-//    entity, v1, v2, v3 := blueprint.Create()
-//    *v1 = T1{ /* initialize */ }
-//    *v2 = T2{ /* initialize */ }
-//    *v3 = T3{ /* initialize */ }
+// 	item := blueprint.Create()
+// 	*item.V1 = T1{ /* initialize */ }
+// 	*item.V2 = T2{ /* initialize */ }
+// 	*item.V3 = T3{ /* initialize */ }
 //
 // These pointers allow for immediate initialization of the entity's state
 // without the need for additional lookups, ensuring a highly efficient
 // construction process.
-func (b *Blueprint3[T1, T2, T3]) Create() (Entity, *T1, *T2, *T3) {
-    entity, ptrs := b.blueprint.Create()
-    return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1]), (*T3)(ptrs[2])
+func (b *Blueprint3[T1, T2, T3]) Create() Item3[T1, T2, T3] {
+	item := b.itemFactory.Create()
+	return NewItem3[T1, T2, T3](item)
 }
 
-
-// Item3 represents a batch data container for an entity with exactly 3 components.
-// It is used in bulk operations to provide direct access to component pointers.
-//
-// Type parameters:
-type Item3[T1, T2, T3 any] struct {
-	Entity Entity
-	V1 *T1
-	V2 *T2
-	V3 *T3
-}
-
-
-// CreateBatch performs bulk entity instantiation using a pre-allocated buffer.
+// BatchCreate performs bulk entity instantiation using a pre-allocated buffer.
 // It fills 'buf' with pointers to components, returning a slice of initialized
 // Item3 containers. If 'buf' is too small, it is capped at 'count'.
 //
 // Example usage:
 //
-//    items := blueprint.CreateBatch(count, buf)
+//    items := blueprint.BatchCreate(count, buf)
 //    for _, item := range items {
 //        item.V1.X = 1
 //        item.V2.X = 1
 //        item.V3.X = 1
 //    }
-func (b *Blueprint3[T1, T2, T3]) CreateBatch(count int, buf []Item3[T1, T2, T3]) []Item3[T1, T2, T3] {
+func (b *Blueprint3[T1, T2, T3]) BatchCreate(count int, buf []Item3[T1, T2, T3]) []Item3[T1, T2, T3] {
 	if len(buf) < count {
 		count = len(buf)
 	}
 	output := buf[:count]
 
-	items := b.blueprint.CreateBatch(count)
-
-	for i := range items {
-		output[i].Entity = items[i].Entity
-		output[i].V1 = (*T1)(items[i].Ptrs[0])
-		output[i].V2 = (*T2)(items[i].Ptrs[1])
-		output[i].V3 = (*T3)(items[i].Ptrs[2])
-	}
+	b.itemFactory.BatchCreate(count, func(items []core.Item) {
+    	for i := range items {
+    		output[i] = NewItem3[T1, T2, T3](items[i])
+    	}
+	})
 
 	return output
 }
@@ -359,7 +317,7 @@ func (b *Blueprint3[T1, T2, T3]) CreateBatch(count int, buf []Item3[T1, T2, T3])
 // require exactly 4 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint4[T1 any, T2 any, T3 any, T4 any] struct {
-    blueprint *core.ArchetypeEntryBlueprint
+    itemFactory *core.ItemFactory
 }
 
 // NewBlueprint4 initializes a new template for a specific combination of 4 components.
@@ -401,13 +359,13 @@ func NewBlueprint4[T1 any, T2 any, T3 any, T4 any](
     }
 
     return &Blueprint4[T1, T2, T3, T4]{
-        blueprint: core.NewArchetypeEntryBlueprint(blueprint),
+        itemFactory: core.NewItemFactory(blueprint),
     }
 }
 
 // Create instantiates a new entity based on the blueprint's static configuration.
-// It returns the unique Entity identifier along with direct pointers to the
-// newly allocated memory for each of the 4 stateful components.
+// It returns an Item4 struct containing the unique Entity identifier along
+// with direct pointers to the newly allocated memory for each of the 4 stateful components.
 //
 // The resulting entity is created with the full set of predefined Tags
 // (stateless components) configured via BlueprintOptions, making it
@@ -415,62 +373,44 @@ func NewBlueprint4[T1 any, T2 any, T3 any, T4 any](
 //
 // Example usage for Blueprint4:
 //
-//    entity, v1, v2, v3, v4 := blueprint.Create()
-//    *v1 = T1{ /* initialize */ }
-//    *v2 = T2{ /* initialize */ }
-//    *v3 = T3{ /* initialize */ }
-//    *v4 = T4{ /* initialize */ }
+// 	item := blueprint.Create()
+// 	*item.V1 = T1{ /* initialize */ }
+// 	*item.V2 = T2{ /* initialize */ }
+// 	*item.V3 = T3{ /* initialize */ }
+// 	*item.V4 = T4{ /* initialize */ }
 //
 // These pointers allow for immediate initialization of the entity's state
 // without the need for additional lookups, ensuring a highly efficient
 // construction process.
-func (b *Blueprint4[T1, T2, T3, T4]) Create() (Entity, *T1, *T2, *T3, *T4) {
-    entity, ptrs := b.blueprint.Create()
-    return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1]), (*T3)(ptrs[2]), (*T4)(ptrs[3])
+func (b *Blueprint4[T1, T2, T3, T4]) Create() Item4[T1, T2, T3, T4] {
+	item := b.itemFactory.Create()
+	return NewItem4[T1, T2, T3, T4](item)
 }
 
-
-// Item4 represents a batch data container for an entity with exactly 4 components.
-// It is used in bulk operations to provide direct access to component pointers.
-//
-// Type parameters:
-type Item4[T1, T2, T3, T4 any] struct {
-	Entity Entity
-	V1 *T1
-	V2 *T2
-	V3 *T3
-	V4 *T4
-}
-
-
-// CreateBatch performs bulk entity instantiation using a pre-allocated buffer.
+// BatchCreate performs bulk entity instantiation using a pre-allocated buffer.
 // It fills 'buf' with pointers to components, returning a slice of initialized
 // Item4 containers. If 'buf' is too small, it is capped at 'count'.
 //
 // Example usage:
 //
-//    items := blueprint.CreateBatch(count, buf)
+//    items := blueprint.BatchCreate(count, buf)
 //    for _, item := range items {
 //        item.V1.X = 1
 //        item.V2.X = 1
 //        item.V3.X = 1
 //        item.V4.X = 1
 //    }
-func (b *Blueprint4[T1, T2, T3, T4]) CreateBatch(count int, buf []Item4[T1, T2, T3, T4]) []Item4[T1, T2, T3, T4] {
+func (b *Blueprint4[T1, T2, T3, T4]) BatchCreate(count int, buf []Item4[T1, T2, T3, T4]) []Item4[T1, T2, T3, T4] {
 	if len(buf) < count {
 		count = len(buf)
 	}
 	output := buf[:count]
 
-	items := b.blueprint.CreateBatch(count)
-
-	for i := range items {
-		output[i].Entity = items[i].Entity
-		output[i].V1 = (*T1)(items[i].Ptrs[0])
-		output[i].V2 = (*T2)(items[i].Ptrs[1])
-		output[i].V3 = (*T3)(items[i].Ptrs[2])
-		output[i].V4 = (*T4)(items[i].Ptrs[3])
-	}
+	b.itemFactory.BatchCreate(count, func(items []core.Item) {
+    	for i := range items {
+    		output[i] = NewItem4[T1, T2, T3, T4](items[i])
+    	}
+	})
 
 	return output
 }
@@ -483,7 +423,7 @@ func (b *Blueprint4[T1, T2, T3, T4]) CreateBatch(count int, buf []Item4[T1, T2, 
 // require exactly 5 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint5[T1 any, T2 any, T3 any, T4 any, T5 any] struct {
-    blueprint *core.ArchetypeEntryBlueprint
+    itemFactory *core.ItemFactory
 }
 
 // NewBlueprint5 initializes a new template for a specific combination of 5 components.
@@ -526,13 +466,13 @@ func NewBlueprint5[T1 any, T2 any, T3 any, T4 any, T5 any](
     }
 
     return &Blueprint5[T1, T2, T3, T4, T5]{
-        blueprint: core.NewArchetypeEntryBlueprint(blueprint),
+        itemFactory: core.NewItemFactory(blueprint),
     }
 }
 
 // Create instantiates a new entity based on the blueprint's static configuration.
-// It returns the unique Entity identifier along with direct pointers to the
-// newly allocated memory for each of the 5 stateful components.
+// It returns an Item5 struct containing the unique Entity identifier along
+// with direct pointers to the newly allocated memory for each of the 5 stateful components.
 //
 // The resulting entity is created with the full set of predefined Tags
 // (stateless components) configured via BlueprintOptions, making it
@@ -540,43 +480,28 @@ func NewBlueprint5[T1 any, T2 any, T3 any, T4 any, T5 any](
 //
 // Example usage for Blueprint5:
 //
-//    entity, v1, v2, v3, v4, v5 := blueprint.Create()
-//    *v1 = T1{ /* initialize */ }
-//    *v2 = T2{ /* initialize */ }
-//    *v3 = T3{ /* initialize */ }
-//    *v4 = T4{ /* initialize */ }
-//    *v5 = T5{ /* initialize */ }
+// 	item := blueprint.Create()
+// 	*item.V1 = T1{ /* initialize */ }
+// 	*item.V2 = T2{ /* initialize */ }
+// 	*item.V3 = T3{ /* initialize */ }
+// 	*item.V4 = T4{ /* initialize */ }
+// 	*item.V5 = T5{ /* initialize */ }
 //
 // These pointers allow for immediate initialization of the entity's state
 // without the need for additional lookups, ensuring a highly efficient
 // construction process.
-func (b *Blueprint5[T1, T2, T3, T4, T5]) Create() (Entity, *T1, *T2, *T3, *T4, *T5) {
-    entity, ptrs := b.blueprint.Create()
-    return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1]), (*T3)(ptrs[2]), (*T4)(ptrs[3]), (*T5)(ptrs[4])
+func (b *Blueprint5[T1, T2, T3, T4, T5]) Create() Item5[T1, T2, T3, T4, T5] {
+	item := b.itemFactory.Create()
+	return NewItem5[T1, T2, T3, T4, T5](item)
 }
 
-
-// Item5 represents a batch data container for an entity with exactly 5 components.
-// It is used in bulk operations to provide direct access to component pointers.
-//
-// Type parameters:
-type Item5[T1, T2, T3, T4, T5 any] struct {
-	Entity Entity
-	V1 *T1
-	V2 *T2
-	V3 *T3
-	V4 *T4
-	V5 *T5
-}
-
-
-// CreateBatch performs bulk entity instantiation using a pre-allocated buffer.
+// BatchCreate performs bulk entity instantiation using a pre-allocated buffer.
 // It fills 'buf' with pointers to components, returning a slice of initialized
 // Item5 containers. If 'buf' is too small, it is capped at 'count'.
 //
 // Example usage:
 //
-//    items := blueprint.CreateBatch(count, buf)
+//    items := blueprint.BatchCreate(count, buf)
 //    for _, item := range items {
 //        item.V1.X = 1
 //        item.V2.X = 1
@@ -584,22 +509,17 @@ type Item5[T1, T2, T3, T4, T5 any] struct {
 //        item.V4.X = 1
 //        item.V5.X = 1
 //    }
-func (b *Blueprint5[T1, T2, T3, T4, T5]) CreateBatch(count int, buf []Item5[T1, T2, T3, T4, T5]) []Item5[T1, T2, T3, T4, T5] {
+func (b *Blueprint5[T1, T2, T3, T4, T5]) BatchCreate(count int, buf []Item5[T1, T2, T3, T4, T5]) []Item5[T1, T2, T3, T4, T5] {
 	if len(buf) < count {
 		count = len(buf)
 	}
 	output := buf[:count]
 
-	items := b.blueprint.CreateBatch(count)
-
-	for i := range items {
-		output[i].Entity = items[i].Entity
-		output[i].V1 = (*T1)(items[i].Ptrs[0])
-		output[i].V2 = (*T2)(items[i].Ptrs[1])
-		output[i].V3 = (*T3)(items[i].Ptrs[2])
-		output[i].V4 = (*T4)(items[i].Ptrs[3])
-		output[i].V5 = (*T5)(items[i].Ptrs[4])
-	}
+	b.itemFactory.BatchCreate(count, func(items []core.Item) {
+    	for i := range items {
+    		output[i] = NewItem5[T1, T2, T3, T4, T5](items[i])
+    	}
+	})
 
 	return output
 }
@@ -612,7 +532,7 @@ func (b *Blueprint5[T1, T2, T3, T4, T5]) CreateBatch(count int, buf []Item5[T1, 
 // require exactly 6 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any] struct {
-    blueprint *core.ArchetypeEntryBlueprint
+    itemFactory *core.ItemFactory
 }
 
 // NewBlueprint6 initializes a new template for a specific combination of 6 components.
@@ -656,13 +576,13 @@ func NewBlueprint6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any](
     }
 
     return &Blueprint6[T1, T2, T3, T4, T5, T6]{
-        blueprint: core.NewArchetypeEntryBlueprint(blueprint),
+        itemFactory: core.NewItemFactory(blueprint),
     }
 }
 
 // Create instantiates a new entity based on the blueprint's static configuration.
-// It returns the unique Entity identifier along with direct pointers to the
-// newly allocated memory for each of the 6 stateful components.
+// It returns an Item6 struct containing the unique Entity identifier along
+// with direct pointers to the newly allocated memory for each of the 6 stateful components.
 //
 // The resulting entity is created with the full set of predefined Tags
 // (stateless components) configured via BlueprintOptions, making it
@@ -670,45 +590,29 @@ func NewBlueprint6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any](
 //
 // Example usage for Blueprint6:
 //
-//    entity, v1, v2, v3, v4, v5, v6 := blueprint.Create()
-//    *v1 = T1{ /* initialize */ }
-//    *v2 = T2{ /* initialize */ }
-//    *v3 = T3{ /* initialize */ }
-//    *v4 = T4{ /* initialize */ }
-//    *v5 = T5{ /* initialize */ }
-//    *v6 = T6{ /* initialize */ }
+// 	item := blueprint.Create()
+// 	*item.V1 = T1{ /* initialize */ }
+// 	*item.V2 = T2{ /* initialize */ }
+// 	*item.V3 = T3{ /* initialize */ }
+// 	*item.V4 = T4{ /* initialize */ }
+// 	*item.V5 = T5{ /* initialize */ }
+// 	*item.V6 = T6{ /* initialize */ }
 //
 // These pointers allow for immediate initialization of the entity's state
 // without the need for additional lookups, ensuring a highly efficient
 // construction process.
-func (b *Blueprint6[T1, T2, T3, T4, T5, T6]) Create() (Entity, *T1, *T2, *T3, *T4, *T5, *T6) {
-    entity, ptrs := b.blueprint.Create()
-    return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1]), (*T3)(ptrs[2]), (*T4)(ptrs[3]), (*T5)(ptrs[4]), (*T6)(ptrs[5])
+func (b *Blueprint6[T1, T2, T3, T4, T5, T6]) Create() Item6[T1, T2, T3, T4, T5, T6] {
+	item := b.itemFactory.Create()
+	return NewItem6[T1, T2, T3, T4, T5, T6](item)
 }
 
-
-// Item6 represents a batch data container for an entity with exactly 6 components.
-// It is used in bulk operations to provide direct access to component pointers.
-//
-// Type parameters:
-type Item6[T1, T2, T3, T4, T5, T6 any] struct {
-	Entity Entity
-	V1 *T1
-	V2 *T2
-	V3 *T3
-	V4 *T4
-	V5 *T5
-	V6 *T6
-}
-
-
-// CreateBatch performs bulk entity instantiation using a pre-allocated buffer.
+// BatchCreate performs bulk entity instantiation using a pre-allocated buffer.
 // It fills 'buf' with pointers to components, returning a slice of initialized
 // Item6 containers. If 'buf' is too small, it is capped at 'count'.
 //
 // Example usage:
 //
-//    items := blueprint.CreateBatch(count, buf)
+//    items := blueprint.BatchCreate(count, buf)
 //    for _, item := range items {
 //        item.V1.X = 1
 //        item.V2.X = 1
@@ -717,23 +621,17 @@ type Item6[T1, T2, T3, T4, T5, T6 any] struct {
 //        item.V5.X = 1
 //        item.V6.X = 1
 //    }
-func (b *Blueprint6[T1, T2, T3, T4, T5, T6]) CreateBatch(count int, buf []Item6[T1, T2, T3, T4, T5, T6]) []Item6[T1, T2, T3, T4, T5, T6] {
+func (b *Blueprint6[T1, T2, T3, T4, T5, T6]) BatchCreate(count int, buf []Item6[T1, T2, T3, T4, T5, T6]) []Item6[T1, T2, T3, T4, T5, T6] {
 	if len(buf) < count {
 		count = len(buf)
 	}
 	output := buf[:count]
 
-	items := b.blueprint.CreateBatch(count)
-
-	for i := range items {
-		output[i].Entity = items[i].Entity
-		output[i].V1 = (*T1)(items[i].Ptrs[0])
-		output[i].V2 = (*T2)(items[i].Ptrs[1])
-		output[i].V3 = (*T3)(items[i].Ptrs[2])
-		output[i].V4 = (*T4)(items[i].Ptrs[3])
-		output[i].V5 = (*T5)(items[i].Ptrs[4])
-		output[i].V6 = (*T6)(items[i].Ptrs[5])
-	}
+	b.itemFactory.BatchCreate(count, func(items []core.Item) {
+    	for i := range items {
+    		output[i] = NewItem6[T1, T2, T3, T4, T5, T6](items[i])
+    	}
+	})
 
 	return output
 }
@@ -746,7 +644,7 @@ func (b *Blueprint6[T1, T2, T3, T4, T5, T6]) CreateBatch(count int, buf []Item6[
 // require exactly 7 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any] struct {
-    blueprint *core.ArchetypeEntryBlueprint
+    itemFactory *core.ItemFactory
 }
 
 // NewBlueprint7 initializes a new template for a specific combination of 7 components.
@@ -791,13 +689,13 @@ func NewBlueprint7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any](
     }
 
     return &Blueprint7[T1, T2, T3, T4, T5, T6, T7]{
-        blueprint: core.NewArchetypeEntryBlueprint(blueprint),
+        itemFactory: core.NewItemFactory(blueprint),
     }
 }
 
 // Create instantiates a new entity based on the blueprint's static configuration.
-// It returns the unique Entity identifier along with direct pointers to the
-// newly allocated memory for each of the 7 stateful components.
+// It returns an Item7 struct containing the unique Entity identifier along
+// with direct pointers to the newly allocated memory for each of the 7 stateful components.
 //
 // The resulting entity is created with the full set of predefined Tags
 // (stateless components) configured via BlueprintOptions, making it
@@ -805,47 +703,30 @@ func NewBlueprint7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any](
 //
 // Example usage for Blueprint7:
 //
-//    entity, v1, v2, v3, v4, v5, v6, v7 := blueprint.Create()
-//    *v1 = T1{ /* initialize */ }
-//    *v2 = T2{ /* initialize */ }
-//    *v3 = T3{ /* initialize */ }
-//    *v4 = T4{ /* initialize */ }
-//    *v5 = T5{ /* initialize */ }
-//    *v6 = T6{ /* initialize */ }
-//    *v7 = T7{ /* initialize */ }
+// 	item := blueprint.Create()
+// 	*item.V1 = T1{ /* initialize */ }
+// 	*item.V2 = T2{ /* initialize */ }
+// 	*item.V3 = T3{ /* initialize */ }
+// 	*item.V4 = T4{ /* initialize */ }
+// 	*item.V5 = T5{ /* initialize */ }
+// 	*item.V6 = T6{ /* initialize */ }
+// 	*item.V7 = T7{ /* initialize */ }
 //
 // These pointers allow for immediate initialization of the entity's state
 // without the need for additional lookups, ensuring a highly efficient
 // construction process.
-func (b *Blueprint7[T1, T2, T3, T4, T5, T6, T7]) Create() (Entity, *T1, *T2, *T3, *T4, *T5, *T6, *T7) {
-    entity, ptrs := b.blueprint.Create()
-    return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1]), (*T3)(ptrs[2]), (*T4)(ptrs[3]), (*T5)(ptrs[4]), (*T6)(ptrs[5]), (*T7)(ptrs[6])
+func (b *Blueprint7[T1, T2, T3, T4, T5, T6, T7]) Create() Item7[T1, T2, T3, T4, T5, T6, T7] {
+	item := b.itemFactory.Create()
+	return NewItem7[T1, T2, T3, T4, T5, T6, T7](item)
 }
 
-
-// Item7 represents a batch data container for an entity with exactly 7 components.
-// It is used in bulk operations to provide direct access to component pointers.
-//
-// Type parameters:
-type Item7[T1, T2, T3, T4, T5, T6, T7 any] struct {
-	Entity Entity
-	V1 *T1
-	V2 *T2
-	V3 *T3
-	V4 *T4
-	V5 *T5
-	V6 *T6
-	V7 *T7
-}
-
-
-// CreateBatch performs bulk entity instantiation using a pre-allocated buffer.
+// BatchCreate performs bulk entity instantiation using a pre-allocated buffer.
 // It fills 'buf' with pointers to components, returning a slice of initialized
 // Item7 containers. If 'buf' is too small, it is capped at 'count'.
 //
 // Example usage:
 //
-//    items := blueprint.CreateBatch(count, buf)
+//    items := blueprint.BatchCreate(count, buf)
 //    for _, item := range items {
 //        item.V1.X = 1
 //        item.V2.X = 1
@@ -855,24 +736,17 @@ type Item7[T1, T2, T3, T4, T5, T6, T7 any] struct {
 //        item.V6.X = 1
 //        item.V7.X = 1
 //    }
-func (b *Blueprint7[T1, T2, T3, T4, T5, T6, T7]) CreateBatch(count int, buf []Item7[T1, T2, T3, T4, T5, T6, T7]) []Item7[T1, T2, T3, T4, T5, T6, T7] {
+func (b *Blueprint7[T1, T2, T3, T4, T5, T6, T7]) BatchCreate(count int, buf []Item7[T1, T2, T3, T4, T5, T6, T7]) []Item7[T1, T2, T3, T4, T5, T6, T7] {
 	if len(buf) < count {
 		count = len(buf)
 	}
 	output := buf[:count]
 
-	items := b.blueprint.CreateBatch(count)
-
-	for i := range items {
-		output[i].Entity = items[i].Entity
-		output[i].V1 = (*T1)(items[i].Ptrs[0])
-		output[i].V2 = (*T2)(items[i].Ptrs[1])
-		output[i].V3 = (*T3)(items[i].Ptrs[2])
-		output[i].V4 = (*T4)(items[i].Ptrs[3])
-		output[i].V5 = (*T5)(items[i].Ptrs[4])
-		output[i].V6 = (*T6)(items[i].Ptrs[5])
-		output[i].V7 = (*T7)(items[i].Ptrs[6])
-	}
+	b.itemFactory.BatchCreate(count, func(items []core.Item) {
+    	for i := range items {
+    		output[i] = NewItem7[T1, T2, T3, T4, T5, T6, T7](items[i])
+    	}
+	})
 
 	return output
 }
@@ -885,7 +759,7 @@ func (b *Blueprint7[T1, T2, T3, T4, T5, T6, T7]) CreateBatch(count int, buf []It
 // require exactly 8 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any] struct {
-    blueprint *core.ArchetypeEntryBlueprint
+    itemFactory *core.ItemFactory
 }
 
 // NewBlueprint8 initializes a new template for a specific combination of 8 components.
@@ -931,13 +805,13 @@ func NewBlueprint8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 an
     }
 
     return &Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]{
-        blueprint: core.NewArchetypeEntryBlueprint(blueprint),
+        itemFactory: core.NewItemFactory(blueprint),
     }
 }
 
 // Create instantiates a new entity based on the blueprint's static configuration.
-// It returns the unique Entity identifier along with direct pointers to the
-// newly allocated memory for each of the 8 stateful components.
+// It returns an Item8 struct containing the unique Entity identifier along
+// with direct pointers to the newly allocated memory for each of the 8 stateful components.
 //
 // The resulting entity is created with the full set of predefined Tags
 // (stateless components) configured via BlueprintOptions, making it
@@ -945,49 +819,31 @@ func NewBlueprint8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 an
 //
 // Example usage for Blueprint8:
 //
-//    entity, v1, v2, v3, v4, v5, v6, v7, v8 := blueprint.Create()
-//    *v1 = T1{ /* initialize */ }
-//    *v2 = T2{ /* initialize */ }
-//    *v3 = T3{ /* initialize */ }
-//    *v4 = T4{ /* initialize */ }
-//    *v5 = T5{ /* initialize */ }
-//    *v6 = T6{ /* initialize */ }
-//    *v7 = T7{ /* initialize */ }
-//    *v8 = T8{ /* initialize */ }
+// 	item := blueprint.Create()
+// 	*item.V1 = T1{ /* initialize */ }
+// 	*item.V2 = T2{ /* initialize */ }
+// 	*item.V3 = T3{ /* initialize */ }
+// 	*item.V4 = T4{ /* initialize */ }
+// 	*item.V5 = T5{ /* initialize */ }
+// 	*item.V6 = T6{ /* initialize */ }
+// 	*item.V7 = T7{ /* initialize */ }
+// 	*item.V8 = T8{ /* initialize */ }
 //
 // These pointers allow for immediate initialization of the entity's state
 // without the need for additional lookups, ensuring a highly efficient
 // construction process.
-func (b *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]) Create() (Entity, *T1, *T2, *T3, *T4, *T5, *T6, *T7, *T8) {
-    entity, ptrs := b.blueprint.Create()
-    return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1]), (*T3)(ptrs[2]), (*T4)(ptrs[3]), (*T5)(ptrs[4]), (*T6)(ptrs[5]), (*T7)(ptrs[6]), (*T8)(ptrs[7])
+func (b *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]) Create() Item8[T1, T2, T3, T4, T5, T6, T7, T8] {
+	item := b.itemFactory.Create()
+	return NewItem8[T1, T2, T3, T4, T5, T6, T7, T8](item)
 }
 
-
-// Item8 represents a batch data container for an entity with exactly 8 components.
-// It is used in bulk operations to provide direct access to component pointers.
-//
-// Type parameters:
-type Item8[T1, T2, T3, T4, T5, T6, T7, T8 any] struct {
-	Entity Entity
-	V1 *T1
-	V2 *T2
-	V3 *T3
-	V4 *T4
-	V5 *T5
-	V6 *T6
-	V7 *T7
-	V8 *T8
-}
-
-
-// CreateBatch performs bulk entity instantiation using a pre-allocated buffer.
+// BatchCreate performs bulk entity instantiation using a pre-allocated buffer.
 // It fills 'buf' with pointers to components, returning a slice of initialized
 // Item8 containers. If 'buf' is too small, it is capped at 'count'.
 //
 // Example usage:
 //
-//    items := blueprint.CreateBatch(count, buf)
+//    items := blueprint.BatchCreate(count, buf)
 //    for _, item := range items {
 //        item.V1.X = 1
 //        item.V2.X = 1
@@ -998,25 +854,17 @@ type Item8[T1, T2, T3, T4, T5, T6, T7, T8 any] struct {
 //        item.V7.X = 1
 //        item.V8.X = 1
 //    }
-func (b *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]) CreateBatch(count int, buf []Item8[T1, T2, T3, T4, T5, T6, T7, T8]) []Item8[T1, T2, T3, T4, T5, T6, T7, T8] {
+func (b *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]) BatchCreate(count int, buf []Item8[T1, T2, T3, T4, T5, T6, T7, T8]) []Item8[T1, T2, T3, T4, T5, T6, T7, T8] {
 	if len(buf) < count {
 		count = len(buf)
 	}
 	output := buf[:count]
 
-	items := b.blueprint.CreateBatch(count)
-
-	for i := range items {
-		output[i].Entity = items[i].Entity
-		output[i].V1 = (*T1)(items[i].Ptrs[0])
-		output[i].V2 = (*T2)(items[i].Ptrs[1])
-		output[i].V3 = (*T3)(items[i].Ptrs[2])
-		output[i].V4 = (*T4)(items[i].Ptrs[3])
-		output[i].V5 = (*T5)(items[i].Ptrs[4])
-		output[i].V6 = (*T6)(items[i].Ptrs[5])
-		output[i].V7 = (*T7)(items[i].Ptrs[6])
-		output[i].V8 = (*T8)(items[i].Ptrs[7])
-	}
+	b.itemFactory.BatchCreate(count, func(items []core.Item) {
+    	for i := range items {
+    		output[i] = NewItem8[T1, T2, T3, T4, T5, T6, T7, T8](items[i])
+    	}
+	})
 
 	return output
 }
@@ -1029,7 +877,7 @@ func (b *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]) CreateBatch(count int, buf 
 // require exactly 9 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint9[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T9 any] struct {
-    blueprint *core.ArchetypeEntryBlueprint
+    itemFactory *core.ItemFactory
 }
 
 // NewBlueprint9 initializes a new template for a specific combination of 9 components.
@@ -1076,13 +924,13 @@ func NewBlueprint9[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 an
     }
 
     return &Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]{
-        blueprint: core.NewArchetypeEntryBlueprint(blueprint),
+        itemFactory: core.NewItemFactory(blueprint),
     }
 }
 
 // Create instantiates a new entity based on the blueprint's static configuration.
-// It returns the unique Entity identifier along with direct pointers to the
-// newly allocated memory for each of the 9 stateful components.
+// It returns an Item9 struct containing the unique Entity identifier along
+// with direct pointers to the newly allocated memory for each of the 9 stateful components.
 //
 // The resulting entity is created with the full set of predefined Tags
 // (stateless components) configured via BlueprintOptions, making it
@@ -1090,51 +938,32 @@ func NewBlueprint9[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 an
 //
 // Example usage for Blueprint9:
 //
-//    entity, v1, v2, v3, v4, v5, v6, v7, v8, v9 := blueprint.Create()
-//    *v1 = T1{ /* initialize */ }
-//    *v2 = T2{ /* initialize */ }
-//    *v3 = T3{ /* initialize */ }
-//    *v4 = T4{ /* initialize */ }
-//    *v5 = T5{ /* initialize */ }
-//    *v6 = T6{ /* initialize */ }
-//    *v7 = T7{ /* initialize */ }
-//    *v8 = T8{ /* initialize */ }
-//    *v9 = T9{ /* initialize */ }
+// 	item := blueprint.Create()
+// 	*item.V1 = T1{ /* initialize */ }
+// 	*item.V2 = T2{ /* initialize */ }
+// 	*item.V3 = T3{ /* initialize */ }
+// 	*item.V4 = T4{ /* initialize */ }
+// 	*item.V5 = T5{ /* initialize */ }
+// 	*item.V6 = T6{ /* initialize */ }
+// 	*item.V7 = T7{ /* initialize */ }
+// 	*item.V8 = T8{ /* initialize */ }
+// 	*item.V9 = T9{ /* initialize */ }
 //
 // These pointers allow for immediate initialization of the entity's state
 // without the need for additional lookups, ensuring a highly efficient
 // construction process.
-func (b *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Create() (Entity, *T1, *T2, *T3, *T4, *T5, *T6, *T7, *T8, *T9) {
-    entity, ptrs := b.blueprint.Create()
-    return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1]), (*T3)(ptrs[2]), (*T4)(ptrs[3]), (*T5)(ptrs[4]), (*T6)(ptrs[5]), (*T7)(ptrs[6]), (*T8)(ptrs[7]), (*T9)(ptrs[8])
+func (b *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Create() Item9[T1, T2, T3, T4, T5, T6, T7, T8, T9] {
+	item := b.itemFactory.Create()
+	return NewItem9[T1, T2, T3, T4, T5, T6, T7, T8, T9](item)
 }
 
-
-// Item9 represents a batch data container for an entity with exactly 9 components.
-// It is used in bulk operations to provide direct access to component pointers.
-//
-// Type parameters:
-type Item9[T1, T2, T3, T4, T5, T6, T7, T8, T9 any] struct {
-	Entity Entity
-	V1 *T1
-	V2 *T2
-	V3 *T3
-	V4 *T4
-	V5 *T5
-	V6 *T6
-	V7 *T7
-	V8 *T8
-	V9 *T9
-}
-
-
-// CreateBatch performs bulk entity instantiation using a pre-allocated buffer.
+// BatchCreate performs bulk entity instantiation using a pre-allocated buffer.
 // It fills 'buf' with pointers to components, returning a slice of initialized
 // Item9 containers. If 'buf' is too small, it is capped at 'count'.
 //
 // Example usage:
 //
-//    items := blueprint.CreateBatch(count, buf)
+//    items := blueprint.BatchCreate(count, buf)
 //    for _, item := range items {
 //        item.V1.X = 1
 //        item.V2.X = 1
@@ -1146,26 +975,17 @@ type Item9[T1, T2, T3, T4, T5, T6, T7, T8, T9 any] struct {
 //        item.V8.X = 1
 //        item.V9.X = 1
 //    }
-func (b *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) CreateBatch(count int, buf []Item9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) []Item9[T1, T2, T3, T4, T5, T6, T7, T8, T9] {
+func (b *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) BatchCreate(count int, buf []Item9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) []Item9[T1, T2, T3, T4, T5, T6, T7, T8, T9] {
 	if len(buf) < count {
 		count = len(buf)
 	}
 	output := buf[:count]
 
-	items := b.blueprint.CreateBatch(count)
-
-	for i := range items {
-		output[i].Entity = items[i].Entity
-		output[i].V1 = (*T1)(items[i].Ptrs[0])
-		output[i].V2 = (*T2)(items[i].Ptrs[1])
-		output[i].V3 = (*T3)(items[i].Ptrs[2])
-		output[i].V4 = (*T4)(items[i].Ptrs[3])
-		output[i].V5 = (*T5)(items[i].Ptrs[4])
-		output[i].V6 = (*T6)(items[i].Ptrs[5])
-		output[i].V7 = (*T7)(items[i].Ptrs[6])
-		output[i].V8 = (*T8)(items[i].Ptrs[7])
-		output[i].V9 = (*T9)(items[i].Ptrs[8])
-	}
+	b.itemFactory.BatchCreate(count, func(items []core.Item) {
+    	for i := range items {
+    		output[i] = NewItem9[T1, T2, T3, T4, T5, T6, T7, T8, T9](items[i])
+    	}
+	})
 
 	return output
 }
@@ -1178,7 +998,7 @@ func (b *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) CreateBatch(count int, 
 // require exactly 10 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint10[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T9 any, T10 any] struct {
-    blueprint *core.ArchetypeEntryBlueprint
+    itemFactory *core.ItemFactory
 }
 
 // NewBlueprint10 initializes a new template for a specific combination of 10 components.
@@ -1226,13 +1046,13 @@ func NewBlueprint10[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 a
     }
 
     return &Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]{
-        blueprint: core.NewArchetypeEntryBlueprint(blueprint),
+        itemFactory: core.NewItemFactory(blueprint),
     }
 }
 
 // Create instantiates a new entity based on the blueprint's static configuration.
-// It returns the unique Entity identifier along with direct pointers to the
-// newly allocated memory for each of the 10 stateful components.
+// It returns an Item10 struct containing the unique Entity identifier along
+// with direct pointers to the newly allocated memory for each of the 10 stateful components.
 //
 // The resulting entity is created with the full set of predefined Tags
 // (stateless components) configured via BlueprintOptions, making it
@@ -1240,53 +1060,33 @@ func NewBlueprint10[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 a
 //
 // Example usage for Blueprint10:
 //
-//    entity, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10 := blueprint.Create()
-//    *v1 = T1{ /* initialize */ }
-//    *v2 = T2{ /* initialize */ }
-//    *v3 = T3{ /* initialize */ }
-//    *v4 = T4{ /* initialize */ }
-//    *v5 = T5{ /* initialize */ }
-//    *v6 = T6{ /* initialize */ }
-//    *v7 = T7{ /* initialize */ }
-//    *v8 = T8{ /* initialize */ }
-//    *v9 = T9{ /* initialize */ }
-//    *v10 = T10{ /* initialize */ }
+// 	item := blueprint.Create()
+// 	*item.V1 = T1{ /* initialize */ }
+// 	*item.V2 = T2{ /* initialize */ }
+// 	*item.V3 = T3{ /* initialize */ }
+// 	*item.V4 = T4{ /* initialize */ }
+// 	*item.V5 = T5{ /* initialize */ }
+// 	*item.V6 = T6{ /* initialize */ }
+// 	*item.V7 = T7{ /* initialize */ }
+// 	*item.V8 = T8{ /* initialize */ }
+// 	*item.V9 = T9{ /* initialize */ }
+// 	*item.V10 = T10{ /* initialize */ }
 //
 // These pointers allow for immediate initialization of the entity's state
 // without the need for additional lookups, ensuring a highly efficient
 // construction process.
-func (b *Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Create() (Entity, *T1, *T2, *T3, *T4, *T5, *T6, *T7, *T8, *T9, *T10) {
-    entity, ptrs := b.blueprint.Create()
-    return entity, (*T1)(ptrs[0]), (*T2)(ptrs[1]), (*T3)(ptrs[2]), (*T4)(ptrs[3]), (*T5)(ptrs[4]), (*T6)(ptrs[5]), (*T7)(ptrs[6]), (*T8)(ptrs[7]), (*T9)(ptrs[8]), (*T10)(ptrs[9])
+func (b *Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Create() Item10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10] {
+	item := b.itemFactory.Create()
+	return NewItem10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10](item)
 }
 
-
-// Item10 represents a batch data container for an entity with exactly 10 components.
-// It is used in bulk operations to provide direct access to component pointers.
-//
-// Type parameters:
-type Item10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10 any] struct {
-	Entity Entity
-	V1 *T1
-	V2 *T2
-	V3 *T3
-	V4 *T4
-	V5 *T5
-	V6 *T6
-	V7 *T7
-	V8 *T8
-	V9 *T9
-	V10 *T10
-}
-
-
-// CreateBatch performs bulk entity instantiation using a pre-allocated buffer.
+// BatchCreate performs bulk entity instantiation using a pre-allocated buffer.
 // It fills 'buf' with pointers to components, returning a slice of initialized
 // Item10 containers. If 'buf' is too small, it is capped at 'count'.
 //
 // Example usage:
 //
-//    items := blueprint.CreateBatch(count, buf)
+//    items := blueprint.BatchCreate(count, buf)
 //    for _, item := range items {
 //        item.V1.X = 1
 //        item.V2.X = 1
@@ -1299,27 +1099,17 @@ type Item10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10 any] struct {
 //        item.V9.X = 1
 //        item.V10.X = 1
 //    }
-func (b *Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) CreateBatch(count int, buf []Item10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) []Item10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10] {
+func (b *Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) BatchCreate(count int, buf []Item10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) []Item10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10] {
 	if len(buf) < count {
 		count = len(buf)
 	}
 	output := buf[:count]
 
-	items := b.blueprint.CreateBatch(count)
-
-	for i := range items {
-		output[i].Entity = items[i].Entity
-		output[i].V1 = (*T1)(items[i].Ptrs[0])
-		output[i].V2 = (*T2)(items[i].Ptrs[1])
-		output[i].V3 = (*T3)(items[i].Ptrs[2])
-		output[i].V4 = (*T4)(items[i].Ptrs[3])
-		output[i].V5 = (*T5)(items[i].Ptrs[4])
-		output[i].V6 = (*T6)(items[i].Ptrs[5])
-		output[i].V7 = (*T7)(items[i].Ptrs[6])
-		output[i].V8 = (*T8)(items[i].Ptrs[7])
-		output[i].V9 = (*T9)(items[i].Ptrs[8])
-		output[i].V10 = (*T10)(items[i].Ptrs[9])
-	}
+	b.itemFactory.BatchCreate(count, func(items []core.Item) {
+    	for i := range items {
+    		output[i] = NewItem10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10](items[i])
+    	}
+	})
 
 	return output
 }

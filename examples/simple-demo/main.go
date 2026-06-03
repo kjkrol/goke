@@ -26,9 +26,10 @@ func main() {
 
 	// Initialize an entity with Order and Discount component data
 	blueprint := goke.NewBlueprint2[Order, Discount](ecs)
-	entity, order, discount := blueprint.Create()
-	*order = Order{ID: "ORD-99", Total: 200.0}
-	*discount = Discount{Percentage: 20.0}
+	item := blueprint.Create()
+	entity := item.Entity
+	*item.Comp1 = Order{ID: "ORD-99", Total: 200.0}
+	*item.Comp2 = Discount{Percentage: 20.0}
 	// entity := goke.CreateEntity(ecs)
 	// *goke.EnsureComponent[Order](ecs, entity, orderDesc) = Order{ID: "ORD-99", Total: 200.0}
 	// *goke.EnsureComponent[Discount](ecs, entity, discountDesc) = Discount{Percentage: 20.0}

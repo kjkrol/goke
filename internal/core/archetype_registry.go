@@ -7,14 +7,14 @@ import (
 )
 
 type ArchetypeRegistry struct {
-	archetypeMaskMap          ArchetypeMaskMap
-	Archetypes                [MaxArchetypeId]Archetype
-	lastArchetypeId           ArchetypeId
-	EntityLinkStore           EntityLinkStore
-	componentsRegistry        *ComponentsRegistry
-	viewRegistry              *ViewRegistry
-	defaultArchetypeChunkSize int
-	sharedColsInfos           []ComponentInfo
+	archetypeMaskMap         ArchetypeMaskMap
+	Archetypes               [MaxArchetypeId]Archetype
+	lastArchetypeId          ArchetypeId
+	EntityLinkStore          EntityLinkStore
+	componentsRegistry       *ComponentsRegistry
+	viewRegistry             *ViewRegistry
+	defaultArchetypePageSize int
+	sharedColsInfos          []ComponentInfo
 }
 
 func NewArchetypeRegistry(
@@ -23,15 +23,15 @@ func NewArchetypeRegistry(
 	cfg RegistryConfig,
 ) *ArchetypeRegistry {
 	reg := ArchetypeRegistry{
-		EntityLinkStore:           NewEntityLinkStore(cfg.InitialEntityCap),
-		componentsRegistry:        componentsRegistry,
-		viewRegistry:              viewRegistry,
-		defaultArchetypeChunkSize: cfg.DefaultArchetypeChunkSize,
-		lastArchetypeId:           RootArchetypeId,
+		EntityLinkStore:          NewEntityLinkStore(cfg.InitialEntityCap),
+		componentsRegistry:       componentsRegistry,
+		viewRegistry:             viewRegistry,
+		defaultArchetypePageSize: cfg.DefaultArchetypePageSize,
+		lastArchetypeId:          RootArchetypeId,
 	}
 
 	rootMask := ArchetypeMask{}
-	reg.InitArchetype(rootMask, reg.defaultArchetypeChunkSize)
+	reg.InitArchetype(rootMask, reg.defaultArchetypePageSize)
 
 	return &reg
 }
@@ -81,11 +81,11 @@ func (r *ArchetypeRegistry) Get(mask ArchetypeMask) ArchetypeId {
 func (r *ArchetypeRegistry) AddEntity(
 	entity Entity,
 	archId ArchetypeId,
-) (ChunkIdx, ChunkRow) {
+) (PageIdx, PageRow) {
 	arch := &r.Archetypes[archId]
-	chunkIdx, chunkRow := arch.AddEntity(entity)
-	r.EntityLinkStore.Update(entity, archId, chunkIdx, chunkRow)
-	return chunkIdx, chunkRow
+	pageIdx, pageRow := arch.AddEntity(entity)
+	r.EntityLinkStore.Update(entity, archId, pageIdx, pageRow)
+	return pageIdx, pageRow
 }
 
 func (r *ArchetypeRegistry) UnlinkEntity(entity Entity) {
@@ -95,10 +95,10 @@ func (r *ArchetypeRegistry) UnlinkEntity(entity Entity) {
 	}
 
 	linkArch := &r.Archetypes[link.ArchId]
-	swappedEntity, swapped := linkArch.SwapRemoveEntity(link.ChunkIdx, link.ChunkRow)
+	swappedEntity, swapped := linkArch.SwapRemoveEntity(link.PageIdx, link.PageRow)
 
 	if swapped {
-		r.EntityLinkStore.Update(swappedEntity, link.ArchId, link.ChunkIdx, link.ChunkRow)
+		r.EntityLinkStore.Update(swappedEntity, link.ArchId, link.PageIdx, link.PageRow)
 	}
 
 	r.EntityLinkStore.Clear(entity)
@@ -124,23 +124,23 @@ func (r *ArchetypeRegistry) AllocateComponentMemory(
 	currentArch := &r.Archetypes[link.ArchId]
 
 	var targetArch *Archetype
-	var targetChunkIdx ChunkIdx
-	var targetRow ChunkRow
+	var targetPageIdx PageIdx
+	var targetRow PageRow
 
 	// -------------------------------------------------------------------------
 	// "FAST PATH" (Component already exists/allocated)
 	// -------------------------------------------------------------------------
 	if currentArch.Mask.IsSet(compID) {
 		targetArch = currentArch
-		targetChunkIdx = link.ChunkIdx
-		targetRow = link.ChunkRow
+		targetPageIdx = link.PageIdx
+		targetRow = link.PageRow
 	} else {
 
 		// ---------------------------------------------------------------------
 		// "SLOW PATH" (Transition to antother archetype)
 		// ---------------------------------------------------------------------
 		nextArchID := r.ensureNextEdgeId(compID, currentArch)
-		targetChunkIdx, targetRow = r.moveEntity(entity, link, nextArchID)
+		targetPageIdx, targetRow = r.moveEntity(entity, link, nextArchID)
 		targetArch = &r.Archetypes[nextArchID]
 	}
 
@@ -150,8 +150,8 @@ func (r *ArchetypeRegistry) AllocateComponentMemory(
 	}
 
 	column := targetArch.GetColumn(compID)
-	chunk := targetArch.Memory.GetChunk(targetChunkIdx)
-	return column.GetPointer(chunk, targetRow), nil
+	page := targetArch.Memory.GetPage(targetPageIdx)
+	return column.GetPointer(page, targetRow), nil
 }
 
 func (r *ArchetypeRegistry) ensureNextEdgeId(
@@ -243,7 +243,7 @@ func (r *ArchetypeRegistry) Reset() {
 
 	r.lastArchetypeId = RootArchetypeId
 	rootMask := ArchetypeMask{}
-	r.InitArchetype(rootMask, r.defaultArchetypeChunkSize)
+	r.InitArchetype(rootMask, r.defaultArchetypePageSize)
 }
 
 // --------------------------------------------------------------
@@ -252,7 +252,7 @@ func (r *ArchetypeRegistry) getOrRegister(mask ArchetypeMask) ArchetypeId {
 	if found, ok := r.archetypeMaskMap.Get(mask); ok {
 		return found
 	}
-	archId := r.InitArchetype(mask, r.defaultArchetypeChunkSize)
+	archId := r.InitArchetype(mask, r.defaultArchetypePageSize)
 	r.viewRegistry.OnArchetypeCreated(&r.Archetypes[archId])
 	return archId
 }
@@ -263,14 +263,14 @@ func (r *ArchetypeRegistry) moveEntity(
 	entity Entity,
 	link EntityArchLink,
 	archId ArchetypeId,
-) (ChunkIdx, ChunkRow) {
+) (PageIdx, PageRow) {
 	oldArch := &r.Archetypes[link.ArchId]
 	newArch := &r.Archetypes[archId]
 
-	newChunkIdx, newRow := newArch.AddEntity(entity)
+	newPageIdx, newRow := newArch.AddEntity(entity)
 
-	srcChunk := oldArch.Memory.GetChunk(link.ChunkIdx)
-	dstChunk := newArch.Memory.GetChunk(newChunkIdx)
+	srcPage := oldArch.Memory.GetPage(link.PageIdx)
+	dstPage := newArch.Memory.GetPage(newPageIdx)
 
 	// itarate through new archetype columns
 	for i := range newArch.Columns {
@@ -282,24 +282,24 @@ func (r *ArchetypeRegistry) moveEntity(
 
 		// copying shared components
 		if srcCol := oldArch.GetColumn(dstCol.CompID); srcCol != nil {
-			srcPtr := srcCol.GetPointer(srcChunk, link.ChunkRow)
-			dstPtr := dstCol.GetPointer(dstChunk, newRow)
+			srcPtr := srcCol.GetPointer(srcPage, link.PageRow)
+			dstPtr := dstCol.GetPointer(dstPage, newRow)
 
 			copyMemory(dstPtr, srcPtr, dstCol.ItemSize)
 		}
 	}
 
 	// Remove from old location (Swap Remove)
-	swappedEntity, swapped := oldArch.SwapRemoveEntity(link.ChunkIdx, link.ChunkRow)
+	swappedEntity, swapped := oldArch.SwapRemoveEntity(link.PageIdx, link.PageRow)
 
 	// Update LinkStore
 	// If an entity was swapped to fill the gap -> update it
 	if swapped {
-		r.EntityLinkStore.Update(swappedEntity, link.ArchId, link.ChunkIdx, link.ChunkRow)
+		r.EntityLinkStore.Update(swappedEntity, link.ArchId, link.PageIdx, link.PageRow)
 	}
 
 	// Update the moved entity's location
-	r.EntityLinkStore.Update(entity, newArch.Id, newChunkIdx, newRow)
+	r.EntityLinkStore.Update(entity, newArch.Id, newPageIdx, newRow)
 
-	return newChunkIdx, newRow
+	return newPageIdx, newRow
 }

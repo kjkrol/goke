@@ -18,15 +18,18 @@ func TestView_WithTag_And_Without_Logic(t *testing.T) {
 
 	// Entity A: Only position
 	blueprintA := goke.NewBlueprint1[position](ecs)
-	eA, _ := blueprintA.Create()
+	itemA := blueprintA.Create()
+	eA := itemA.Entity
 
 	// Entity B: position + velocity (Moving entity)
 	blueprintB := goke.NewBlueprint2[position, velocity](ecs)
-	eB, _, _ := blueprintB.Create()
+	itemB := blueprintB.Create()
+	eB := itemB.Entity
 
 	// Entity C: position + complexComponent (Static named entity)
 	blueprintC := goke.NewBlueprint2[position, complexComponent](ecs)
-	eC, _, _ := blueprintC.Create()
+	itemC := blueprintC.Create()
+	eC := itemC.Entity
 
 	// 2. Test: Filter Inclusion (WithTag) and Exclusion (Without)
 	t.Run("Inclusion and Exclusion Logic", func(t *testing.T) {

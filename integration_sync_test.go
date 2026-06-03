@@ -76,7 +76,8 @@ func TestECS_SystemInteractions(t *testing.T) {
 		setupComponents(ecs)
 
 		blueprint := goke.NewBlueprint1[Task](ecs)
-		_, task := blueprint.Create()
+		item := blueprint.Create()
+		_, task := item.Entity, item.Comp1
 		*task = Task{Completed: false}
 
 		worker := &WorkerSystem{}
@@ -103,7 +104,8 @@ func TestECS_SystemInteractions(t *testing.T) {
 		setupComponents(ecs)
 
 		blueprint := goke.NewBlueprint1[Task](ecs)
-		_, task := blueprint.Create()
+		item := blueprint.Create()
+		_, task := item.Entity, item.Comp1
 		*task = Task{Completed: false}
 
 		worker := &WorkerSystem{}

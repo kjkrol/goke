@@ -4,47 +4,47 @@ import "unsafe"
 
 const PageSize = L1DataCacheSize
 
-type ChunkIdx uint32 // Index of the chunk in Memo.Pages slice
-// ChunkRow is a type alias for the index within a chunk.
-// Using uint32 ensures alignment and supports >255 entities per chunk.
-type ChunkRow uint32
+type PageIdx uint32 // Index of the page in Memo.Pages slice
+// PageRow is a type alias for the index within a page.
+// Using uint32 ensures alignment and supports >255 entities per page.
+type PageRow uint32
 
 //------------------------------------------------------------------------------
 //                          Memo (Memory Manager)
 //------------------------------------------------------------------------------
 
 type Memo struct {
-	// Pages holds pointers to all allocated chunks.
-	// Using a slice allows O(1) access by ChunkIdx, which is crucial for EntityLinkStore.
-	Pages  []*chunk
-	Layout ChunkLayout
+	// Pages holds pointers to all allocated pages.
+	// Using a slice allows O(1) access by PageIdx, which is crucial for EntityLinkStore.
+	Pages  []*page
+	Layout PageLayout
 	Len    uint32 // Global entity count (optional, but useful)
 }
 
-// Computes how components are packed into fixed size (by default 16KB) chunks
-// and initialize memory chunks (Pages)
+// Computes how components are packed into fixed size (by default 16KB) pages
+// and initialize memory pages (Pages)
 func (b *Memo) Init(compInfos []ComponentInfo) {
 	b.Layout = CalculateLayout(compInfos)
 
 	// Pre-allocate slice capacity to avoid frequent resizing at start
-	b.Pages = make([]*chunk, 0, 16)
+	b.Pages = make([]*page, 0, 16)
 	b.Len = 0
 
-	b.addChunk()
+	b.addPage()
 }
 
 // AllocSlot allocates space for a new entity.
 // It returns:
-// 1. *chunk  -> Pointer for immediate data writing (fastest access)
-// 2. uint32  -> ChunkIdx (to store in EntityLinkStore)
-// 3. ChunkRow -> Row index within the chunk (to store in EntityLinkStore)
-func (b *Memo) AllocSlot() (*chunk, ChunkIdx, ChunkRow) {
-	lastIdx := ChunkIdx(len(b.Pages) - 1)
+// 1. *page  -> Pointer for immediate data writing (fastest access)
+// 2. uint32  -> PageIdx (to store in EntityLinkStore)
+// 3. PageRow -> Row index within the page (to store in EntityLinkStore)
+func (b *Memo) AllocSlot() (*page, PageIdx, PageRow) {
+	lastIdx := PageIdx(len(b.Pages) - 1)
 	c := b.Pages[lastIdx]
 
-	// If the current chunk is full, create a new one
-	if c.Len >= ChunkRow(b.Layout.ChunkCap) {
-		b.addChunk()
+	// If the current page is full, create a new one
+	if c.Len >= PageRow(b.Layout.PageCap) {
+		b.addPage()
 		lastIdx++
 		c = b.Pages[lastIdx]
 	}
@@ -56,64 +56,61 @@ func (b *Memo) AllocSlot() (*chunk, ChunkIdx, ChunkRow) {
 	return c, lastIdx, row
 }
 
-// AllocBatch reserves up to 'count' slots in a SINGLE contiguous chunk.
+// AllocBatch reserves up to 'count' slots in a SINGLE contiguous page.
 // It returns:
-// 1. *chunk   -> Pointer for data writing
-// 2. ChunkIdx -> Index of the chunk
-// 3. ChunkRow -> Starting row in the chunk
+// 1. *page   -> Pointer for data writing
+// 2. PageIdx -> Index of the page
+// 3. PageRow -> Starting row in the page
 // 4. int      -> How many slots were actually allocated (could be less than count)
-func (b *Memo) AllocBatch(count int) (*chunk, ChunkIdx, ChunkRow, int) {
-	lastIdx := ChunkIdx(len(b.Pages) - 1)
+func (b *Memo) AllocBatch(count int) (*page, PageIdx, PageRow, int) {
+	lastIdx := PageIdx(len(b.Pages) - 1)
 	c := b.Pages[lastIdx]
 
-	available := int(b.Layout.ChunkCap) - int(c.Len)
+	available := int(b.Layout.PageCap) - int(c.Len)
 
 	if available == 0 {
-		b.addChunk()
+		b.addPage()
 		lastIdx++
 		c = b.Pages[lastIdx]
-		available = int(b.Layout.ChunkCap)
+		available = int(b.Layout.PageCap)
 	}
 
-	allocated := count
-	if allocated > available {
-		allocated = available
-	}
+	allocated := min(count, available)
 
 	startRow := c.Len
 
-	c.Len += ChunkRow(allocated)
+	c.Len += PageRow(allocated)
 	b.Len += uint32(allocated)
 
 	return c, lastIdx, startRow, allocated
 }
 
-// GetChunk provides O(1) access to a chunk by its index.
+// GetPage provides O(1) access to a page by its index.
 // Used when moving/removing entities based on EntityLinkStore data.
-func (b *Memo) GetChunk(idx ChunkIdx) *chunk {
+func (b *Memo) GetPage(idx PageIdx) *page {
 	// In production, you might skip bounds check if you trust LinkStore
 	return b.Pages[idx]
 }
 
-func (b *Memo) addChunk() {
+func (b *Memo) addPage() {
 	data := make([]byte, PageSize)
 
-	newChunk := &chunk{
+	newPage := &page{
 		data: data,
 		Ptr:  unsafe.Pointer(&data[0]),
 		Len:  0,
 	}
 
-	b.Pages = append(b.Pages, newChunk)
+	b.Pages = append(b.Pages, newPage)
 }
 
-// ResolveTail returns the index and pointer of the last chunk that actually contains data.
-// It performs a "sanity check" by truncating any empty trailing chunks from the Pages slice.
-func (b *Memo) ResolveTail() (ChunkIdx, *chunk) {
+// ResolveTail returns the index and pointer of the last page that actually contains data.
+// It performs a "sanity check" by truncating any empty trailing pages from the Pages slice.
+func (b *Memo) ResolveTail() (PageIdx, *page) {
 	lastIdx := len(b.Pages) - 1
 
-	// Loop backwards to remove empty trailing chunks.
-	// We keep at least one chunk (index 0) even if it's empty.
+	// Loop backwards to remove empty trailing pages.
+	// We keep at least one page (index 0) even if it's empty.
 	for lastIdx > 0 && b.Pages[lastIdx].Len == 0 {
 		// Optional: you could clear(b.Pages[lastIdx].data) here if
 		// you want to be ultra-aggressive with GC, but Clear() should handle it.
@@ -121,7 +118,7 @@ func (b *Memo) ResolveTail() (ChunkIdx, *chunk) {
 		lastIdx--
 	}
 
-	return ChunkIdx(lastIdx), b.Pages[lastIdx]
+	return PageIdx(lastIdx), b.Pages[lastIdx]
 }
 
 func (b *Memo) Clear() {
@@ -136,31 +133,31 @@ func (b *Memo) Clear() {
 	b.Pages = b.Pages[:0]
 	b.Len = 0
 
-	// 3. Immediately add the first fresh chunk
-	b.addChunk()
+	// 3. Immediately add the first fresh page
+	b.addPage()
 }
 
 //------------------------------------------------------------------------------
-//                          chunk
+//                          page
 //------------------------------------------------------------------------------
 
-type chunk struct {
+type page struct {
 	data []byte
 	Ptr  unsafe.Pointer
-	Len  ChunkRow
+	Len  PageRow
 }
 
 //------------------------------------------------------------------------------
 //                          CalculateLayout
 //------------------------------------------------------------------------------
 
-type ChunkLayout struct {
-	ChunkCap uint32
-	Offsets  []uintptr
+type PageLayout struct {
+	PageCap uint32
+	Offsets []uintptr
 }
 
-// CalculateLayout computes the optimal memory layout for a chunk.
-func CalculateLayout(compInfos []ComponentInfo) ChunkLayout {
+// CalculateLayout computes the optimal memory layout for a page.
+func CalculateLayout(compInfos []ComponentInfo) PageLayout {
 
 	totalStride := unsafe.Sizeof(Entity(0))
 	for _, info := range compInfos {
@@ -196,9 +193,9 @@ func CalculateLayout(compInfos []ComponentInfo) ChunkLayout {
 		}
 
 		if fits {
-			return ChunkLayout{
-				ChunkCap: uint32(capacity),
-				Offsets:  offsets,
+			return PageLayout{
+				PageCap: uint32(capacity),
+				Offsets: offsets,
 			}
 		}
 

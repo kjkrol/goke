@@ -8,10 +8,10 @@ import (
 const EntitySize = unsafe.Sizeof(Entity(0))
 
 type MatchedArch struct {
-	Arch              *Archetype
-	EntityChunkOffset uintptr
-	FieldsOffsets     []uintptr
-	FieldsSizes       []uintptr
+	Arch             *Archetype
+	EntityPageOffset uintptr
+	FieldsOffsets    []uintptr
+	FieldsSizes      []uintptr
 }
 
 func (ma *MatchedArch) Clear() {
@@ -20,7 +20,7 @@ func (ma *MatchedArch) Clear() {
 	ma.FieldsOffsets = nil
 	clear(ma.FieldsSizes)
 	ma.FieldsSizes = nil
-	ma.EntityChunkOffset = 0
+	ma.EntityPageOffset = 0
 }
 
 type View struct {
@@ -132,7 +132,7 @@ func (v *View) AddArchetype(arch *Archetype) {
 	// -------------------------------------------------------------------------
 	// STEP 2: Value Caching (Flattening the Data)
 	// -------------------------------------------------------------------------
-	// We copy ChunkOffset and ItemSize from the Archetype into our local arrays.
+	// We copy PageOffset and ItemSize from the Archetype into our local arrays.
 	// This allows the View Iterator to calculate pointers purely using math,
 	// without ever dereferencing the `*Column` pointer or touching `Arch` memory.
 
@@ -149,7 +149,7 @@ func (v *View) AddArchetype(arch *Archetype) {
 		col := &arch.Columns[localIdx]
 
 		// COPY VALUES to local cache
-		offsets[i] = col.ChunkOffset
+		offsets[i] = col.PageOffset
 		sizes[i] = col.ItemSize
 	}
 
@@ -163,10 +163,10 @@ func (v *View) AddArchetype(arch *Archetype) {
 	// Note: This might overwrite an old struct in the underlying array,
 	// effectively "recycling" the slice headers we just prepared.
 	v.Baked = append(v.Baked, MatchedArch{
-		Arch:              arch,
-		EntityChunkOffset: entCol.ChunkOffset,
-		FieldsOffsets:     offsets,
-		FieldsSizes:       sizes,
+		Arch:             arch,
+		EntityPageOffset: entCol.PageOffset,
+		FieldsOffsets:    offsets,
+		FieldsSizes:      sizes,
 	})
 }
 

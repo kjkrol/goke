@@ -163,16 +163,16 @@ func TestArchetypeRegistry_OverwriteIdempotency(t *testing.T) {
 
 	linkAfter, _ := reg.EntityLinkStore.Get(e)
 
-	if linkBefore.ArchId != linkAfter.ArchId || linkBefore.ChunkRow != linkAfter.ChunkRow {
+	if linkBefore.ArchId != linkAfter.ArchId || linkBefore.PageRow != linkAfter.PageRow {
 		t.Error("re-assigning same component should not move entity in graph")
 	}
 
 	linkAfterArch := &reg.Archetypes[linkAfter.ArchId]
-	targetChunk := linkAfterArch.Memory.Pages[linkAfter.ChunkIdx]
+	targetPage := linkAfterArch.Memory.Pages[linkAfter.PageIdx]
 
 	// B. Pobierasz wskaźnik przez kolumnę (Resolve Once)
 	col := linkAfterArch.GetColumn(posTypeInfo.ID)
-	ptr := col.GetPointer(targetChunk, linkAfter.ChunkRow)
+	ptr := col.GetPointer(targetPage, linkAfter.PageRow)
 
 	// 3. Weryfikacja danych
 	gotData := *(*position)(ptr)
@@ -209,8 +209,8 @@ func TestArchetypeRegistry_SwapPopIntegrity(t *testing.T) {
 	setPos(e2, pData2)
 
 	link2_pre, _ := reg.EntityLinkStore.Get(e2)
-	if link2_pre.ChunkRow != 2 {
-		t.Fatalf("Setup error: e2 should be at row 2, got %d", link2_pre.ChunkRow)
+	if link2_pre.PageRow != 2 {
+		t.Fatalf("Setup error: e2 should be at row 2, got %d", link2_pre.PageRow)
 	}
 
 	reg.UnlinkEntity(e1)
@@ -219,8 +219,8 @@ func TestArchetypeRegistry_SwapPopIntegrity(t *testing.T) {
 	if !ok {
 		t.Fatal("Entity e2 lost from LinkStore")
 	}
-	if link2_post.ChunkRow != 1 {
-		t.Errorf("SwapPop failed: E2 should move to row 1, got %d", link2_post.ChunkRow)
+	if link2_post.PageRow != 1 {
+		t.Errorf("SwapPop failed: E2 should move to row 1, got %d", link2_post.PageRow)
 	}
 
 	ptr, err := reg.AllocateComponentMemory(e2, posTypeInfo)

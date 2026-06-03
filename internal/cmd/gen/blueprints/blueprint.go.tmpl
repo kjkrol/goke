@@ -20,7 +20,7 @@ import (
 // require exactly {{ $n }} distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $n }}, {{ end }}{{ end }}] struct {
-    blueprint *core.ArchetypeEntryBlueprint
+    itemFactory *core.ItemFactory
 }
 
 // NewBlueprint{{ $n }} initializes a new template for a specific combination of {{ $n }} components.
@@ -60,13 +60,13 @@ func NewBlueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $
     }
 
     return &Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]{
-        blueprint: core.NewArchetypeEntryBlueprint(blueprint),
+        itemFactory: core.NewItemFactory(blueprint),
     }
 }
 
 // Create instantiates a new entity based on the blueprint's static configuration.
-// It returns the unique Entity identifier along with direct pointers to the
-// newly allocated memory for each of the {{ $n }} stateful components.
+// It returns an Item{{ $n }} struct containing the unique Entity identifier along
+// with direct pointers to the newly allocated memory for each of the {{ $n }} stateful components.
 //
 // The resulting entity is created with the full set of predefined Tags
 // (stateless components) configured via BlueprintOptions, making it
@@ -74,58 +74,42 @@ func NewBlueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $
 //
 // Example usage for Blueprint{{ $n }}:
 //
-//    entity, {{ range $i := (seq 1 $n) }}v{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }} := blueprint.Create()
+// 	item := blueprint.Create()
 {{- range $i := (seq 1 $n) }}
-//    *v{{ $i }} = T{{ $i }}{ /* initialize */ }
+// 	*item.V{{ $i }} = T{{ $i }}{ /* initialize */ }
 {{- end }}
 //
 // These pointers allow for immediate initialization of the entity's state
 // without the need for additional lookups, ensuring a highly efficient
 // construction process.
-func (b *Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) Create() (Entity, {{ range $i := (seq 1 $n) }}*T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}) {
-    entity, ptrs := b.blueprint.Create()
-    return entity, {{ range $i := (seq 0 (sub $n 1)) }}(*T{{ add $i 1 }})(ptrs[{{ $i }}]){{ if lt (add $i 1) $n }}, {{ end }}{{ end }}
+func (b *Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) Create() Item{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}] {
+	item := b.itemFactory.Create()
+	return NewItem{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}](item)
 }
 
-
-// Item{{ $n }} represents a batch data container for an entity with exactly {{ $n }} components.
-// It is used in bulk operations to provide direct access to component pointers.
-//
-// Type parameters:
-type Item{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }} any] struct {
-	Entity Entity
-	{{- range $i := (seq 1 $n) }}
-	V{{ $i }} *T{{ $i }}
-	{{- end }}
-}
-
-
-// CreateBatch performs bulk entity instantiation using a pre-allocated buffer.
+// BatchCreate performs bulk entity instantiation using a pre-allocated buffer.
 // It fills 'buf' with pointers to components, returning a slice of initialized
 // Item{{ $n }} containers. If 'buf' is too small, it is capped at 'count'.
 //
 // Example usage:
 //
-//    items := blueprint.CreateBatch(count, buf)
+//    items := blueprint.BatchCreate(count, buf)
 //    for _, item := range items {
 {{- range $i := (seq 1 $n) }}
 //        item.V{{ $i }}.X = 1
 {{- end }}
 //    }
-func (b *Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) CreateBatch(count int, buf []Item{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) []Item{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}] {
+func (b *Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) BatchCreate(count int, buf []Item{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) []Item{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}] {
 	if len(buf) < count {
 		count = len(buf)
 	}
 	output := buf[:count]
 
-	items := b.blueprint.CreateBatch(count)
-
-	for i := range items {
-		output[i].Entity = items[i].Entity
-		{{- range $i := (seq 0 (sub $n 1)) }}
-		output[i].V{{ add $i 1 }} = (*T{{ add $i 1 }})(items[i].Ptrs[{{ $i }}])
-		{{- end }}
-	}
+	b.itemFactory.BatchCreate(count, func(items []core.Item) {
+    	for i := range items {
+    		output[i] = NewItem{{ $n }}[{{ range $j := (seq 1 $n) }}T{{ $j }}{{ if lt $j $n }}, {{ end }}{{ end }}](items[i])
+    	}
+	})
 
 	return output
 }

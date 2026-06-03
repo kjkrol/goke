@@ -6,24 +6,24 @@ import (
 	"github.com/kjkrol/goke"
 )
 
-// --- Benchmark CreateBatch ---
+// --- Benchmark BatchCreate ---
 
 const benchSize = 1000
 
-func BenchmarkBlueprint1_CreateBatch(b *testing.B) {
-	b.StopTimer()
+func BenchmarkBlueprint1_BatchCreate(b *testing.B) {
+
 	ecs := goke.New()
 	_ = goke.RegisterComponent[Pos](ecs)
 
 	blueprint := goke.NewBlueprint1[Pos](ecs)
 	buf := make([]goke.Item1[Pos], benchSize)
-	b.StartTimer()
 
-	for i := 0; i < b.N; i++ {
+	b.ResetTimer()
+	b.ReportAllocs()
+	for b.Loop() {
 		count := 0
-		for _, item := range blueprint.CreateBatch(entitiesNumber, buf) {
-			// Prosta operacja write/read, aby zapobiec dead-code elimination przez kompilator
-			pos := item.V1
+		for _, item := range blueprint.BatchCreate(entitiesNumber, buf) {
+			pos := item.Comp1
 			pos.X += 1.0
 			count++
 		}
@@ -35,8 +35,8 @@ func BenchmarkBlueprint1_CreateBatch(b *testing.B) {
 	}
 }
 
-func BenchmarkBlueprint10_CreateBatch(b *testing.B) {
-	b.StopTimer()
+func BenchmarkBlueprint10_BatchCreate(b *testing.B) {
+
 	ecs := goke.New()
 	_ = goke.RegisterComponent[Pos](ecs)
 	_ = goke.RegisterComponent[Vel](ecs)
@@ -51,16 +51,16 @@ func BenchmarkBlueprint10_CreateBatch(b *testing.B) {
 
 	blueprint := goke.NewBlueprint10[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn, T09, T10](ecs)
 	buf := make([]goke.Item10[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn, T09, T10], benchSize)
-	b.StartTimer()
 
-	for i := 0; i < b.N; i++ {
+	b.ResetTimer()
+	b.ReportAllocs()
+	for b.Loop() {
 		count := 0
-		for _, item := range blueprint.CreateBatch(entitiesNumber, buf) {
-			// Dostęp do pierwszego i ostatniego komponentu w celu wymuszenia ewaluacji wskaźników
-			pos := item.V1
+		for _, item := range blueprint.BatchCreate(entitiesNumber, buf) {
+			pos := item.Comp1
 			pos.X += 1.0
 
-			v10 := item.V10
+			v10 := item.Comp10
 			v10.V += 1.0
 
 			count++

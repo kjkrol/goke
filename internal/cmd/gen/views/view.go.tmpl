@@ -1,23 +1,23 @@
 {{- /* File: view.go.tmpl */ -}}
 // --------------- View{{.N}} ---------------
 
-// View{{.N}} provides a type-safe iterator and access layer for entities that 
-// possess exactly {{.N}} specific stateful components. It acts as a specialized 
-// window into the ECS world, filtering archetypes that satisfy the required 
+// View{{.N}} provides a type-safe iterator and access layer for entities that
+// possess exactly {{.N}} specific stateful components. It acts as a specialized
+// window into the ECS world, filtering archetypes that satisfy the required
 // component mask and any additional constraints defined via BlueprintOptions.
 //
-// By leveraging pre-calculated component offsets, View{{.N}} enables 
-// O(1) access to component data during iteration, making it the primary 
+// By leveraging pre-calculated component offsets, View{{.N}} enables
+// O(1) access to component data during iteration, making it the primary
 // tool for implementing high-performance systems and logic loops.
 type View{{.N}}[{{.AllTParams}} any] struct {
     *core.View
 }
 
 // NewView{{.N}} initializes a query for exactly {{.N}} components.
-// It panics if the component registration fails, if there are duplicate 
+// It panics if the component registration fails, if there are duplicate
 // components, or if options (like Exclude) create a logical contradiction.
-// 
-// This ensures that the View is valid and ready for high-performance 
+//
+// This ensures that the View is valid and ready for high-performance
 // iteration immediately after creation.
 func NewView{{.N}}[{{.AllTParams}} any](ecs *ECS, opts ...BlueprintOption) *View{{.N}}[{{.AllTParams}}] {
     registry := ecs.registry
@@ -58,12 +58,12 @@ func NewView{{.N}}[{{.AllTParams}} any](ecs *ECS, opts ...BlueprintOption) *View
     return &View{{.N}}[{{.AllTParams}}]{View: view}
 }
 
-// All returns an iterator (iter.Seq2) that yields the unique Entity identifier 
-// and a tuple of pointers to its {{.N}} components. This is designed for use 
-// in range loops, providing a clean, idiomatic Go way to process data while 
+// All returns an iterator (iter.Seq2) that yields the unique Entity identifier
+// and a tuple of pointers to its {{.N}} components. This is designed for use
+// in range loops, providing a clean, idiomatic Go way to process data while
 // maintaining maximum cache efficiency.
 //
-// The iteration is performed archetype by archetype, ensuring that data is 
+// The iteration is performed archetype by archetype, ensuring that data is
 // accessed contiguously in memory, which significantly reduces CPU cache misses.
 //
 // Example usage:
@@ -92,7 +92,7 @@ func (v *View{{.N}}[{{.AllTParams}}]) All() iter.Seq2[
         for _, ma := range v.Baked {
             // 2. Load Offsets from Cache (L1 Cache Friendly)
             // Accessing fields on stack-allocated 'ma' is blazing fast
-            offsetEntity := ma.EntityChunkOffset
+            offsetEntity := ma.EntityPageOffset
             {{range .Indices}}offset{{additions . 1}} := ma.FieldsOffsets[{{ . }}]
             {{end}}
 
@@ -103,7 +103,7 @@ func (v *View{{.N}}[{{.AllTParams}}]) All() iter.Seq2[
                     continue
                 }
 
-                // 4. Resolve Base Pointers for this Chunk (Pure Math)
+                // 4. Resolve Base Pointers for this Page (Pure Math)
                 base := chunk.Ptr
                 ptrEntity := unsafe.Add(base, offsetEntity)
                 {{range .Indices}}ptr{{additions . 1}} := unsafe.Add(base, offset{{additions . 1}})
@@ -145,14 +145,14 @@ func (v *View{{.N}}[{{.AllTParams}}]) All() iter.Seq2[
     }
 }
 
-// Filter returns an iterator (iter.Seq2) that yields only the entities 
-// specified in the selected slice, provided they match the View's archetype 
-// constraints. It is optimized for scenarios where a subset of entities 
-// is pre-determined (e.g., via spatial partitioning or sorted results) 
+// Filter returns an iterator (iter.Seq2) that yields only the entities
+// specified in the selected slice, provided they match the View's archetype
+// constraints. It is optimized for scenarios where a subset of entities
+// is pre-determined (e.g., via spatial partitioning or sorted results)
 // but requires high-speed access to their component data.
 //
-// The iterator performs an internal validation for each entity to ensure 
-// it still belongs to an archetype compatible with this View, preventing 
+// The iterator performs an internal validation for each entity to ensure
+// it still belongs to an archetype compatible with this View, preventing
 // invalid memory access if the entity's composition has changed.
 //
 // Example usage:
@@ -180,7 +180,7 @@ func (v *View{{.N}}[{{.AllTParams}}]) Filter(selected []Entity) iter.Seq2[
     ) bool) {
         var lastArchID core.ArchetypeId = core.NullArchetypeId
         var currentArch *core.Archetype
-        
+
         // Column descriptor cache
         {{range .Indices}}var col{{additions . 1}} *core.Column
         {{end}}
@@ -196,7 +196,7 @@ func (v *View{{.N}}[{{.AllTParams}}]) Filter(selected []Entity) iter.Seq2[
             // 1. Archetype Change Detection (Cache descriptors)
             if link.ArchId != lastArchID {
                 currentArch = &registry.Archetypes[link.ArchId]
-                
+
                 if !v.View.Matches(currentArch.Mask) {
                     lastArchID = core.NullArchetypeId
                     currentArch = nil
@@ -206,7 +206,7 @@ func (v *View{{.N}}[{{.AllTParams}}]) Filter(selected []Entity) iter.Seq2[
                 // Cache all column descriptors for this archetype
                 {{range .Indices}}col{{additions . 1}} = currentArch.GetColumn(v.Layout[{{ . }}].ID)
                 {{end}}
-                
+
                 lastArchID = link.ArchId
             }
 
@@ -214,21 +214,21 @@ func (v *View{{.N}}[{{.AllTParams}}]) Filter(selected []Entity) iter.Seq2[
                 continue
             }
 
-            // 2. Resolve Chunk
+            // 2. Resolve Page
             // Access the physical page using the index from the link
-            chunk := currentArch.Memory.Pages[link.ChunkIdx]
+            chunk := currentArch.Memory.Pages[link.PageIdx]
 
             // 3. Construct Result (Head)
             head := struct { Entity core.Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
                 Entity: e,
-                {{range .HIndices}}V{{additions . 1}}: (*T{{additions . 1}})(col{{additions . 1}}.GetPointer(chunk, link.ChunkRow)),
+                {{range .HIndices}}V{{additions . 1}}: (*T{{additions . 1}})(col{{additions . 1}}.GetPointer(chunk, link.PageRow)),
                 {{end}}
             }
 
             // 4. Construct Result (Tail)
             {{if .HasTail}}
             tail := struct { {{range .TIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
-                {{range .TIndices}}V{{additions . 1}}: (*T{{additions . 1}})(col{{additions . 1}}.GetPointer(chunk, link.ChunkRow)),
+                {{range .TIndices}}V{{additions . 1}}: (*T{{additions . 1}})(col{{additions . 1}}.GetPointer(chunk, link.PageRow)),
                 {{end}}
             }
             {{else}}
@@ -242,12 +242,12 @@ func (v *View{{.N}}[{{.AllTParams}}]) Filter(selected []Entity) iter.Seq2[
     }
 }
 
-// Values returns a performance-critical iterator (iter.Seq2) that yields only 
-// component pointers, grouped into anonymous head and tail structures. 
-// This method is specifically designed for high-throughput data processing 
+// Values returns a performance-critical iterator (iter.Seq2) that yields only
+// component pointers, grouped into anonymous head and tail structures.
+// This method is specifically designed for high-throughput data processing
 // where the Entity identifier is not required.
 //
-// By omitting the Entity ID, this method minimizes stack pressure and 
+// By omitting the Entity ID, this method minimizes stack pressure and
 // register usage, focusing purely on data-driven transformation.
 //
 // Example usage:
@@ -274,7 +274,7 @@ func (v *View{{.N}}[{{.AllTParams}}]) Values() iter.Seq2[
 
         // Loop over matched archetypes
         for _, ma := range v.Baked {
-            
+
             // 2. Load Offsets from Cache (L1 Cache Friendly)
             // We use the same lookup array as in All(), just skipping the Entity offset.
             {{range .Indices}}offset{{additions . 1}} := ma.FieldsOffsets[{{ . }}]
@@ -282,20 +282,20 @@ func (v *View{{.N}}[{{.AllTParams}}]) Values() iter.Seq2[
 
             // 3. Loop over Physical Memory Pages (CHUNKS)
             for _, chunk := range ma.Arch.Memory.Pages {
-                count := chunk.Len 
+                count := chunk.Len
                 if count == 0 {
                     continue
                 }
 
-                // 4. Resolve Base Pointers for this Chunk
-                // Pure math: ChunkBase + ComponentOffset
+                // 4. Resolve Base Pointers for this Page
+                // Pure math: PageBase + ComponentOffset
                 base := chunk.Ptr
                 {{range .Indices}}ptr{{additions . 1}} := unsafe.Add(base, offset{{additions . 1}})
                 {{end}}
 
                 // 5. Hot Loop (Death Loop)
                 for count > 0 {
-                    
+
                     // Construct Head
                     head := struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
                         {{- range .PHIndices}}V{{additions . 1}}: (*T{{additions . 1}})(ptr{{additions . 1}}),{{end}}
@@ -315,7 +315,7 @@ func (v *View{{.N}}[{{.AllTParams}}]) Values() iter.Seq2[
                     // 6. Increment Pointers (Pointer Arithmetic)
                     {{range .Indices}}ptr{{additions . 1}} = unsafe.Add(ptr{{additions . 1}}, stride{{additions . 1}})
                     {{end}}
-                    
+
                     count--
                 }
             }
@@ -323,11 +323,11 @@ func (v *View{{.N}}[{{.AllTParams}}]) Values() iter.Seq2[
     }
 }
 
-// FilterValues returns an iterator (iter.Seq2) that yields component pointers 
+// FilterValues returns an iterator (iter.Seq2) that yields component pointers
 // for a pre-selected subset of entities, skipping the Entity identifier.
 // It is optimized for cases where the entity list is already known (e.g., from spatial partitioning).
 //
-// Like the Values method, it uses anonymous structures to ensure the Go compiler 
+// Like the Values method, it uses anonymous structures to ensure the Go compiler
 // can perform aggressive register allocation by avoiding Entity ID overhead.
 //
 // Example usage:
@@ -351,7 +351,7 @@ func (v *View{{.N}}[{{.AllTParams}}]) FilterValues(selected []core.Entity) iter.
     ) bool) {
         var lastArchID core.ArchetypeId = core.NullArchetypeId
         var currentArch *core.Archetype
-        
+
         // Cache for column descriptors to avoid repeated map lookups
         {{range .Indices}}var col{{additions . 1}} *core.Column
         {{end}}
@@ -368,7 +368,7 @@ func (v *View{{.N}}[{{.AllTParams}}]) FilterValues(selected []core.Entity) iter.
             // We only refresh column descriptors when the archetype changes.
             if link.ArchId != lastArchID {
                 currentArch = &registry.Archetypes[link.ArchId]
-                
+
                 // Verify if the archetype matches the view's mask requirements
                 if !v.View.Matches(currentArch.Mask) {
                     lastArchID = core.NullArchetypeId
@@ -388,19 +388,19 @@ func (v *View{{.N}}[{{.AllTParams}}]) FilterValues(selected []core.Entity) iter.
                 continue
             }
 
-            // 2. Resolve Physical Chunk
-            // Access the memory page (Chunk) using the index from the link store.
-            chunk := currentArch.Memory.Pages[link.ChunkIdx]
+            // 2. Resolve Physical Page
+            // Access the memory page (Page) using the index from the link store.
+            chunk := currentArch.Memory.Pages[link.PageIdx]
 
             // 3. Construct Result (Head)
             vhead := struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
-                {{- range .PHIndices}}V{{additions . 1}}: (*T{{additions . 1}})(col{{additions . 1}}.GetPointer(chunk, link.ChunkRow)),{{end}}
+                {{- range .PHIndices}}V{{additions . 1}}: (*T{{additions . 1}})(col{{additions . 1}}.GetPointer(chunk, link.PageRow)),{{end}}
             }
 
             // 4. Construct Result (Tail)
             {{if .HasVTail}}
             vtail := struct { {{range .PTIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
-                {{- range .PTIndices}}V{{additions . 1}}: (*T{{additions . 1}})(col{{additions . 1}}.GetPointer(chunk, link.ChunkRow)),{{end}}
+                {{- range .PTIndices}}V{{additions . 1}}: (*T{{additions . 1}})(col{{additions . 1}}.GetPointer(chunk, link.PageRow)),{{end}}
             }
             {{else}}
             vtail := struct{}{}

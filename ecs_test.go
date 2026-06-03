@@ -31,12 +31,14 @@ func TestECS_UseCase(t *testing.T) {
 
 	blueprint1 := goke.NewBlueprint2[Order, Discount](ecs)
 
-	eA, order, discount := blueprint1.Create()
+	item := blueprint1.Create()
+	eA, order, discount := item.Entity, item.Comp1, item.Comp2
 	*order = Order{ID: "ORD-001", Total: 100.0}
 	*discount = Discount{Percentage: 10.0}
 
 	blueprint2 := goke.NewBlueprint1[Order](ecs)
-	eB, order := blueprint2.Create()
+	item2 := blueprint2.Create()
+	eB, order := item2.Entity, item2.Comp1
 	*order = Order{ID: "ORD-002", Total: 50.0}
 
 	fmt.Printf("eB= %d\n", eB.Index())
@@ -102,7 +104,8 @@ func TestECS_GetComponent_TypeSafety(t *testing.T) {
 	_ = goke.RegisterComponent[Velocity](ecs)
 
 	blueprint := goke.NewBlueprint1[Position](ecs)
-	e, pos := blueprint.Create()
+	item := blueprint.Create()
+	e, pos := item.Entity, item.Comp1
 	*pos = Position{X: 10, Y: 20}
 
 	t.Run("Should fail when requesting wrong type for valid ID", func(t *testing.T) {

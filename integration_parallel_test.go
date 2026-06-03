@@ -78,7 +78,8 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	// Create entities with ALL components
 	blueprint := goke.NewBlueprint3[Position, Velocity, Health](ecs)
 	for range 1000 {
-		_, pos, vel, health := blueprint.Create()
+		item := blueprint.Create()
+		_, pos, vel, health := item.Entity, item.Comp1, item.Comp2, item.Comp3
 		*pos = Position{0, 0}
 		*vel = Velocity{10, 10}
 		*health = Health{50, 100}

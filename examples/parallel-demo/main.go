@@ -34,16 +34,19 @@ func main() {
 	// 2. Setup Entities & Components
 	diceBlueprint := goke.NewBlueprint1[Dice](ecs)
 
-	diceEnt, dice := diceBlueprint.Create()
+	item := diceBlueprint.Create()
+	diceEnt, dice := item.Entity, item.Comp1
 	*dice = Dice{Value: 0}
 
 	// Setup player entities
 	playerBlueprint := goke.NewBlueprint1[Player](ecs)
 
-	_, player1 := playerBlueprint.Create()
+	item2 := playerBlueprint.Create()
+	_, player1 := item2.Entity, item2.Comp1
 	*player1 = Player{Bet: 0}
 
-	_, player2 := playerBlueprint.Create()
+	item3 := playerBlueprint.Create()
+	_, player2 := item3.Entity, item3.Comp1
 	*player2 = Player{Bet: 0}
 
 	// 3. Define Views (for system filtering)
