@@ -1,193 +1,21 @@
-package bench
+package bench_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/kjkrol/goke"
 )
 
-type Position3 struct{ X, Y, Z float64 }
-type Velocity3 struct{ X, Y, Z float64 }
-type ProcessedTag struct{}
-type Props1 struct{ V float64 }
-type Props2 struct{ V float64 }
-type Props3 struct{ V float64 }
-type Props4 struct{ V float64 }
-
 func BenchmarkEngine_Structural(b *testing.B) {
 	ecs := goke.New()
 
-	// --- 1. ENTITY CREATION & INITIALIZATION ---
-	// Tests CreateEntity
-	b.Run("Create Entity With 1 comp", func(b *testing.B) {
-		goke.Reset(ecs)
-		blueprint := goke.NewBlueprint1[Props1](ecs)
-		b.ResetTimer()
-		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
-			item := blueprint.Create()
-			_, a := item.Entity, item.Comp1
-			a.V = 1
-		}
-	})
-	b.Run("Create Entity With 2 comp", func(b *testing.B) {
-		goke.Reset(ecs)
-		blueprint := goke.NewBlueprint2[Props1, Props2](ecs)
-		b.ResetTimer()
-		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
-			item := blueprint.Create()
-			_, a, b := item.Entity, item.Comp1, item.Comp2
-			a.V = 1
-			b.V = 2
-		}
-	})
-	b.Run("Create Entity With 3 comp", func(b *testing.B) {
-		goke.Reset(ecs)
-		blueprint := goke.NewBlueprint3[Props1, Props2, Props3](ecs)
-		b.ResetTimer()
-		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
-			item := blueprint.Create()
-			_, a, b, c := item.Entity, item.Comp1, item.Comp2, item.Comp3
-			a.V = 1
-			b.V = 2
-			c.V = 3
-		}
-	})
-	b.Run("Create Entity With 4 comp", func(b *testing.B) {
-		goke.Reset(ecs)
-		blueprint := goke.NewBlueprint4[Props1, Props2, Props3, Props4](ecs)
-		b.ResetTimer()
-		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
-			item := blueprint.Create()
-			_, a, b, c, d := item.Entity, item.Comp1, item.Comp2, item.Comp3, item.Comp4
-			a.V = 1
-			b.V = 2
-			c.V = 3
-			d.V = 4
-		}
-	})
-
-	b.Run("Create Entity With 10 comp", func(b *testing.B) {
-		goke.Reset(ecs)
-		blueprint := goke.NewBlueprint10[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn, T09, T10](ecs)
-		b.ResetTimer()
-		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
-			item := blueprint.Create()
-			_, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10 := item.Entity, item.Comp1, item.Comp2, item.Comp3, item.Comp4, item.Comp5, item.Comp6, item.Comp7, item.Comp8, item.Comp9, item.Comp10
-			a1.X = 1
-			a2.X = 2
-			a3.X = 3
-			a4.M = 4
-			a5.S[0] = 5
-			a6.V[0] = 6
-			a7.V = 7
-			a8.V = 8
-			a9.V = 9
-			a10.V = 10
-
-		}
-	})
-
-	const batchSize = 1024
-
-	b.Run(fmt.Sprintf("BatchCreate(%d)_1_comp", batchSize), func(b *testing.B) {
-		goke.Reset(ecs)
-		blueprint := goke.NewBlueprint1[Pos](ecs)
-		buf := make([]goke.Item1[Pos], batchSize)
-		blueprint.BatchCreate(batchSize, buf)
-		b.ResetTimer()
-		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
-			for _, item := range blueprint.BatchCreate(batchSize, buf) {
-				item.Comp1.X = 1
-			}
-		}
-	})
-
-	b.Run(fmt.Sprintf("BatchCreate(%d)_2_comp", batchSize), func(b *testing.B) {
-		goke.Reset(ecs)
-		blueprint := goke.NewBlueprint2[Pos, Vel](ecs)
-		buf := make([]goke.Item2[Pos, Vel], batchSize)
-		blueprint.BatchCreate(batchSize, buf)
-		b.ResetTimer()
-		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
-			for _, item := range blueprint.BatchCreate(batchSize, buf) {
-				item.Comp1.X = 1
-				item.Comp2.X = 2
-			}
-		}
-	})
-
-	b.Run(fmt.Sprintf("BatchCreate(%d)_3_comp", batchSize), func(b *testing.B) {
-		goke.Reset(ecs)
-		blueprint := goke.NewBlueprint3[Pos, Vel, Acc](ecs)
-		buf := make([]goke.Item3[Pos, Vel, Acc], batchSize)
-		blueprint.BatchCreate(batchSize, buf)
-		b.ResetTimer()
-		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
-			for _, item := range blueprint.BatchCreate(batchSize, buf) {
-				item.Comp1.X = 1
-				item.Comp2.X = 2
-				item.Comp3.X = 3
-			}
-		}
-	})
-
-	b.Run(fmt.Sprintf("BatchCreate(%d)_4_comp", batchSize), func(b *testing.B) {
-		goke.Reset(ecs)
-		blueprint := goke.NewBlueprint4[Pos, Vel, Acc, Mass](ecs)
-		buf := make([]goke.Item4[Pos, Vel, Acc, Mass], batchSize)
-		blueprint.BatchCreate(batchSize, buf)
-		b.ResetTimer()
-		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
-			for _, item := range blueprint.BatchCreate(batchSize, buf) {
-				item.Comp1.X = 1
-				item.Comp2.X = 2
-				item.Comp3.X = 3
-				item.Comp4.M = 4
-			}
-		}
-	})
-
-	b.Run(fmt.Sprintf("BatchCreate(%d)_10_comp", batchSize), func(b *testing.B) {
-		goke.Reset(ecs)
-		blueprint := goke.NewBlueprint10[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn, T09, T10](ecs)
-		buf := make([]goke.Item10[Pos, Vel, Acc, Mass, Spin, Char, Elec, Magn, T09, T10], batchSize)
-		blueprint.BatchCreate(batchSize, buf)
-		b.ResetTimer()
-		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
-			for _, item := range blueprint.BatchCreate(batchSize, buf) {
-				item.Comp1.X = 1
-				item.Comp2.X = 2
-				item.Comp3.X = 3
-				item.Comp4.M = 4
-				item.Comp5.S[0] = 5
-				item.Comp6.V[0] = 6
-				item.Comp7.V = 7
-				item.Comp8.V = 8
-				item.Comp9.V = 9
-				item.Comp10.V = 10
-			}
-		}
-	})
-
 	// --- 2. ARCHETYPE TRANSITION (Evolution) ---
-	// Tests moving an entity from {Velocity3} to {Velocity3, Position3}
 	b.Run("Add 2nd Component", func(b *testing.B) {
 		goke.Reset(ecs)
 		entities := make([]goke.Entity, b.N)
 
-		posDesc := goke.RegisterComponent[Position3](ecs)
-		blueprintA := goke.NewBlueprint1[Velocity3](ecs)
+		posDesc := goke.RegisterComponent[Pos](ecs)
+		blueprintA := goke.NewBlueprint1[Vel](ecs)
 		blueprintA.Create()
 
 		for i := 0; i < b.N; i++ {
@@ -196,7 +24,7 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			*goke.EnsureComponent[Position3](ecs, entities[i], posDesc) = Position3{X: 10, Y: 10}
+			*goke.EnsureComponent[Pos](ecs, entities[i], posDesc) = Pos{X: 10, Y: 10}
 		}
 	})
 
@@ -205,8 +33,8 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		goke.Reset(ecs)
 		entities := make([]goke.Entity, b.N)
 
-		tagDesc := goke.RegisterComponent[ProcessedTag](ecs)
-		blueprintA := goke.NewBlueprint1[Velocity3](ecs)
+		tagDesc := goke.RegisterComponent[Tag](ecs)
+		blueprintA := goke.NewBlueprint1[Vel](ecs)
 		blueprintA.Create()
 
 		for i := 0; i < b.N; i++ {
@@ -215,7 +43,7 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			goke.EnsureComponent[ProcessedTag](ecs, entities[i], tagDesc)
+			goke.EnsureComponent[Tag](ecs, entities[i], tagDesc)
 		}
 	})
 
@@ -224,8 +52,8 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		goke.Reset(ecs)
 		entities := make([]goke.Entity, b.N)
 
-		posDesc := goke.RegisterComponent[Position3](ecs)
-		blueprintA := goke.NewBlueprint1[Velocity3](ecs)
+		posDesc := goke.RegisterComponent[Pos](ecs)
+		blueprintA := goke.NewBlueprint1[Vel](ecs)
 		blueprintA.Create()
 
 		for i := 0; i < b.N; i++ {
@@ -245,18 +73,18 @@ func BenchmarkEngine_Structural(b *testing.B) {
 	b.Run("Get Component", func(b *testing.B) {
 		goke.Reset(ecs)
 
-		velDesc := goke.RegisterComponent[Velocity3](ecs)
-		blueprintA := goke.NewBlueprint1[Velocity3](ecs)
+		velDesc := goke.RegisterComponent[Vel](ecs)
+		blueprintA := goke.NewBlueprint1[Vel](ecs)
 		blueprintA.Create()
 
 		item := blueprintA.Create()
 		e, vel := item.Entity, item.Comp1
-		*vel = Velocity3{X: 1, Y: 2, Z: 3}
+		*vel = Vel{X: 1, Y: 2}
 
 		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			pos := goke.GetComponent[Velocity3](ecs, e, velDesc)
+			pos := goke.GetComponent[Vel](ecs, e, velDesc)
 			pos.X += 1.0
 		}
 	})
@@ -266,18 +94,18 @@ func BenchmarkEngine_Structural(b *testing.B) {
 	b.Run("Get Component (Safe)", func(b *testing.B) {
 		goke.Reset(ecs)
 
-		velDesc := goke.RegisterComponent[Velocity3](ecs)
-		blueprintA := goke.NewBlueprint1[Velocity3](ecs)
+		velDesc := goke.RegisterComponent[Vel](ecs)
+		blueprintA := goke.NewBlueprint1[Vel](ecs)
 		blueprintA.Create()
 
 		item := blueprintA.Create()
 		e, vel := item.Entity, item.Comp1
-		*vel = Velocity3{X: 1, Y: 2, Z: 3}
+		*vel = Vel{X: 1, Y: 2}
 
 		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			pos, err := goke.SafeGetComponent[Velocity3](ecs, e, velDesc)
+			pos, err := goke.SafeGetComponent[Vel](ecs, e, velDesc)
 			if err == nil {
 				pos.X += 1.0
 			}
@@ -289,15 +117,15 @@ func BenchmarkEngine_Structural(b *testing.B) {
 	b.Run("Get Component via View.Filter", func(b *testing.B) {
 		goke.Reset(ecs)
 
-		_ = goke.RegisterComponent[Velocity3](ecs)
-		blueprintA := goke.NewBlueprint1[Velocity3](ecs)
+		_ = goke.RegisterComponent[Vel](ecs)
+		blueprintA := goke.NewBlueprint1[Vel](ecs)
 		blueprintA.Create()
 
 		item := blueprintA.Create()
 		e, vel := item.Entity, item.Comp1
-		*vel = Velocity3{X: 1, Y: 2, Z: 3}
+		*vel = Vel{X: 1, Y: 2}
 
-		view := goke.NewView1[Velocity3](ecs)
+		view := goke.NewView1[Vel](ecs)
 		arr := []goke.Entity{e}
 
 		b.ResetTimer()
@@ -316,20 +144,19 @@ func BenchmarkEngine_Query(b *testing.B) {
 		goke.WithInitialEntityCap(100000),
 		goke.WithFreeIndicesCap(100000),
 	)
-	_ = goke.RegisterComponent[Position3](ecs)
-	blueprint := goke.NewBlueprint1[Position3](ecs)
+	_ = goke.RegisterComponent[Pos](ecs)
+	blueprint := goke.NewBlueprint1[Pos](ecs)
 	count := 100000
-	for i := 0; i < count; i++ {
+	for i := range count {
 		item := blueprint.Create()
 		_, pos := item.Entity, item.Comp1
-		*pos = Position3{X: float64(i)}
+		*pos = Pos{X: float32(i)}
 	}
 
-	view := goke.NewView1[Position3](ecs)
+	view := goke.NewView1[Pos](ecs)
 
-	b.ResetTimer()
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		for item := range view.All() {
 			pos := item.Comp1
 			pos.X += 0.1
@@ -344,21 +171,21 @@ func BenchmarkEngine_RemoveEntity_Clean(b *testing.B) {
 		goke.WithInitialEntityCap(count),
 		goke.WithFreeIndicesCap(count),
 	)
-	_ = goke.RegisterComponent[Position3](ecs)
+	_ = goke.RegisterComponent[Pos](ecs)
 
 	// --- SETUP PHASE ---
 	// Pre-create entities outside the timed loop to isolate the cost of removal
-	blueprint := goke.NewBlueprint1[Position3](ecs)
+	blueprint := goke.NewBlueprint1[Pos](ecs)
 	entities := make([]goke.Entity, count)
-	for j := 0; j < count; j++ {
+	for j := range count {
 		entities[j] = blueprint.Create().Entity
 	}
 
-	b.ResetTimer() // Exclude setup time from the results
+	// Exclude setup time from the results
 	b.ReportAllocs()
 
 	// --- EXECUTION PHASE ---
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		idx := i % count
 
 		// If b.N > count, we need to re-create the entity to ensure
@@ -366,7 +193,7 @@ func BenchmarkEngine_RemoveEntity_Clean(b *testing.B) {
 		// an early-exit check for a non-existent entity.
 		if i >= count && i%count == 0 {
 			b.StopTimer()
-			for j := 0; j < count; j++ {
+			for j := range count {
 				entities[j] = blueprint.Create().Entity
 			}
 			b.StartTimer()
@@ -378,14 +205,13 @@ func BenchmarkEngine_RemoveEntity_Clean(b *testing.B) {
 
 func BenchmarkEngine_AddRemove_Stability(b *testing.B) {
 	ecs := goke.New(goke.WithInitialEntityCap(1024))
-	_ = goke.RegisterComponent[Position3](ecs)
-	blueprint := goke.NewBlueprint1[Position3](ecs)
+	_ = goke.RegisterComponent[Pos](ecs)
+	blueprint := goke.NewBlueprint1[Pos](ecs)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		item := blueprint.Create()
 		e, pos := item.Entity, item.Comp1
-		*pos = Position3{X: 1}
+		*pos = Pos{X: 1}
 
 		// Usuwamy co drugą, żeby wymusić swapowanie w archetypie
 		if i%2 == 0 {

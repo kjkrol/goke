@@ -47,14 +47,14 @@ func NewView{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $n }},
     }
 
     // 1. Resolve Component Infos (Type -> ID)
-    {{ range $i := (seq 1 $n) }}
+    {{- range $i := (seq 1 $n) }}
     info{{ $i }} := componentsRegistry.GetOrRegister(reflect.TypeFor[T{{ $i }}]())
-    {{end}}
+    {{- end }}
 
     // 2. Add to Blueprint (Build Mask)
-    {{ range $i := (seq 1 $n) }}
+    {{- range $i := (seq 1 $n) }}
     mustAdd(info{{ $i }})
-    {{end}}
+    {{- end }}
 
     // 3. Apply dynamic options (Include/Exclude)
     for _, opt := range opts {
@@ -110,17 +110,17 @@ func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{
 		},
 	) bool) {
 		// 1. Pre-calculate Strides (Invariant)
-		{{ range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
+		{{- range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
 		stride{{ $idx }} := unsafe.Sizeof(*new(T{{ $i }}))
-		{{ end }}
+		{{- end }}
 
 		// Loop over matched archetypes
 		for _, ma := range v.Baked {
 			// 2. Load Offsets from Cache
 			offsetEntity := ma.EntityPageOffset
-			{{ range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
+			{{- range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
 			offset{{ $idx }} := ma.FieldsOffsets[{{ $idx }}]
-			{{ end }}
+			{{- end }}
 
 			// 3. Loop over Physical Memory Pages
 			for _, page := range ma.Arch.Memory.Pages {
@@ -132,30 +132,26 @@ func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{
 				// 4. Resolve Base Pointers
 				base := page.Ptr
 				ptrEntity := unsafe.Add(base, offsetEntity)
-				{{ range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
+				{{- range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
 				ptr{{ $idx }} := unsafe.Add(base, offset{{ $idx }})
-				{{ end }}
+				{{- end }}
 
 				// 5. Hot Loop
 				for count > 0 {
 					// Max 3 components in Head to stay in CPU Registers
 					head := struct {
-						Entity core.Entity
-						{{ range $i := (seq 1 $n) }}{{ if le $i 3 }}Comp{{ $i }} *T{{ $i }}
-						{{ end }}{{ end }}
+						Entity core.Entity{{ range $i := (seq 1 $n) }}{{ if le $i 3 }}
+						Comp{{ $i }} *T{{ $i }}{{ end }}{{ end }}
 					}{
-						Entity: *(*core.Entity)(ptrEntity),
-						{{ range $i := (seq 1 $n) }}{{ if le $i 3 }}{{ $idx := sub $i 1 }}Comp{{ $i }}: (*T{{ $i }})(ptr{{ $idx }}),
-						{{ end }}{{ end }}
+						Entity: *(*core.Entity)(ptrEntity),{{ range $i := (seq 1 $n) }}{{ if le $i 3 }}{{ $idx := sub $i 1 }}
+						Comp{{ $i }}: (*T{{ $i }})(ptr{{ $idx }}),{{ end }}{{ end }}
 					}
 
 					// Remaining components spill over to Tail
-					tail := struct {
-						{{ range $i := (seq 1 $n) }}{{ if gt $i 3 }}Comp{{ $i }} *T{{ $i }}
-						{{ end }}{{ end }}
-					}{
-						{{ range $i := (seq 1 $n) }}{{ if gt $i 3 }}{{ $idx := sub $i 1 }}Comp{{ $i }}: (*T{{ $i }})(ptr{{ $idx }}),
-						{{ end }}{{ end }}
+					tail := struct { {{ range $i := (seq 1 $n) }}{{ if gt $i 3 }}
+						Comp{{ $i }} *T{{ $i }}{{ end }}{{ end }}
+					}{ {{ range $i := (seq 1 $n) }}{{ if gt $i 3 }}{{ $idx := sub $i 1 }}
+					    Comp{{ $i }}: (*T{{ $i }})(ptr{{ $idx }}),{{ end }}{{ end }}
 					}
 
 					if !yield(head, tail) {
@@ -164,9 +160,9 @@ func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{
 
 					// 6. Pointer Arithmetic
 					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
-					{{ range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
+					{{- range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
 					ptr{{ $idx }} = unsafe.Add(ptr{{ $idx }}, stride{{ $idx }})
-					{{ end }}
+					{{- end }}
 
 					count--
 				}
@@ -175,22 +171,10 @@ func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{
 	}
 }
 
-// Chunk{{ $n }} holds flat memory slices mapped directly to a memory page.
-type Chunk{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $n }}, {{ end }}{{ end }}] struct {
-	Entities []core.Entity
-	{{ range $i := (seq 1 $n) }}C{{ $i }} []T{{ $i }}
-	{{ end }}
-}
-
-func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) Each(fn func(entities []core.Entity{{ range $i := (seq 1 $n) }}, c{{ $i }} []T{{ $i }}{{ end }})) {
+func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) Each(fn func([]core.Entity{{ range $i := (seq 1 $n) }}, []T{{ $i }}{{ end }})) {
 	for _, ma := range v.Baked {
-		// 1. Load Offsets from Cache (L1 Cache Friendly)
-		offsetEntity := ma.EntityPageOffset
-		{{ range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
-		offset{{ $idx }} := ma.FieldsOffsets[{{ $idx }}]
-		{{ end }}
 
-		// 2. Loop over Physical Memory Pages
+		// Loop over Physical Memory Pages
 		for _, page := range ma.Arch.Memory.Pages {
 			count := page.Len
 			if count == 0 {
@@ -201,10 +185,10 @@ func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{
 			base := page.Ptr
 
 			// 4. Map raw memory pages directly to Go slices (Zero Heap Allocation)
-			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, offsetEntity)), count)
-			{{ range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
-			c{{ $i }} := unsafe.Slice((*T{{ $i }})(unsafe.Add(base, offset{{ $idx }})), count)
-			{{ end }}
+			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, ma.EntityPageOffset)), count)
+			{{- range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
+			c{{ $i }} := unsafe.Slice((*T{{ $i }})(unsafe.Add(base, ma.FieldsOffsets[{{ $idx }}])), count)
+			{{- end }}
 
 			// 5. Bulk Callback Execution (Once per page)
 			fn(entities{{ range $i := (seq 1 $n) }}, c{{ $i }}{{ end }})
@@ -228,10 +212,8 @@ func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{
 //
 //	selected := []Entity{e1, e5, e10}
 //	for item := range view{{ $n }}.Filter(selected) {
-//		entity := item.Entity
-//		{{ range $i := (seq 1 $n) }}
-//		comp{{ $i }} := item.Comp{{ $i }}
-//		{{ end }}
+//		entity := item.Entity{{ range $i := (seq 1 $n) }}
+//		comp{{ $i }} := item.Comp{{ $i }}{{ end }}
 //	}
 func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) Filter(selected []Entity) iter.Seq[Item{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]] {
 	return func(yield func(Item{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) bool) {
@@ -239,9 +221,9 @@ func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{
 		var currentArch *core.Archetype
 
 		// Column descriptor cache
-		{{ range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
+		{{- range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
 		var col{{ $idx }} *core.Column
-		{{ end }}
+		{{- end }}
 
 		registry := v.Reg.ArchetypeRegistry
 
@@ -262,9 +244,9 @@ func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{
 				}
 
 				// Cache all column descriptors for this archetype
-				{{ range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
+				{{- range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
 				col{{ $idx }} = currentArch.GetColumn(v.Layout[{{ $idx }}].ID)
-				{{ end }}
+				{{- end }}
 
 				lastArchID = link.ArchId
 			}
@@ -280,9 +262,9 @@ func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{
 			// 3. Construct Result
 			if !yield(Item{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]{
 				Entity: entity,
-				{{ range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
+				{{- range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
 				Comp{{ $i }}: (*T{{ $i }})(col{{ $idx }}.GetPointer(chunk, link.PageRow)),
-				{{ end }}
+				{{- end }}
 			}) {
 				return
 			}

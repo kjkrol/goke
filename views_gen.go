@@ -45,14 +45,10 @@ func NewView1[T1 any](
     }
 
     // 1. Resolve Component Infos (Type -> ID)
-    
     info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
-    
 
     // 2. Add to Blueprint (Build Mask)
-    
     mustAdd(info1)
-    
 
     // 3. Apply dynamic options (Include/Exclude)
     for _, opt := range opts {
@@ -105,17 +101,13 @@ func (v *View1[T1]) All() iter.Seq2[
 		},
 	) bool) {
 		// 1. Pre-calculate Strides (Invariant)
-		
 		stride0 := unsafe.Sizeof(*new(T1))
-		
 
 		// Loop over matched archetypes
 		for _, ma := range v.Baked {
 			// 2. Load Offsets from Cache
 			offsetEntity := ma.EntityPageOffset
-			
 			offset0 := ma.FieldsOffsets[0]
-			
 
 			// 3. Loop over Physical Memory Pages
 			for _, page := range ma.Arch.Memory.Pages {
@@ -127,9 +119,7 @@ func (v *View1[T1]) All() iter.Seq2[
 				// 4. Resolve Base Pointers
 				base := page.Ptr
 				ptrEntity := unsafe.Add(base, offsetEntity)
-				
 				ptr0 := unsafe.Add(base, offset0)
-				
 
 				// 5. Hot Loop
 				for count > 0 {
@@ -137,18 +127,14 @@ func (v *View1[T1]) All() iter.Seq2[
 					head := struct {
 						Entity core.Entity
 						Comp1 *T1
-						
 					}{
 						Entity: *(*core.Entity)(ptrEntity),
 						Comp1: (*T1)(ptr0),
-						
 					}
 
 					// Remaining components spill over to Tail
-					tail := struct {
-						
-					}{
-						
+					tail := struct { 
+					}{ 
 					}
 
 					if !yield(head, tail) {
@@ -157,9 +143,7 @@ func (v *View1[T1]) All() iter.Seq2[
 
 					// 6. Pointer Arithmetic
 					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
-					
 					ptr0 = unsafe.Add(ptr0, stride0)
-					
 
 					count--
 				}
@@ -168,22 +152,10 @@ func (v *View1[T1]) All() iter.Seq2[
 	}
 }
 
-// Chunk1 holds flat memory slices mapped directly to a memory page.
-type Chunk1[T1 any] struct {
-	Entities []core.Entity
-	C1 []T1
-	
-}
-
-func (v *View1[T1]) Each(fn func(entities []core.Entity, c1 []T1)) {
+func (v *View1[T1]) Each(fn func([]core.Entity, []T1)) {
 	for _, ma := range v.Baked {
-		// 1. Load Offsets from Cache (L1 Cache Friendly)
-		offsetEntity := ma.EntityPageOffset
-		
-		offset0 := ma.FieldsOffsets[0]
-		
 
-		// 2. Loop over Physical Memory Pages
+		// Loop over Physical Memory Pages
 		for _, page := range ma.Arch.Memory.Pages {
 			count := page.Len
 			if count == 0 {
@@ -194,10 +166,8 @@ func (v *View1[T1]) Each(fn func(entities []core.Entity, c1 []T1)) {
 			base := page.Ptr
 
 			// 4. Map raw memory pages directly to Go slices (Zero Heap Allocation)
-			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, offsetEntity)), count)
-			
-			c1 := unsafe.Slice((*T1)(unsafe.Add(base, offset0)), count)
-			
+			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, ma.EntityPageOffset)), count)
+			c1 := unsafe.Slice((*T1)(unsafe.Add(base, ma.FieldsOffsets[0])), count)
 
 			// 5. Bulk Callback Execution (Once per page)
 			fn(entities, c1)
@@ -222,9 +192,7 @@ func (v *View1[T1]) Each(fn func(entities []core.Entity, c1 []T1)) {
 //	selected := []Entity{e1, e5, e10}
 //	for item := range view1.Filter(selected) {
 //		entity := item.Entity
-//		
 //		comp1 := item.Comp1
-//		
 //	}
 func (v *View1[T1]) Filter(selected []Entity) iter.Seq[Item1[T1]] {
 	return func(yield func(Item1[T1]) bool) {
@@ -232,9 +200,7 @@ func (v *View1[T1]) Filter(selected []Entity) iter.Seq[Item1[T1]] {
 		var currentArch *core.Archetype
 
 		// Column descriptor cache
-		
 		var col0 *core.Column
-		
 
 		registry := v.Reg.ArchetypeRegistry
 
@@ -255,9 +221,7 @@ func (v *View1[T1]) Filter(selected []Entity) iter.Seq[Item1[T1]] {
 				}
 
 				// Cache all column descriptors for this archetype
-				
 				col0 = currentArch.GetColumn(v.Layout[0].ID)
-				
 
 				lastArchID = link.ArchId
 			}
@@ -273,9 +237,7 @@ func (v *View1[T1]) Filter(selected []Entity) iter.Seq[Item1[T1]] {
 			// 3. Construct Result
 			if !yield(Item1[T1]{
 				Entity: entity,
-				
 				Comp1: (*T1)(col0.GetPointer(chunk, link.PageRow)),
-				
 			}) {
 				return
 			}
@@ -318,18 +280,12 @@ func NewView2[T1 any, T2 any](
     }
 
     // 1. Resolve Component Infos (Type -> ID)
-    
     info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
-    
     info2 := componentsRegistry.GetOrRegister(reflect.TypeFor[T2]())
-    
 
     // 2. Add to Blueprint (Build Mask)
-    
     mustAdd(info1)
-    
     mustAdd(info2)
-    
 
     // 3. Apply dynamic options (Include/Exclude)
     for _, opt := range opts {
@@ -385,21 +341,15 @@ func (v *View2[T1, T2]) All() iter.Seq2[
 		},
 	) bool) {
 		// 1. Pre-calculate Strides (Invariant)
-		
 		stride0 := unsafe.Sizeof(*new(T1))
-		
 		stride1 := unsafe.Sizeof(*new(T2))
-		
 
 		// Loop over matched archetypes
 		for _, ma := range v.Baked {
 			// 2. Load Offsets from Cache
 			offsetEntity := ma.EntityPageOffset
-			
 			offset0 := ma.FieldsOffsets[0]
-			
 			offset1 := ma.FieldsOffsets[1]
-			
 
 			// 3. Loop over Physical Memory Pages
 			for _, page := range ma.Arch.Memory.Pages {
@@ -411,11 +361,8 @@ func (v *View2[T1, T2]) All() iter.Seq2[
 				// 4. Resolve Base Pointers
 				base := page.Ptr
 				ptrEntity := unsafe.Add(base, offsetEntity)
-				
 				ptr0 := unsafe.Add(base, offset0)
-				
 				ptr1 := unsafe.Add(base, offset1)
-				
 
 				// 5. Hot Loop
 				for count > 0 {
@@ -424,19 +371,15 @@ func (v *View2[T1, T2]) All() iter.Seq2[
 						Entity core.Entity
 						Comp1 *T1
 						Comp2 *T2
-						
 					}{
 						Entity: *(*core.Entity)(ptrEntity),
 						Comp1: (*T1)(ptr0),
 						Comp2: (*T2)(ptr1),
-						
 					}
 
 					// Remaining components spill over to Tail
-					tail := struct {
-						
-					}{
-						
+					tail := struct { 
+					}{ 
 					}
 
 					if !yield(head, tail) {
@@ -445,11 +388,8 @@ func (v *View2[T1, T2]) All() iter.Seq2[
 
 					// 6. Pointer Arithmetic
 					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
-					
 					ptr0 = unsafe.Add(ptr0, stride0)
-					
 					ptr1 = unsafe.Add(ptr1, stride1)
-					
 
 					count--
 				}
@@ -458,25 +398,10 @@ func (v *View2[T1, T2]) All() iter.Seq2[
 	}
 }
 
-// Chunk2 holds flat memory slices mapped directly to a memory page.
-type Chunk2[T1 any, T2 any] struct {
-	Entities []core.Entity
-	C1 []T1
-	C2 []T2
-	
-}
-
-func (v *View2[T1, T2]) Each(fn func(entities []core.Entity, c1 []T1, c2 []T2)) {
+func (v *View2[T1, T2]) Each(fn func([]core.Entity, []T1, []T2)) {
 	for _, ma := range v.Baked {
-		// 1. Load Offsets from Cache (L1 Cache Friendly)
-		offsetEntity := ma.EntityPageOffset
-		
-		offset0 := ma.FieldsOffsets[0]
-		
-		offset1 := ma.FieldsOffsets[1]
-		
 
-		// 2. Loop over Physical Memory Pages
+		// Loop over Physical Memory Pages
 		for _, page := range ma.Arch.Memory.Pages {
 			count := page.Len
 			if count == 0 {
@@ -487,12 +412,9 @@ func (v *View2[T1, T2]) Each(fn func(entities []core.Entity, c1 []T1, c2 []T2)) 
 			base := page.Ptr
 
 			// 4. Map raw memory pages directly to Go slices (Zero Heap Allocation)
-			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, offsetEntity)), count)
-			
-			c1 := unsafe.Slice((*T1)(unsafe.Add(base, offset0)), count)
-			
-			c2 := unsafe.Slice((*T2)(unsafe.Add(base, offset1)), count)
-			
+			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, ma.EntityPageOffset)), count)
+			c1 := unsafe.Slice((*T1)(unsafe.Add(base, ma.FieldsOffsets[0])), count)
+			c2 := unsafe.Slice((*T2)(unsafe.Add(base, ma.FieldsOffsets[1])), count)
 
 			// 5. Bulk Callback Execution (Once per page)
 			fn(entities, c1, c2)
@@ -517,11 +439,8 @@ func (v *View2[T1, T2]) Each(fn func(entities []core.Entity, c1 []T1, c2 []T2)) 
 //	selected := []Entity{e1, e5, e10}
 //	for item := range view2.Filter(selected) {
 //		entity := item.Entity
-//		
 //		comp1 := item.Comp1
-//		
 //		comp2 := item.Comp2
-//		
 //	}
 func (v *View2[T1, T2]) Filter(selected []Entity) iter.Seq[Item2[T1, T2]] {
 	return func(yield func(Item2[T1, T2]) bool) {
@@ -529,11 +448,8 @@ func (v *View2[T1, T2]) Filter(selected []Entity) iter.Seq[Item2[T1, T2]] {
 		var currentArch *core.Archetype
 
 		// Column descriptor cache
-		
 		var col0 *core.Column
-		
 		var col1 *core.Column
-		
 
 		registry := v.Reg.ArchetypeRegistry
 
@@ -554,11 +470,8 @@ func (v *View2[T1, T2]) Filter(selected []Entity) iter.Seq[Item2[T1, T2]] {
 				}
 
 				// Cache all column descriptors for this archetype
-				
 				col0 = currentArch.GetColumn(v.Layout[0].ID)
-				
 				col1 = currentArch.GetColumn(v.Layout[1].ID)
-				
 
 				lastArchID = link.ArchId
 			}
@@ -574,11 +487,8 @@ func (v *View2[T1, T2]) Filter(selected []Entity) iter.Seq[Item2[T1, T2]] {
 			// 3. Construct Result
 			if !yield(Item2[T1, T2]{
 				Entity: entity,
-				
 				Comp1: (*T1)(col0.GetPointer(chunk, link.PageRow)),
-				
 				Comp2: (*T2)(col1.GetPointer(chunk, link.PageRow)),
-				
 			}) {
 				return
 			}
@@ -621,22 +531,14 @@ func NewView3[T1 any, T2 any, T3 any](
     }
 
     // 1. Resolve Component Infos (Type -> ID)
-    
     info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
-    
     info2 := componentsRegistry.GetOrRegister(reflect.TypeFor[T2]())
-    
     info3 := componentsRegistry.GetOrRegister(reflect.TypeFor[T3]())
-    
 
     // 2. Add to Blueprint (Build Mask)
-    
     mustAdd(info1)
-    
     mustAdd(info2)
-    
     mustAdd(info3)
-    
 
     // 3. Apply dynamic options (Include/Exclude)
     for _, opt := range opts {
@@ -695,25 +597,17 @@ func (v *View3[T1, T2, T3]) All() iter.Seq2[
 		},
 	) bool) {
 		// 1. Pre-calculate Strides (Invariant)
-		
 		stride0 := unsafe.Sizeof(*new(T1))
-		
 		stride1 := unsafe.Sizeof(*new(T2))
-		
 		stride2 := unsafe.Sizeof(*new(T3))
-		
 
 		// Loop over matched archetypes
 		for _, ma := range v.Baked {
 			// 2. Load Offsets from Cache
 			offsetEntity := ma.EntityPageOffset
-			
 			offset0 := ma.FieldsOffsets[0]
-			
 			offset1 := ma.FieldsOffsets[1]
-			
 			offset2 := ma.FieldsOffsets[2]
-			
 
 			// 3. Loop over Physical Memory Pages
 			for _, page := range ma.Arch.Memory.Pages {
@@ -725,13 +619,9 @@ func (v *View3[T1, T2, T3]) All() iter.Seq2[
 				// 4. Resolve Base Pointers
 				base := page.Ptr
 				ptrEntity := unsafe.Add(base, offsetEntity)
-				
 				ptr0 := unsafe.Add(base, offset0)
-				
 				ptr1 := unsafe.Add(base, offset1)
-				
 				ptr2 := unsafe.Add(base, offset2)
-				
 
 				// 5. Hot Loop
 				for count > 0 {
@@ -741,20 +631,16 @@ func (v *View3[T1, T2, T3]) All() iter.Seq2[
 						Comp1 *T1
 						Comp2 *T2
 						Comp3 *T3
-						
 					}{
 						Entity: *(*core.Entity)(ptrEntity),
 						Comp1: (*T1)(ptr0),
 						Comp2: (*T2)(ptr1),
 						Comp3: (*T3)(ptr2),
-						
 					}
 
 					// Remaining components spill over to Tail
-					tail := struct {
-						
-					}{
-						
+					tail := struct { 
+					}{ 
 					}
 
 					if !yield(head, tail) {
@@ -763,13 +649,9 @@ func (v *View3[T1, T2, T3]) All() iter.Seq2[
 
 					// 6. Pointer Arithmetic
 					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
-					
 					ptr0 = unsafe.Add(ptr0, stride0)
-					
 					ptr1 = unsafe.Add(ptr1, stride1)
-					
 					ptr2 = unsafe.Add(ptr2, stride2)
-					
 
 					count--
 				}
@@ -778,28 +660,10 @@ func (v *View3[T1, T2, T3]) All() iter.Seq2[
 	}
 }
 
-// Chunk3 holds flat memory slices mapped directly to a memory page.
-type Chunk3[T1 any, T2 any, T3 any] struct {
-	Entities []core.Entity
-	C1 []T1
-	C2 []T2
-	C3 []T3
-	
-}
-
-func (v *View3[T1, T2, T3]) Each(fn func(entities []core.Entity, c1 []T1, c2 []T2, c3 []T3)) {
+func (v *View3[T1, T2, T3]) Each(fn func([]core.Entity, []T1, []T2, []T3)) {
 	for _, ma := range v.Baked {
-		// 1. Load Offsets from Cache (L1 Cache Friendly)
-		offsetEntity := ma.EntityPageOffset
-		
-		offset0 := ma.FieldsOffsets[0]
-		
-		offset1 := ma.FieldsOffsets[1]
-		
-		offset2 := ma.FieldsOffsets[2]
-		
 
-		// 2. Loop over Physical Memory Pages
+		// Loop over Physical Memory Pages
 		for _, page := range ma.Arch.Memory.Pages {
 			count := page.Len
 			if count == 0 {
@@ -810,14 +674,10 @@ func (v *View3[T1, T2, T3]) Each(fn func(entities []core.Entity, c1 []T1, c2 []T
 			base := page.Ptr
 
 			// 4. Map raw memory pages directly to Go slices (Zero Heap Allocation)
-			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, offsetEntity)), count)
-			
-			c1 := unsafe.Slice((*T1)(unsafe.Add(base, offset0)), count)
-			
-			c2 := unsafe.Slice((*T2)(unsafe.Add(base, offset1)), count)
-			
-			c3 := unsafe.Slice((*T3)(unsafe.Add(base, offset2)), count)
-			
+			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, ma.EntityPageOffset)), count)
+			c1 := unsafe.Slice((*T1)(unsafe.Add(base, ma.FieldsOffsets[0])), count)
+			c2 := unsafe.Slice((*T2)(unsafe.Add(base, ma.FieldsOffsets[1])), count)
+			c3 := unsafe.Slice((*T3)(unsafe.Add(base, ma.FieldsOffsets[2])), count)
 
 			// 5. Bulk Callback Execution (Once per page)
 			fn(entities, c1, c2, c3)
@@ -842,13 +702,9 @@ func (v *View3[T1, T2, T3]) Each(fn func(entities []core.Entity, c1 []T1, c2 []T
 //	selected := []Entity{e1, e5, e10}
 //	for item := range view3.Filter(selected) {
 //		entity := item.Entity
-//		
 //		comp1 := item.Comp1
-//		
 //		comp2 := item.Comp2
-//		
 //		comp3 := item.Comp3
-//		
 //	}
 func (v *View3[T1, T2, T3]) Filter(selected []Entity) iter.Seq[Item3[T1, T2, T3]] {
 	return func(yield func(Item3[T1, T2, T3]) bool) {
@@ -856,13 +712,9 @@ func (v *View3[T1, T2, T3]) Filter(selected []Entity) iter.Seq[Item3[T1, T2, T3]
 		var currentArch *core.Archetype
 
 		// Column descriptor cache
-		
 		var col0 *core.Column
-		
 		var col1 *core.Column
-		
 		var col2 *core.Column
-		
 
 		registry := v.Reg.ArchetypeRegistry
 
@@ -883,13 +735,9 @@ func (v *View3[T1, T2, T3]) Filter(selected []Entity) iter.Seq[Item3[T1, T2, T3]
 				}
 
 				// Cache all column descriptors for this archetype
-				
 				col0 = currentArch.GetColumn(v.Layout[0].ID)
-				
 				col1 = currentArch.GetColumn(v.Layout[1].ID)
-				
 				col2 = currentArch.GetColumn(v.Layout[2].ID)
-				
 
 				lastArchID = link.ArchId
 			}
@@ -905,13 +753,9 @@ func (v *View3[T1, T2, T3]) Filter(selected []Entity) iter.Seq[Item3[T1, T2, T3]
 			// 3. Construct Result
 			if !yield(Item3[T1, T2, T3]{
 				Entity: entity,
-				
 				Comp1: (*T1)(col0.GetPointer(chunk, link.PageRow)),
-				
 				Comp2: (*T2)(col1.GetPointer(chunk, link.PageRow)),
-				
 				Comp3: (*T3)(col2.GetPointer(chunk, link.PageRow)),
-				
 			}) {
 				return
 			}
@@ -954,26 +798,16 @@ func NewView4[T1 any, T2 any, T3 any, T4 any](
     }
 
     // 1. Resolve Component Infos (Type -> ID)
-    
     info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
-    
     info2 := componentsRegistry.GetOrRegister(reflect.TypeFor[T2]())
-    
     info3 := componentsRegistry.GetOrRegister(reflect.TypeFor[T3]())
-    
     info4 := componentsRegistry.GetOrRegister(reflect.TypeFor[T4]())
-    
 
     // 2. Add to Blueprint (Build Mask)
-    
     mustAdd(info1)
-    
     mustAdd(info2)
-    
     mustAdd(info3)
-    
     mustAdd(info4)
-    
 
     // 3. Apply dynamic options (Include/Exclude)
     for _, opt := range opts {
@@ -1035,29 +869,19 @@ func (v *View4[T1, T2, T3, T4]) All() iter.Seq2[
 		},
 	) bool) {
 		// 1. Pre-calculate Strides (Invariant)
-		
 		stride0 := unsafe.Sizeof(*new(T1))
-		
 		stride1 := unsafe.Sizeof(*new(T2))
-		
 		stride2 := unsafe.Sizeof(*new(T3))
-		
 		stride3 := unsafe.Sizeof(*new(T4))
-		
 
 		// Loop over matched archetypes
 		for _, ma := range v.Baked {
 			// 2. Load Offsets from Cache
 			offsetEntity := ma.EntityPageOffset
-			
 			offset0 := ma.FieldsOffsets[0]
-			
 			offset1 := ma.FieldsOffsets[1]
-			
 			offset2 := ma.FieldsOffsets[2]
-			
 			offset3 := ma.FieldsOffsets[3]
-			
 
 			// 3. Loop over Physical Memory Pages
 			for _, page := range ma.Arch.Memory.Pages {
@@ -1069,15 +893,10 @@ func (v *View4[T1, T2, T3, T4]) All() iter.Seq2[
 				// 4. Resolve Base Pointers
 				base := page.Ptr
 				ptrEntity := unsafe.Add(base, offsetEntity)
-				
 				ptr0 := unsafe.Add(base, offset0)
-				
 				ptr1 := unsafe.Add(base, offset1)
-				
 				ptr2 := unsafe.Add(base, offset2)
-				
 				ptr3 := unsafe.Add(base, offset3)
-				
 
 				// 5. Hot Loop
 				for count > 0 {
@@ -1087,22 +906,18 @@ func (v *View4[T1, T2, T3, T4]) All() iter.Seq2[
 						Comp1 *T1
 						Comp2 *T2
 						Comp3 *T3
-						
 					}{
 						Entity: *(*core.Entity)(ptrEntity),
 						Comp1: (*T1)(ptr0),
 						Comp2: (*T2)(ptr1),
 						Comp3: (*T3)(ptr2),
-						
 					}
 
 					// Remaining components spill over to Tail
-					tail := struct {
+					tail := struct { 
 						Comp4 *T4
-						
-					}{
-						Comp4: (*T4)(ptr3),
-						
+					}{ 
+					    Comp4: (*T4)(ptr3),
 					}
 
 					if !yield(head, tail) {
@@ -1111,15 +926,10 @@ func (v *View4[T1, T2, T3, T4]) All() iter.Seq2[
 
 					// 6. Pointer Arithmetic
 					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
-					
 					ptr0 = unsafe.Add(ptr0, stride0)
-					
 					ptr1 = unsafe.Add(ptr1, stride1)
-					
 					ptr2 = unsafe.Add(ptr2, stride2)
-					
 					ptr3 = unsafe.Add(ptr3, stride3)
-					
 
 					count--
 				}
@@ -1128,31 +938,10 @@ func (v *View4[T1, T2, T3, T4]) All() iter.Seq2[
 	}
 }
 
-// Chunk4 holds flat memory slices mapped directly to a memory page.
-type Chunk4[T1 any, T2 any, T3 any, T4 any] struct {
-	Entities []core.Entity
-	C1 []T1
-	C2 []T2
-	C3 []T3
-	C4 []T4
-	
-}
-
-func (v *View4[T1, T2, T3, T4]) Each(fn func(entities []core.Entity, c1 []T1, c2 []T2, c3 []T3, c4 []T4)) {
+func (v *View4[T1, T2, T3, T4]) Each(fn func([]core.Entity, []T1, []T2, []T3, []T4)) {
 	for _, ma := range v.Baked {
-		// 1. Load Offsets from Cache (L1 Cache Friendly)
-		offsetEntity := ma.EntityPageOffset
-		
-		offset0 := ma.FieldsOffsets[0]
-		
-		offset1 := ma.FieldsOffsets[1]
-		
-		offset2 := ma.FieldsOffsets[2]
-		
-		offset3 := ma.FieldsOffsets[3]
-		
 
-		// 2. Loop over Physical Memory Pages
+		// Loop over Physical Memory Pages
 		for _, page := range ma.Arch.Memory.Pages {
 			count := page.Len
 			if count == 0 {
@@ -1163,16 +952,11 @@ func (v *View4[T1, T2, T3, T4]) Each(fn func(entities []core.Entity, c1 []T1, c2
 			base := page.Ptr
 
 			// 4. Map raw memory pages directly to Go slices (Zero Heap Allocation)
-			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, offsetEntity)), count)
-			
-			c1 := unsafe.Slice((*T1)(unsafe.Add(base, offset0)), count)
-			
-			c2 := unsafe.Slice((*T2)(unsafe.Add(base, offset1)), count)
-			
-			c3 := unsafe.Slice((*T3)(unsafe.Add(base, offset2)), count)
-			
-			c4 := unsafe.Slice((*T4)(unsafe.Add(base, offset3)), count)
-			
+			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, ma.EntityPageOffset)), count)
+			c1 := unsafe.Slice((*T1)(unsafe.Add(base, ma.FieldsOffsets[0])), count)
+			c2 := unsafe.Slice((*T2)(unsafe.Add(base, ma.FieldsOffsets[1])), count)
+			c3 := unsafe.Slice((*T3)(unsafe.Add(base, ma.FieldsOffsets[2])), count)
+			c4 := unsafe.Slice((*T4)(unsafe.Add(base, ma.FieldsOffsets[3])), count)
 
 			// 5. Bulk Callback Execution (Once per page)
 			fn(entities, c1, c2, c3, c4)
@@ -1197,15 +981,10 @@ func (v *View4[T1, T2, T3, T4]) Each(fn func(entities []core.Entity, c1 []T1, c2
 //	selected := []Entity{e1, e5, e10}
 //	for item := range view4.Filter(selected) {
 //		entity := item.Entity
-//		
 //		comp1 := item.Comp1
-//		
 //		comp2 := item.Comp2
-//		
 //		comp3 := item.Comp3
-//		
 //		comp4 := item.Comp4
-//		
 //	}
 func (v *View4[T1, T2, T3, T4]) Filter(selected []Entity) iter.Seq[Item4[T1, T2, T3, T4]] {
 	return func(yield func(Item4[T1, T2, T3, T4]) bool) {
@@ -1213,15 +992,10 @@ func (v *View4[T1, T2, T3, T4]) Filter(selected []Entity) iter.Seq[Item4[T1, T2,
 		var currentArch *core.Archetype
 
 		// Column descriptor cache
-		
 		var col0 *core.Column
-		
 		var col1 *core.Column
-		
 		var col2 *core.Column
-		
 		var col3 *core.Column
-		
 
 		registry := v.Reg.ArchetypeRegistry
 
@@ -1242,15 +1016,10 @@ func (v *View4[T1, T2, T3, T4]) Filter(selected []Entity) iter.Seq[Item4[T1, T2,
 				}
 
 				// Cache all column descriptors for this archetype
-				
 				col0 = currentArch.GetColumn(v.Layout[0].ID)
-				
 				col1 = currentArch.GetColumn(v.Layout[1].ID)
-				
 				col2 = currentArch.GetColumn(v.Layout[2].ID)
-				
 				col3 = currentArch.GetColumn(v.Layout[3].ID)
-				
 
 				lastArchID = link.ArchId
 			}
@@ -1266,15 +1035,10 @@ func (v *View4[T1, T2, T3, T4]) Filter(selected []Entity) iter.Seq[Item4[T1, T2,
 			// 3. Construct Result
 			if !yield(Item4[T1, T2, T3, T4]{
 				Entity: entity,
-				
 				Comp1: (*T1)(col0.GetPointer(chunk, link.PageRow)),
-				
 				Comp2: (*T2)(col1.GetPointer(chunk, link.PageRow)),
-				
 				Comp3: (*T3)(col2.GetPointer(chunk, link.PageRow)),
-				
 				Comp4: (*T4)(col3.GetPointer(chunk, link.PageRow)),
-				
 			}) {
 				return
 			}
@@ -1317,30 +1081,18 @@ func NewView5[T1 any, T2 any, T3 any, T4 any, T5 any](
     }
 
     // 1. Resolve Component Infos (Type -> ID)
-    
     info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
-    
     info2 := componentsRegistry.GetOrRegister(reflect.TypeFor[T2]())
-    
     info3 := componentsRegistry.GetOrRegister(reflect.TypeFor[T3]())
-    
     info4 := componentsRegistry.GetOrRegister(reflect.TypeFor[T4]())
-    
     info5 := componentsRegistry.GetOrRegister(reflect.TypeFor[T5]())
-    
 
     // 2. Add to Blueprint (Build Mask)
-    
     mustAdd(info1)
-    
     mustAdd(info2)
-    
     mustAdd(info3)
-    
     mustAdd(info4)
-    
     mustAdd(info5)
-    
 
     // 3. Apply dynamic options (Include/Exclude)
     for _, opt := range opts {
@@ -1405,33 +1157,21 @@ func (v *View5[T1, T2, T3, T4, T5]) All() iter.Seq2[
 		},
 	) bool) {
 		// 1. Pre-calculate Strides (Invariant)
-		
 		stride0 := unsafe.Sizeof(*new(T1))
-		
 		stride1 := unsafe.Sizeof(*new(T2))
-		
 		stride2 := unsafe.Sizeof(*new(T3))
-		
 		stride3 := unsafe.Sizeof(*new(T4))
-		
 		stride4 := unsafe.Sizeof(*new(T5))
-		
 
 		// Loop over matched archetypes
 		for _, ma := range v.Baked {
 			// 2. Load Offsets from Cache
 			offsetEntity := ma.EntityPageOffset
-			
 			offset0 := ma.FieldsOffsets[0]
-			
 			offset1 := ma.FieldsOffsets[1]
-			
 			offset2 := ma.FieldsOffsets[2]
-			
 			offset3 := ma.FieldsOffsets[3]
-			
 			offset4 := ma.FieldsOffsets[4]
-			
 
 			// 3. Loop over Physical Memory Pages
 			for _, page := range ma.Arch.Memory.Pages {
@@ -1443,17 +1183,11 @@ func (v *View5[T1, T2, T3, T4, T5]) All() iter.Seq2[
 				// 4. Resolve Base Pointers
 				base := page.Ptr
 				ptrEntity := unsafe.Add(base, offsetEntity)
-				
 				ptr0 := unsafe.Add(base, offset0)
-				
 				ptr1 := unsafe.Add(base, offset1)
-				
 				ptr2 := unsafe.Add(base, offset2)
-				
 				ptr3 := unsafe.Add(base, offset3)
-				
 				ptr4 := unsafe.Add(base, offset4)
-				
 
 				// 5. Hot Loop
 				for count > 0 {
@@ -1463,24 +1197,20 @@ func (v *View5[T1, T2, T3, T4, T5]) All() iter.Seq2[
 						Comp1 *T1
 						Comp2 *T2
 						Comp3 *T3
-						
 					}{
 						Entity: *(*core.Entity)(ptrEntity),
 						Comp1: (*T1)(ptr0),
 						Comp2: (*T2)(ptr1),
 						Comp3: (*T3)(ptr2),
-						
 					}
 
 					// Remaining components spill over to Tail
-					tail := struct {
+					tail := struct { 
 						Comp4 *T4
 						Comp5 *T5
-						
-					}{
-						Comp4: (*T4)(ptr3),
-						Comp5: (*T5)(ptr4),
-						
+					}{ 
+					    Comp4: (*T4)(ptr3),
+					    Comp5: (*T5)(ptr4),
 					}
 
 					if !yield(head, tail) {
@@ -1489,17 +1219,11 @@ func (v *View5[T1, T2, T3, T4, T5]) All() iter.Seq2[
 
 					// 6. Pointer Arithmetic
 					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
-					
 					ptr0 = unsafe.Add(ptr0, stride0)
-					
 					ptr1 = unsafe.Add(ptr1, stride1)
-					
 					ptr2 = unsafe.Add(ptr2, stride2)
-					
 					ptr3 = unsafe.Add(ptr3, stride3)
-					
 					ptr4 = unsafe.Add(ptr4, stride4)
-					
 
 					count--
 				}
@@ -1508,34 +1232,10 @@ func (v *View5[T1, T2, T3, T4, T5]) All() iter.Seq2[
 	}
 }
 
-// Chunk5 holds flat memory slices mapped directly to a memory page.
-type Chunk5[T1 any, T2 any, T3 any, T4 any, T5 any] struct {
-	Entities []core.Entity
-	C1 []T1
-	C2 []T2
-	C3 []T3
-	C4 []T4
-	C5 []T5
-	
-}
-
-func (v *View5[T1, T2, T3, T4, T5]) Each(fn func(entities []core.Entity, c1 []T1, c2 []T2, c3 []T3, c4 []T4, c5 []T5)) {
+func (v *View5[T1, T2, T3, T4, T5]) Each(fn func([]core.Entity, []T1, []T2, []T3, []T4, []T5)) {
 	for _, ma := range v.Baked {
-		// 1. Load Offsets from Cache (L1 Cache Friendly)
-		offsetEntity := ma.EntityPageOffset
-		
-		offset0 := ma.FieldsOffsets[0]
-		
-		offset1 := ma.FieldsOffsets[1]
-		
-		offset2 := ma.FieldsOffsets[2]
-		
-		offset3 := ma.FieldsOffsets[3]
-		
-		offset4 := ma.FieldsOffsets[4]
-		
 
-		// 2. Loop over Physical Memory Pages
+		// Loop over Physical Memory Pages
 		for _, page := range ma.Arch.Memory.Pages {
 			count := page.Len
 			if count == 0 {
@@ -1546,18 +1246,12 @@ func (v *View5[T1, T2, T3, T4, T5]) Each(fn func(entities []core.Entity, c1 []T1
 			base := page.Ptr
 
 			// 4. Map raw memory pages directly to Go slices (Zero Heap Allocation)
-			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, offsetEntity)), count)
-			
-			c1 := unsafe.Slice((*T1)(unsafe.Add(base, offset0)), count)
-			
-			c2 := unsafe.Slice((*T2)(unsafe.Add(base, offset1)), count)
-			
-			c3 := unsafe.Slice((*T3)(unsafe.Add(base, offset2)), count)
-			
-			c4 := unsafe.Slice((*T4)(unsafe.Add(base, offset3)), count)
-			
-			c5 := unsafe.Slice((*T5)(unsafe.Add(base, offset4)), count)
-			
+			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, ma.EntityPageOffset)), count)
+			c1 := unsafe.Slice((*T1)(unsafe.Add(base, ma.FieldsOffsets[0])), count)
+			c2 := unsafe.Slice((*T2)(unsafe.Add(base, ma.FieldsOffsets[1])), count)
+			c3 := unsafe.Slice((*T3)(unsafe.Add(base, ma.FieldsOffsets[2])), count)
+			c4 := unsafe.Slice((*T4)(unsafe.Add(base, ma.FieldsOffsets[3])), count)
+			c5 := unsafe.Slice((*T5)(unsafe.Add(base, ma.FieldsOffsets[4])), count)
 
 			// 5. Bulk Callback Execution (Once per page)
 			fn(entities, c1, c2, c3, c4, c5)
@@ -1582,17 +1276,11 @@ func (v *View5[T1, T2, T3, T4, T5]) Each(fn func(entities []core.Entity, c1 []T1
 //	selected := []Entity{e1, e5, e10}
 //	for item := range view5.Filter(selected) {
 //		entity := item.Entity
-//		
 //		comp1 := item.Comp1
-//		
 //		comp2 := item.Comp2
-//		
 //		comp3 := item.Comp3
-//		
 //		comp4 := item.Comp4
-//		
 //		comp5 := item.Comp5
-//		
 //	}
 func (v *View5[T1, T2, T3, T4, T5]) Filter(selected []Entity) iter.Seq[Item5[T1, T2, T3, T4, T5]] {
 	return func(yield func(Item5[T1, T2, T3, T4, T5]) bool) {
@@ -1600,17 +1288,11 @@ func (v *View5[T1, T2, T3, T4, T5]) Filter(selected []Entity) iter.Seq[Item5[T1,
 		var currentArch *core.Archetype
 
 		// Column descriptor cache
-		
 		var col0 *core.Column
-		
 		var col1 *core.Column
-		
 		var col2 *core.Column
-		
 		var col3 *core.Column
-		
 		var col4 *core.Column
-		
 
 		registry := v.Reg.ArchetypeRegistry
 
@@ -1631,17 +1313,11 @@ func (v *View5[T1, T2, T3, T4, T5]) Filter(selected []Entity) iter.Seq[Item5[T1,
 				}
 
 				// Cache all column descriptors for this archetype
-				
 				col0 = currentArch.GetColumn(v.Layout[0].ID)
-				
 				col1 = currentArch.GetColumn(v.Layout[1].ID)
-				
 				col2 = currentArch.GetColumn(v.Layout[2].ID)
-				
 				col3 = currentArch.GetColumn(v.Layout[3].ID)
-				
 				col4 = currentArch.GetColumn(v.Layout[4].ID)
-				
 
 				lastArchID = link.ArchId
 			}
@@ -1657,17 +1333,11 @@ func (v *View5[T1, T2, T3, T4, T5]) Filter(selected []Entity) iter.Seq[Item5[T1,
 			// 3. Construct Result
 			if !yield(Item5[T1, T2, T3, T4, T5]{
 				Entity: entity,
-				
 				Comp1: (*T1)(col0.GetPointer(chunk, link.PageRow)),
-				
 				Comp2: (*T2)(col1.GetPointer(chunk, link.PageRow)),
-				
 				Comp3: (*T3)(col2.GetPointer(chunk, link.PageRow)),
-				
 				Comp4: (*T4)(col3.GetPointer(chunk, link.PageRow)),
-				
 				Comp5: (*T5)(col4.GetPointer(chunk, link.PageRow)),
-				
 			}) {
 				return
 			}
@@ -1710,34 +1380,20 @@ func NewView6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any](
     }
 
     // 1. Resolve Component Infos (Type -> ID)
-    
     info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
-    
     info2 := componentsRegistry.GetOrRegister(reflect.TypeFor[T2]())
-    
     info3 := componentsRegistry.GetOrRegister(reflect.TypeFor[T3]())
-    
     info4 := componentsRegistry.GetOrRegister(reflect.TypeFor[T4]())
-    
     info5 := componentsRegistry.GetOrRegister(reflect.TypeFor[T5]())
-    
     info6 := componentsRegistry.GetOrRegister(reflect.TypeFor[T6]())
-    
 
     // 2. Add to Blueprint (Build Mask)
-    
     mustAdd(info1)
-    
     mustAdd(info2)
-    
     mustAdd(info3)
-    
     mustAdd(info4)
-    
     mustAdd(info5)
-    
     mustAdd(info6)
-    
 
     // 3. Apply dynamic options (Include/Exclude)
     for _, opt := range opts {
@@ -1805,37 +1461,23 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq2[
 		},
 	) bool) {
 		// 1. Pre-calculate Strides (Invariant)
-		
 		stride0 := unsafe.Sizeof(*new(T1))
-		
 		stride1 := unsafe.Sizeof(*new(T2))
-		
 		stride2 := unsafe.Sizeof(*new(T3))
-		
 		stride3 := unsafe.Sizeof(*new(T4))
-		
 		stride4 := unsafe.Sizeof(*new(T5))
-		
 		stride5 := unsafe.Sizeof(*new(T6))
-		
 
 		// Loop over matched archetypes
 		for _, ma := range v.Baked {
 			// 2. Load Offsets from Cache
 			offsetEntity := ma.EntityPageOffset
-			
 			offset0 := ma.FieldsOffsets[0]
-			
 			offset1 := ma.FieldsOffsets[1]
-			
 			offset2 := ma.FieldsOffsets[2]
-			
 			offset3 := ma.FieldsOffsets[3]
-			
 			offset4 := ma.FieldsOffsets[4]
-			
 			offset5 := ma.FieldsOffsets[5]
-			
 
 			// 3. Loop over Physical Memory Pages
 			for _, page := range ma.Arch.Memory.Pages {
@@ -1847,19 +1489,12 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq2[
 				// 4. Resolve Base Pointers
 				base := page.Ptr
 				ptrEntity := unsafe.Add(base, offsetEntity)
-				
 				ptr0 := unsafe.Add(base, offset0)
-				
 				ptr1 := unsafe.Add(base, offset1)
-				
 				ptr2 := unsafe.Add(base, offset2)
-				
 				ptr3 := unsafe.Add(base, offset3)
-				
 				ptr4 := unsafe.Add(base, offset4)
-				
 				ptr5 := unsafe.Add(base, offset5)
-				
 
 				// 5. Hot Loop
 				for count > 0 {
@@ -1869,26 +1504,22 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq2[
 						Comp1 *T1
 						Comp2 *T2
 						Comp3 *T3
-						
 					}{
 						Entity: *(*core.Entity)(ptrEntity),
 						Comp1: (*T1)(ptr0),
 						Comp2: (*T2)(ptr1),
 						Comp3: (*T3)(ptr2),
-						
 					}
 
 					// Remaining components spill over to Tail
-					tail := struct {
+					tail := struct { 
 						Comp4 *T4
 						Comp5 *T5
 						Comp6 *T6
-						
-					}{
-						Comp4: (*T4)(ptr3),
-						Comp5: (*T5)(ptr4),
-						Comp6: (*T6)(ptr5),
-						
+					}{ 
+					    Comp4: (*T4)(ptr3),
+					    Comp5: (*T5)(ptr4),
+					    Comp6: (*T6)(ptr5),
 					}
 
 					if !yield(head, tail) {
@@ -1897,19 +1528,12 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq2[
 
 					// 6. Pointer Arithmetic
 					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
-					
 					ptr0 = unsafe.Add(ptr0, stride0)
-					
 					ptr1 = unsafe.Add(ptr1, stride1)
-					
 					ptr2 = unsafe.Add(ptr2, stride2)
-					
 					ptr3 = unsafe.Add(ptr3, stride3)
-					
 					ptr4 = unsafe.Add(ptr4, stride4)
-					
 					ptr5 = unsafe.Add(ptr5, stride5)
-					
 
 					count--
 				}
@@ -1918,37 +1542,10 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq2[
 	}
 }
 
-// Chunk6 holds flat memory slices mapped directly to a memory page.
-type Chunk6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any] struct {
-	Entities []core.Entity
-	C1 []T1
-	C2 []T2
-	C3 []T3
-	C4 []T4
-	C5 []T5
-	C6 []T6
-	
-}
-
-func (v *View6[T1, T2, T3, T4, T5, T6]) Each(fn func(entities []core.Entity, c1 []T1, c2 []T2, c3 []T3, c4 []T4, c5 []T5, c6 []T6)) {
+func (v *View6[T1, T2, T3, T4, T5, T6]) Each(fn func([]core.Entity, []T1, []T2, []T3, []T4, []T5, []T6)) {
 	for _, ma := range v.Baked {
-		// 1. Load Offsets from Cache (L1 Cache Friendly)
-		offsetEntity := ma.EntityPageOffset
-		
-		offset0 := ma.FieldsOffsets[0]
-		
-		offset1 := ma.FieldsOffsets[1]
-		
-		offset2 := ma.FieldsOffsets[2]
-		
-		offset3 := ma.FieldsOffsets[3]
-		
-		offset4 := ma.FieldsOffsets[4]
-		
-		offset5 := ma.FieldsOffsets[5]
-		
 
-		// 2. Loop over Physical Memory Pages
+		// Loop over Physical Memory Pages
 		for _, page := range ma.Arch.Memory.Pages {
 			count := page.Len
 			if count == 0 {
@@ -1959,20 +1556,13 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Each(fn func(entities []core.Entity, c1 
 			base := page.Ptr
 
 			// 4. Map raw memory pages directly to Go slices (Zero Heap Allocation)
-			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, offsetEntity)), count)
-			
-			c1 := unsafe.Slice((*T1)(unsafe.Add(base, offset0)), count)
-			
-			c2 := unsafe.Slice((*T2)(unsafe.Add(base, offset1)), count)
-			
-			c3 := unsafe.Slice((*T3)(unsafe.Add(base, offset2)), count)
-			
-			c4 := unsafe.Slice((*T4)(unsafe.Add(base, offset3)), count)
-			
-			c5 := unsafe.Slice((*T5)(unsafe.Add(base, offset4)), count)
-			
-			c6 := unsafe.Slice((*T6)(unsafe.Add(base, offset5)), count)
-			
+			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, ma.EntityPageOffset)), count)
+			c1 := unsafe.Slice((*T1)(unsafe.Add(base, ma.FieldsOffsets[0])), count)
+			c2 := unsafe.Slice((*T2)(unsafe.Add(base, ma.FieldsOffsets[1])), count)
+			c3 := unsafe.Slice((*T3)(unsafe.Add(base, ma.FieldsOffsets[2])), count)
+			c4 := unsafe.Slice((*T4)(unsafe.Add(base, ma.FieldsOffsets[3])), count)
+			c5 := unsafe.Slice((*T5)(unsafe.Add(base, ma.FieldsOffsets[4])), count)
+			c6 := unsafe.Slice((*T6)(unsafe.Add(base, ma.FieldsOffsets[5])), count)
 
 			// 5. Bulk Callback Execution (Once per page)
 			fn(entities, c1, c2, c3, c4, c5, c6)
@@ -1997,19 +1587,12 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Each(fn func(entities []core.Entity, c1 
 //	selected := []Entity{e1, e5, e10}
 //	for item := range view6.Filter(selected) {
 //		entity := item.Entity
-//		
 //		comp1 := item.Comp1
-//		
 //		comp2 := item.Comp2
-//		
 //		comp3 := item.Comp3
-//		
 //		comp4 := item.Comp4
-//		
 //		comp5 := item.Comp5
-//		
 //		comp6 := item.Comp6
-//		
 //	}
 func (v *View6[T1, T2, T3, T4, T5, T6]) Filter(selected []Entity) iter.Seq[Item6[T1, T2, T3, T4, T5, T6]] {
 	return func(yield func(Item6[T1, T2, T3, T4, T5, T6]) bool) {
@@ -2017,19 +1600,12 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Filter(selected []Entity) iter.Seq[Item6
 		var currentArch *core.Archetype
 
 		// Column descriptor cache
-		
 		var col0 *core.Column
-		
 		var col1 *core.Column
-		
 		var col2 *core.Column
-		
 		var col3 *core.Column
-		
 		var col4 *core.Column
-		
 		var col5 *core.Column
-		
 
 		registry := v.Reg.ArchetypeRegistry
 
@@ -2050,19 +1626,12 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Filter(selected []Entity) iter.Seq[Item6
 				}
 
 				// Cache all column descriptors for this archetype
-				
 				col0 = currentArch.GetColumn(v.Layout[0].ID)
-				
 				col1 = currentArch.GetColumn(v.Layout[1].ID)
-				
 				col2 = currentArch.GetColumn(v.Layout[2].ID)
-				
 				col3 = currentArch.GetColumn(v.Layout[3].ID)
-				
 				col4 = currentArch.GetColumn(v.Layout[4].ID)
-				
 				col5 = currentArch.GetColumn(v.Layout[5].ID)
-				
 
 				lastArchID = link.ArchId
 			}
@@ -2078,19 +1647,12 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Filter(selected []Entity) iter.Seq[Item6
 			// 3. Construct Result
 			if !yield(Item6[T1, T2, T3, T4, T5, T6]{
 				Entity: entity,
-				
 				Comp1: (*T1)(col0.GetPointer(chunk, link.PageRow)),
-				
 				Comp2: (*T2)(col1.GetPointer(chunk, link.PageRow)),
-				
 				Comp3: (*T3)(col2.GetPointer(chunk, link.PageRow)),
-				
 				Comp4: (*T4)(col3.GetPointer(chunk, link.PageRow)),
-				
 				Comp5: (*T5)(col4.GetPointer(chunk, link.PageRow)),
-				
 				Comp6: (*T6)(col5.GetPointer(chunk, link.PageRow)),
-				
 			}) {
 				return
 			}
@@ -2133,38 +1695,22 @@ func NewView7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any](
     }
 
     // 1. Resolve Component Infos (Type -> ID)
-    
     info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
-    
     info2 := componentsRegistry.GetOrRegister(reflect.TypeFor[T2]())
-    
     info3 := componentsRegistry.GetOrRegister(reflect.TypeFor[T3]())
-    
     info4 := componentsRegistry.GetOrRegister(reflect.TypeFor[T4]())
-    
     info5 := componentsRegistry.GetOrRegister(reflect.TypeFor[T5]())
-    
     info6 := componentsRegistry.GetOrRegister(reflect.TypeFor[T6]())
-    
     info7 := componentsRegistry.GetOrRegister(reflect.TypeFor[T7]())
-    
 
     // 2. Add to Blueprint (Build Mask)
-    
     mustAdd(info1)
-    
     mustAdd(info2)
-    
     mustAdd(info3)
-    
     mustAdd(info4)
-    
     mustAdd(info5)
-    
     mustAdd(info6)
-    
     mustAdd(info7)
-    
 
     // 3. Apply dynamic options (Include/Exclude)
     for _, opt := range opts {
@@ -2235,41 +1781,25 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) All() iter.Seq2[
 		},
 	) bool) {
 		// 1. Pre-calculate Strides (Invariant)
-		
 		stride0 := unsafe.Sizeof(*new(T1))
-		
 		stride1 := unsafe.Sizeof(*new(T2))
-		
 		stride2 := unsafe.Sizeof(*new(T3))
-		
 		stride3 := unsafe.Sizeof(*new(T4))
-		
 		stride4 := unsafe.Sizeof(*new(T5))
-		
 		stride5 := unsafe.Sizeof(*new(T6))
-		
 		stride6 := unsafe.Sizeof(*new(T7))
-		
 
 		// Loop over matched archetypes
 		for _, ma := range v.Baked {
 			// 2. Load Offsets from Cache
 			offsetEntity := ma.EntityPageOffset
-			
 			offset0 := ma.FieldsOffsets[0]
-			
 			offset1 := ma.FieldsOffsets[1]
-			
 			offset2 := ma.FieldsOffsets[2]
-			
 			offset3 := ma.FieldsOffsets[3]
-			
 			offset4 := ma.FieldsOffsets[4]
-			
 			offset5 := ma.FieldsOffsets[5]
-			
 			offset6 := ma.FieldsOffsets[6]
-			
 
 			// 3. Loop over Physical Memory Pages
 			for _, page := range ma.Arch.Memory.Pages {
@@ -2281,21 +1811,13 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) All() iter.Seq2[
 				// 4. Resolve Base Pointers
 				base := page.Ptr
 				ptrEntity := unsafe.Add(base, offsetEntity)
-				
 				ptr0 := unsafe.Add(base, offset0)
-				
 				ptr1 := unsafe.Add(base, offset1)
-				
 				ptr2 := unsafe.Add(base, offset2)
-				
 				ptr3 := unsafe.Add(base, offset3)
-				
 				ptr4 := unsafe.Add(base, offset4)
-				
 				ptr5 := unsafe.Add(base, offset5)
-				
 				ptr6 := unsafe.Add(base, offset6)
-				
 
 				// 5. Hot Loop
 				for count > 0 {
@@ -2305,28 +1827,24 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) All() iter.Seq2[
 						Comp1 *T1
 						Comp2 *T2
 						Comp3 *T3
-						
 					}{
 						Entity: *(*core.Entity)(ptrEntity),
 						Comp1: (*T1)(ptr0),
 						Comp2: (*T2)(ptr1),
 						Comp3: (*T3)(ptr2),
-						
 					}
 
 					// Remaining components spill over to Tail
-					tail := struct {
+					tail := struct { 
 						Comp4 *T4
 						Comp5 *T5
 						Comp6 *T6
 						Comp7 *T7
-						
-					}{
-						Comp4: (*T4)(ptr3),
-						Comp5: (*T5)(ptr4),
-						Comp6: (*T6)(ptr5),
-						Comp7: (*T7)(ptr6),
-						
+					}{ 
+					    Comp4: (*T4)(ptr3),
+					    Comp5: (*T5)(ptr4),
+					    Comp6: (*T6)(ptr5),
+					    Comp7: (*T7)(ptr6),
 					}
 
 					if !yield(head, tail) {
@@ -2335,21 +1853,13 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) All() iter.Seq2[
 
 					// 6. Pointer Arithmetic
 					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
-					
 					ptr0 = unsafe.Add(ptr0, stride0)
-					
 					ptr1 = unsafe.Add(ptr1, stride1)
-					
 					ptr2 = unsafe.Add(ptr2, stride2)
-					
 					ptr3 = unsafe.Add(ptr3, stride3)
-					
 					ptr4 = unsafe.Add(ptr4, stride4)
-					
 					ptr5 = unsafe.Add(ptr5, stride5)
-					
 					ptr6 = unsafe.Add(ptr6, stride6)
-					
 
 					count--
 				}
@@ -2358,40 +1868,10 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) All() iter.Seq2[
 	}
 }
 
-// Chunk7 holds flat memory slices mapped directly to a memory page.
-type Chunk7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any] struct {
-	Entities []core.Entity
-	C1 []T1
-	C2 []T2
-	C3 []T3
-	C4 []T4
-	C5 []T5
-	C6 []T6
-	C7 []T7
-	
-}
-
-func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Each(fn func(entities []core.Entity, c1 []T1, c2 []T2, c3 []T3, c4 []T4, c5 []T5, c6 []T6, c7 []T7)) {
+func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Each(fn func([]core.Entity, []T1, []T2, []T3, []T4, []T5, []T6, []T7)) {
 	for _, ma := range v.Baked {
-		// 1. Load Offsets from Cache (L1 Cache Friendly)
-		offsetEntity := ma.EntityPageOffset
-		
-		offset0 := ma.FieldsOffsets[0]
-		
-		offset1 := ma.FieldsOffsets[1]
-		
-		offset2 := ma.FieldsOffsets[2]
-		
-		offset3 := ma.FieldsOffsets[3]
-		
-		offset4 := ma.FieldsOffsets[4]
-		
-		offset5 := ma.FieldsOffsets[5]
-		
-		offset6 := ma.FieldsOffsets[6]
-		
 
-		// 2. Loop over Physical Memory Pages
+		// Loop over Physical Memory Pages
 		for _, page := range ma.Arch.Memory.Pages {
 			count := page.Len
 			if count == 0 {
@@ -2402,22 +1882,14 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Each(fn func(entities []core.Entity,
 			base := page.Ptr
 
 			// 4. Map raw memory pages directly to Go slices (Zero Heap Allocation)
-			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, offsetEntity)), count)
-			
-			c1 := unsafe.Slice((*T1)(unsafe.Add(base, offset0)), count)
-			
-			c2 := unsafe.Slice((*T2)(unsafe.Add(base, offset1)), count)
-			
-			c3 := unsafe.Slice((*T3)(unsafe.Add(base, offset2)), count)
-			
-			c4 := unsafe.Slice((*T4)(unsafe.Add(base, offset3)), count)
-			
-			c5 := unsafe.Slice((*T5)(unsafe.Add(base, offset4)), count)
-			
-			c6 := unsafe.Slice((*T6)(unsafe.Add(base, offset5)), count)
-			
-			c7 := unsafe.Slice((*T7)(unsafe.Add(base, offset6)), count)
-			
+			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, ma.EntityPageOffset)), count)
+			c1 := unsafe.Slice((*T1)(unsafe.Add(base, ma.FieldsOffsets[0])), count)
+			c2 := unsafe.Slice((*T2)(unsafe.Add(base, ma.FieldsOffsets[1])), count)
+			c3 := unsafe.Slice((*T3)(unsafe.Add(base, ma.FieldsOffsets[2])), count)
+			c4 := unsafe.Slice((*T4)(unsafe.Add(base, ma.FieldsOffsets[3])), count)
+			c5 := unsafe.Slice((*T5)(unsafe.Add(base, ma.FieldsOffsets[4])), count)
+			c6 := unsafe.Slice((*T6)(unsafe.Add(base, ma.FieldsOffsets[5])), count)
+			c7 := unsafe.Slice((*T7)(unsafe.Add(base, ma.FieldsOffsets[6])), count)
 
 			// 5. Bulk Callback Execution (Once per page)
 			fn(entities, c1, c2, c3, c4, c5, c6, c7)
@@ -2442,21 +1914,13 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Each(fn func(entities []core.Entity,
 //	selected := []Entity{e1, e5, e10}
 //	for item := range view7.Filter(selected) {
 //		entity := item.Entity
-//		
 //		comp1 := item.Comp1
-//		
 //		comp2 := item.Comp2
-//		
 //		comp3 := item.Comp3
-//		
 //		comp4 := item.Comp4
-//		
 //		comp5 := item.Comp5
-//		
 //		comp6 := item.Comp6
-//		
 //		comp7 := item.Comp7
-//		
 //	}
 func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Filter(selected []Entity) iter.Seq[Item7[T1, T2, T3, T4, T5, T6, T7]] {
 	return func(yield func(Item7[T1, T2, T3, T4, T5, T6, T7]) bool) {
@@ -2464,21 +1928,13 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Filter(selected []Entity) iter.Seq[I
 		var currentArch *core.Archetype
 
 		// Column descriptor cache
-		
 		var col0 *core.Column
-		
 		var col1 *core.Column
-		
 		var col2 *core.Column
-		
 		var col3 *core.Column
-		
 		var col4 *core.Column
-		
 		var col5 *core.Column
-		
 		var col6 *core.Column
-		
 
 		registry := v.Reg.ArchetypeRegistry
 
@@ -2499,21 +1955,13 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Filter(selected []Entity) iter.Seq[I
 				}
 
 				// Cache all column descriptors for this archetype
-				
 				col0 = currentArch.GetColumn(v.Layout[0].ID)
-				
 				col1 = currentArch.GetColumn(v.Layout[1].ID)
-				
 				col2 = currentArch.GetColumn(v.Layout[2].ID)
-				
 				col3 = currentArch.GetColumn(v.Layout[3].ID)
-				
 				col4 = currentArch.GetColumn(v.Layout[4].ID)
-				
 				col5 = currentArch.GetColumn(v.Layout[5].ID)
-				
 				col6 = currentArch.GetColumn(v.Layout[6].ID)
-				
 
 				lastArchID = link.ArchId
 			}
@@ -2529,21 +1977,13 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Filter(selected []Entity) iter.Seq[I
 			// 3. Construct Result
 			if !yield(Item7[T1, T2, T3, T4, T5, T6, T7]{
 				Entity: entity,
-				
 				Comp1: (*T1)(col0.GetPointer(chunk, link.PageRow)),
-				
 				Comp2: (*T2)(col1.GetPointer(chunk, link.PageRow)),
-				
 				Comp3: (*T3)(col2.GetPointer(chunk, link.PageRow)),
-				
 				Comp4: (*T4)(col3.GetPointer(chunk, link.PageRow)),
-				
 				Comp5: (*T5)(col4.GetPointer(chunk, link.PageRow)),
-				
 				Comp6: (*T6)(col5.GetPointer(chunk, link.PageRow)),
-				
 				Comp7: (*T7)(col6.GetPointer(chunk, link.PageRow)),
-				
 			}) {
 				return
 			}
@@ -2586,42 +2026,24 @@ func NewView8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any](
     }
 
     // 1. Resolve Component Infos (Type -> ID)
-    
     info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
-    
     info2 := componentsRegistry.GetOrRegister(reflect.TypeFor[T2]())
-    
     info3 := componentsRegistry.GetOrRegister(reflect.TypeFor[T3]())
-    
     info4 := componentsRegistry.GetOrRegister(reflect.TypeFor[T4]())
-    
     info5 := componentsRegistry.GetOrRegister(reflect.TypeFor[T5]())
-    
     info6 := componentsRegistry.GetOrRegister(reflect.TypeFor[T6]())
-    
     info7 := componentsRegistry.GetOrRegister(reflect.TypeFor[T7]())
-    
     info8 := componentsRegistry.GetOrRegister(reflect.TypeFor[T8]())
-    
 
     // 2. Add to Blueprint (Build Mask)
-    
     mustAdd(info1)
-    
     mustAdd(info2)
-    
     mustAdd(info3)
-    
     mustAdd(info4)
-    
     mustAdd(info5)
-    
     mustAdd(info6)
-    
     mustAdd(info7)
-    
     mustAdd(info8)
-    
 
     // 3. Apply dynamic options (Include/Exclude)
     for _, opt := range opts {
@@ -2695,45 +2117,27 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) All() iter.Seq2[
 		},
 	) bool) {
 		// 1. Pre-calculate Strides (Invariant)
-		
 		stride0 := unsafe.Sizeof(*new(T1))
-		
 		stride1 := unsafe.Sizeof(*new(T2))
-		
 		stride2 := unsafe.Sizeof(*new(T3))
-		
 		stride3 := unsafe.Sizeof(*new(T4))
-		
 		stride4 := unsafe.Sizeof(*new(T5))
-		
 		stride5 := unsafe.Sizeof(*new(T6))
-		
 		stride6 := unsafe.Sizeof(*new(T7))
-		
 		stride7 := unsafe.Sizeof(*new(T8))
-		
 
 		// Loop over matched archetypes
 		for _, ma := range v.Baked {
 			// 2. Load Offsets from Cache
 			offsetEntity := ma.EntityPageOffset
-			
 			offset0 := ma.FieldsOffsets[0]
-			
 			offset1 := ma.FieldsOffsets[1]
-			
 			offset2 := ma.FieldsOffsets[2]
-			
 			offset3 := ma.FieldsOffsets[3]
-			
 			offset4 := ma.FieldsOffsets[4]
-			
 			offset5 := ma.FieldsOffsets[5]
-			
 			offset6 := ma.FieldsOffsets[6]
-			
 			offset7 := ma.FieldsOffsets[7]
-			
 
 			// 3. Loop over Physical Memory Pages
 			for _, page := range ma.Arch.Memory.Pages {
@@ -2745,23 +2149,14 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) All() iter.Seq2[
 				// 4. Resolve Base Pointers
 				base := page.Ptr
 				ptrEntity := unsafe.Add(base, offsetEntity)
-				
 				ptr0 := unsafe.Add(base, offset0)
-				
 				ptr1 := unsafe.Add(base, offset1)
-				
 				ptr2 := unsafe.Add(base, offset2)
-				
 				ptr3 := unsafe.Add(base, offset3)
-				
 				ptr4 := unsafe.Add(base, offset4)
-				
 				ptr5 := unsafe.Add(base, offset5)
-				
 				ptr6 := unsafe.Add(base, offset6)
-				
 				ptr7 := unsafe.Add(base, offset7)
-				
 
 				// 5. Hot Loop
 				for count > 0 {
@@ -2771,30 +2166,26 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) All() iter.Seq2[
 						Comp1 *T1
 						Comp2 *T2
 						Comp3 *T3
-						
 					}{
 						Entity: *(*core.Entity)(ptrEntity),
 						Comp1: (*T1)(ptr0),
 						Comp2: (*T2)(ptr1),
 						Comp3: (*T3)(ptr2),
-						
 					}
 
 					// Remaining components spill over to Tail
-					tail := struct {
+					tail := struct { 
 						Comp4 *T4
 						Comp5 *T5
 						Comp6 *T6
 						Comp7 *T7
 						Comp8 *T8
-						
-					}{
-						Comp4: (*T4)(ptr3),
-						Comp5: (*T5)(ptr4),
-						Comp6: (*T6)(ptr5),
-						Comp7: (*T7)(ptr6),
-						Comp8: (*T8)(ptr7),
-						
+					}{ 
+					    Comp4: (*T4)(ptr3),
+					    Comp5: (*T5)(ptr4),
+					    Comp6: (*T6)(ptr5),
+					    Comp7: (*T7)(ptr6),
+					    Comp8: (*T8)(ptr7),
 					}
 
 					if !yield(head, tail) {
@@ -2803,23 +2194,14 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) All() iter.Seq2[
 
 					// 6. Pointer Arithmetic
 					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
-					
 					ptr0 = unsafe.Add(ptr0, stride0)
-					
 					ptr1 = unsafe.Add(ptr1, stride1)
-					
 					ptr2 = unsafe.Add(ptr2, stride2)
-					
 					ptr3 = unsafe.Add(ptr3, stride3)
-					
 					ptr4 = unsafe.Add(ptr4, stride4)
-					
 					ptr5 = unsafe.Add(ptr5, stride5)
-					
 					ptr6 = unsafe.Add(ptr6, stride6)
-					
 					ptr7 = unsafe.Add(ptr7, stride7)
-					
 
 					count--
 				}
@@ -2828,43 +2210,10 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) All() iter.Seq2[
 	}
 }
 
-// Chunk8 holds flat memory slices mapped directly to a memory page.
-type Chunk8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any] struct {
-	Entities []core.Entity
-	C1 []T1
-	C2 []T2
-	C3 []T3
-	C4 []T4
-	C5 []T5
-	C6 []T6
-	C7 []T7
-	C8 []T8
-	
-}
-
-func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Each(fn func(entities []core.Entity, c1 []T1, c2 []T2, c3 []T3, c4 []T4, c5 []T5, c6 []T6, c7 []T7, c8 []T8)) {
+func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Each(fn func([]core.Entity, []T1, []T2, []T3, []T4, []T5, []T6, []T7, []T8)) {
 	for _, ma := range v.Baked {
-		// 1. Load Offsets from Cache (L1 Cache Friendly)
-		offsetEntity := ma.EntityPageOffset
-		
-		offset0 := ma.FieldsOffsets[0]
-		
-		offset1 := ma.FieldsOffsets[1]
-		
-		offset2 := ma.FieldsOffsets[2]
-		
-		offset3 := ma.FieldsOffsets[3]
-		
-		offset4 := ma.FieldsOffsets[4]
-		
-		offset5 := ma.FieldsOffsets[5]
-		
-		offset6 := ma.FieldsOffsets[6]
-		
-		offset7 := ma.FieldsOffsets[7]
-		
 
-		// 2. Loop over Physical Memory Pages
+		// Loop over Physical Memory Pages
 		for _, page := range ma.Arch.Memory.Pages {
 			count := page.Len
 			if count == 0 {
@@ -2875,24 +2224,15 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Each(fn func(entities []core.Ent
 			base := page.Ptr
 
 			// 4. Map raw memory pages directly to Go slices (Zero Heap Allocation)
-			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, offsetEntity)), count)
-			
-			c1 := unsafe.Slice((*T1)(unsafe.Add(base, offset0)), count)
-			
-			c2 := unsafe.Slice((*T2)(unsafe.Add(base, offset1)), count)
-			
-			c3 := unsafe.Slice((*T3)(unsafe.Add(base, offset2)), count)
-			
-			c4 := unsafe.Slice((*T4)(unsafe.Add(base, offset3)), count)
-			
-			c5 := unsafe.Slice((*T5)(unsafe.Add(base, offset4)), count)
-			
-			c6 := unsafe.Slice((*T6)(unsafe.Add(base, offset5)), count)
-			
-			c7 := unsafe.Slice((*T7)(unsafe.Add(base, offset6)), count)
-			
-			c8 := unsafe.Slice((*T8)(unsafe.Add(base, offset7)), count)
-			
+			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, ma.EntityPageOffset)), count)
+			c1 := unsafe.Slice((*T1)(unsafe.Add(base, ma.FieldsOffsets[0])), count)
+			c2 := unsafe.Slice((*T2)(unsafe.Add(base, ma.FieldsOffsets[1])), count)
+			c3 := unsafe.Slice((*T3)(unsafe.Add(base, ma.FieldsOffsets[2])), count)
+			c4 := unsafe.Slice((*T4)(unsafe.Add(base, ma.FieldsOffsets[3])), count)
+			c5 := unsafe.Slice((*T5)(unsafe.Add(base, ma.FieldsOffsets[4])), count)
+			c6 := unsafe.Slice((*T6)(unsafe.Add(base, ma.FieldsOffsets[5])), count)
+			c7 := unsafe.Slice((*T7)(unsafe.Add(base, ma.FieldsOffsets[6])), count)
+			c8 := unsafe.Slice((*T8)(unsafe.Add(base, ma.FieldsOffsets[7])), count)
 
 			// 5. Bulk Callback Execution (Once per page)
 			fn(entities, c1, c2, c3, c4, c5, c6, c7, c8)
@@ -2917,23 +2257,14 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Each(fn func(entities []core.Ent
 //	selected := []Entity{e1, e5, e10}
 //	for item := range view8.Filter(selected) {
 //		entity := item.Entity
-//		
 //		comp1 := item.Comp1
-//		
 //		comp2 := item.Comp2
-//		
 //		comp3 := item.Comp3
-//		
 //		comp4 := item.Comp4
-//		
 //		comp5 := item.Comp5
-//		
 //		comp6 := item.Comp6
-//		
 //		comp7 := item.Comp7
-//		
 //		comp8 := item.Comp8
-//		
 //	}
 func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Filter(selected []Entity) iter.Seq[Item8[T1, T2, T3, T4, T5, T6, T7, T8]] {
 	return func(yield func(Item8[T1, T2, T3, T4, T5, T6, T7, T8]) bool) {
@@ -2941,23 +2272,14 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Filter(selected []Entity) iter.S
 		var currentArch *core.Archetype
 
 		// Column descriptor cache
-		
 		var col0 *core.Column
-		
 		var col1 *core.Column
-		
 		var col2 *core.Column
-		
 		var col3 *core.Column
-		
 		var col4 *core.Column
-		
 		var col5 *core.Column
-		
 		var col6 *core.Column
-		
 		var col7 *core.Column
-		
 
 		registry := v.Reg.ArchetypeRegistry
 
@@ -2978,23 +2300,14 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Filter(selected []Entity) iter.S
 				}
 
 				// Cache all column descriptors for this archetype
-				
 				col0 = currentArch.GetColumn(v.Layout[0].ID)
-				
 				col1 = currentArch.GetColumn(v.Layout[1].ID)
-				
 				col2 = currentArch.GetColumn(v.Layout[2].ID)
-				
 				col3 = currentArch.GetColumn(v.Layout[3].ID)
-				
 				col4 = currentArch.GetColumn(v.Layout[4].ID)
-				
 				col5 = currentArch.GetColumn(v.Layout[5].ID)
-				
 				col6 = currentArch.GetColumn(v.Layout[6].ID)
-				
 				col7 = currentArch.GetColumn(v.Layout[7].ID)
-				
 
 				lastArchID = link.ArchId
 			}
@@ -3010,23 +2323,14 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Filter(selected []Entity) iter.S
 			// 3. Construct Result
 			if !yield(Item8[T1, T2, T3, T4, T5, T6, T7, T8]{
 				Entity: entity,
-				
 				Comp1: (*T1)(col0.GetPointer(chunk, link.PageRow)),
-				
 				Comp2: (*T2)(col1.GetPointer(chunk, link.PageRow)),
-				
 				Comp3: (*T3)(col2.GetPointer(chunk, link.PageRow)),
-				
 				Comp4: (*T4)(col3.GetPointer(chunk, link.PageRow)),
-				
 				Comp5: (*T5)(col4.GetPointer(chunk, link.PageRow)),
-				
 				Comp6: (*T6)(col5.GetPointer(chunk, link.PageRow)),
-				
 				Comp7: (*T7)(col6.GetPointer(chunk, link.PageRow)),
-				
 				Comp8: (*T8)(col7.GetPointer(chunk, link.PageRow)),
-				
 			}) {
 				return
 			}
@@ -3069,46 +2373,26 @@ func NewView9[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T9
     }
 
     // 1. Resolve Component Infos (Type -> ID)
-    
     info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
-    
     info2 := componentsRegistry.GetOrRegister(reflect.TypeFor[T2]())
-    
     info3 := componentsRegistry.GetOrRegister(reflect.TypeFor[T3]())
-    
     info4 := componentsRegistry.GetOrRegister(reflect.TypeFor[T4]())
-    
     info5 := componentsRegistry.GetOrRegister(reflect.TypeFor[T5]())
-    
     info6 := componentsRegistry.GetOrRegister(reflect.TypeFor[T6]())
-    
     info7 := componentsRegistry.GetOrRegister(reflect.TypeFor[T7]())
-    
     info8 := componentsRegistry.GetOrRegister(reflect.TypeFor[T8]())
-    
     info9 := componentsRegistry.GetOrRegister(reflect.TypeFor[T9]())
-    
 
     // 2. Add to Blueprint (Build Mask)
-    
     mustAdd(info1)
-    
     mustAdd(info2)
-    
     mustAdd(info3)
-    
     mustAdd(info4)
-    
     mustAdd(info5)
-    
     mustAdd(info6)
-    
     mustAdd(info7)
-    
     mustAdd(info8)
-    
     mustAdd(info9)
-    
 
     // 3. Apply dynamic options (Include/Exclude)
     for _, opt := range opts {
@@ -3185,49 +2469,29 @@ func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) All() iter.Seq2[
 		},
 	) bool) {
 		// 1. Pre-calculate Strides (Invariant)
-		
 		stride0 := unsafe.Sizeof(*new(T1))
-		
 		stride1 := unsafe.Sizeof(*new(T2))
-		
 		stride2 := unsafe.Sizeof(*new(T3))
-		
 		stride3 := unsafe.Sizeof(*new(T4))
-		
 		stride4 := unsafe.Sizeof(*new(T5))
-		
 		stride5 := unsafe.Sizeof(*new(T6))
-		
 		stride6 := unsafe.Sizeof(*new(T7))
-		
 		stride7 := unsafe.Sizeof(*new(T8))
-		
 		stride8 := unsafe.Sizeof(*new(T9))
-		
 
 		// Loop over matched archetypes
 		for _, ma := range v.Baked {
 			// 2. Load Offsets from Cache
 			offsetEntity := ma.EntityPageOffset
-			
 			offset0 := ma.FieldsOffsets[0]
-			
 			offset1 := ma.FieldsOffsets[1]
-			
 			offset2 := ma.FieldsOffsets[2]
-			
 			offset3 := ma.FieldsOffsets[3]
-			
 			offset4 := ma.FieldsOffsets[4]
-			
 			offset5 := ma.FieldsOffsets[5]
-			
 			offset6 := ma.FieldsOffsets[6]
-			
 			offset7 := ma.FieldsOffsets[7]
-			
 			offset8 := ma.FieldsOffsets[8]
-			
 
 			// 3. Loop over Physical Memory Pages
 			for _, page := range ma.Arch.Memory.Pages {
@@ -3239,25 +2503,15 @@ func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) All() iter.Seq2[
 				// 4. Resolve Base Pointers
 				base := page.Ptr
 				ptrEntity := unsafe.Add(base, offsetEntity)
-				
 				ptr0 := unsafe.Add(base, offset0)
-				
 				ptr1 := unsafe.Add(base, offset1)
-				
 				ptr2 := unsafe.Add(base, offset2)
-				
 				ptr3 := unsafe.Add(base, offset3)
-				
 				ptr4 := unsafe.Add(base, offset4)
-				
 				ptr5 := unsafe.Add(base, offset5)
-				
 				ptr6 := unsafe.Add(base, offset6)
-				
 				ptr7 := unsafe.Add(base, offset7)
-				
 				ptr8 := unsafe.Add(base, offset8)
-				
 
 				// 5. Hot Loop
 				for count > 0 {
@@ -3267,32 +2521,28 @@ func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) All() iter.Seq2[
 						Comp1 *T1
 						Comp2 *T2
 						Comp3 *T3
-						
 					}{
 						Entity: *(*core.Entity)(ptrEntity),
 						Comp1: (*T1)(ptr0),
 						Comp2: (*T2)(ptr1),
 						Comp3: (*T3)(ptr2),
-						
 					}
 
 					// Remaining components spill over to Tail
-					tail := struct {
+					tail := struct { 
 						Comp4 *T4
 						Comp5 *T5
 						Comp6 *T6
 						Comp7 *T7
 						Comp8 *T8
 						Comp9 *T9
-						
-					}{
-						Comp4: (*T4)(ptr3),
-						Comp5: (*T5)(ptr4),
-						Comp6: (*T6)(ptr5),
-						Comp7: (*T7)(ptr6),
-						Comp8: (*T8)(ptr7),
-						Comp9: (*T9)(ptr8),
-						
+					}{ 
+					    Comp4: (*T4)(ptr3),
+					    Comp5: (*T5)(ptr4),
+					    Comp6: (*T6)(ptr5),
+					    Comp7: (*T7)(ptr6),
+					    Comp8: (*T8)(ptr7),
+					    Comp9: (*T9)(ptr8),
 					}
 
 					if !yield(head, tail) {
@@ -3301,25 +2551,15 @@ func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) All() iter.Seq2[
 
 					// 6. Pointer Arithmetic
 					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
-					
 					ptr0 = unsafe.Add(ptr0, stride0)
-					
 					ptr1 = unsafe.Add(ptr1, stride1)
-					
 					ptr2 = unsafe.Add(ptr2, stride2)
-					
 					ptr3 = unsafe.Add(ptr3, stride3)
-					
 					ptr4 = unsafe.Add(ptr4, stride4)
-					
 					ptr5 = unsafe.Add(ptr5, stride5)
-					
 					ptr6 = unsafe.Add(ptr6, stride6)
-					
 					ptr7 = unsafe.Add(ptr7, stride7)
-					
 					ptr8 = unsafe.Add(ptr8, stride8)
-					
 
 					count--
 				}
@@ -3328,46 +2568,10 @@ func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) All() iter.Seq2[
 	}
 }
 
-// Chunk9 holds flat memory slices mapped directly to a memory page.
-type Chunk9[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T9 any] struct {
-	Entities []core.Entity
-	C1 []T1
-	C2 []T2
-	C3 []T3
-	C4 []T4
-	C5 []T5
-	C6 []T6
-	C7 []T7
-	C8 []T8
-	C9 []T9
-	
-}
-
-func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Each(fn func(entities []core.Entity, c1 []T1, c2 []T2, c3 []T3, c4 []T4, c5 []T5, c6 []T6, c7 []T7, c8 []T8, c9 []T9)) {
+func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Each(fn func([]core.Entity, []T1, []T2, []T3, []T4, []T5, []T6, []T7, []T8, []T9)) {
 	for _, ma := range v.Baked {
-		// 1. Load Offsets from Cache (L1 Cache Friendly)
-		offsetEntity := ma.EntityPageOffset
-		
-		offset0 := ma.FieldsOffsets[0]
-		
-		offset1 := ma.FieldsOffsets[1]
-		
-		offset2 := ma.FieldsOffsets[2]
-		
-		offset3 := ma.FieldsOffsets[3]
-		
-		offset4 := ma.FieldsOffsets[4]
-		
-		offset5 := ma.FieldsOffsets[5]
-		
-		offset6 := ma.FieldsOffsets[6]
-		
-		offset7 := ma.FieldsOffsets[7]
-		
-		offset8 := ma.FieldsOffsets[8]
-		
 
-		// 2. Loop over Physical Memory Pages
+		// Loop over Physical Memory Pages
 		for _, page := range ma.Arch.Memory.Pages {
 			count := page.Len
 			if count == 0 {
@@ -3378,26 +2582,16 @@ func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Each(fn func(entities []core
 			base := page.Ptr
 
 			// 4. Map raw memory pages directly to Go slices (Zero Heap Allocation)
-			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, offsetEntity)), count)
-			
-			c1 := unsafe.Slice((*T1)(unsafe.Add(base, offset0)), count)
-			
-			c2 := unsafe.Slice((*T2)(unsafe.Add(base, offset1)), count)
-			
-			c3 := unsafe.Slice((*T3)(unsafe.Add(base, offset2)), count)
-			
-			c4 := unsafe.Slice((*T4)(unsafe.Add(base, offset3)), count)
-			
-			c5 := unsafe.Slice((*T5)(unsafe.Add(base, offset4)), count)
-			
-			c6 := unsafe.Slice((*T6)(unsafe.Add(base, offset5)), count)
-			
-			c7 := unsafe.Slice((*T7)(unsafe.Add(base, offset6)), count)
-			
-			c8 := unsafe.Slice((*T8)(unsafe.Add(base, offset7)), count)
-			
-			c9 := unsafe.Slice((*T9)(unsafe.Add(base, offset8)), count)
-			
+			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, ma.EntityPageOffset)), count)
+			c1 := unsafe.Slice((*T1)(unsafe.Add(base, ma.FieldsOffsets[0])), count)
+			c2 := unsafe.Slice((*T2)(unsafe.Add(base, ma.FieldsOffsets[1])), count)
+			c3 := unsafe.Slice((*T3)(unsafe.Add(base, ma.FieldsOffsets[2])), count)
+			c4 := unsafe.Slice((*T4)(unsafe.Add(base, ma.FieldsOffsets[3])), count)
+			c5 := unsafe.Slice((*T5)(unsafe.Add(base, ma.FieldsOffsets[4])), count)
+			c6 := unsafe.Slice((*T6)(unsafe.Add(base, ma.FieldsOffsets[5])), count)
+			c7 := unsafe.Slice((*T7)(unsafe.Add(base, ma.FieldsOffsets[6])), count)
+			c8 := unsafe.Slice((*T8)(unsafe.Add(base, ma.FieldsOffsets[7])), count)
+			c9 := unsafe.Slice((*T9)(unsafe.Add(base, ma.FieldsOffsets[8])), count)
 
 			// 5. Bulk Callback Execution (Once per page)
 			fn(entities, c1, c2, c3, c4, c5, c6, c7, c8, c9)
@@ -3422,25 +2616,15 @@ func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Each(fn func(entities []core
 //	selected := []Entity{e1, e5, e10}
 //	for item := range view9.Filter(selected) {
 //		entity := item.Entity
-//		
 //		comp1 := item.Comp1
-//		
 //		comp2 := item.Comp2
-//		
 //		comp3 := item.Comp3
-//		
 //		comp4 := item.Comp4
-//		
 //		comp5 := item.Comp5
-//		
 //		comp6 := item.Comp6
-//		
 //		comp7 := item.Comp7
-//		
 //		comp8 := item.Comp8
-//		
 //		comp9 := item.Comp9
-//		
 //	}
 func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Filter(selected []Entity) iter.Seq[Item9[T1, T2, T3, T4, T5, T6, T7, T8, T9]] {
 	return func(yield func(Item9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) bool) {
@@ -3448,25 +2632,15 @@ func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Filter(selected []Entity) it
 		var currentArch *core.Archetype
 
 		// Column descriptor cache
-		
 		var col0 *core.Column
-		
 		var col1 *core.Column
-		
 		var col2 *core.Column
-		
 		var col3 *core.Column
-		
 		var col4 *core.Column
-		
 		var col5 *core.Column
-		
 		var col6 *core.Column
-		
 		var col7 *core.Column
-		
 		var col8 *core.Column
-		
 
 		registry := v.Reg.ArchetypeRegistry
 
@@ -3487,25 +2661,15 @@ func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Filter(selected []Entity) it
 				}
 
 				// Cache all column descriptors for this archetype
-				
 				col0 = currentArch.GetColumn(v.Layout[0].ID)
-				
 				col1 = currentArch.GetColumn(v.Layout[1].ID)
-				
 				col2 = currentArch.GetColumn(v.Layout[2].ID)
-				
 				col3 = currentArch.GetColumn(v.Layout[3].ID)
-				
 				col4 = currentArch.GetColumn(v.Layout[4].ID)
-				
 				col5 = currentArch.GetColumn(v.Layout[5].ID)
-				
 				col6 = currentArch.GetColumn(v.Layout[6].ID)
-				
 				col7 = currentArch.GetColumn(v.Layout[7].ID)
-				
 				col8 = currentArch.GetColumn(v.Layout[8].ID)
-				
 
 				lastArchID = link.ArchId
 			}
@@ -3521,25 +2685,15 @@ func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Filter(selected []Entity) it
 			// 3. Construct Result
 			if !yield(Item9[T1, T2, T3, T4, T5, T6, T7, T8, T9]{
 				Entity: entity,
-				
 				Comp1: (*T1)(col0.GetPointer(chunk, link.PageRow)),
-				
 				Comp2: (*T2)(col1.GetPointer(chunk, link.PageRow)),
-				
 				Comp3: (*T3)(col2.GetPointer(chunk, link.PageRow)),
-				
 				Comp4: (*T4)(col3.GetPointer(chunk, link.PageRow)),
-				
 				Comp5: (*T5)(col4.GetPointer(chunk, link.PageRow)),
-				
 				Comp6: (*T6)(col5.GetPointer(chunk, link.PageRow)),
-				
 				Comp7: (*T7)(col6.GetPointer(chunk, link.PageRow)),
-				
 				Comp8: (*T8)(col7.GetPointer(chunk, link.PageRow)),
-				
 				Comp9: (*T9)(col8.GetPointer(chunk, link.PageRow)),
-				
 			}) {
 				return
 			}
@@ -3582,50 +2736,28 @@ func NewView10[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T
     }
 
     // 1. Resolve Component Infos (Type -> ID)
-    
     info1 := componentsRegistry.GetOrRegister(reflect.TypeFor[T1]())
-    
     info2 := componentsRegistry.GetOrRegister(reflect.TypeFor[T2]())
-    
     info3 := componentsRegistry.GetOrRegister(reflect.TypeFor[T3]())
-    
     info4 := componentsRegistry.GetOrRegister(reflect.TypeFor[T4]())
-    
     info5 := componentsRegistry.GetOrRegister(reflect.TypeFor[T5]())
-    
     info6 := componentsRegistry.GetOrRegister(reflect.TypeFor[T6]())
-    
     info7 := componentsRegistry.GetOrRegister(reflect.TypeFor[T7]())
-    
     info8 := componentsRegistry.GetOrRegister(reflect.TypeFor[T8]())
-    
     info9 := componentsRegistry.GetOrRegister(reflect.TypeFor[T9]())
-    
     info10 := componentsRegistry.GetOrRegister(reflect.TypeFor[T10]())
-    
 
     // 2. Add to Blueprint (Build Mask)
-    
     mustAdd(info1)
-    
     mustAdd(info2)
-    
     mustAdd(info3)
-    
     mustAdd(info4)
-    
     mustAdd(info5)
-    
     mustAdd(info6)
-    
     mustAdd(info7)
-    
     mustAdd(info8)
-    
     mustAdd(info9)
-    
     mustAdd(info10)
-    
 
     // 3. Apply dynamic options (Include/Exclude)
     for _, opt := range opts {
@@ -3705,53 +2837,31 @@ func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) All() iter.Seq2[
 		},
 	) bool) {
 		// 1. Pre-calculate Strides (Invariant)
-		
 		stride0 := unsafe.Sizeof(*new(T1))
-		
 		stride1 := unsafe.Sizeof(*new(T2))
-		
 		stride2 := unsafe.Sizeof(*new(T3))
-		
 		stride3 := unsafe.Sizeof(*new(T4))
-		
 		stride4 := unsafe.Sizeof(*new(T5))
-		
 		stride5 := unsafe.Sizeof(*new(T6))
-		
 		stride6 := unsafe.Sizeof(*new(T7))
-		
 		stride7 := unsafe.Sizeof(*new(T8))
-		
 		stride8 := unsafe.Sizeof(*new(T9))
-		
 		stride9 := unsafe.Sizeof(*new(T10))
-		
 
 		// Loop over matched archetypes
 		for _, ma := range v.Baked {
 			// 2. Load Offsets from Cache
 			offsetEntity := ma.EntityPageOffset
-			
 			offset0 := ma.FieldsOffsets[0]
-			
 			offset1 := ma.FieldsOffsets[1]
-			
 			offset2 := ma.FieldsOffsets[2]
-			
 			offset3 := ma.FieldsOffsets[3]
-			
 			offset4 := ma.FieldsOffsets[4]
-			
 			offset5 := ma.FieldsOffsets[5]
-			
 			offset6 := ma.FieldsOffsets[6]
-			
 			offset7 := ma.FieldsOffsets[7]
-			
 			offset8 := ma.FieldsOffsets[8]
-			
 			offset9 := ma.FieldsOffsets[9]
-			
 
 			// 3. Loop over Physical Memory Pages
 			for _, page := range ma.Arch.Memory.Pages {
@@ -3763,27 +2873,16 @@ func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) All() iter.Seq2[
 				// 4. Resolve Base Pointers
 				base := page.Ptr
 				ptrEntity := unsafe.Add(base, offsetEntity)
-				
 				ptr0 := unsafe.Add(base, offset0)
-				
 				ptr1 := unsafe.Add(base, offset1)
-				
 				ptr2 := unsafe.Add(base, offset2)
-				
 				ptr3 := unsafe.Add(base, offset3)
-				
 				ptr4 := unsafe.Add(base, offset4)
-				
 				ptr5 := unsafe.Add(base, offset5)
-				
 				ptr6 := unsafe.Add(base, offset6)
-				
 				ptr7 := unsafe.Add(base, offset7)
-				
 				ptr8 := unsafe.Add(base, offset8)
-				
 				ptr9 := unsafe.Add(base, offset9)
-				
 
 				// 5. Hot Loop
 				for count > 0 {
@@ -3793,17 +2892,15 @@ func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) All() iter.Seq2[
 						Comp1 *T1
 						Comp2 *T2
 						Comp3 *T3
-						
 					}{
 						Entity: *(*core.Entity)(ptrEntity),
 						Comp1: (*T1)(ptr0),
 						Comp2: (*T2)(ptr1),
 						Comp3: (*T3)(ptr2),
-						
 					}
 
 					// Remaining components spill over to Tail
-					tail := struct {
+					tail := struct { 
 						Comp4 *T4
 						Comp5 *T5
 						Comp6 *T6
@@ -3811,16 +2908,14 @@ func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) All() iter.Seq2[
 						Comp8 *T8
 						Comp9 *T9
 						Comp10 *T10
-						
-					}{
-						Comp4: (*T4)(ptr3),
-						Comp5: (*T5)(ptr4),
-						Comp6: (*T6)(ptr5),
-						Comp7: (*T7)(ptr6),
-						Comp8: (*T8)(ptr7),
-						Comp9: (*T9)(ptr8),
-						Comp10: (*T10)(ptr9),
-						
+					}{ 
+					    Comp4: (*T4)(ptr3),
+					    Comp5: (*T5)(ptr4),
+					    Comp6: (*T6)(ptr5),
+					    Comp7: (*T7)(ptr6),
+					    Comp8: (*T8)(ptr7),
+					    Comp9: (*T9)(ptr8),
+					    Comp10: (*T10)(ptr9),
 					}
 
 					if !yield(head, tail) {
@@ -3829,27 +2924,16 @@ func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) All() iter.Seq2[
 
 					// 6. Pointer Arithmetic
 					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
-					
 					ptr0 = unsafe.Add(ptr0, stride0)
-					
 					ptr1 = unsafe.Add(ptr1, stride1)
-					
 					ptr2 = unsafe.Add(ptr2, stride2)
-					
 					ptr3 = unsafe.Add(ptr3, stride3)
-					
 					ptr4 = unsafe.Add(ptr4, stride4)
-					
 					ptr5 = unsafe.Add(ptr5, stride5)
-					
 					ptr6 = unsafe.Add(ptr6, stride6)
-					
 					ptr7 = unsafe.Add(ptr7, stride7)
-					
 					ptr8 = unsafe.Add(ptr8, stride8)
-					
 					ptr9 = unsafe.Add(ptr9, stride9)
-					
 
 					count--
 				}
@@ -3858,49 +2942,10 @@ func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) All() iter.Seq2[
 	}
 }
 
-// Chunk10 holds flat memory slices mapped directly to a memory page.
-type Chunk10[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T9 any, T10 any] struct {
-	Entities []core.Entity
-	C1 []T1
-	C2 []T2
-	C3 []T3
-	C4 []T4
-	C5 []T5
-	C6 []T6
-	C7 []T7
-	C8 []T8
-	C9 []T9
-	C10 []T10
-	
-}
-
-func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Each(fn func(entities []core.Entity, c1 []T1, c2 []T2, c3 []T3, c4 []T4, c5 []T5, c6 []T6, c7 []T7, c8 []T8, c9 []T9, c10 []T10)) {
+func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Each(fn func([]core.Entity, []T1, []T2, []T3, []T4, []T5, []T6, []T7, []T8, []T9, []T10)) {
 	for _, ma := range v.Baked {
-		// 1. Load Offsets from Cache (L1 Cache Friendly)
-		offsetEntity := ma.EntityPageOffset
-		
-		offset0 := ma.FieldsOffsets[0]
-		
-		offset1 := ma.FieldsOffsets[1]
-		
-		offset2 := ma.FieldsOffsets[2]
-		
-		offset3 := ma.FieldsOffsets[3]
-		
-		offset4 := ma.FieldsOffsets[4]
-		
-		offset5 := ma.FieldsOffsets[5]
-		
-		offset6 := ma.FieldsOffsets[6]
-		
-		offset7 := ma.FieldsOffsets[7]
-		
-		offset8 := ma.FieldsOffsets[8]
-		
-		offset9 := ma.FieldsOffsets[9]
-		
 
-		// 2. Loop over Physical Memory Pages
+		// Loop over Physical Memory Pages
 		for _, page := range ma.Arch.Memory.Pages {
 			count := page.Len
 			if count == 0 {
@@ -3911,28 +2956,17 @@ func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Each(fn func(entities 
 			base := page.Ptr
 
 			// 4. Map raw memory pages directly to Go slices (Zero Heap Allocation)
-			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, offsetEntity)), count)
-			
-			c1 := unsafe.Slice((*T1)(unsafe.Add(base, offset0)), count)
-			
-			c2 := unsafe.Slice((*T2)(unsafe.Add(base, offset1)), count)
-			
-			c3 := unsafe.Slice((*T3)(unsafe.Add(base, offset2)), count)
-			
-			c4 := unsafe.Slice((*T4)(unsafe.Add(base, offset3)), count)
-			
-			c5 := unsafe.Slice((*T5)(unsafe.Add(base, offset4)), count)
-			
-			c6 := unsafe.Slice((*T6)(unsafe.Add(base, offset5)), count)
-			
-			c7 := unsafe.Slice((*T7)(unsafe.Add(base, offset6)), count)
-			
-			c8 := unsafe.Slice((*T8)(unsafe.Add(base, offset7)), count)
-			
-			c9 := unsafe.Slice((*T9)(unsafe.Add(base, offset8)), count)
-			
-			c10 := unsafe.Slice((*T10)(unsafe.Add(base, offset9)), count)
-			
+			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, ma.EntityPageOffset)), count)
+			c1 := unsafe.Slice((*T1)(unsafe.Add(base, ma.FieldsOffsets[0])), count)
+			c2 := unsafe.Slice((*T2)(unsafe.Add(base, ma.FieldsOffsets[1])), count)
+			c3 := unsafe.Slice((*T3)(unsafe.Add(base, ma.FieldsOffsets[2])), count)
+			c4 := unsafe.Slice((*T4)(unsafe.Add(base, ma.FieldsOffsets[3])), count)
+			c5 := unsafe.Slice((*T5)(unsafe.Add(base, ma.FieldsOffsets[4])), count)
+			c6 := unsafe.Slice((*T6)(unsafe.Add(base, ma.FieldsOffsets[5])), count)
+			c7 := unsafe.Slice((*T7)(unsafe.Add(base, ma.FieldsOffsets[6])), count)
+			c8 := unsafe.Slice((*T8)(unsafe.Add(base, ma.FieldsOffsets[7])), count)
+			c9 := unsafe.Slice((*T9)(unsafe.Add(base, ma.FieldsOffsets[8])), count)
+			c10 := unsafe.Slice((*T10)(unsafe.Add(base, ma.FieldsOffsets[9])), count)
 
 			// 5. Bulk Callback Execution (Once per page)
 			fn(entities, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
@@ -3957,27 +2991,16 @@ func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Each(fn func(entities 
 //	selected := []Entity{e1, e5, e10}
 //	for item := range view10.Filter(selected) {
 //		entity := item.Entity
-//		
 //		comp1 := item.Comp1
-//		
 //		comp2 := item.Comp2
-//		
 //		comp3 := item.Comp3
-//		
 //		comp4 := item.Comp4
-//		
 //		comp5 := item.Comp5
-//		
 //		comp6 := item.Comp6
-//		
 //		comp7 := item.Comp7
-//		
 //		comp8 := item.Comp8
-//		
 //		comp9 := item.Comp9
-//		
 //		comp10 := item.Comp10
-//		
 //	}
 func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Filter(selected []Entity) iter.Seq[Item10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]] {
 	return func(yield func(Item10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) bool) {
@@ -3985,27 +3008,16 @@ func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Filter(selected []Enti
 		var currentArch *core.Archetype
 
 		// Column descriptor cache
-		
 		var col0 *core.Column
-		
 		var col1 *core.Column
-		
 		var col2 *core.Column
-		
 		var col3 *core.Column
-		
 		var col4 *core.Column
-		
 		var col5 *core.Column
-		
 		var col6 *core.Column
-		
 		var col7 *core.Column
-		
 		var col8 *core.Column
-		
 		var col9 *core.Column
-		
 
 		registry := v.Reg.ArchetypeRegistry
 
@@ -4026,27 +3038,16 @@ func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Filter(selected []Enti
 				}
 
 				// Cache all column descriptors for this archetype
-				
 				col0 = currentArch.GetColumn(v.Layout[0].ID)
-				
 				col1 = currentArch.GetColumn(v.Layout[1].ID)
-				
 				col2 = currentArch.GetColumn(v.Layout[2].ID)
-				
 				col3 = currentArch.GetColumn(v.Layout[3].ID)
-				
 				col4 = currentArch.GetColumn(v.Layout[4].ID)
-				
 				col5 = currentArch.GetColumn(v.Layout[5].ID)
-				
 				col6 = currentArch.GetColumn(v.Layout[6].ID)
-				
 				col7 = currentArch.GetColumn(v.Layout[7].ID)
-				
 				col8 = currentArch.GetColumn(v.Layout[8].ID)
-				
 				col9 = currentArch.GetColumn(v.Layout[9].ID)
-				
 
 				lastArchID = link.ArchId
 			}
@@ -4062,27 +3063,16 @@ func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Filter(selected []Enti
 			// 3. Construct Result
 			if !yield(Item10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]{
 				Entity: entity,
-				
 				Comp1: (*T1)(col0.GetPointer(chunk, link.PageRow)),
-				
 				Comp2: (*T2)(col1.GetPointer(chunk, link.PageRow)),
-				
 				Comp3: (*T3)(col2.GetPointer(chunk, link.PageRow)),
-				
 				Comp4: (*T4)(col3.GetPointer(chunk, link.PageRow)),
-				
 				Comp5: (*T5)(col4.GetPointer(chunk, link.PageRow)),
-				
 				Comp6: (*T6)(col5.GetPointer(chunk, link.PageRow)),
-				
 				Comp7: (*T7)(col6.GetPointer(chunk, link.PageRow)),
-				
 				Comp8: (*T8)(col7.GetPointer(chunk, link.PageRow)),
-				
 				Comp9: (*T9)(col8.GetPointer(chunk, link.PageRow)),
-				
 				Comp10: (*T10)(col9.GetPointer(chunk, link.PageRow)),
-				
 			}) {
 				return
 			}
