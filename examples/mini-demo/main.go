@@ -42,8 +42,8 @@ func main() {
 	// Define the movement system using the functional registration pattern
 	movementSystem := goke.RegisterSystemFunc(ecs, func(schedule *goke.Schedule, d time.Duration) {
 		// SoA (Structure of Arrays) layout ensures CPU Cache friendliness.
-		for head := range view.Values() {
-			pos, vel, acc := head.V1, head.V2, head.V3
+		for head := range view.All() {
+			pos, vel, acc := head.Comp1, head.Comp2, head.Comp3
 
 			vel.X += acc.X
 			vel.Y += acc.Y

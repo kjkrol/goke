@@ -58,15 +58,15 @@ func main() {
 
 	// System A: Roll the dice
 	rollSys := goke.RegisterSystemFunc(ecs, func(cb *goke.Schedule, d time.Duration) {
-		for res := range vDice.Values() {
-			res.V1.Value = rand.Intn(6) + 1
+		for res := range vDice.All() {
+			res.Comp1.Value = rand.Intn(6) + 1
 		}
 	})
 
 	// System B: Players place their bets
 	betSys := goke.RegisterSystemFunc(ecs, func(cb *goke.Schedule, d time.Duration) {
-		for res := range vPlayers.Values() {
-			res.V1.Bet = rand.Intn(6) + 1
+		for res := range vPlayers.All() {
+			res.Comp1.Bet = rand.Intn(6) + 1
 		}
 	})
 
@@ -80,12 +80,13 @@ func main() {
 		dice, _ := goke.SafeGetComponent[Dice](ecs, diceEnt, diceDesc)
 		fmt.Printf("🎲 Turn %d | Dice Result: %d\n", turnCounter, dice.Value)
 
-		for res := range vPlayers.All() {
-			fmt.Printf("   Player %d bet: %d\n", res.Entity, res.V1.Bet)
-			if res.V1.Bet == dice.Value {
+		for item := range vPlayers.All() {
+			entity, bet := item.Entity, item.Comp1.Bet
+			fmt.Printf("   Player %d bet: %d\n", entity, bet)
+			if bet == dice.Value {
 				gameFinished = true
 				// Defer the assignment of the Winner tag to the next Sync point
-				goke.ScheduleAddComponent(schedule, res.Entity, winnerDesc, Winner{})
+				goke.ScheduleAddComponent(schedule, entity, winnerDesc, Winner{})
 			}
 		}
 	})

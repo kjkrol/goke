@@ -28,7 +28,7 @@ func (s *MovementSystem) Init(ecs *goke.ECS) {
 func (s *MovementSystem) Update(_ goke.Lookup, _ *goke.Schedule, d time.Duration) {
 	dt := d.Seconds()
 	for head := range s.moveView.All() {
-		pos, vel := head.V1, head.V2
+		pos, vel := head.Comp1, head.Comp2
 		pos.accX += float64(vel.X) * dt
 		pos.accY += float64(vel.Y) * dt
 

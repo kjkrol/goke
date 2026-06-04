@@ -44,9 +44,9 @@ func (s *CollisionSystem) Update(lookup goke.Lookup, sched *goke.Schedule, d tim
 }
 
 func (s *CollisionSystem) broadPhase(lookup goke.Lookup, probeExpandMargin uint32) (contacts []Contact) {
-	for head := range s.collisionView.All() {
-		pos, vel, col := head.V1, head.V2, head.V3
-		entityA := head.Entity
+	for item := range s.collisionView.All() {
+		pos, vel, col := item.Comp1, item.Comp2, item.Comp3
+		entityA := item.Entity
 
 		if vel.X == 0 && vel.Y == 0 {
 			continue

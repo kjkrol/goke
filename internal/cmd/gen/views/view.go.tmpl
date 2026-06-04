@@ -1,25 +1,40 @@
-{{- /* File: view.go.tmpl */ -}}
-// --------------- View{{.N}} ---------------
+package goke
 
-// View{{.N}} provides a type-safe iterator and access layer for entities that
-// possess exactly {{.N}} specific stateful components. It acts as a specialized
+import (
+	"fmt"
+	"iter"
+	"reflect"
+	"unsafe"
+
+    "github.com/kjkrol/goke/internal/core"
+)
+
+{{ range $n := .Range }}
+{{- /* File: view.go.tmpl */ -}}
+// --------------- View{{ $n }} ---------------
+
+// View{{ $n }} provides a type-safe iterator and access layer for entities that
+// possess exactly {{ $n }} specific stateful components. It acts as a specialized
 // window into the ECS world, filtering archetypes that satisfy the required
 // component mask and any additional constraints defined via BlueprintOptions.
 //
-// By leveraging pre-calculated component offsets, View{{.N}} enables
+// By leveraging pre-calculated component offsets, View{{ $n }} enables
 // O(1) access to component data during iteration, making it the primary
 // tool for implementing high-performance systems and logic loops.
-type View{{.N}}[{{.AllTParams}} any] struct {
+type View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $n }}, {{ end }}{{ end }}] struct {
     *core.View
 }
 
-// NewView{{.N}} initializes a query for exactly {{.N}} components.
+// NewView{{ $n }} initializes a query for exactly {{ $n }} components.
 // It panics if the component registration fails, if there are duplicate
 // components, or if options (like Exclude) create a logical contradiction.
 //
 // This ensures that the View is valid and ready for high-performance
 // iteration immediately after creation.
-func NewView{{.N}}[{{.AllTParams}} any](ecs *ECS, opts ...BlueprintOption) *View{{.N}}[{{.AllTParams}}] {
+func NewView{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $n }}, {{ end }}{{ end }}](
+    ecs *ECS,
+    opts ...BlueprintOption,
+) *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}] {
     registry := ecs.registry
     blueprint := core.NewBlueprint(registry)
     componentsRegistry := &registry.ComponentsRegistry
@@ -27,388 +42,251 @@ func NewView{{.N}}[{{.AllTParams}} any](ecs *ECS, opts ...BlueprintOption) *View
     // Helper: Validates that the required component can be part of the view.
     mustAdd := func(info core.ComponentInfo) {
         if err := blueprint.WithComp(info); err != nil {
-            panic(fmt.Sprintf("goke: view{{.N}} init failed: %v", err))
+            panic(fmt.Sprintf("goke: view{{ $n }} init failed: %v", err))
         }
     }
 
     // 1. Resolve Component Infos (Type -> ID)
-    {{range .Indices}}
-    info{{additions . 1}} := componentsRegistry.GetOrRegister(reflect.TypeFor[T{{additions . 1}}]())
+    {{ range $i := (seq 1 $n) }}
+    info{{ $i }} := componentsRegistry.GetOrRegister(reflect.TypeFor[T{{ $i }}]())
     {{end}}
 
     // 2. Add to Blueprint (Build Mask)
-    {{range .Indices}}
-    mustAdd(info{{additions . 1}})
+    {{ range $i := (seq 1 $n) }}
+    mustAdd(info{{ $i }})
     {{end}}
 
     // 3. Apply dynamic options (Include/Exclude)
     for _, opt := range opts {
         if err := opt(blueprint); err != nil {
-            panic(fmt.Sprintf("goke: view{{.N}} option failed: %v", err))
+            panic(fmt.Sprintf("goke: view{{ $n }} option failed: %v", err))
         }
     }
 
     // 4. Define Rigid Layout (Slice Literal - Zero Allocation Overhead)
     // This guarantees that T1 is at index 0, T2 at index 1, etc.
     layout := []core.ComponentInfo{
-        {{range .Indices}}info{{additions . 1}}, {{end}}
+        {{ range $i := (seq 1 $n) }}info{{ $i }}, {{end}}
     }
 
     view := core.NewView(blueprint, layout, registry)
-    return &View{{.N}}[{{.AllTParams}}]{View: view}
+    return &View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]{View: view}
 }
 
-// All returns an iterator (iter.Seq2) that yields the unique Entity identifier
-// and a tuple of pointers to its {{.N}} components. This is designed for use
-// in range loops, providing a clean, idiomatic Go way to process data while
-// maintaining maximum cache efficiency.
+// All returns an iterator (iter.Seq2) that yields components split into two structures:
+// head (containing the unique Entity identifier and components V1-V4) and tail (containing
+// remaining components V5+). This split optimizes register usage and prevents heap allocation.
 //
 // The iteration is performed archetype by archetype, ensuring that data is
 // accessed contiguously in memory, which significantly reduces CPU cache misses.
 //
 // Example usage:
-//    for head, {{if .HasTail}}tail{{else}}_{{end}} := range view{{.N}}.All() {
+//    for head, tail := range view{{ $n }}.All() {
 //        entity := head.Entity
-//        v1 := head.V1
-//        {{- if .HasTail }}
-//        v{{.N}} := tail.V{{.N}}
-//        {{- else if gt .N 1 }}
-//        v{{.N}} := head.V{{.N}}
-//        {{- end }}
+//        {{ range $i := (seq 1 $n) }}{{ if le $i 4 }}v{{ $i }} := head.Comp{{ $i }}
+//        {{ else }}v{{ $i }} := tail.V{{ $i }}
+//        {{ end }}{{ end }}
 //    }
-func (v *View{{.N}}[{{.AllTParams}}]) All() iter.Seq2[
-    struct { Entity core.Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
-    {{if .HasTail}}struct { {{range .TIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
+func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) All() iter.Seq2[
+	struct {
+		Entity core.Entity
+		{{ range $i := (seq 1 $n) }}{{ if le $i 3 }}Comp{{ $i }} *T{{ $i }}
+		{{ end }}{{ end }}
+	},
+	struct {
+		{{ range $i := (seq 1 $n) }}{{ if gt $i 3 }}Comp{{ $i }} *T{{ $i }}
+		{{ end }}{{ end }}
+	},
 ] {
-    return func(yield func(
-        struct { Entity core.Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
-        {{if .HasTail}}struct { {{range .TIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
-    ) bool) {
-        // 1. Pre-calculate Strides (Invariant)
-        {{range .Indices}}stride{{additions . 1}} := unsafe.Sizeof(*new(T{{additions . 1}}))
-        {{end}}
+	return func(yield func(
+		struct {
+			Entity core.Entity
+			{{ range $i := (seq 1 $n) }}{{ if le $i 3 }}Comp{{ $i }} *T{{ $i }}
+			{{ end }}{{ end }}
+		},
+		struct {
+			{{ range $i := (seq 1 $n) }}{{ if gt $i 3 }}Comp{{ $i }} *T{{ $i }}
+			{{ end }}{{ end }}
+		},
+	) bool) {
+		// 1. Pre-calculate Strides (Invariant)
+		{{ range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
+		stride{{ $idx }} := unsafe.Sizeof(*new(T{{ $i }}))
+		{{ end }}
 
-        // Loop over matched archetypes - Value Copy is fast enough (stack allocation)
-        for _, ma := range v.Baked {
-            // 2. Load Offsets from Cache (L1 Cache Friendly)
-            // Accessing fields on stack-allocated 'ma' is blazing fast
-            offsetEntity := ma.EntityPageOffset
-            {{range .Indices}}offset{{additions . 1}} := ma.FieldsOffsets[{{ . }}]
-            {{end}}
+		// Loop over matched archetypes
+		for _, ma := range v.Baked {
+			// 2. Load Offsets from Cache
+			offsetEntity := ma.EntityPageOffset
+			{{ range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
+			offset{{ $idx }} := ma.FieldsOffsets[{{ $idx }}]
+			{{ end }}
 
-            // 3. Loop over Physical Memory Pages (CHUNKS)
-            for _, chunk := range ma.Arch.Memory.Pages {
-                count := chunk.Len
-                if count == 0 {
-                    continue
-                }
+			// 3. Loop over Physical Memory Pages
+			for _, page := range ma.Arch.Memory.Pages {
+				count := page.Len
+				if count == 0 {
+					continue
+				}
 
-                // 4. Resolve Base Pointers for this Page (Pure Math)
-                base := chunk.Ptr
-                ptrEntity := unsafe.Add(base, offsetEntity)
-                {{range .Indices}}ptr{{additions . 1}} := unsafe.Add(base, offset{{additions . 1}})
-                {{end}}
+				// 4. Resolve Base Pointers
+				base := page.Ptr
+				ptrEntity := unsafe.Add(base, offsetEntity)
+				{{ range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
+				ptr{{ $idx }} := unsafe.Add(base, offset{{ $idx }})
+				{{ end }}
 
-                // 5. Hot Loop (Death Loop)
-                for count > 0 {
-                    // Construct Head
-                    head := struct { Entity core.Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
-                        Entity: *(*core.Entity)(ptrEntity),
-                        {{range .HIndices}}V{{additions . 1}}: (*T{{additions . 1}})(ptr{{additions . 1}}),
-                        {{end}}
-                    }
+				// 5. Hot Loop
+				for count > 0 {
+					// Max 3 components in Head to stay in CPU Registers
+					head := struct {
+						Entity core.Entity
+						{{ range $i := (seq 1 $n) }}{{ if le $i 3 }}Comp{{ $i }} *T{{ $i }}
+						{{ end }}{{ end }}
+					}{
+						Entity: *(*core.Entity)(ptrEntity),
+						{{ range $i := (seq 1 $n) }}{{ if le $i 3 }}{{ $idx := sub $i 1 }}Comp{{ $i }}: (*T{{ $i }})(ptr{{ $idx }}),
+						{{ end }}{{ end }}
+					}
 
-                    // Construct Tail (if exists)
-                    {{if .HasTail}}
-                    tail := struct { {{range .TIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
-                        {{range .TIndices}}V{{additions . 1}}: (*T{{additions . 1}})(ptr{{additions . 1}}),
-                        {{end}}
-                    }
-                    {{else}}
-                    tail := struct{}{}
-                    {{end}}
+					// Remaining components spill over to Tail
+					tail := struct {
+						{{ range $i := (seq 1 $n) }}{{ if gt $i 3 }}Comp{{ $i }} *T{{ $i }}
+						{{ end }}{{ end }}
+					}{
+						{{ range $i := (seq 1 $n) }}{{ if gt $i 3 }}{{ $idx := sub $i 1 }}Comp{{ $i }}: (*T{{ $i }})(ptr{{ $idx }}),
+						{{ end }}{{ end }}
+					}
 
-                    // Yield execution to the user
-                    if !yield(head, tail) {
-                        return
-                    }
+					if !yield(head, tail) {
+						return
+					}
 
-                    // 6. Pointer Arithmetic (Move to next row)
-                    ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
-                    {{range .Indices}}ptr{{additions . 1}} = unsafe.Add(ptr{{additions . 1}}, stride{{additions . 1}})
-                    {{end}}
+					// 6. Pointer Arithmetic
+					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
+					{{ range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
+					ptr{{ $idx }} = unsafe.Add(ptr{{ $idx }}, stride{{ $idx }})
+					{{ end }}
 
-                    count--
-                }
-            }
-        }
-    }
+					count--
+				}
+			}
+		}
+	}
 }
 
-// Filter returns an iterator (iter.Seq2) that yields only the entities
-// specified in the selected slice, provided they match the View's archetype
-// constraints. It is optimized for scenarios where a subset of entities
-// is pre-determined (e.g., via spatial partitioning or sorted results)
-// but requires high-speed access to their component data.
+// Chunk{{ $n }} holds flat memory slices mapped directly to a memory page.
+type Chunk{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $n }}, {{ end }}{{ end }}] struct {
+	Entities []core.Entity
+	{{ range $i := (seq 1 $n) }}C{{ $i }} []T{{ $i }}
+	{{ end }}
+}
+
+func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) Each(fn func(entities []core.Entity{{ range $i := (seq 1 $n) }}, c{{ $i }} []T{{ $i }}{{ end }})) {
+	for _, ma := range v.Baked {
+		// 1. Load Offsets from Cache (L1 Cache Friendly)
+		offsetEntity := ma.EntityPageOffset
+		{{ range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
+		offset{{ $idx }} := ma.FieldsOffsets[{{ $idx }}]
+		{{ end }}
+
+		// 2. Loop over Physical Memory Pages
+		for _, page := range ma.Arch.Memory.Pages {
+			count := page.Len
+			if count == 0 {
+				continue
+			}
+
+			// 3. Resolve Base Pointer for this Page
+			base := page.Ptr
+
+			// 4. Map raw memory pages directly to Go slices (Zero Heap Allocation)
+			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, offsetEntity)), count)
+			{{ range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
+			c{{ $i }} := unsafe.Slice((*T{{ $i }})(unsafe.Add(base, offset{{ $idx }})), count)
+			{{ end }}
+
+			// 5. Bulk Callback Execution (Once per page)
+			fn(entities{{ range $i := (seq 1 $n) }}, c{{ $i }}{{ end }})
+		}
+	}
+}
+
+// Filter iterates over a provided slice of entities, yielding an Item{{ $n }}
+// for each entity that satisfies the View's component constraints.
 //
-// The iterator performs an internal validation for each entity to ensure
-// it still belongs to an archetype compatible with this View, preventing
-// invalid memory access if the entity's composition has changed.
+// This is highly optimized for targeted queries where the entity subset
+// is already known (e.g., from spatial partitioning, sorted lists, or event
+// payloads), allowing direct, high-speed access to their component data.
+//
+// Safety guarantee: Filter dynamically verifies that each entity's current
+// composition (archetype) still matches the View before yielding. This safely
+// prevents invalid memory access if an entity was mutated (components added
+// or removed) after the 'selected' slice was built.
 //
 // Example usage:
-//    selected := []Entity{e1, e5, e10}
-//    for head, {{if .HasTail}}tail{{else}}_{{end}} := range view{{.N}}.Filter(selected) {
-//        entity := head.Entity
-//        v1 := head.V1
-//        {{- if .HasTail}}
-//        {{- range $i, $idx := .TIndices }}{{ if eq (additions $idx 1) $.N }}
-//        v{{$.N}} := tail.V{{$.N}}
-//        {{- end }}{{ end }}
-//        {{- else if gt .N 1 }}
-//        {{- range $i, $idx := .HIndices }}{{ if eq (additions $idx 1) $.N }}
-//        v{{$.N}} := head.V{{$.N}}
-//        {{- end }}{{ end }}
-//        {{- end }}
-//    }
-func (v *View{{.N}}[{{.AllTParams}}]) Filter(selected []Entity) iter.Seq2[
-    struct { Entity Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
-    {{if .HasTail}}struct { {{range .TIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
-] {
-    return func(yield func(
-        struct { Entity core.Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
-        {{if .HasTail}}struct { {{range .TIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
-    ) bool) {
-        var lastArchID core.ArchetypeId = core.NullArchetypeId
-        var currentArch *core.Archetype
+//
+//	selected := []Entity{e1, e5, e10}
+//	for item := range view{{ $n }}.Filter(selected) {
+//		entity := item.Entity
+//		{{ range $i := (seq 1 $n) }}
+//		comp{{ $i }} := item.Comp{{ $i }}
+//		{{ end }}
+//	}
+func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) Filter(selected []Entity) iter.Seq[Item{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]] {
+	return func(yield func(Item{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) bool) {
+		var lastArchID core.ArchetypeId = core.NullArchetypeId
+		var currentArch *core.Archetype
 
-        // Column descriptor cache
-        {{range .Indices}}var col{{additions . 1}} *core.Column
-        {{end}}
+		// Column descriptor cache
+		{{ range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
+		var col{{ $idx }} *core.Column
+		{{ end }}
 
-        registry := v.Reg.ArchetypeRegistry
+		registry := v.Reg.ArchetypeRegistry
 
-        for _, e := range selected {
-            link, ok := registry.EntityLinkStore.Get(e)
-            if !ok {
-                continue
-            }
+		for _, entity := range selected {
+			link, ok := registry.EntityLinkStore.Get(entity)
+			if !ok {
+				continue
+			}
 
-            // 1. Archetype Change Detection (Cache descriptors)
-            if link.ArchId != lastArchID {
-                currentArch = &registry.Archetypes[link.ArchId]
+			// 1. Archetype Change Detection (Cache descriptors)
+			if link.ArchId != lastArchID {
+				currentArch = &registry.Archetypes[link.ArchId]
 
-                if !v.View.Matches(currentArch.Mask) {
-                    lastArchID = core.NullArchetypeId
-                    currentArch = nil
-                    continue
-                }
+				if !v.View.Matches(currentArch.Mask) {
+					lastArchID = core.NullArchetypeId
+					currentArch = nil
+					continue
+				}
 
-                // Cache all column descriptors for this archetype
-                {{range .Indices}}col{{additions . 1}} = currentArch.GetColumn(v.Layout[{{ . }}].ID)
-                {{end}}
+				// Cache all column descriptors for this archetype
+				{{ range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
+				col{{ $idx }} = currentArch.GetColumn(v.Layout[{{ $idx }}].ID)
+				{{ end }}
 
-                lastArchID = link.ArchId
-            }
+				lastArchID = link.ArchId
+			}
 
-            if currentArch == nil {
-                continue
-            }
+			if currentArch == nil {
+				continue
+			}
 
-            // 2. Resolve Page
-            // Access the physical page using the index from the link
-            chunk := currentArch.Memory.Pages[link.PageIdx]
+			// 2. Resolve Page
+			// Access the physical page using the index from the link
+			chunk := currentArch.Memory.Pages[link.PageIdx]
 
-            // 3. Construct Result (Head)
-            head := struct { Entity core.Entity; {{range .HIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
-                Entity: e,
-                {{range .HIndices}}V{{additions . 1}}: (*T{{additions . 1}})(col{{additions . 1}}.GetPointer(chunk, link.PageRow)),
-                {{end}}
-            }
-
-            // 4. Construct Result (Tail)
-            {{if .HasTail}}
-            tail := struct { {{range .TIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
-                {{range .TIndices}}V{{additions . 1}}: (*T{{additions . 1}})(col{{additions . 1}}.GetPointer(chunk, link.PageRow)),
-                {{end}}
-            }
-            {{else}}
-            tail := struct{}{}
-            {{end}}
-
-            if !yield(head, tail) {
-                return
-            }
-        }
-    }
+			// 3. Construct Result
+			if !yield(Item{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]{
+				Entity: entity,
+				{{ range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
+				Comp{{ $i }}: (*T{{ $i }})(col{{ $idx }}.GetPointer(chunk, link.PageRow)),
+				{{ end }}
+			}) {
+				return
+			}
+		}
+	}
 }
-
-// Values returns a performance-critical iterator (iter.Seq2) that yields only
-// component pointers, grouped into anonymous head and tail structures.
-// This method is specifically designed for high-throughput data processing
-// where the Entity identifier is not required.
-//
-// By omitting the Entity ID, this method minimizes stack pressure and
-// register usage, focusing purely on data-driven transformation.
-//
-// Example usage:
-//    for head, {{if .HasVTail}}tail{{else}}_{{end}} := range view{{.N}}.Values() {
-//        v1 := head.V1
-//        {{- if le .N 4 }}{{ if gt .N 1 }}
-//        v{{.N}} := head.V{{.N}}
-{{- end }}{{ end }}
-//        {{- if .HasVTail }}
-//        v{{.N}} := tail.V{{.N}}
-//        {{- end }}
-//    }
-func (v *View{{.N}}[{{.AllTParams}}]) Values() iter.Seq2[
-    struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
-    {{if .HasVTail}}struct { {{range .PTIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
-] {
-    return func(yield func(
-        struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
-        {{if .HasVTail}}struct { {{range .PTIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
-    ) bool) {
-        // 1. Pre-calculate Strides (Invariant)
-        {{range .Indices}}stride{{additions . 1}} := unsafe.Sizeof(*new(T{{additions . 1}}))
-        {{end}}
-
-        // Loop over matched archetypes
-        for _, ma := range v.Baked {
-
-            // 2. Load Offsets from Cache (L1 Cache Friendly)
-            // We use the same lookup array as in All(), just skipping the Entity offset.
-            {{range .Indices}}offset{{additions . 1}} := ma.FieldsOffsets[{{ . }}]
-            {{end}}
-
-            // 3. Loop over Physical Memory Pages (CHUNKS)
-            for _, chunk := range ma.Arch.Memory.Pages {
-                count := chunk.Len
-                if count == 0 {
-                    continue
-                }
-
-                // 4. Resolve Base Pointers for this Page
-                // Pure math: PageBase + ComponentOffset
-                base := chunk.Ptr
-                {{range .Indices}}ptr{{additions . 1}} := unsafe.Add(base, offset{{additions . 1}})
-                {{end}}
-
-                // 5. Hot Loop (Death Loop)
-                for count > 0 {
-
-                    // Construct Head
-                    head := struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
-                        {{- range .PHIndices}}V{{additions . 1}}: (*T{{additions . 1}})(ptr{{additions . 1}}),{{end}}
-                    }
-
-                    // Construct Tail
-                    {{if .HasVTail}}
-                    tail := struct { {{range .PTIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
-                        {{- range .PTIndices}}V{{additions . 1}}: (*T{{additions . 1}})(ptr{{additions . 1}}),{{end}}
-                    }
-                    {{else}}
-                    tail := struct{}{}
-                    {{end}}
-
-                    if !yield(head, tail) { return }
-
-                    // 6. Increment Pointers (Pointer Arithmetic)
-                    {{range .Indices}}ptr{{additions . 1}} = unsafe.Add(ptr{{additions . 1}}, stride{{additions . 1}})
-                    {{end}}
-
-                    count--
-                }
-            }
-        }
-    }
-}
-
-// FilterValues returns an iterator (iter.Seq2) that yields component pointers
-// for a pre-selected subset of entities, skipping the Entity identifier.
-// It is optimized for cases where the entity list is already known (e.g., from spatial partitioning).
-//
-// Like the Values method, it uses anonymous structures to ensure the Go compiler
-// can perform aggressive register allocation by avoiding Entity ID overhead.
-//
-// Example usage:
-//    selected := []Entity{e1, e5, e10}
-//    for head, {{if .HasVTail}}tail{{else}}_{{end}} := range view{{.N}}.FilterValues(selected) {
-//        v1 := head.V1
-//        {{- if le .N 4 }}{{ if gt .N 1 }}
-//        v{{.N}} := head.V{{.N}}
-{{- end }}{{ end }}
-//        {{- if .HasVTail }}
-//        v{{.N}} := tail.V{{.N}}
-//        {{- end }}
-//    }
-func (v *View{{.N}}[{{.AllTParams}}]) FilterValues(selected []core.Entity) iter.Seq2[
-    struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
-    {{if .HasVTail}}struct { {{range .PTIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
-] {
-    return func(yield func(
-        struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} },
-        {{if .HasVTail}}struct { {{range .PTIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{{else}}struct{}{{end}},
-    ) bool) {
-        var lastArchID core.ArchetypeId = core.NullArchetypeId
-        var currentArch *core.Archetype
-
-        // Cache for column descriptors to avoid repeated map lookups
-        {{range .Indices}}var col{{additions . 1}} *core.Column
-        {{end}}
-
-        registry := v.Reg.ArchetypeRegistry
-
-        for _, e := range selected {
-            link, ok := registry.EntityLinkStore.Get(e)
-            if !ok {
-                continue
-            }
-
-            // 1. Archetype Transition Detection
-            // We only refresh column descriptors when the archetype changes.
-            if link.ArchId != lastArchID {
-                currentArch = &registry.Archetypes[link.ArchId]
-
-                // Verify if the archetype matches the view's mask requirements
-                if !v.View.Matches(currentArch.Mask) {
-                    lastArchID = core.NullArchetypeId
-                    currentArch = nil
-                    continue
-                }
-
-                // Cache column accessors for this specific archetype
-                {{range .Indices}}col{{additions . 1}} = currentArch.GetColumn(v.Layout[{{.}}].ID)
-                {{end}}
-
-                lastArchID = link.ArchId
-            }
-
-            // If currentArch is nil, it means the current entity's archetype doesn't match the view
-            if currentArch == nil {
-                continue
-            }
-
-            // 2. Resolve Physical Page
-            // Access the memory page (Page) using the index from the link store.
-            chunk := currentArch.Memory.Pages[link.PageIdx]
-
-            // 3. Construct Result (Head)
-            vhead := struct { {{range .PHIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
-                {{- range .PHIndices}}V{{additions . 1}}: (*T{{additions . 1}})(col{{additions . 1}}.GetPointer(chunk, link.PageRow)),{{end}}
-            }
-
-            // 4. Construct Result (Tail)
-            {{if .HasVTail}}
-            vtail := struct { {{range .PTIndices}}V{{additions . 1}} *T{{additions . 1}}; {{end}} }{
-                {{- range .PTIndices}}V{{additions . 1}}: (*T{{additions . 1}})(col{{additions . 1}}.GetPointer(chunk, link.PageRow)),{{end}}
-            }
-            {{else}}
-            vtail := struct{}{}
-            {{end}}
-
-            if !yield(vhead, vtail) {
-                return
-            }
-        }
-    }
-}
+{{ end }}

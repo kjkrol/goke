@@ -41,8 +41,8 @@ func (s *EntitiesRendererSystem) Draw(screen *ebiten.Image) {
 	imgW := s.pixelImage.Bounds().Dx()
 	imgH := s.pixelImage.Bounds().Dy()
 	now := time.Now()
-	for head := range s.renderView.Values() {
-		aabb, col, app := head.V1, head.V2, head.V3
+	for item := range s.renderView.All() {
+		aabb, col, app := item.Comp1, item.Comp2, item.Comp3
 		s.draw(aabb.AABB.AABB, app, col, screen, imgW, imgH, now)
 		aabb.AABB.VisitFragments(func(pos plane.FragPosition, box geom.AABB[uint32]) bool {
 			s.draw(box, app, col, screen, imgW, imgH, now)

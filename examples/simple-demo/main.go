@@ -38,7 +38,7 @@ func main() {
 	view := goke.NewView2[Order, Discount](ecs, goke.Exclude[Processed]())
 	billing := goke.RegisterSystemFunc(ecs, func(schedule *goke.Schedule, d time.Duration) {
 		for head := range view.All() {
-			ord, disc := head.V1, head.V2
+			ord, disc := head.Comp1, head.Comp2
 			ord.Total = ord.Total * (1 - disc.Percentage/100)
 
 			// Defer the assignment of the Processed tag to the next synchronization point

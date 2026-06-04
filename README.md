@@ -157,7 +157,8 @@ func main() {
 	blueprint := goke.NewBlueprint3[Pos, Vel, Acc](ecs)
 
 	// Create the entity and get direct access to its memory slots.
-	entity, pos, vel, acc := blueprint.Create()
+	item := blueprint.Create()
+	entity, pos, vel, acc := item.Entity, item.Comp1, item.Comp2, item.Comp3
 	*pos = Pos{X: 0, Y: 0}
 	*vel = Vel{X: 1, Y: 1}
 	*acc = Acc{X: 0.1, Y: 0.1}
@@ -251,7 +252,7 @@ GOKe delivers near-metal speeds by eliminating heap allocations and leveraging L
 | **Throughput** | **Iteration** | **0.37 - 0.56 ns/ent** | **0** | Linear SoA (1-8 components) |
 | **Scalability** | **$O(1)$ Filter** | **1.39 – 5.38 ns/ent** | **0** | Centralized Record Lookup |
 | **Structural** | **Create Entity** | **19 - 23 ns/op** | **0** | Blueprint-based (1-4 comps) |
-| **Structural** | **Batch Create Entity** | **10 - 20 ns/op** | **0** | Blueprint-based (1-4 comps) |
+| **Structural** | **Batch Create Entities** | **10 - 20 ns/op** | **0** | Blueprint-based (1-4 comps) |
 | **Structural** | **Migrate Component** | **37.36 ns/op** | **0** | Archetype Move (Insert) |
 | **Structural** | **Remove Entity** | **17.95 ns/op** | **0** | Index Recycling |
 | **Access** | **Get Component** | **4.49 ns/op** | **0** | Direct Generation Check |

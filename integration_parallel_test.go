@@ -35,9 +35,10 @@ func (s *PhysicsSystem) Init(ecs *goke.ECS) {
 	s.query = goke.NewView2[Position, Velocity](ecs)
 }
 func (s *PhysicsSystem) Update(lookup goke.Lookup, schedule *goke.Schedule, d time.Duration) {
-	for head := range s.query.All() {
-		head.V1.X += head.V2.VX * float32(d.Seconds())
-		head.V1.Y += head.V2.VY * float32(d.Seconds())
+	for item := range s.query.All() {
+		v1, v2 := item.Comp1, item.Comp2
+		v1.X += v2.VX * float32(d.Seconds())
+		v1.Y += v2.VY * float32(d.Seconds())
 	}
 }
 
@@ -50,9 +51,10 @@ func (s *HealthSystem) Init(eng *goke.ECS) {
 	s.query = goke.NewView1[Health](eng)
 }
 func (s *HealthSystem) Update(lookup goke.Lookup, schedule *goke.Schedule, d time.Duration) {
-	for head := range s.query.All() {
-		if head.V1.Current < head.V1.Max {
-			head.V1.Current += 1.0 // Simple regen
+	for item := range s.query.All() {
+		health := item.Comp1
+		if health.Current < health.Max {
+			health.Current += 1.0 // Simple regen
 		}
 	}
 }
@@ -97,15 +99,16 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	// 4. Verification
 	query := goke.NewView2[Position, Health](ecs)
 	count := 0
-	for head := range query.All() {
+	for item := range query.All() {
+		v1, v2 := item.Comp1, item.Comp2
 		count++
 		// Check Physics result: 0 + 10*1s = 10
-		if head.V1.X != 10 {
-			t.Errorf("Physics failed: expected X=10, got %f", head.V1.X)
+		if v1.X != 10 {
+			t.Errorf("Physics failed: expected X=10, got %f", v1.X)
 		}
 		// Check Health result: 50 + 1 = 51
-		if head.V2.Current != 51 {
-			t.Errorf("Health failed: expected HP=51, got %f", head.V2.Current)
+		if v2.Current != 51 {
+			t.Errorf("Health failed: expected HP=51, got %f", v2.Current)
 		}
 	}
 

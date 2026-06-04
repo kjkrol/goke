@@ -303,8 +303,8 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			for head := range view.FilterValues(arr) {
-				pos := head.V1
+			for item := range view.Filter(arr) {
+				pos := item.Comp1
 				pos.X += 1.0
 			}
 		}
@@ -330,8 +330,9 @@ func BenchmarkEngine_Query(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		for head := range view.All() {
-			head.V1.X += 0.1
+		for item := range view.All() {
+			pos := item.Comp1
+			pos.X += 0.1
 		}
 	}
 }

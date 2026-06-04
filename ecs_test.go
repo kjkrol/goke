@@ -47,11 +47,11 @@ func TestECS_UseCase(t *testing.T) {
 	processedCount := 0
 
 	billingSystem := goke.RegisterSystemFunc(ecs, func(cb *goke.Schedule, d time.Duration) {
-		for head := range query1.All() {
+		for item := range query1.All() {
+			ord, disc := item.Comp1, item.Comp2
 			processedCount++
-			ord, disc := head.V1, head.V2
 			ord.Total = ord.Total * (1 - disc.Percentage/100)
-			goke.ScheduleAddComponent(cb, head.Entity, processedDesc, Processed{})
+			goke.ScheduleAddComponent(cb, item.Entity, processedDesc, Processed{})
 		}
 	})
 	query2 := goke.NewView0(ecs, goke.Include[Processed](), goke.Include[Order](), goke.Include[Discount]())
