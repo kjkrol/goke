@@ -80,6 +80,12 @@ func NewView{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $n }},
 // The iteration is performed archetype by archetype, ensuring that data is
 // accessed contiguously in memory, which significantly reduces CPU cache misses.
 //
+// Performance Note:
+// For views with 8 or more components (N >= 8), it is recommended to use the
+// non-iterator-based Each() method instead. At this scale, the tail structure
+// grows large enough that the batch-slicing approach of Each() significantly
+// outperforms the iterator overhead of All().
+//
 // Example usage:
 //    for head, tail := range view{{ $n }}.All() {
 //        entity := head.Entity
@@ -171,6 +177,26 @@ func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{
 	}
 }
 
+// Each executes the provided callback function across all matching archetypes,
+// passing components as contiguous slices (`[]T`) alongside their corresponding `[]core.Entity`.
+//
+// Unlike the iterative All() approach, this method avoids per-element iterator overhead
+// by processing data in bulk, archetype by archetype. This ensures optimal CPU cache
+// locality and allows the compiler to better optimize dense memory loops.
+//
+// Performance Note:
+// For views with fewer than 8 components (N < 8), it is recommended to use the
+// iterator-based All() method (iter.Seq2), as Each() incurs a higher setup and
+// slicing overhead that is only amortized with larger tail structures (N >= 8).
+//
+// Example usage:
+//     view{{ $n }}.Each(func(entities []core.Entity{{ range $i := (seq 1 $n) }}, c{{ $i }}s []T{{ $i }}{{ end }}) {
+//         for i := range entities {
+//             entity := entities[i]
+//             {{ range $i := (seq 1 $n) }}v{{ $i }} := c{{ $i }}s[i]
+//             {{ end }}
+//         }
+//     })
 func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) Each(fn func([]core.Entity{{ range $i := (seq 1 $n) }}, []T{{ $i }}{{ end }})) {
 	for _, ma := range v.Baked {
 
