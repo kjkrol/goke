@@ -74,6 +74,12 @@ func NewView1[T1 any](
 // The iteration is performed archetype by archetype, ensuring that data is
 // accessed contiguously in memory, which significantly reduces CPU cache misses.
 //
+// Performance Note:
+// For views with 8 or more components (N >= 8), it is recommended to use the
+// non-iterator-based Each() method instead. At this scale, the tail structure
+// grows large enough that the batch-slicing approach of Each() significantly
+// outperforms the iterator overhead of All().
+//
 // Example usage:
 //    for head, tail := range view1.All() {
 //        entity := head.Entity
@@ -152,6 +158,26 @@ func (v *View1[T1]) All() iter.Seq2[
 	}
 }
 
+// Each executes the provided callback function across all matching archetypes,
+// passing components as contiguous slices (`[]T`) alongside their corresponding `[]core.Entity`.
+//
+// Unlike the iterative All() approach, this method avoids per-element iterator overhead
+// by processing data in bulk, archetype by archetype. This ensures optimal CPU cache
+// locality and allows the compiler to better optimize dense memory loops.
+//
+// Performance Note:
+// For views with fewer than 8 components (N < 8), it is recommended to use the
+// iterator-based All() method (iter.Seq2), as Each() incurs a higher setup and
+// slicing overhead that is only amortized with larger tail structures (N >= 8).
+//
+// Example usage:
+//     view1.Each(func(entities []core.Entity, c1s []T1) {
+//         for i := range entities {
+//             entity := entities[i]
+//             v1 := c1s[i]
+//             
+//         }
+//     })
 func (v *View1[T1]) Each(fn func([]core.Entity, []T1)) {
 	for _, ma := range v.Baked {
 
@@ -311,6 +337,12 @@ func NewView2[T1 any, T2 any](
 // The iteration is performed archetype by archetype, ensuring that data is
 // accessed contiguously in memory, which significantly reduces CPU cache misses.
 //
+// Performance Note:
+// For views with 8 or more components (N >= 8), it is recommended to use the
+// non-iterator-based Each() method instead. At this scale, the tail structure
+// grows large enough that the batch-slicing approach of Each() significantly
+// outperforms the iterator overhead of All().
+//
 // Example usage:
 //    for head, tail := range view2.All() {
 //        entity := head.Entity
@@ -398,6 +430,27 @@ func (v *View2[T1, T2]) All() iter.Seq2[
 	}
 }
 
+// Each executes the provided callback function across all matching archetypes,
+// passing components as contiguous slices (`[]T`) alongside their corresponding `[]core.Entity`.
+//
+// Unlike the iterative All() approach, this method avoids per-element iterator overhead
+// by processing data in bulk, archetype by archetype. This ensures optimal CPU cache
+// locality and allows the compiler to better optimize dense memory loops.
+//
+// Performance Note:
+// For views with fewer than 8 components (N < 8), it is recommended to use the
+// iterator-based All() method (iter.Seq2), as Each() incurs a higher setup and
+// slicing overhead that is only amortized with larger tail structures (N >= 8).
+//
+// Example usage:
+//     view2.Each(func(entities []core.Entity, c1s []T1, c2s []T2) {
+//         for i := range entities {
+//             entity := entities[i]
+//             v1 := c1s[i]
+//             v2 := c2s[i]
+//             
+//         }
+//     })
 func (v *View2[T1, T2]) Each(fn func([]core.Entity, []T1, []T2)) {
 	for _, ma := range v.Baked {
 
@@ -564,6 +617,12 @@ func NewView3[T1 any, T2 any, T3 any](
 // The iteration is performed archetype by archetype, ensuring that data is
 // accessed contiguously in memory, which significantly reduces CPU cache misses.
 //
+// Performance Note:
+// For views with 8 or more components (N >= 8), it is recommended to use the
+// non-iterator-based Each() method instead. At this scale, the tail structure
+// grows large enough that the batch-slicing approach of Each() significantly
+// outperforms the iterator overhead of All().
+//
 // Example usage:
 //    for head, tail := range view3.All() {
 //        entity := head.Entity
@@ -660,6 +719,28 @@ func (v *View3[T1, T2, T3]) All() iter.Seq2[
 	}
 }
 
+// Each executes the provided callback function across all matching archetypes,
+// passing components as contiguous slices (`[]T`) alongside their corresponding `[]core.Entity`.
+//
+// Unlike the iterative All() approach, this method avoids per-element iterator overhead
+// by processing data in bulk, archetype by archetype. This ensures optimal CPU cache
+// locality and allows the compiler to better optimize dense memory loops.
+//
+// Performance Note:
+// For views with fewer than 8 components (N < 8), it is recommended to use the
+// iterator-based All() method (iter.Seq2), as Each() incurs a higher setup and
+// slicing overhead that is only amortized with larger tail structures (N >= 8).
+//
+// Example usage:
+//     view3.Each(func(entities []core.Entity, c1s []T1, c2s []T2, c3s []T3) {
+//         for i := range entities {
+//             entity := entities[i]
+//             v1 := c1s[i]
+//             v2 := c2s[i]
+//             v3 := c3s[i]
+//             
+//         }
+//     })
 func (v *View3[T1, T2, T3]) Each(fn func([]core.Entity, []T1, []T2, []T3)) {
 	for _, ma := range v.Baked {
 
@@ -833,6 +914,12 @@ func NewView4[T1 any, T2 any, T3 any, T4 any](
 // The iteration is performed archetype by archetype, ensuring that data is
 // accessed contiguously in memory, which significantly reduces CPU cache misses.
 //
+// Performance Note:
+// For views with 8 or more components (N >= 8), it is recommended to use the
+// non-iterator-based Each() method instead. At this scale, the tail structure
+// grows large enough that the batch-slicing approach of Each() significantly
+// outperforms the iterator overhead of All().
+//
 // Example usage:
 //    for head, tail := range view4.All() {
 //        entity := head.Entity
@@ -938,6 +1025,29 @@ func (v *View4[T1, T2, T3, T4]) All() iter.Seq2[
 	}
 }
 
+// Each executes the provided callback function across all matching archetypes,
+// passing components as contiguous slices (`[]T`) alongside their corresponding `[]core.Entity`.
+//
+// Unlike the iterative All() approach, this method avoids per-element iterator overhead
+// by processing data in bulk, archetype by archetype. This ensures optimal CPU cache
+// locality and allows the compiler to better optimize dense memory loops.
+//
+// Performance Note:
+// For views with fewer than 8 components (N < 8), it is recommended to use the
+// iterator-based All() method (iter.Seq2), as Each() incurs a higher setup and
+// slicing overhead that is only amortized with larger tail structures (N >= 8).
+//
+// Example usage:
+//     view4.Each(func(entities []core.Entity, c1s []T1, c2s []T2, c3s []T3, c4s []T4) {
+//         for i := range entities {
+//             entity := entities[i]
+//             v1 := c1s[i]
+//             v2 := c2s[i]
+//             v3 := c3s[i]
+//             v4 := c4s[i]
+//             
+//         }
+//     })
 func (v *View4[T1, T2, T3, T4]) Each(fn func([]core.Entity, []T1, []T2, []T3, []T4)) {
 	for _, ma := range v.Baked {
 
@@ -1118,6 +1228,12 @@ func NewView5[T1 any, T2 any, T3 any, T4 any, T5 any](
 // The iteration is performed archetype by archetype, ensuring that data is
 // accessed contiguously in memory, which significantly reduces CPU cache misses.
 //
+// Performance Note:
+// For views with 8 or more components (N >= 8), it is recommended to use the
+// non-iterator-based Each() method instead. At this scale, the tail structure
+// grows large enough that the batch-slicing approach of Each() significantly
+// outperforms the iterator overhead of All().
+//
 // Example usage:
 //    for head, tail := range view5.All() {
 //        entity := head.Entity
@@ -1232,6 +1348,30 @@ func (v *View5[T1, T2, T3, T4, T5]) All() iter.Seq2[
 	}
 }
 
+// Each executes the provided callback function across all matching archetypes,
+// passing components as contiguous slices (`[]T`) alongside their corresponding `[]core.Entity`.
+//
+// Unlike the iterative All() approach, this method avoids per-element iterator overhead
+// by processing data in bulk, archetype by archetype. This ensures optimal CPU cache
+// locality and allows the compiler to better optimize dense memory loops.
+//
+// Performance Note:
+// For views with fewer than 8 components (N < 8), it is recommended to use the
+// iterator-based All() method (iter.Seq2), as Each() incurs a higher setup and
+// slicing overhead that is only amortized with larger tail structures (N >= 8).
+//
+// Example usage:
+//     view5.Each(func(entities []core.Entity, c1s []T1, c2s []T2, c3s []T3, c4s []T4, c5s []T5) {
+//         for i := range entities {
+//             entity := entities[i]
+//             v1 := c1s[i]
+//             v2 := c2s[i]
+//             v3 := c3s[i]
+//             v4 := c4s[i]
+//             v5 := c5s[i]
+//             
+//         }
+//     })
 func (v *View5[T1, T2, T3, T4, T5]) Each(fn func([]core.Entity, []T1, []T2, []T3, []T4, []T5)) {
 	for _, ma := range v.Baked {
 
@@ -1419,6 +1559,12 @@ func NewView6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any](
 // The iteration is performed archetype by archetype, ensuring that data is
 // accessed contiguously in memory, which significantly reduces CPU cache misses.
 //
+// Performance Note:
+// For views with 8 or more components (N >= 8), it is recommended to use the
+// non-iterator-based Each() method instead. At this scale, the tail structure
+// grows large enough that the batch-slicing approach of Each() significantly
+// outperforms the iterator overhead of All().
+//
 // Example usage:
 //    for head, tail := range view6.All() {
 //        entity := head.Entity
@@ -1542,6 +1688,31 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq2[
 	}
 }
 
+// Each executes the provided callback function across all matching archetypes,
+// passing components as contiguous slices (`[]T`) alongside their corresponding `[]core.Entity`.
+//
+// Unlike the iterative All() approach, this method avoids per-element iterator overhead
+// by processing data in bulk, archetype by archetype. This ensures optimal CPU cache
+// locality and allows the compiler to better optimize dense memory loops.
+//
+// Performance Note:
+// For views with fewer than 8 components (N < 8), it is recommended to use the
+// iterator-based All() method (iter.Seq2), as Each() incurs a higher setup and
+// slicing overhead that is only amortized with larger tail structures (N >= 8).
+//
+// Example usage:
+//     view6.Each(func(entities []core.Entity, c1s []T1, c2s []T2, c3s []T3, c4s []T4, c5s []T5, c6s []T6) {
+//         for i := range entities {
+//             entity := entities[i]
+//             v1 := c1s[i]
+//             v2 := c2s[i]
+//             v3 := c3s[i]
+//             v4 := c4s[i]
+//             v5 := c5s[i]
+//             v6 := c6s[i]
+//             
+//         }
+//     })
 func (v *View6[T1, T2, T3, T4, T5, T6]) Each(fn func([]core.Entity, []T1, []T2, []T3, []T4, []T5, []T6)) {
 	for _, ma := range v.Baked {
 
@@ -1736,6 +1907,12 @@ func NewView7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any](
 // The iteration is performed archetype by archetype, ensuring that data is
 // accessed contiguously in memory, which significantly reduces CPU cache misses.
 //
+// Performance Note:
+// For views with 8 or more components (N >= 8), it is recommended to use the
+// non-iterator-based Each() method instead. At this scale, the tail structure
+// grows large enough that the batch-slicing approach of Each() significantly
+// outperforms the iterator overhead of All().
+//
 // Example usage:
 //    for head, tail := range view7.All() {
 //        entity := head.Entity
@@ -1868,6 +2045,32 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) All() iter.Seq2[
 	}
 }
 
+// Each executes the provided callback function across all matching archetypes,
+// passing components as contiguous slices (`[]T`) alongside their corresponding `[]core.Entity`.
+//
+// Unlike the iterative All() approach, this method avoids per-element iterator overhead
+// by processing data in bulk, archetype by archetype. This ensures optimal CPU cache
+// locality and allows the compiler to better optimize dense memory loops.
+//
+// Performance Note:
+// For views with fewer than 8 components (N < 8), it is recommended to use the
+// iterator-based All() method (iter.Seq2), as Each() incurs a higher setup and
+// slicing overhead that is only amortized with larger tail structures (N >= 8).
+//
+// Example usage:
+//     view7.Each(func(entities []core.Entity, c1s []T1, c2s []T2, c3s []T3, c4s []T4, c5s []T5, c6s []T6, c7s []T7) {
+//         for i := range entities {
+//             entity := entities[i]
+//             v1 := c1s[i]
+//             v2 := c2s[i]
+//             v3 := c3s[i]
+//             v4 := c4s[i]
+//             v5 := c5s[i]
+//             v6 := c6s[i]
+//             v7 := c7s[i]
+//             
+//         }
+//     })
 func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Each(fn func([]core.Entity, []T1, []T2, []T3, []T4, []T5, []T6, []T7)) {
 	for _, ma := range v.Baked {
 
@@ -2069,6 +2272,12 @@ func NewView8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any](
 // The iteration is performed archetype by archetype, ensuring that data is
 // accessed contiguously in memory, which significantly reduces CPU cache misses.
 //
+// Performance Note:
+// For views with 8 or more components (N >= 8), it is recommended to use the
+// non-iterator-based Each() method instead. At this scale, the tail structure
+// grows large enough that the batch-slicing approach of Each() significantly
+// outperforms the iterator overhead of All().
+//
 // Example usage:
 //    for head, tail := range view8.All() {
 //        entity := head.Entity
@@ -2210,6 +2419,33 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) All() iter.Seq2[
 	}
 }
 
+// Each executes the provided callback function across all matching archetypes,
+// passing components as contiguous slices (`[]T`) alongside their corresponding `[]core.Entity`.
+//
+// Unlike the iterative All() approach, this method avoids per-element iterator overhead
+// by processing data in bulk, archetype by archetype. This ensures optimal CPU cache
+// locality and allows the compiler to better optimize dense memory loops.
+//
+// Performance Note:
+// For views with fewer than 8 components (N < 8), it is recommended to use the
+// iterator-based All() method (iter.Seq2), as Each() incurs a higher setup and
+// slicing overhead that is only amortized with larger tail structures (N >= 8).
+//
+// Example usage:
+//     view8.Each(func(entities []core.Entity, c1s []T1, c2s []T2, c3s []T3, c4s []T4, c5s []T5, c6s []T6, c7s []T7, c8s []T8) {
+//         for i := range entities {
+//             entity := entities[i]
+//             v1 := c1s[i]
+//             v2 := c2s[i]
+//             v3 := c3s[i]
+//             v4 := c4s[i]
+//             v5 := c5s[i]
+//             v6 := c6s[i]
+//             v7 := c7s[i]
+//             v8 := c8s[i]
+//             
+//         }
+//     })
 func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Each(fn func([]core.Entity, []T1, []T2, []T3, []T4, []T5, []T6, []T7, []T8)) {
 	for _, ma := range v.Baked {
 
@@ -2418,6 +2654,12 @@ func NewView9[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T9
 // The iteration is performed archetype by archetype, ensuring that data is
 // accessed contiguously in memory, which significantly reduces CPU cache misses.
 //
+// Performance Note:
+// For views with 8 or more components (N >= 8), it is recommended to use the
+// non-iterator-based Each() method instead. At this scale, the tail structure
+// grows large enough that the batch-slicing approach of Each() significantly
+// outperforms the iterator overhead of All().
+//
 // Example usage:
 //    for head, tail := range view9.All() {
 //        entity := head.Entity
@@ -2568,6 +2810,34 @@ func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) All() iter.Seq2[
 	}
 }
 
+// Each executes the provided callback function across all matching archetypes,
+// passing components as contiguous slices (`[]T`) alongside their corresponding `[]core.Entity`.
+//
+// Unlike the iterative All() approach, this method avoids per-element iterator overhead
+// by processing data in bulk, archetype by archetype. This ensures optimal CPU cache
+// locality and allows the compiler to better optimize dense memory loops.
+//
+// Performance Note:
+// For views with fewer than 8 components (N < 8), it is recommended to use the
+// iterator-based All() method (iter.Seq2), as Each() incurs a higher setup and
+// slicing overhead that is only amortized with larger tail structures (N >= 8).
+//
+// Example usage:
+//     view9.Each(func(entities []core.Entity, c1s []T1, c2s []T2, c3s []T3, c4s []T4, c5s []T5, c6s []T6, c7s []T7, c8s []T8, c9s []T9) {
+//         for i := range entities {
+//             entity := entities[i]
+//             v1 := c1s[i]
+//             v2 := c2s[i]
+//             v3 := c3s[i]
+//             v4 := c4s[i]
+//             v5 := c5s[i]
+//             v6 := c6s[i]
+//             v7 := c7s[i]
+//             v8 := c8s[i]
+//             v9 := c9s[i]
+//             
+//         }
+//     })
 func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Each(fn func([]core.Entity, []T1, []T2, []T3, []T4, []T5, []T6, []T7, []T8, []T9)) {
 	for _, ma := range v.Baked {
 
@@ -2783,6 +3053,12 @@ func NewView10[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T
 // The iteration is performed archetype by archetype, ensuring that data is
 // accessed contiguously in memory, which significantly reduces CPU cache misses.
 //
+// Performance Note:
+// For views with 8 or more components (N >= 8), it is recommended to use the
+// non-iterator-based Each() method instead. At this scale, the tail structure
+// grows large enough that the batch-slicing approach of Each() significantly
+// outperforms the iterator overhead of All().
+//
 // Example usage:
 //    for head, tail := range view10.All() {
 //        entity := head.Entity
@@ -2942,6 +3218,35 @@ func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) All() iter.Seq2[
 	}
 }
 
+// Each executes the provided callback function across all matching archetypes,
+// passing components as contiguous slices (`[]T`) alongside their corresponding `[]core.Entity`.
+//
+// Unlike the iterative All() approach, this method avoids per-element iterator overhead
+// by processing data in bulk, archetype by archetype. This ensures optimal CPU cache
+// locality and allows the compiler to better optimize dense memory loops.
+//
+// Performance Note:
+// For views with fewer than 8 components (N < 8), it is recommended to use the
+// iterator-based All() method (iter.Seq2), as Each() incurs a higher setup and
+// slicing overhead that is only amortized with larger tail structures (N >= 8).
+//
+// Example usage:
+//     view10.Each(func(entities []core.Entity, c1s []T1, c2s []T2, c3s []T3, c4s []T4, c5s []T5, c6s []T6, c7s []T7, c8s []T8, c9s []T9, c10s []T10) {
+//         for i := range entities {
+//             entity := entities[i]
+//             v1 := c1s[i]
+//             v2 := c2s[i]
+//             v3 := c3s[i]
+//             v4 := c4s[i]
+//             v5 := c5s[i]
+//             v6 := c6s[i]
+//             v7 := c7s[i]
+//             v8 := c8s[i]
+//             v9 := c9s[i]
+//             v10 := c10s[i]
+//             
+//         }
+//     })
 func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Each(fn func([]core.Entity, []T1, []T2, []T3, []T4, []T5, []T6, []T7, []T8, []T9, []T10)) {
 	for _, ma := range v.Baked {
 
