@@ -78,7 +78,7 @@ func (b *Blueprint1[T1]) Create(count int) iter.Seq[struct {
 }] {
 	reg := b.itemFactory.Reg
 	archReg := reg.ArchetypeRegistry
-	arch := archReg.Archetypes[b.itemFactory.ArchId]
+	arch := &archReg.Archetypes[b.itemFactory.ArchId]
 	memo := &arch.Memory
 	entityCol := &arch.Columns[core.EntityColumnIndex]
 	col1 := arch.GetColumn(b.itemFactory.CompInfos[0].ID)
@@ -185,7 +185,7 @@ func (b *Blueprint2[T1, T2]) Create(count int) iter.Seq[struct {
 }] {
 	reg := b.itemFactory.Reg
 	archReg := reg.ArchetypeRegistry
-	arch := archReg.Archetypes[b.itemFactory.ArchId]
+	arch := &archReg.Archetypes[b.itemFactory.ArchId]
 	memo := &arch.Memory
 	entityCol := &arch.Columns[core.EntityColumnIndex]
 	col1 := arch.GetColumn(b.itemFactory.CompInfos[0].ID)
@@ -299,7 +299,7 @@ func (b *Blueprint3[T1, T2, T3]) Create(count int) iter.Seq[struct {
 }] {
 	reg := b.itemFactory.Reg
 	archReg := reg.ArchetypeRegistry
-	arch := archReg.Archetypes[b.itemFactory.ArchId]
+	arch := &archReg.Archetypes[b.itemFactory.ArchId]
 	memo := &arch.Memory
 	entityCol := &arch.Columns[core.EntityColumnIndex]
 	col1 := arch.GetColumn(b.itemFactory.CompInfos[0].ID)
@@ -420,7 +420,7 @@ func (b *Blueprint4[T1, T2, T3, T4]) Create(count int) iter.Seq[struct {
 }] {
 	reg := b.itemFactory.Reg
 	archReg := reg.ArchetypeRegistry
-	arch := archReg.Archetypes[b.itemFactory.ArchId]
+	arch := &archReg.Archetypes[b.itemFactory.ArchId]
 	memo := &arch.Memory
 	entityCol := &arch.Columns[core.EntityColumnIndex]
 	col1 := arch.GetColumn(b.itemFactory.CompInfos[0].ID)
@@ -548,7 +548,7 @@ func (b *Blueprint5[T1, T2, T3, T4, T5]) Create(count int) iter.Seq[struct {
 }] {
 	reg := b.itemFactory.Reg
 	archReg := reg.ArchetypeRegistry
-	arch := archReg.Archetypes[b.itemFactory.ArchId]
+	arch := &archReg.Archetypes[b.itemFactory.ArchId]
 	memo := &arch.Memory
 	entityCol := &arch.Columns[core.EntityColumnIndex]
 	col1 := arch.GetColumn(b.itemFactory.CompInfos[0].ID)
@@ -683,7 +683,7 @@ func (b *Blueprint6[T1, T2, T3, T4, T5, T6]) Create(count int) iter.Seq[struct {
 }] {
 	reg := b.itemFactory.Reg
 	archReg := reg.ArchetypeRegistry
-	arch := archReg.Archetypes[b.itemFactory.ArchId]
+	arch := &archReg.Archetypes[b.itemFactory.ArchId]
 	memo := &arch.Memory
 	entityCol := &arch.Columns[core.EntityColumnIndex]
 	col1 := arch.GetColumn(b.itemFactory.CompInfos[0].ID)
@@ -825,7 +825,7 @@ func (b *Blueprint7[T1, T2, T3, T4, T5, T6, T7]) Create(count int) iter.Seq[stru
 }] {
 	reg := b.itemFactory.Reg
 	archReg := reg.ArchetypeRegistry
-	arch := archReg.Archetypes[b.itemFactory.ArchId]
+	arch := &archReg.Archetypes[b.itemFactory.ArchId]
 	memo := &arch.Memory
 	entityCol := &arch.Columns[core.EntityColumnIndex]
 	col1 := arch.GetColumn(b.itemFactory.CompInfos[0].ID)
@@ -974,7 +974,7 @@ func (b *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]) Create(count int) iter.Seq[
 }] {
 	reg := b.itemFactory.Reg
 	archReg := reg.ArchetypeRegistry
-	arch := archReg.Archetypes[b.itemFactory.ArchId]
+	arch := &archReg.Archetypes[b.itemFactory.ArchId]
 	memo := &arch.Memory
 	entityCol := &arch.Columns[core.EntityColumnIndex]
 	col1 := arch.GetColumn(b.itemFactory.CompInfos[0].ID)
@@ -1130,7 +1130,7 @@ func (b *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Create(count int) iter.
 }] {
 	reg := b.itemFactory.Reg
 	archReg := reg.ArchetypeRegistry
-	arch := archReg.Archetypes[b.itemFactory.ArchId]
+	arch := &archReg.Archetypes[b.itemFactory.ArchId]
 	memo := &arch.Memory
 	entityCol := &arch.Columns[core.EntityColumnIndex]
 	col1 := arch.GetColumn(b.itemFactory.CompInfos[0].ID)
@@ -1293,7 +1293,7 @@ func (b *Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Create(count int)
 }] {
 	reg := b.itemFactory.Reg
 	archReg := reg.ArchetypeRegistry
-	arch := archReg.Archetypes[b.itemFactory.ArchId]
+	arch := &archReg.Archetypes[b.itemFactory.ArchId]
 	memo := &arch.Memory
 	entityCol := &arch.Columns[core.EntityColumnIndex]
 	col1 := arch.GetColumn(b.itemFactory.CompInfos[0].ID)

@@ -84,7 +84,7 @@ func (b *Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }
 }] {
 	reg := b.itemFactory.Reg
 	archReg := reg.ArchetypeRegistry
-	arch := archReg.Archetypes[b.itemFactory.ArchId]
+	arch := &archReg.Archetypes[b.itemFactory.ArchId]
 	memo := &arch.Memory
 	entityCol := &arch.Columns[core.EntityColumnIndex]
 	{{- range $i := (seq 1 $n) }}
