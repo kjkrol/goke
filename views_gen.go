@@ -67,136 +67,51 @@ func NewView1[T1 any](
     return &View1[T1]{View: view}
 }
 
-// All returns an iterator (iter.Seq2) that yields components split into two structures:
-// head (containing the unique Entity identifier and components V1-V4) and tail (containing
-// remaining components V5+). This split optimizes register usage and prevents heap allocation.
+// All returns an iterator (iter.Seq) that yields physical memory pages as batches of slices.
+// Each yielded struct represents a contiguous block of memory for the matched entities
+// and their corresponding components, mapped directly to Go slices (Zero Heap Allocation) to
+// preserves the Structure of Arrays (SoA) layout.
+// By shifting the inner loop to the caller side, it guarantees optimal CPU cache coherence
+// and allows the Go compiler to easily apply advanced optimizations such as loop unrolling,
+// bounds-check elimination, and SIMD vectorization.
 //
-// The iteration is performed archetype by archetype, ensuring that data is
-// accessed contiguously in memory, which significantly reduces CPU cache misses.
-//
-// Performance Note:
-// For views with 8 or more components (N >= 8), it is recommended to use the
-// non-iterator-based Each() method instead. At this scale, the tail structure
-// grows large enough that the batch-slicing approach of Each() significantly
-// outperforms the iterator overhead of All().
+// The iteration is performed archetype by archetype, and yields page by page.
 //
 // Example usage:
-//    for head, tail := range view1.All() {
-//        entity := head.Entity
-//        v1 := head.Comp1
-//        
-//    }
-func (v *View1[T1]) All() iter.Seq2[
-	struct {
-		Entity core.Entity
-		Comp1 *T1
-		
-	},
-	struct {
-		
-	},
-] {
+//	for page := range view1.All() {
+//		for i, entity := range page.Entity {
+//			c1 := &page.Comp1[i]
+//			// Apply domain logic here...
+//		}
+//	}
+func (v *View1[T1]) All() iter.Seq[struct {
+	Entity []Entity
+	Comp1 []T1
+}] {
 	return func(yield func(
 		struct {
-			Entity core.Entity
-			Comp1 *T1
-			
-		},
-		struct {
-			
+			Entity []Entity
+			Comp1 []T1
 		},
 	) bool) {
-		// 1. Pre-calculate Strides (Invariant)
-		stride0 := unsafe.Sizeof(*new(T1))
-
-		// Loop over matched archetypes
 		for _, ma := range v.Baked {
-			// 2. Load Offsets from Cache
-			offsetEntity := ma.EntityPageOffset
-			offset0 := ma.FieldsOffsets[0]
-
-			// 3. Loop over Physical Memory Pages
 			for _, page := range ma.Arch.Memory.Pages {
 				count := page.Len
 				if count == 0 {
 					continue
 				}
-
-				// 4. Resolve Base Pointers
 				base := page.Ptr
-				ptrEntity := unsafe.Add(base, offsetEntity)
-				ptr0 := unsafe.Add(base, offset0)
-
-				// 5. Hot Loop
-				for count > 0 {
-					// Max 3 components in Head to stay in CPU Registers
-					head := struct {
-						Entity core.Entity
-						Comp1 *T1
+				if !yield(
+					struct {
+						Entity []Entity
+						Comp1 []T1
 					}{
-						Entity: *(*core.Entity)(ptrEntity),
-						Comp1: (*T1)(ptr0),
-					}
-
-					// Remaining components spill over to Tail
-					tail := struct { 
-					}{ 
-					}
-
-					if !yield(head, tail) {
-						return
-					}
-
-					// 6. Pointer Arithmetic
-					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
-					ptr0 = unsafe.Add(ptr0, stride0)
-
-					count--
+						Entity: unsafe.Slice((*Entity)(unsafe.Add(base, ma.EntityPageOffset)), count),
+						Comp1: unsafe.Slice((*T1)(unsafe.Add(base, ma.CompOffsets[0])), count),
+					}) {
+					return
 				}
 			}
-		}
-	}
-}
-
-// Each executes the provided callback function across all matching archetypes,
-// passing components as contiguous slices (`[]T`) alongside their corresponding `[]core.Entity`.
-//
-// Unlike the iterative All() approach, this method avoids per-element iterator overhead
-// by processing data in bulk, archetype by archetype. This ensures optimal CPU cache
-// locality and allows the compiler to better optimize dense memory loops.
-//
-// Performance Note:
-// For views with fewer than 8 components (N < 8), it is recommended to use the
-// iterator-based All() method (iter.Seq2), as Each() incurs a higher setup and
-// slicing overhead that is only amortized with larger tail structures (N >= 8).
-//
-// Example usage:
-//     view1.Each(func(entities []core.Entity, c1s []T1) {
-//         for i := range entities {
-//             entity := entities[i]
-//             v1 := c1s[i]
-//             
-//         }
-//     })
-func (v *View1[T1]) Each(fn func([]core.Entity, []T1)) {
-	for _, ma := range v.Baked {
-
-		// Loop over Physical Memory Pages
-		for _, page := range ma.Arch.Memory.Pages {
-			count := page.Len
-			if count == 0 {
-				continue
-			}
-
-			// 3. Resolve Base Pointer for this Page
-			base := page.Ptr
-
-			// 4. Map raw memory pages directly to Go slices (Zero Heap Allocation)
-			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, ma.EntityPageOffset)), count)
-			c1 := unsafe.Slice((*T1)(unsafe.Add(base, ma.FieldsOffsets[0])), count)
-
-			// 5. Bulk Callback Execution (Once per page)
-			fn(entities, c1)
 		}
 	}
 }
@@ -330,147 +245,56 @@ func NewView2[T1 any, T2 any](
     return &View2[T1, T2]{View: view}
 }
 
-// All returns an iterator (iter.Seq2) that yields components split into two structures:
-// head (containing the unique Entity identifier and components V1-V4) and tail (containing
-// remaining components V5+). This split optimizes register usage and prevents heap allocation.
+// All returns an iterator (iter.Seq) that yields physical memory pages as batches of slices.
+// Each yielded struct represents a contiguous block of memory for the matched entities
+// and their corresponding components, mapped directly to Go slices (Zero Heap Allocation) to
+// preserves the Structure of Arrays (SoA) layout.
+// By shifting the inner loop to the caller side, it guarantees optimal CPU cache coherence
+// and allows the Go compiler to easily apply advanced optimizations such as loop unrolling,
+// bounds-check elimination, and SIMD vectorization.
 //
-// The iteration is performed archetype by archetype, ensuring that data is
-// accessed contiguously in memory, which significantly reduces CPU cache misses.
-//
-// Performance Note:
-// For views with 8 or more components (N >= 8), it is recommended to use the
-// non-iterator-based Each() method instead. At this scale, the tail structure
-// grows large enough that the batch-slicing approach of Each() significantly
-// outperforms the iterator overhead of All().
+// The iteration is performed archetype by archetype, and yields page by page.
 //
 // Example usage:
-//    for head, tail := range view2.All() {
-//        entity := head.Entity
-//        v1 := head.Comp1
-//        v2 := head.Comp2
-//        
-//    }
-func (v *View2[T1, T2]) All() iter.Seq2[
-	struct {
-		Entity core.Entity
-		Comp1 *T1
-		Comp2 *T2
-		
-	},
-	struct {
-		
-	},
-] {
+//	for page := range view2.All() {
+//		for i, entity := range page.Entity {
+//			c1 := &page.Comp1[i]
+//			c2 := &page.Comp2[i]
+//			// Apply domain logic here...
+//		}
+//	}
+func (v *View2[T1, T2]) All() iter.Seq[struct {
+	Entity []Entity
+	Comp1 []T1
+	Comp2 []T2
+}] {
 	return func(yield func(
 		struct {
-			Entity core.Entity
-			Comp1 *T1
-			Comp2 *T2
-			
-		},
-		struct {
-			
+			Entity []Entity
+			Comp1 []T1
+			Comp2 []T2
 		},
 	) bool) {
-		// 1. Pre-calculate Strides (Invariant)
-		stride0 := unsafe.Sizeof(*new(T1))
-		stride1 := unsafe.Sizeof(*new(T2))
-
-		// Loop over matched archetypes
 		for _, ma := range v.Baked {
-			// 2. Load Offsets from Cache
-			offsetEntity := ma.EntityPageOffset
-			offset0 := ma.FieldsOffsets[0]
-			offset1 := ma.FieldsOffsets[1]
-
-			// 3. Loop over Physical Memory Pages
 			for _, page := range ma.Arch.Memory.Pages {
 				count := page.Len
 				if count == 0 {
 					continue
 				}
-
-				// 4. Resolve Base Pointers
 				base := page.Ptr
-				ptrEntity := unsafe.Add(base, offsetEntity)
-				ptr0 := unsafe.Add(base, offset0)
-				ptr1 := unsafe.Add(base, offset1)
-
-				// 5. Hot Loop
-				for count > 0 {
-					// Max 3 components in Head to stay in CPU Registers
-					head := struct {
-						Entity core.Entity
-						Comp1 *T1
-						Comp2 *T2
+				if !yield(
+					struct {
+						Entity []Entity
+						Comp1 []T1
+						Comp2 []T2
 					}{
-						Entity: *(*core.Entity)(ptrEntity),
-						Comp1: (*T1)(ptr0),
-						Comp2: (*T2)(ptr1),
-					}
-
-					// Remaining components spill over to Tail
-					tail := struct { 
-					}{ 
-					}
-
-					if !yield(head, tail) {
-						return
-					}
-
-					// 6. Pointer Arithmetic
-					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
-					ptr0 = unsafe.Add(ptr0, stride0)
-					ptr1 = unsafe.Add(ptr1, stride1)
-
-					count--
+						Entity: unsafe.Slice((*Entity)(unsafe.Add(base, ma.EntityPageOffset)), count),
+						Comp1: unsafe.Slice((*T1)(unsafe.Add(base, ma.CompOffsets[0])), count),
+						Comp2: unsafe.Slice((*T2)(unsafe.Add(base, ma.CompOffsets[1])), count),
+					}) {
+					return
 				}
 			}
-		}
-	}
-}
-
-// Each executes the provided callback function across all matching archetypes,
-// passing components as contiguous slices (`[]T`) alongside their corresponding `[]core.Entity`.
-//
-// Unlike the iterative All() approach, this method avoids per-element iterator overhead
-// by processing data in bulk, archetype by archetype. This ensures optimal CPU cache
-// locality and allows the compiler to better optimize dense memory loops.
-//
-// Performance Note:
-// For views with fewer than 8 components (N < 8), it is recommended to use the
-// iterator-based All() method (iter.Seq2), as Each() incurs a higher setup and
-// slicing overhead that is only amortized with larger tail structures (N >= 8).
-//
-// Example usage:
-//     view2.Each(func(entities []core.Entity, c1s []T1, c2s []T2) {
-//         for i := range entities {
-//             entity := entities[i]
-//             v1 := c1s[i]
-//             v2 := c2s[i]
-//             
-//         }
-//     })
-func (v *View2[T1, T2]) Each(fn func([]core.Entity, []T1, []T2)) {
-	for _, ma := range v.Baked {
-
-		// Loop over Physical Memory Pages
-		for _, page := range ma.Arch.Memory.Pages {
-			count := page.Len
-			if count == 0 {
-				continue
-			}
-
-			// 3. Resolve Base Pointer for this Page
-			base := page.Ptr
-
-			// 4. Map raw memory pages directly to Go slices (Zero Heap Allocation)
-			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, ma.EntityPageOffset)), count)
-			c1 := unsafe.Slice((*T1)(unsafe.Add(base, ma.FieldsOffsets[0])), count)
-			c2 := unsafe.Slice((*T2)(unsafe.Add(base, ma.FieldsOffsets[1])), count)
-
-			// 5. Bulk Callback Execution (Once per page)
-			fn(entities, c1, c2)
 		}
 	}
 }
@@ -610,158 +434,61 @@ func NewView3[T1 any, T2 any, T3 any](
     return &View3[T1, T2, T3]{View: view}
 }
 
-// All returns an iterator (iter.Seq2) that yields components split into two structures:
-// head (containing the unique Entity identifier and components V1-V4) and tail (containing
-// remaining components V5+). This split optimizes register usage and prevents heap allocation.
+// All returns an iterator (iter.Seq) that yields physical memory pages as batches of slices.
+// Each yielded struct represents a contiguous block of memory for the matched entities
+// and their corresponding components, mapped directly to Go slices (Zero Heap Allocation) to
+// preserves the Structure of Arrays (SoA) layout.
+// By shifting the inner loop to the caller side, it guarantees optimal CPU cache coherence
+// and allows the Go compiler to easily apply advanced optimizations such as loop unrolling,
+// bounds-check elimination, and SIMD vectorization.
 //
-// The iteration is performed archetype by archetype, ensuring that data is
-// accessed contiguously in memory, which significantly reduces CPU cache misses.
-//
-// Performance Note:
-// For views with 8 or more components (N >= 8), it is recommended to use the
-// non-iterator-based Each() method instead. At this scale, the tail structure
-// grows large enough that the batch-slicing approach of Each() significantly
-// outperforms the iterator overhead of All().
+// The iteration is performed archetype by archetype, and yields page by page.
 //
 // Example usage:
-//    for head, tail := range view3.All() {
-//        entity := head.Entity
-//        v1 := head.Comp1
-//        v2 := head.Comp2
-//        v3 := head.Comp3
-//        
-//    }
-func (v *View3[T1, T2, T3]) All() iter.Seq2[
-	struct {
-		Entity core.Entity
-		Comp1 *T1
-		Comp2 *T2
-		Comp3 *T3
-		
-	},
-	struct {
-		
-	},
-] {
+//	for page := range view3.All() {
+//		for i, entity := range page.Entity {
+//			c1 := &page.Comp1[i]
+//			c2 := &page.Comp2[i]
+//			c3 := &page.Comp3[i]
+//			// Apply domain logic here...
+//		}
+//	}
+func (v *View3[T1, T2, T3]) All() iter.Seq[struct {
+	Entity []Entity
+	Comp1 []T1
+	Comp2 []T2
+	Comp3 []T3
+}] {
 	return func(yield func(
 		struct {
-			Entity core.Entity
-			Comp1 *T1
-			Comp2 *T2
-			Comp3 *T3
-			
-		},
-		struct {
-			
+			Entity []Entity
+			Comp1 []T1
+			Comp2 []T2
+			Comp3 []T3
 		},
 	) bool) {
-		// 1. Pre-calculate Strides (Invariant)
-		stride0 := unsafe.Sizeof(*new(T1))
-		stride1 := unsafe.Sizeof(*new(T2))
-		stride2 := unsafe.Sizeof(*new(T3))
-
-		// Loop over matched archetypes
 		for _, ma := range v.Baked {
-			// 2. Load Offsets from Cache
-			offsetEntity := ma.EntityPageOffset
-			offset0 := ma.FieldsOffsets[0]
-			offset1 := ma.FieldsOffsets[1]
-			offset2 := ma.FieldsOffsets[2]
-
-			// 3. Loop over Physical Memory Pages
 			for _, page := range ma.Arch.Memory.Pages {
 				count := page.Len
 				if count == 0 {
 					continue
 				}
-
-				// 4. Resolve Base Pointers
 				base := page.Ptr
-				ptrEntity := unsafe.Add(base, offsetEntity)
-				ptr0 := unsafe.Add(base, offset0)
-				ptr1 := unsafe.Add(base, offset1)
-				ptr2 := unsafe.Add(base, offset2)
-
-				// 5. Hot Loop
-				for count > 0 {
-					// Max 3 components in Head to stay in CPU Registers
-					head := struct {
-						Entity core.Entity
-						Comp1 *T1
-						Comp2 *T2
-						Comp3 *T3
+				if !yield(
+					struct {
+						Entity []Entity
+						Comp1 []T1
+						Comp2 []T2
+						Comp3 []T3
 					}{
-						Entity: *(*core.Entity)(ptrEntity),
-						Comp1: (*T1)(ptr0),
-						Comp2: (*T2)(ptr1),
-						Comp3: (*T3)(ptr2),
-					}
-
-					// Remaining components spill over to Tail
-					tail := struct { 
-					}{ 
-					}
-
-					if !yield(head, tail) {
-						return
-					}
-
-					// 6. Pointer Arithmetic
-					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
-					ptr0 = unsafe.Add(ptr0, stride0)
-					ptr1 = unsafe.Add(ptr1, stride1)
-					ptr2 = unsafe.Add(ptr2, stride2)
-
-					count--
+						Entity: unsafe.Slice((*Entity)(unsafe.Add(base, ma.EntityPageOffset)), count),
+						Comp1: unsafe.Slice((*T1)(unsafe.Add(base, ma.CompOffsets[0])), count),
+						Comp2: unsafe.Slice((*T2)(unsafe.Add(base, ma.CompOffsets[1])), count),
+						Comp3: unsafe.Slice((*T3)(unsafe.Add(base, ma.CompOffsets[2])), count),
+					}) {
+					return
 				}
 			}
-		}
-	}
-}
-
-// Each executes the provided callback function across all matching archetypes,
-// passing components as contiguous slices (`[]T`) alongside their corresponding `[]core.Entity`.
-//
-// Unlike the iterative All() approach, this method avoids per-element iterator overhead
-// by processing data in bulk, archetype by archetype. This ensures optimal CPU cache
-// locality and allows the compiler to better optimize dense memory loops.
-//
-// Performance Note:
-// For views with fewer than 8 components (N < 8), it is recommended to use the
-// iterator-based All() method (iter.Seq2), as Each() incurs a higher setup and
-// slicing overhead that is only amortized with larger tail structures (N >= 8).
-//
-// Example usage:
-//     view3.Each(func(entities []core.Entity, c1s []T1, c2s []T2, c3s []T3) {
-//         for i := range entities {
-//             entity := entities[i]
-//             v1 := c1s[i]
-//             v2 := c2s[i]
-//             v3 := c3s[i]
-//             
-//         }
-//     })
-func (v *View3[T1, T2, T3]) Each(fn func([]core.Entity, []T1, []T2, []T3)) {
-	for _, ma := range v.Baked {
-
-		// Loop over Physical Memory Pages
-		for _, page := range ma.Arch.Memory.Pages {
-			count := page.Len
-			if count == 0 {
-				continue
-			}
-
-			// 3. Resolve Base Pointer for this Page
-			base := page.Ptr
-
-			// 4. Map raw memory pages directly to Go slices (Zero Heap Allocation)
-			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, ma.EntityPageOffset)), count)
-			c1 := unsafe.Slice((*T1)(unsafe.Add(base, ma.FieldsOffsets[0])), count)
-			c2 := unsafe.Slice((*T2)(unsafe.Add(base, ma.FieldsOffsets[1])), count)
-			c3 := unsafe.Slice((*T3)(unsafe.Add(base, ma.FieldsOffsets[2])), count)
-
-			// 5. Bulk Callback Execution (Once per page)
-			fn(entities, c1, c2, c3)
 		}
 	}
 }
@@ -907,169 +634,66 @@ func NewView4[T1 any, T2 any, T3 any, T4 any](
     return &View4[T1, T2, T3, T4]{View: view}
 }
 
-// All returns an iterator (iter.Seq2) that yields components split into two structures:
-// head (containing the unique Entity identifier and components V1-V4) and tail (containing
-// remaining components V5+). This split optimizes register usage and prevents heap allocation.
+// All returns an iterator (iter.Seq) that yields physical memory pages as batches of slices.
+// Each yielded struct represents a contiguous block of memory for the matched entities
+// and their corresponding components, mapped directly to Go slices (Zero Heap Allocation) to
+// preserves the Structure of Arrays (SoA) layout.
+// By shifting the inner loop to the caller side, it guarantees optimal CPU cache coherence
+// and allows the Go compiler to easily apply advanced optimizations such as loop unrolling,
+// bounds-check elimination, and SIMD vectorization.
 //
-// The iteration is performed archetype by archetype, ensuring that data is
-// accessed contiguously in memory, which significantly reduces CPU cache misses.
-//
-// Performance Note:
-// For views with 8 or more components (N >= 8), it is recommended to use the
-// non-iterator-based Each() method instead. At this scale, the tail structure
-// grows large enough that the batch-slicing approach of Each() significantly
-// outperforms the iterator overhead of All().
+// The iteration is performed archetype by archetype, and yields page by page.
 //
 // Example usage:
-//    for head, tail := range view4.All() {
-//        entity := head.Entity
-//        v1 := head.Comp1
-//        v2 := head.Comp2
-//        v3 := head.Comp3
-//        v4 := head.Comp4
-//        
-//    }
-func (v *View4[T1, T2, T3, T4]) All() iter.Seq2[
-	struct {
-		Entity core.Entity
-		Comp1 *T1
-		Comp2 *T2
-		Comp3 *T3
-		
-	},
-	struct {
-		Comp4 *T4
-		
-	},
-] {
+//	for page := range view4.All() {
+//		for i, entity := range page.Entity {
+//			c1 := &page.Comp1[i]
+//			c2 := &page.Comp2[i]
+//			c3 := &page.Comp3[i]
+//			c4 := &page.Comp4[i]
+//			// Apply domain logic here...
+//		}
+//	}
+func (v *View4[T1, T2, T3, T4]) All() iter.Seq[struct {
+	Entity []Entity
+	Comp1 []T1
+	Comp2 []T2
+	Comp3 []T3
+	Comp4 []T4
+}] {
 	return func(yield func(
 		struct {
-			Entity core.Entity
-			Comp1 *T1
-			Comp2 *T2
-			Comp3 *T3
-			
-		},
-		struct {
-			Comp4 *T4
-			
+			Entity []Entity
+			Comp1 []T1
+			Comp2 []T2
+			Comp3 []T3
+			Comp4 []T4
 		},
 	) bool) {
-		// 1. Pre-calculate Strides (Invariant)
-		stride0 := unsafe.Sizeof(*new(T1))
-		stride1 := unsafe.Sizeof(*new(T2))
-		stride2 := unsafe.Sizeof(*new(T3))
-		stride3 := unsafe.Sizeof(*new(T4))
-
-		// Loop over matched archetypes
 		for _, ma := range v.Baked {
-			// 2. Load Offsets from Cache
-			offsetEntity := ma.EntityPageOffset
-			offset0 := ma.FieldsOffsets[0]
-			offset1 := ma.FieldsOffsets[1]
-			offset2 := ma.FieldsOffsets[2]
-			offset3 := ma.FieldsOffsets[3]
-
-			// 3. Loop over Physical Memory Pages
 			for _, page := range ma.Arch.Memory.Pages {
 				count := page.Len
 				if count == 0 {
 					continue
 				}
-
-				// 4. Resolve Base Pointers
 				base := page.Ptr
-				ptrEntity := unsafe.Add(base, offsetEntity)
-				ptr0 := unsafe.Add(base, offset0)
-				ptr1 := unsafe.Add(base, offset1)
-				ptr2 := unsafe.Add(base, offset2)
-				ptr3 := unsafe.Add(base, offset3)
-
-				// 5. Hot Loop
-				for count > 0 {
-					// Max 3 components in Head to stay in CPU Registers
-					head := struct {
-						Entity core.Entity
-						Comp1 *T1
-						Comp2 *T2
-						Comp3 *T3
+				if !yield(
+					struct {
+						Entity []Entity
+						Comp1 []T1
+						Comp2 []T2
+						Comp3 []T3
+						Comp4 []T4
 					}{
-						Entity: *(*core.Entity)(ptrEntity),
-						Comp1: (*T1)(ptr0),
-						Comp2: (*T2)(ptr1),
-						Comp3: (*T3)(ptr2),
-					}
-
-					// Remaining components spill over to Tail
-					tail := struct { 
-						Comp4 *T4
-					}{ 
-					    Comp4: (*T4)(ptr3),
-					}
-
-					if !yield(head, tail) {
-						return
-					}
-
-					// 6. Pointer Arithmetic
-					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
-					ptr0 = unsafe.Add(ptr0, stride0)
-					ptr1 = unsafe.Add(ptr1, stride1)
-					ptr2 = unsafe.Add(ptr2, stride2)
-					ptr3 = unsafe.Add(ptr3, stride3)
-
-					count--
+						Entity: unsafe.Slice((*Entity)(unsafe.Add(base, ma.EntityPageOffset)), count),
+						Comp1: unsafe.Slice((*T1)(unsafe.Add(base, ma.CompOffsets[0])), count),
+						Comp2: unsafe.Slice((*T2)(unsafe.Add(base, ma.CompOffsets[1])), count),
+						Comp3: unsafe.Slice((*T3)(unsafe.Add(base, ma.CompOffsets[2])), count),
+						Comp4: unsafe.Slice((*T4)(unsafe.Add(base, ma.CompOffsets[3])), count),
+					}) {
+					return
 				}
 			}
-		}
-	}
-}
-
-// Each executes the provided callback function across all matching archetypes,
-// passing components as contiguous slices (`[]T`) alongside their corresponding `[]core.Entity`.
-//
-// Unlike the iterative All() approach, this method avoids per-element iterator overhead
-// by processing data in bulk, archetype by archetype. This ensures optimal CPU cache
-// locality and allows the compiler to better optimize dense memory loops.
-//
-// Performance Note:
-// For views with fewer than 8 components (N < 8), it is recommended to use the
-// iterator-based All() method (iter.Seq2), as Each() incurs a higher setup and
-// slicing overhead that is only amortized with larger tail structures (N >= 8).
-//
-// Example usage:
-//     view4.Each(func(entities []core.Entity, c1s []T1, c2s []T2, c3s []T3, c4s []T4) {
-//         for i := range entities {
-//             entity := entities[i]
-//             v1 := c1s[i]
-//             v2 := c2s[i]
-//             v3 := c3s[i]
-//             v4 := c4s[i]
-//             
-//         }
-//     })
-func (v *View4[T1, T2, T3, T4]) Each(fn func([]core.Entity, []T1, []T2, []T3, []T4)) {
-	for _, ma := range v.Baked {
-
-		// Loop over Physical Memory Pages
-		for _, page := range ma.Arch.Memory.Pages {
-			count := page.Len
-			if count == 0 {
-				continue
-			}
-
-			// 3. Resolve Base Pointer for this Page
-			base := page.Ptr
-
-			// 4. Map raw memory pages directly to Go slices (Zero Heap Allocation)
-			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, ma.EntityPageOffset)), count)
-			c1 := unsafe.Slice((*T1)(unsafe.Add(base, ma.FieldsOffsets[0])), count)
-			c2 := unsafe.Slice((*T2)(unsafe.Add(base, ma.FieldsOffsets[1])), count)
-			c3 := unsafe.Slice((*T3)(unsafe.Add(base, ma.FieldsOffsets[2])), count)
-			c4 := unsafe.Slice((*T4)(unsafe.Add(base, ma.FieldsOffsets[3])), count)
-
-			// 5. Bulk Callback Execution (Once per page)
-			fn(entities, c1, c2, c3, c4)
 		}
 	}
 }
@@ -1221,180 +845,71 @@ func NewView5[T1 any, T2 any, T3 any, T4 any, T5 any](
     return &View5[T1, T2, T3, T4, T5]{View: view}
 }
 
-// All returns an iterator (iter.Seq2) that yields components split into two structures:
-// head (containing the unique Entity identifier and components V1-V4) and tail (containing
-// remaining components V5+). This split optimizes register usage and prevents heap allocation.
+// All returns an iterator (iter.Seq) that yields physical memory pages as batches of slices.
+// Each yielded struct represents a contiguous block of memory for the matched entities
+// and their corresponding components, mapped directly to Go slices (Zero Heap Allocation) to
+// preserves the Structure of Arrays (SoA) layout.
+// By shifting the inner loop to the caller side, it guarantees optimal CPU cache coherence
+// and allows the Go compiler to easily apply advanced optimizations such as loop unrolling,
+// bounds-check elimination, and SIMD vectorization.
 //
-// The iteration is performed archetype by archetype, ensuring that data is
-// accessed contiguously in memory, which significantly reduces CPU cache misses.
-//
-// Performance Note:
-// For views with 8 or more components (N >= 8), it is recommended to use the
-// non-iterator-based Each() method instead. At this scale, the tail structure
-// grows large enough that the batch-slicing approach of Each() significantly
-// outperforms the iterator overhead of All().
+// The iteration is performed archetype by archetype, and yields page by page.
 //
 // Example usage:
-//    for head, tail := range view5.All() {
-//        entity := head.Entity
-//        v1 := head.Comp1
-//        v2 := head.Comp2
-//        v3 := head.Comp3
-//        v4 := head.Comp4
-//        v5 := tail.V5
-//        
-//    }
-func (v *View5[T1, T2, T3, T4, T5]) All() iter.Seq2[
-	struct {
-		Entity core.Entity
-		Comp1 *T1
-		Comp2 *T2
-		Comp3 *T3
-		
-	},
-	struct {
-		Comp4 *T4
-		Comp5 *T5
-		
-	},
-] {
+//	for page := range view5.All() {
+//		for i, entity := range page.Entity {
+//			c1 := &page.Comp1[i]
+//			c2 := &page.Comp2[i]
+//			c3 := &page.Comp3[i]
+//			c4 := &page.Comp4[i]
+//			c5 := &page.Comp5[i]
+//			// Apply domain logic here...
+//		}
+//	}
+func (v *View5[T1, T2, T3, T4, T5]) All() iter.Seq[struct {
+	Entity []Entity
+	Comp1 []T1
+	Comp2 []T2
+	Comp3 []T3
+	Comp4 []T4
+	Comp5 []T5
+}] {
 	return func(yield func(
 		struct {
-			Entity core.Entity
-			Comp1 *T1
-			Comp2 *T2
-			Comp3 *T3
-			
-		},
-		struct {
-			Comp4 *T4
-			Comp5 *T5
-			
+			Entity []Entity
+			Comp1 []T1
+			Comp2 []T2
+			Comp3 []T3
+			Comp4 []T4
+			Comp5 []T5
 		},
 	) bool) {
-		// 1. Pre-calculate Strides (Invariant)
-		stride0 := unsafe.Sizeof(*new(T1))
-		stride1 := unsafe.Sizeof(*new(T2))
-		stride2 := unsafe.Sizeof(*new(T3))
-		stride3 := unsafe.Sizeof(*new(T4))
-		stride4 := unsafe.Sizeof(*new(T5))
-
-		// Loop over matched archetypes
 		for _, ma := range v.Baked {
-			// 2. Load Offsets from Cache
-			offsetEntity := ma.EntityPageOffset
-			offset0 := ma.FieldsOffsets[0]
-			offset1 := ma.FieldsOffsets[1]
-			offset2 := ma.FieldsOffsets[2]
-			offset3 := ma.FieldsOffsets[3]
-			offset4 := ma.FieldsOffsets[4]
-
-			// 3. Loop over Physical Memory Pages
 			for _, page := range ma.Arch.Memory.Pages {
 				count := page.Len
 				if count == 0 {
 					continue
 				}
-
-				// 4. Resolve Base Pointers
 				base := page.Ptr
-				ptrEntity := unsafe.Add(base, offsetEntity)
-				ptr0 := unsafe.Add(base, offset0)
-				ptr1 := unsafe.Add(base, offset1)
-				ptr2 := unsafe.Add(base, offset2)
-				ptr3 := unsafe.Add(base, offset3)
-				ptr4 := unsafe.Add(base, offset4)
-
-				// 5. Hot Loop
-				for count > 0 {
-					// Max 3 components in Head to stay in CPU Registers
-					head := struct {
-						Entity core.Entity
-						Comp1 *T1
-						Comp2 *T2
-						Comp3 *T3
+				if !yield(
+					struct {
+						Entity []Entity
+						Comp1 []T1
+						Comp2 []T2
+						Comp3 []T3
+						Comp4 []T4
+						Comp5 []T5
 					}{
-						Entity: *(*core.Entity)(ptrEntity),
-						Comp1: (*T1)(ptr0),
-						Comp2: (*T2)(ptr1),
-						Comp3: (*T3)(ptr2),
-					}
-
-					// Remaining components spill over to Tail
-					tail := struct { 
-						Comp4 *T4
-						Comp5 *T5
-					}{ 
-					    Comp4: (*T4)(ptr3),
-					    Comp5: (*T5)(ptr4),
-					}
-
-					if !yield(head, tail) {
-						return
-					}
-
-					// 6. Pointer Arithmetic
-					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
-					ptr0 = unsafe.Add(ptr0, stride0)
-					ptr1 = unsafe.Add(ptr1, stride1)
-					ptr2 = unsafe.Add(ptr2, stride2)
-					ptr3 = unsafe.Add(ptr3, stride3)
-					ptr4 = unsafe.Add(ptr4, stride4)
-
-					count--
+						Entity: unsafe.Slice((*Entity)(unsafe.Add(base, ma.EntityPageOffset)), count),
+						Comp1: unsafe.Slice((*T1)(unsafe.Add(base, ma.CompOffsets[0])), count),
+						Comp2: unsafe.Slice((*T2)(unsafe.Add(base, ma.CompOffsets[1])), count),
+						Comp3: unsafe.Slice((*T3)(unsafe.Add(base, ma.CompOffsets[2])), count),
+						Comp4: unsafe.Slice((*T4)(unsafe.Add(base, ma.CompOffsets[3])), count),
+						Comp5: unsafe.Slice((*T5)(unsafe.Add(base, ma.CompOffsets[4])), count),
+					}) {
+					return
 				}
 			}
-		}
-	}
-}
-
-// Each executes the provided callback function across all matching archetypes,
-// passing components as contiguous slices (`[]T`) alongside their corresponding `[]core.Entity`.
-//
-// Unlike the iterative All() approach, this method avoids per-element iterator overhead
-// by processing data in bulk, archetype by archetype. This ensures optimal CPU cache
-// locality and allows the compiler to better optimize dense memory loops.
-//
-// Performance Note:
-// For views with fewer than 8 components (N < 8), it is recommended to use the
-// iterator-based All() method (iter.Seq2), as Each() incurs a higher setup and
-// slicing overhead that is only amortized with larger tail structures (N >= 8).
-//
-// Example usage:
-//     view5.Each(func(entities []core.Entity, c1s []T1, c2s []T2, c3s []T3, c4s []T4, c5s []T5) {
-//         for i := range entities {
-//             entity := entities[i]
-//             v1 := c1s[i]
-//             v2 := c2s[i]
-//             v3 := c3s[i]
-//             v4 := c4s[i]
-//             v5 := c5s[i]
-//             
-//         }
-//     })
-func (v *View5[T1, T2, T3, T4, T5]) Each(fn func([]core.Entity, []T1, []T2, []T3, []T4, []T5)) {
-	for _, ma := range v.Baked {
-
-		// Loop over Physical Memory Pages
-		for _, page := range ma.Arch.Memory.Pages {
-			count := page.Len
-			if count == 0 {
-				continue
-			}
-
-			// 3. Resolve Base Pointer for this Page
-			base := page.Ptr
-
-			// 4. Map raw memory pages directly to Go slices (Zero Heap Allocation)
-			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, ma.EntityPageOffset)), count)
-			c1 := unsafe.Slice((*T1)(unsafe.Add(base, ma.FieldsOffsets[0])), count)
-			c2 := unsafe.Slice((*T2)(unsafe.Add(base, ma.FieldsOffsets[1])), count)
-			c3 := unsafe.Slice((*T3)(unsafe.Add(base, ma.FieldsOffsets[2])), count)
-			c4 := unsafe.Slice((*T4)(unsafe.Add(base, ma.FieldsOffsets[3])), count)
-			c5 := unsafe.Slice((*T5)(unsafe.Add(base, ma.FieldsOffsets[4])), count)
-
-			// 5. Bulk Callback Execution (Once per page)
-			fn(entities, c1, c2, c3, c4, c5)
 		}
 	}
 }
@@ -1552,191 +1067,76 @@ func NewView6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any](
     return &View6[T1, T2, T3, T4, T5, T6]{View: view}
 }
 
-// All returns an iterator (iter.Seq2) that yields components split into two structures:
-// head (containing the unique Entity identifier and components V1-V4) and tail (containing
-// remaining components V5+). This split optimizes register usage and prevents heap allocation.
+// All returns an iterator (iter.Seq) that yields physical memory pages as batches of slices.
+// Each yielded struct represents a contiguous block of memory for the matched entities
+// and their corresponding components, mapped directly to Go slices (Zero Heap Allocation) to
+// preserves the Structure of Arrays (SoA) layout.
+// By shifting the inner loop to the caller side, it guarantees optimal CPU cache coherence
+// and allows the Go compiler to easily apply advanced optimizations such as loop unrolling,
+// bounds-check elimination, and SIMD vectorization.
 //
-// The iteration is performed archetype by archetype, ensuring that data is
-// accessed contiguously in memory, which significantly reduces CPU cache misses.
-//
-// Performance Note:
-// For views with 8 or more components (N >= 8), it is recommended to use the
-// non-iterator-based Each() method instead. At this scale, the tail structure
-// grows large enough that the batch-slicing approach of Each() significantly
-// outperforms the iterator overhead of All().
+// The iteration is performed archetype by archetype, and yields page by page.
 //
 // Example usage:
-//    for head, tail := range view6.All() {
-//        entity := head.Entity
-//        v1 := head.Comp1
-//        v2 := head.Comp2
-//        v3 := head.Comp3
-//        v4 := head.Comp4
-//        v5 := tail.V5
-//        v6 := tail.V6
-//        
-//    }
-func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq2[
-	struct {
-		Entity core.Entity
-		Comp1 *T1
-		Comp2 *T2
-		Comp3 *T3
-		
-	},
-	struct {
-		Comp4 *T4
-		Comp5 *T5
-		Comp6 *T6
-		
-	},
-] {
+//	for page := range view6.All() {
+//		for i, entity := range page.Entity {
+//			c1 := &page.Comp1[i]
+//			c2 := &page.Comp2[i]
+//			c3 := &page.Comp3[i]
+//			c4 := &page.Comp4[i]
+//			c5 := &page.Comp5[i]
+//			c6 := &page.Comp6[i]
+//			// Apply domain logic here...
+//		}
+//	}
+func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq[struct {
+	Entity []Entity
+	Comp1 []T1
+	Comp2 []T2
+	Comp3 []T3
+	Comp4 []T4
+	Comp5 []T5
+	Comp6 []T6
+}] {
 	return func(yield func(
 		struct {
-			Entity core.Entity
-			Comp1 *T1
-			Comp2 *T2
-			Comp3 *T3
-			
-		},
-		struct {
-			Comp4 *T4
-			Comp5 *T5
-			Comp6 *T6
-			
+			Entity []Entity
+			Comp1 []T1
+			Comp2 []T2
+			Comp3 []T3
+			Comp4 []T4
+			Comp5 []T5
+			Comp6 []T6
 		},
 	) bool) {
-		// 1. Pre-calculate Strides (Invariant)
-		stride0 := unsafe.Sizeof(*new(T1))
-		stride1 := unsafe.Sizeof(*new(T2))
-		stride2 := unsafe.Sizeof(*new(T3))
-		stride3 := unsafe.Sizeof(*new(T4))
-		stride4 := unsafe.Sizeof(*new(T5))
-		stride5 := unsafe.Sizeof(*new(T6))
-
-		// Loop over matched archetypes
 		for _, ma := range v.Baked {
-			// 2. Load Offsets from Cache
-			offsetEntity := ma.EntityPageOffset
-			offset0 := ma.FieldsOffsets[0]
-			offset1 := ma.FieldsOffsets[1]
-			offset2 := ma.FieldsOffsets[2]
-			offset3 := ma.FieldsOffsets[3]
-			offset4 := ma.FieldsOffsets[4]
-			offset5 := ma.FieldsOffsets[5]
-
-			// 3. Loop over Physical Memory Pages
 			for _, page := range ma.Arch.Memory.Pages {
 				count := page.Len
 				if count == 0 {
 					continue
 				}
-
-				// 4. Resolve Base Pointers
 				base := page.Ptr
-				ptrEntity := unsafe.Add(base, offsetEntity)
-				ptr0 := unsafe.Add(base, offset0)
-				ptr1 := unsafe.Add(base, offset1)
-				ptr2 := unsafe.Add(base, offset2)
-				ptr3 := unsafe.Add(base, offset3)
-				ptr4 := unsafe.Add(base, offset4)
-				ptr5 := unsafe.Add(base, offset5)
-
-				// 5. Hot Loop
-				for count > 0 {
-					// Max 3 components in Head to stay in CPU Registers
-					head := struct {
-						Entity core.Entity
-						Comp1 *T1
-						Comp2 *T2
-						Comp3 *T3
+				if !yield(
+					struct {
+						Entity []Entity
+						Comp1 []T1
+						Comp2 []T2
+						Comp3 []T3
+						Comp4 []T4
+						Comp5 []T5
+						Comp6 []T6
 					}{
-						Entity: *(*core.Entity)(ptrEntity),
-						Comp1: (*T1)(ptr0),
-						Comp2: (*T2)(ptr1),
-						Comp3: (*T3)(ptr2),
-					}
-
-					// Remaining components spill over to Tail
-					tail := struct { 
-						Comp4 *T4
-						Comp5 *T5
-						Comp6 *T6
-					}{ 
-					    Comp4: (*T4)(ptr3),
-					    Comp5: (*T5)(ptr4),
-					    Comp6: (*T6)(ptr5),
-					}
-
-					if !yield(head, tail) {
-						return
-					}
-
-					// 6. Pointer Arithmetic
-					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
-					ptr0 = unsafe.Add(ptr0, stride0)
-					ptr1 = unsafe.Add(ptr1, stride1)
-					ptr2 = unsafe.Add(ptr2, stride2)
-					ptr3 = unsafe.Add(ptr3, stride3)
-					ptr4 = unsafe.Add(ptr4, stride4)
-					ptr5 = unsafe.Add(ptr5, stride5)
-
-					count--
+						Entity: unsafe.Slice((*Entity)(unsafe.Add(base, ma.EntityPageOffset)), count),
+						Comp1: unsafe.Slice((*T1)(unsafe.Add(base, ma.CompOffsets[0])), count),
+						Comp2: unsafe.Slice((*T2)(unsafe.Add(base, ma.CompOffsets[1])), count),
+						Comp3: unsafe.Slice((*T3)(unsafe.Add(base, ma.CompOffsets[2])), count),
+						Comp4: unsafe.Slice((*T4)(unsafe.Add(base, ma.CompOffsets[3])), count),
+						Comp5: unsafe.Slice((*T5)(unsafe.Add(base, ma.CompOffsets[4])), count),
+						Comp6: unsafe.Slice((*T6)(unsafe.Add(base, ma.CompOffsets[5])), count),
+					}) {
+					return
 				}
 			}
-		}
-	}
-}
-
-// Each executes the provided callback function across all matching archetypes,
-// passing components as contiguous slices (`[]T`) alongside their corresponding `[]core.Entity`.
-//
-// Unlike the iterative All() approach, this method avoids per-element iterator overhead
-// by processing data in bulk, archetype by archetype. This ensures optimal CPU cache
-// locality and allows the compiler to better optimize dense memory loops.
-//
-// Performance Note:
-// For views with fewer than 8 components (N < 8), it is recommended to use the
-// iterator-based All() method (iter.Seq2), as Each() incurs a higher setup and
-// slicing overhead that is only amortized with larger tail structures (N >= 8).
-//
-// Example usage:
-//     view6.Each(func(entities []core.Entity, c1s []T1, c2s []T2, c3s []T3, c4s []T4, c5s []T5, c6s []T6) {
-//         for i := range entities {
-//             entity := entities[i]
-//             v1 := c1s[i]
-//             v2 := c2s[i]
-//             v3 := c3s[i]
-//             v4 := c4s[i]
-//             v5 := c5s[i]
-//             v6 := c6s[i]
-//             
-//         }
-//     })
-func (v *View6[T1, T2, T3, T4, T5, T6]) Each(fn func([]core.Entity, []T1, []T2, []T3, []T4, []T5, []T6)) {
-	for _, ma := range v.Baked {
-
-		// Loop over Physical Memory Pages
-		for _, page := range ma.Arch.Memory.Pages {
-			count := page.Len
-			if count == 0 {
-				continue
-			}
-
-			// 3. Resolve Base Pointer for this Page
-			base := page.Ptr
-
-			// 4. Map raw memory pages directly to Go slices (Zero Heap Allocation)
-			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, ma.EntityPageOffset)), count)
-			c1 := unsafe.Slice((*T1)(unsafe.Add(base, ma.FieldsOffsets[0])), count)
-			c2 := unsafe.Slice((*T2)(unsafe.Add(base, ma.FieldsOffsets[1])), count)
-			c3 := unsafe.Slice((*T3)(unsafe.Add(base, ma.FieldsOffsets[2])), count)
-			c4 := unsafe.Slice((*T4)(unsafe.Add(base, ma.FieldsOffsets[3])), count)
-			c5 := unsafe.Slice((*T5)(unsafe.Add(base, ma.FieldsOffsets[4])), count)
-			c6 := unsafe.Slice((*T6)(unsafe.Add(base, ma.FieldsOffsets[5])), count)
-
-			// 5. Bulk Callback Execution (Once per page)
-			fn(entities, c1, c2, c3, c4, c5, c6)
 		}
 	}
 }
@@ -1900,202 +1300,81 @@ func NewView7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any](
     return &View7[T1, T2, T3, T4, T5, T6, T7]{View: view}
 }
 
-// All returns an iterator (iter.Seq2) that yields components split into two structures:
-// head (containing the unique Entity identifier and components V1-V4) and tail (containing
-// remaining components V5+). This split optimizes register usage and prevents heap allocation.
+// All returns an iterator (iter.Seq) that yields physical memory pages as batches of slices.
+// Each yielded struct represents a contiguous block of memory for the matched entities
+// and their corresponding components, mapped directly to Go slices (Zero Heap Allocation) to
+// preserves the Structure of Arrays (SoA) layout.
+// By shifting the inner loop to the caller side, it guarantees optimal CPU cache coherence
+// and allows the Go compiler to easily apply advanced optimizations such as loop unrolling,
+// bounds-check elimination, and SIMD vectorization.
 //
-// The iteration is performed archetype by archetype, ensuring that data is
-// accessed contiguously in memory, which significantly reduces CPU cache misses.
-//
-// Performance Note:
-// For views with 8 or more components (N >= 8), it is recommended to use the
-// non-iterator-based Each() method instead. At this scale, the tail structure
-// grows large enough that the batch-slicing approach of Each() significantly
-// outperforms the iterator overhead of All().
+// The iteration is performed archetype by archetype, and yields page by page.
 //
 // Example usage:
-//    for head, tail := range view7.All() {
-//        entity := head.Entity
-//        v1 := head.Comp1
-//        v2 := head.Comp2
-//        v3 := head.Comp3
-//        v4 := head.Comp4
-//        v5 := tail.V5
-//        v6 := tail.V6
-//        v7 := tail.V7
-//        
-//    }
-func (v *View7[T1, T2, T3, T4, T5, T6, T7]) All() iter.Seq2[
-	struct {
-		Entity core.Entity
-		Comp1 *T1
-		Comp2 *T2
-		Comp3 *T3
-		
-	},
-	struct {
-		Comp4 *T4
-		Comp5 *T5
-		Comp6 *T6
-		Comp7 *T7
-		
-	},
-] {
+//	for page := range view7.All() {
+//		for i, entity := range page.Entity {
+//			c1 := &page.Comp1[i]
+//			c2 := &page.Comp2[i]
+//			c3 := &page.Comp3[i]
+//			c4 := &page.Comp4[i]
+//			c5 := &page.Comp5[i]
+//			c6 := &page.Comp6[i]
+//			c7 := &page.Comp7[i]
+//			// Apply domain logic here...
+//		}
+//	}
+func (v *View7[T1, T2, T3, T4, T5, T6, T7]) All() iter.Seq[struct {
+	Entity []Entity
+	Comp1 []T1
+	Comp2 []T2
+	Comp3 []T3
+	Comp4 []T4
+	Comp5 []T5
+	Comp6 []T6
+	Comp7 []T7
+}] {
 	return func(yield func(
 		struct {
-			Entity core.Entity
-			Comp1 *T1
-			Comp2 *T2
-			Comp3 *T3
-			
-		},
-		struct {
-			Comp4 *T4
-			Comp5 *T5
-			Comp6 *T6
-			Comp7 *T7
-			
+			Entity []Entity
+			Comp1 []T1
+			Comp2 []T2
+			Comp3 []T3
+			Comp4 []T4
+			Comp5 []T5
+			Comp6 []T6
+			Comp7 []T7
 		},
 	) bool) {
-		// 1. Pre-calculate Strides (Invariant)
-		stride0 := unsafe.Sizeof(*new(T1))
-		stride1 := unsafe.Sizeof(*new(T2))
-		stride2 := unsafe.Sizeof(*new(T3))
-		stride3 := unsafe.Sizeof(*new(T4))
-		stride4 := unsafe.Sizeof(*new(T5))
-		stride5 := unsafe.Sizeof(*new(T6))
-		stride6 := unsafe.Sizeof(*new(T7))
-
-		// Loop over matched archetypes
 		for _, ma := range v.Baked {
-			// 2. Load Offsets from Cache
-			offsetEntity := ma.EntityPageOffset
-			offset0 := ma.FieldsOffsets[0]
-			offset1 := ma.FieldsOffsets[1]
-			offset2 := ma.FieldsOffsets[2]
-			offset3 := ma.FieldsOffsets[3]
-			offset4 := ma.FieldsOffsets[4]
-			offset5 := ma.FieldsOffsets[5]
-			offset6 := ma.FieldsOffsets[6]
-
-			// 3. Loop over Physical Memory Pages
 			for _, page := range ma.Arch.Memory.Pages {
 				count := page.Len
 				if count == 0 {
 					continue
 				}
-
-				// 4. Resolve Base Pointers
 				base := page.Ptr
-				ptrEntity := unsafe.Add(base, offsetEntity)
-				ptr0 := unsafe.Add(base, offset0)
-				ptr1 := unsafe.Add(base, offset1)
-				ptr2 := unsafe.Add(base, offset2)
-				ptr3 := unsafe.Add(base, offset3)
-				ptr4 := unsafe.Add(base, offset4)
-				ptr5 := unsafe.Add(base, offset5)
-				ptr6 := unsafe.Add(base, offset6)
-
-				// 5. Hot Loop
-				for count > 0 {
-					// Max 3 components in Head to stay in CPU Registers
-					head := struct {
-						Entity core.Entity
-						Comp1 *T1
-						Comp2 *T2
-						Comp3 *T3
+				if !yield(
+					struct {
+						Entity []Entity
+						Comp1 []T1
+						Comp2 []T2
+						Comp3 []T3
+						Comp4 []T4
+						Comp5 []T5
+						Comp6 []T6
+						Comp7 []T7
 					}{
-						Entity: *(*core.Entity)(ptrEntity),
-						Comp1: (*T1)(ptr0),
-						Comp2: (*T2)(ptr1),
-						Comp3: (*T3)(ptr2),
-					}
-
-					// Remaining components spill over to Tail
-					tail := struct { 
-						Comp4 *T4
-						Comp5 *T5
-						Comp6 *T6
-						Comp7 *T7
-					}{ 
-					    Comp4: (*T4)(ptr3),
-					    Comp5: (*T5)(ptr4),
-					    Comp6: (*T6)(ptr5),
-					    Comp7: (*T7)(ptr6),
-					}
-
-					if !yield(head, tail) {
-						return
-					}
-
-					// 6. Pointer Arithmetic
-					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
-					ptr0 = unsafe.Add(ptr0, stride0)
-					ptr1 = unsafe.Add(ptr1, stride1)
-					ptr2 = unsafe.Add(ptr2, stride2)
-					ptr3 = unsafe.Add(ptr3, stride3)
-					ptr4 = unsafe.Add(ptr4, stride4)
-					ptr5 = unsafe.Add(ptr5, stride5)
-					ptr6 = unsafe.Add(ptr6, stride6)
-
-					count--
+						Entity: unsafe.Slice((*Entity)(unsafe.Add(base, ma.EntityPageOffset)), count),
+						Comp1: unsafe.Slice((*T1)(unsafe.Add(base, ma.CompOffsets[0])), count),
+						Comp2: unsafe.Slice((*T2)(unsafe.Add(base, ma.CompOffsets[1])), count),
+						Comp3: unsafe.Slice((*T3)(unsafe.Add(base, ma.CompOffsets[2])), count),
+						Comp4: unsafe.Slice((*T4)(unsafe.Add(base, ma.CompOffsets[3])), count),
+						Comp5: unsafe.Slice((*T5)(unsafe.Add(base, ma.CompOffsets[4])), count),
+						Comp6: unsafe.Slice((*T6)(unsafe.Add(base, ma.CompOffsets[5])), count),
+						Comp7: unsafe.Slice((*T7)(unsafe.Add(base, ma.CompOffsets[6])), count),
+					}) {
+					return
 				}
 			}
-		}
-	}
-}
-
-// Each executes the provided callback function across all matching archetypes,
-// passing components as contiguous slices (`[]T`) alongside their corresponding `[]core.Entity`.
-//
-// Unlike the iterative All() approach, this method avoids per-element iterator overhead
-// by processing data in bulk, archetype by archetype. This ensures optimal CPU cache
-// locality and allows the compiler to better optimize dense memory loops.
-//
-// Performance Note:
-// For views with fewer than 8 components (N < 8), it is recommended to use the
-// iterator-based All() method (iter.Seq2), as Each() incurs a higher setup and
-// slicing overhead that is only amortized with larger tail structures (N >= 8).
-//
-// Example usage:
-//     view7.Each(func(entities []core.Entity, c1s []T1, c2s []T2, c3s []T3, c4s []T4, c5s []T5, c6s []T6, c7s []T7) {
-//         for i := range entities {
-//             entity := entities[i]
-//             v1 := c1s[i]
-//             v2 := c2s[i]
-//             v3 := c3s[i]
-//             v4 := c4s[i]
-//             v5 := c5s[i]
-//             v6 := c6s[i]
-//             v7 := c7s[i]
-//             
-//         }
-//     })
-func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Each(fn func([]core.Entity, []T1, []T2, []T3, []T4, []T5, []T6, []T7)) {
-	for _, ma := range v.Baked {
-
-		// Loop over Physical Memory Pages
-		for _, page := range ma.Arch.Memory.Pages {
-			count := page.Len
-			if count == 0 {
-				continue
-			}
-
-			// 3. Resolve Base Pointer for this Page
-			base := page.Ptr
-
-			// 4. Map raw memory pages directly to Go slices (Zero Heap Allocation)
-			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, ma.EntityPageOffset)), count)
-			c1 := unsafe.Slice((*T1)(unsafe.Add(base, ma.FieldsOffsets[0])), count)
-			c2 := unsafe.Slice((*T2)(unsafe.Add(base, ma.FieldsOffsets[1])), count)
-			c3 := unsafe.Slice((*T3)(unsafe.Add(base, ma.FieldsOffsets[2])), count)
-			c4 := unsafe.Slice((*T4)(unsafe.Add(base, ma.FieldsOffsets[3])), count)
-			c5 := unsafe.Slice((*T5)(unsafe.Add(base, ma.FieldsOffsets[4])), count)
-			c6 := unsafe.Slice((*T6)(unsafe.Add(base, ma.FieldsOffsets[5])), count)
-			c7 := unsafe.Slice((*T7)(unsafe.Add(base, ma.FieldsOffsets[6])), count)
-
-			// 5. Bulk Callback Execution (Once per page)
-			fn(entities, c1, c2, c3, c4, c5, c6, c7)
 		}
 	}
 }
@@ -2265,213 +1544,86 @@ func NewView8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any](
     return &View8[T1, T2, T3, T4, T5, T6, T7, T8]{View: view}
 }
 
-// All returns an iterator (iter.Seq2) that yields components split into two structures:
-// head (containing the unique Entity identifier and components V1-V4) and tail (containing
-// remaining components V5+). This split optimizes register usage and prevents heap allocation.
+// All returns an iterator (iter.Seq) that yields physical memory pages as batches of slices.
+// Each yielded struct represents a contiguous block of memory for the matched entities
+// and their corresponding components, mapped directly to Go slices (Zero Heap Allocation) to
+// preserves the Structure of Arrays (SoA) layout.
+// By shifting the inner loop to the caller side, it guarantees optimal CPU cache coherence
+// and allows the Go compiler to easily apply advanced optimizations such as loop unrolling,
+// bounds-check elimination, and SIMD vectorization.
 //
-// The iteration is performed archetype by archetype, ensuring that data is
-// accessed contiguously in memory, which significantly reduces CPU cache misses.
-//
-// Performance Note:
-// For views with 8 or more components (N >= 8), it is recommended to use the
-// non-iterator-based Each() method instead. At this scale, the tail structure
-// grows large enough that the batch-slicing approach of Each() significantly
-// outperforms the iterator overhead of All().
+// The iteration is performed archetype by archetype, and yields page by page.
 //
 // Example usage:
-//    for head, tail := range view8.All() {
-//        entity := head.Entity
-//        v1 := head.Comp1
-//        v2 := head.Comp2
-//        v3 := head.Comp3
-//        v4 := head.Comp4
-//        v5 := tail.V5
-//        v6 := tail.V6
-//        v7 := tail.V7
-//        v8 := tail.V8
-//        
-//    }
-func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) All() iter.Seq2[
-	struct {
-		Entity core.Entity
-		Comp1 *T1
-		Comp2 *T2
-		Comp3 *T3
-		
-	},
-	struct {
-		Comp4 *T4
-		Comp5 *T5
-		Comp6 *T6
-		Comp7 *T7
-		Comp8 *T8
-		
-	},
-] {
+//	for page := range view8.All() {
+//		for i, entity := range page.Entity {
+//			c1 := &page.Comp1[i]
+//			c2 := &page.Comp2[i]
+//			c3 := &page.Comp3[i]
+//			c4 := &page.Comp4[i]
+//			c5 := &page.Comp5[i]
+//			c6 := &page.Comp6[i]
+//			c7 := &page.Comp7[i]
+//			c8 := &page.Comp8[i]
+//			// Apply domain logic here...
+//		}
+//	}
+func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) All() iter.Seq[struct {
+	Entity []Entity
+	Comp1 []T1
+	Comp2 []T2
+	Comp3 []T3
+	Comp4 []T4
+	Comp5 []T5
+	Comp6 []T6
+	Comp7 []T7
+	Comp8 []T8
+}] {
 	return func(yield func(
 		struct {
-			Entity core.Entity
-			Comp1 *T1
-			Comp2 *T2
-			Comp3 *T3
-			
-		},
-		struct {
-			Comp4 *T4
-			Comp5 *T5
-			Comp6 *T6
-			Comp7 *T7
-			Comp8 *T8
-			
+			Entity []Entity
+			Comp1 []T1
+			Comp2 []T2
+			Comp3 []T3
+			Comp4 []T4
+			Comp5 []T5
+			Comp6 []T6
+			Comp7 []T7
+			Comp8 []T8
 		},
 	) bool) {
-		// 1. Pre-calculate Strides (Invariant)
-		stride0 := unsafe.Sizeof(*new(T1))
-		stride1 := unsafe.Sizeof(*new(T2))
-		stride2 := unsafe.Sizeof(*new(T3))
-		stride3 := unsafe.Sizeof(*new(T4))
-		stride4 := unsafe.Sizeof(*new(T5))
-		stride5 := unsafe.Sizeof(*new(T6))
-		stride6 := unsafe.Sizeof(*new(T7))
-		stride7 := unsafe.Sizeof(*new(T8))
-
-		// Loop over matched archetypes
 		for _, ma := range v.Baked {
-			// 2. Load Offsets from Cache
-			offsetEntity := ma.EntityPageOffset
-			offset0 := ma.FieldsOffsets[0]
-			offset1 := ma.FieldsOffsets[1]
-			offset2 := ma.FieldsOffsets[2]
-			offset3 := ma.FieldsOffsets[3]
-			offset4 := ma.FieldsOffsets[4]
-			offset5 := ma.FieldsOffsets[5]
-			offset6 := ma.FieldsOffsets[6]
-			offset7 := ma.FieldsOffsets[7]
-
-			// 3. Loop over Physical Memory Pages
 			for _, page := range ma.Arch.Memory.Pages {
 				count := page.Len
 				if count == 0 {
 					continue
 				}
-
-				// 4. Resolve Base Pointers
 				base := page.Ptr
-				ptrEntity := unsafe.Add(base, offsetEntity)
-				ptr0 := unsafe.Add(base, offset0)
-				ptr1 := unsafe.Add(base, offset1)
-				ptr2 := unsafe.Add(base, offset2)
-				ptr3 := unsafe.Add(base, offset3)
-				ptr4 := unsafe.Add(base, offset4)
-				ptr5 := unsafe.Add(base, offset5)
-				ptr6 := unsafe.Add(base, offset6)
-				ptr7 := unsafe.Add(base, offset7)
-
-				// 5. Hot Loop
-				for count > 0 {
-					// Max 3 components in Head to stay in CPU Registers
-					head := struct {
-						Entity core.Entity
-						Comp1 *T1
-						Comp2 *T2
-						Comp3 *T3
+				if !yield(
+					struct {
+						Entity []Entity
+						Comp1 []T1
+						Comp2 []T2
+						Comp3 []T3
+						Comp4 []T4
+						Comp5 []T5
+						Comp6 []T6
+						Comp7 []T7
+						Comp8 []T8
 					}{
-						Entity: *(*core.Entity)(ptrEntity),
-						Comp1: (*T1)(ptr0),
-						Comp2: (*T2)(ptr1),
-						Comp3: (*T3)(ptr2),
-					}
-
-					// Remaining components spill over to Tail
-					tail := struct { 
-						Comp4 *T4
-						Comp5 *T5
-						Comp6 *T6
-						Comp7 *T7
-						Comp8 *T8
-					}{ 
-					    Comp4: (*T4)(ptr3),
-					    Comp5: (*T5)(ptr4),
-					    Comp6: (*T6)(ptr5),
-					    Comp7: (*T7)(ptr6),
-					    Comp8: (*T8)(ptr7),
-					}
-
-					if !yield(head, tail) {
-						return
-					}
-
-					// 6. Pointer Arithmetic
-					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
-					ptr0 = unsafe.Add(ptr0, stride0)
-					ptr1 = unsafe.Add(ptr1, stride1)
-					ptr2 = unsafe.Add(ptr2, stride2)
-					ptr3 = unsafe.Add(ptr3, stride3)
-					ptr4 = unsafe.Add(ptr4, stride4)
-					ptr5 = unsafe.Add(ptr5, stride5)
-					ptr6 = unsafe.Add(ptr6, stride6)
-					ptr7 = unsafe.Add(ptr7, stride7)
-
-					count--
+						Entity: unsafe.Slice((*Entity)(unsafe.Add(base, ma.EntityPageOffset)), count),
+						Comp1: unsafe.Slice((*T1)(unsafe.Add(base, ma.CompOffsets[0])), count),
+						Comp2: unsafe.Slice((*T2)(unsafe.Add(base, ma.CompOffsets[1])), count),
+						Comp3: unsafe.Slice((*T3)(unsafe.Add(base, ma.CompOffsets[2])), count),
+						Comp4: unsafe.Slice((*T4)(unsafe.Add(base, ma.CompOffsets[3])), count),
+						Comp5: unsafe.Slice((*T5)(unsafe.Add(base, ma.CompOffsets[4])), count),
+						Comp6: unsafe.Slice((*T6)(unsafe.Add(base, ma.CompOffsets[5])), count),
+						Comp7: unsafe.Slice((*T7)(unsafe.Add(base, ma.CompOffsets[6])), count),
+						Comp8: unsafe.Slice((*T8)(unsafe.Add(base, ma.CompOffsets[7])), count),
+					}) {
+					return
 				}
 			}
-		}
-	}
-}
-
-// Each executes the provided callback function across all matching archetypes,
-// passing components as contiguous slices (`[]T`) alongside their corresponding `[]core.Entity`.
-//
-// Unlike the iterative All() approach, this method avoids per-element iterator overhead
-// by processing data in bulk, archetype by archetype. This ensures optimal CPU cache
-// locality and allows the compiler to better optimize dense memory loops.
-//
-// Performance Note:
-// For views with fewer than 8 components (N < 8), it is recommended to use the
-// iterator-based All() method (iter.Seq2), as Each() incurs a higher setup and
-// slicing overhead that is only amortized with larger tail structures (N >= 8).
-//
-// Example usage:
-//     view8.Each(func(entities []core.Entity, c1s []T1, c2s []T2, c3s []T3, c4s []T4, c5s []T5, c6s []T6, c7s []T7, c8s []T8) {
-//         for i := range entities {
-//             entity := entities[i]
-//             v1 := c1s[i]
-//             v2 := c2s[i]
-//             v3 := c3s[i]
-//             v4 := c4s[i]
-//             v5 := c5s[i]
-//             v6 := c6s[i]
-//             v7 := c7s[i]
-//             v8 := c8s[i]
-//             
-//         }
-//     })
-func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Each(fn func([]core.Entity, []T1, []T2, []T3, []T4, []T5, []T6, []T7, []T8)) {
-	for _, ma := range v.Baked {
-
-		// Loop over Physical Memory Pages
-		for _, page := range ma.Arch.Memory.Pages {
-			count := page.Len
-			if count == 0 {
-				continue
-			}
-
-			// 3. Resolve Base Pointer for this Page
-			base := page.Ptr
-
-			// 4. Map raw memory pages directly to Go slices (Zero Heap Allocation)
-			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, ma.EntityPageOffset)), count)
-			c1 := unsafe.Slice((*T1)(unsafe.Add(base, ma.FieldsOffsets[0])), count)
-			c2 := unsafe.Slice((*T2)(unsafe.Add(base, ma.FieldsOffsets[1])), count)
-			c3 := unsafe.Slice((*T3)(unsafe.Add(base, ma.FieldsOffsets[2])), count)
-			c4 := unsafe.Slice((*T4)(unsafe.Add(base, ma.FieldsOffsets[3])), count)
-			c5 := unsafe.Slice((*T5)(unsafe.Add(base, ma.FieldsOffsets[4])), count)
-			c6 := unsafe.Slice((*T6)(unsafe.Add(base, ma.FieldsOffsets[5])), count)
-			c7 := unsafe.Slice((*T7)(unsafe.Add(base, ma.FieldsOffsets[6])), count)
-			c8 := unsafe.Slice((*T8)(unsafe.Add(base, ma.FieldsOffsets[7])), count)
-
-			// 5. Bulk Callback Execution (Once per page)
-			fn(entities, c1, c2, c3, c4, c5, c6, c7, c8)
 		}
 	}
 }
@@ -2647,224 +1799,91 @@ func NewView9[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T9
     return &View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]{View: view}
 }
 
-// All returns an iterator (iter.Seq2) that yields components split into two structures:
-// head (containing the unique Entity identifier and components V1-V4) and tail (containing
-// remaining components V5+). This split optimizes register usage and prevents heap allocation.
+// All returns an iterator (iter.Seq) that yields physical memory pages as batches of slices.
+// Each yielded struct represents a contiguous block of memory for the matched entities
+// and their corresponding components, mapped directly to Go slices (Zero Heap Allocation) to
+// preserves the Structure of Arrays (SoA) layout.
+// By shifting the inner loop to the caller side, it guarantees optimal CPU cache coherence
+// and allows the Go compiler to easily apply advanced optimizations such as loop unrolling,
+// bounds-check elimination, and SIMD vectorization.
 //
-// The iteration is performed archetype by archetype, ensuring that data is
-// accessed contiguously in memory, which significantly reduces CPU cache misses.
-//
-// Performance Note:
-// For views with 8 or more components (N >= 8), it is recommended to use the
-// non-iterator-based Each() method instead. At this scale, the tail structure
-// grows large enough that the batch-slicing approach of Each() significantly
-// outperforms the iterator overhead of All().
+// The iteration is performed archetype by archetype, and yields page by page.
 //
 // Example usage:
-//    for head, tail := range view9.All() {
-//        entity := head.Entity
-//        v1 := head.Comp1
-//        v2 := head.Comp2
-//        v3 := head.Comp3
-//        v4 := head.Comp4
-//        v5 := tail.V5
-//        v6 := tail.V6
-//        v7 := tail.V7
-//        v8 := tail.V8
-//        v9 := tail.V9
-//        
-//    }
-func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) All() iter.Seq2[
-	struct {
-		Entity core.Entity
-		Comp1 *T1
-		Comp2 *T2
-		Comp3 *T3
-		
-	},
-	struct {
-		Comp4 *T4
-		Comp5 *T5
-		Comp6 *T6
-		Comp7 *T7
-		Comp8 *T8
-		Comp9 *T9
-		
-	},
-] {
+//	for page := range view9.All() {
+//		for i, entity := range page.Entity {
+//			c1 := &page.Comp1[i]
+//			c2 := &page.Comp2[i]
+//			c3 := &page.Comp3[i]
+//			c4 := &page.Comp4[i]
+//			c5 := &page.Comp5[i]
+//			c6 := &page.Comp6[i]
+//			c7 := &page.Comp7[i]
+//			c8 := &page.Comp8[i]
+//			c9 := &page.Comp9[i]
+//			// Apply domain logic here...
+//		}
+//	}
+func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) All() iter.Seq[struct {
+	Entity []Entity
+	Comp1 []T1
+	Comp2 []T2
+	Comp3 []T3
+	Comp4 []T4
+	Comp5 []T5
+	Comp6 []T6
+	Comp7 []T7
+	Comp8 []T8
+	Comp9 []T9
+}] {
 	return func(yield func(
 		struct {
-			Entity core.Entity
-			Comp1 *T1
-			Comp2 *T2
-			Comp3 *T3
-			
-		},
-		struct {
-			Comp4 *T4
-			Comp5 *T5
-			Comp6 *T6
-			Comp7 *T7
-			Comp8 *T8
-			Comp9 *T9
-			
+			Entity []Entity
+			Comp1 []T1
+			Comp2 []T2
+			Comp3 []T3
+			Comp4 []T4
+			Comp5 []T5
+			Comp6 []T6
+			Comp7 []T7
+			Comp8 []T8
+			Comp9 []T9
 		},
 	) bool) {
-		// 1. Pre-calculate Strides (Invariant)
-		stride0 := unsafe.Sizeof(*new(T1))
-		stride1 := unsafe.Sizeof(*new(T2))
-		stride2 := unsafe.Sizeof(*new(T3))
-		stride3 := unsafe.Sizeof(*new(T4))
-		stride4 := unsafe.Sizeof(*new(T5))
-		stride5 := unsafe.Sizeof(*new(T6))
-		stride6 := unsafe.Sizeof(*new(T7))
-		stride7 := unsafe.Sizeof(*new(T8))
-		stride8 := unsafe.Sizeof(*new(T9))
-
-		// Loop over matched archetypes
 		for _, ma := range v.Baked {
-			// 2. Load Offsets from Cache
-			offsetEntity := ma.EntityPageOffset
-			offset0 := ma.FieldsOffsets[0]
-			offset1 := ma.FieldsOffsets[1]
-			offset2 := ma.FieldsOffsets[2]
-			offset3 := ma.FieldsOffsets[3]
-			offset4 := ma.FieldsOffsets[4]
-			offset5 := ma.FieldsOffsets[5]
-			offset6 := ma.FieldsOffsets[6]
-			offset7 := ma.FieldsOffsets[7]
-			offset8 := ma.FieldsOffsets[8]
-
-			// 3. Loop over Physical Memory Pages
 			for _, page := range ma.Arch.Memory.Pages {
 				count := page.Len
 				if count == 0 {
 					continue
 				}
-
-				// 4. Resolve Base Pointers
 				base := page.Ptr
-				ptrEntity := unsafe.Add(base, offsetEntity)
-				ptr0 := unsafe.Add(base, offset0)
-				ptr1 := unsafe.Add(base, offset1)
-				ptr2 := unsafe.Add(base, offset2)
-				ptr3 := unsafe.Add(base, offset3)
-				ptr4 := unsafe.Add(base, offset4)
-				ptr5 := unsafe.Add(base, offset5)
-				ptr6 := unsafe.Add(base, offset6)
-				ptr7 := unsafe.Add(base, offset7)
-				ptr8 := unsafe.Add(base, offset8)
-
-				// 5. Hot Loop
-				for count > 0 {
-					// Max 3 components in Head to stay in CPU Registers
-					head := struct {
-						Entity core.Entity
-						Comp1 *T1
-						Comp2 *T2
-						Comp3 *T3
+				if !yield(
+					struct {
+						Entity []Entity
+						Comp1 []T1
+						Comp2 []T2
+						Comp3 []T3
+						Comp4 []T4
+						Comp5 []T5
+						Comp6 []T6
+						Comp7 []T7
+						Comp8 []T8
+						Comp9 []T9
 					}{
-						Entity: *(*core.Entity)(ptrEntity),
-						Comp1: (*T1)(ptr0),
-						Comp2: (*T2)(ptr1),
-						Comp3: (*T3)(ptr2),
-					}
-
-					// Remaining components spill over to Tail
-					tail := struct { 
-						Comp4 *T4
-						Comp5 *T5
-						Comp6 *T6
-						Comp7 *T7
-						Comp8 *T8
-						Comp9 *T9
-					}{ 
-					    Comp4: (*T4)(ptr3),
-					    Comp5: (*T5)(ptr4),
-					    Comp6: (*T6)(ptr5),
-					    Comp7: (*T7)(ptr6),
-					    Comp8: (*T8)(ptr7),
-					    Comp9: (*T9)(ptr8),
-					}
-
-					if !yield(head, tail) {
-						return
-					}
-
-					// 6. Pointer Arithmetic
-					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
-					ptr0 = unsafe.Add(ptr0, stride0)
-					ptr1 = unsafe.Add(ptr1, stride1)
-					ptr2 = unsafe.Add(ptr2, stride2)
-					ptr3 = unsafe.Add(ptr3, stride3)
-					ptr4 = unsafe.Add(ptr4, stride4)
-					ptr5 = unsafe.Add(ptr5, stride5)
-					ptr6 = unsafe.Add(ptr6, stride6)
-					ptr7 = unsafe.Add(ptr7, stride7)
-					ptr8 = unsafe.Add(ptr8, stride8)
-
-					count--
+						Entity: unsafe.Slice((*Entity)(unsafe.Add(base, ma.EntityPageOffset)), count),
+						Comp1: unsafe.Slice((*T1)(unsafe.Add(base, ma.CompOffsets[0])), count),
+						Comp2: unsafe.Slice((*T2)(unsafe.Add(base, ma.CompOffsets[1])), count),
+						Comp3: unsafe.Slice((*T3)(unsafe.Add(base, ma.CompOffsets[2])), count),
+						Comp4: unsafe.Slice((*T4)(unsafe.Add(base, ma.CompOffsets[3])), count),
+						Comp5: unsafe.Slice((*T5)(unsafe.Add(base, ma.CompOffsets[4])), count),
+						Comp6: unsafe.Slice((*T6)(unsafe.Add(base, ma.CompOffsets[5])), count),
+						Comp7: unsafe.Slice((*T7)(unsafe.Add(base, ma.CompOffsets[6])), count),
+						Comp8: unsafe.Slice((*T8)(unsafe.Add(base, ma.CompOffsets[7])), count),
+						Comp9: unsafe.Slice((*T9)(unsafe.Add(base, ma.CompOffsets[8])), count),
+					}) {
+					return
 				}
 			}
-		}
-	}
-}
-
-// Each executes the provided callback function across all matching archetypes,
-// passing components as contiguous slices (`[]T`) alongside their corresponding `[]core.Entity`.
-//
-// Unlike the iterative All() approach, this method avoids per-element iterator overhead
-// by processing data in bulk, archetype by archetype. This ensures optimal CPU cache
-// locality and allows the compiler to better optimize dense memory loops.
-//
-// Performance Note:
-// For views with fewer than 8 components (N < 8), it is recommended to use the
-// iterator-based All() method (iter.Seq2), as Each() incurs a higher setup and
-// slicing overhead that is only amortized with larger tail structures (N >= 8).
-//
-// Example usage:
-//     view9.Each(func(entities []core.Entity, c1s []T1, c2s []T2, c3s []T3, c4s []T4, c5s []T5, c6s []T6, c7s []T7, c8s []T8, c9s []T9) {
-//         for i := range entities {
-//             entity := entities[i]
-//             v1 := c1s[i]
-//             v2 := c2s[i]
-//             v3 := c3s[i]
-//             v4 := c4s[i]
-//             v5 := c5s[i]
-//             v6 := c6s[i]
-//             v7 := c7s[i]
-//             v8 := c8s[i]
-//             v9 := c9s[i]
-//             
-//         }
-//     })
-func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Each(fn func([]core.Entity, []T1, []T2, []T3, []T4, []T5, []T6, []T7, []T8, []T9)) {
-	for _, ma := range v.Baked {
-
-		// Loop over Physical Memory Pages
-		for _, page := range ma.Arch.Memory.Pages {
-			count := page.Len
-			if count == 0 {
-				continue
-			}
-
-			// 3. Resolve Base Pointer for this Page
-			base := page.Ptr
-
-			// 4. Map raw memory pages directly to Go slices (Zero Heap Allocation)
-			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, ma.EntityPageOffset)), count)
-			c1 := unsafe.Slice((*T1)(unsafe.Add(base, ma.FieldsOffsets[0])), count)
-			c2 := unsafe.Slice((*T2)(unsafe.Add(base, ma.FieldsOffsets[1])), count)
-			c3 := unsafe.Slice((*T3)(unsafe.Add(base, ma.FieldsOffsets[2])), count)
-			c4 := unsafe.Slice((*T4)(unsafe.Add(base, ma.FieldsOffsets[3])), count)
-			c5 := unsafe.Slice((*T5)(unsafe.Add(base, ma.FieldsOffsets[4])), count)
-			c6 := unsafe.Slice((*T6)(unsafe.Add(base, ma.FieldsOffsets[5])), count)
-			c7 := unsafe.Slice((*T7)(unsafe.Add(base, ma.FieldsOffsets[6])), count)
-			c8 := unsafe.Slice((*T8)(unsafe.Add(base, ma.FieldsOffsets[7])), count)
-			c9 := unsafe.Slice((*T9)(unsafe.Add(base, ma.FieldsOffsets[8])), count)
-
-			// 5. Bulk Callback Execution (Once per page)
-			fn(entities, c1, c2, c3, c4, c5, c6, c7, c8, c9)
 		}
 	}
 }
@@ -3046,235 +2065,96 @@ func NewView10[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T
     return &View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]{View: view}
 }
 
-// All returns an iterator (iter.Seq2) that yields components split into two structures:
-// head (containing the unique Entity identifier and components V1-V4) and tail (containing
-// remaining components V5+). This split optimizes register usage and prevents heap allocation.
+// All returns an iterator (iter.Seq) that yields physical memory pages as batches of slices.
+// Each yielded struct represents a contiguous block of memory for the matched entities
+// and their corresponding components, mapped directly to Go slices (Zero Heap Allocation) to
+// preserves the Structure of Arrays (SoA) layout.
+// By shifting the inner loop to the caller side, it guarantees optimal CPU cache coherence
+// and allows the Go compiler to easily apply advanced optimizations such as loop unrolling,
+// bounds-check elimination, and SIMD vectorization.
 //
-// The iteration is performed archetype by archetype, ensuring that data is
-// accessed contiguously in memory, which significantly reduces CPU cache misses.
-//
-// Performance Note:
-// For views with 8 or more components (N >= 8), it is recommended to use the
-// non-iterator-based Each() method instead. At this scale, the tail structure
-// grows large enough that the batch-slicing approach of Each() significantly
-// outperforms the iterator overhead of All().
+// The iteration is performed archetype by archetype, and yields page by page.
 //
 // Example usage:
-//    for head, tail := range view10.All() {
-//        entity := head.Entity
-//        v1 := head.Comp1
-//        v2 := head.Comp2
-//        v3 := head.Comp3
-//        v4 := head.Comp4
-//        v5 := tail.V5
-//        v6 := tail.V6
-//        v7 := tail.V7
-//        v8 := tail.V8
-//        v9 := tail.V9
-//        v10 := tail.V10
-//        
-//    }
-func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) All() iter.Seq2[
-	struct {
-		Entity core.Entity
-		Comp1 *T1
-		Comp2 *T2
-		Comp3 *T3
-		
-	},
-	struct {
-		Comp4 *T4
-		Comp5 *T5
-		Comp6 *T6
-		Comp7 *T7
-		Comp8 *T8
-		Comp9 *T9
-		Comp10 *T10
-		
-	},
-] {
+//	for page := range view10.All() {
+//		for i, entity := range page.Entity {
+//			c1 := &page.Comp1[i]
+//			c2 := &page.Comp2[i]
+//			c3 := &page.Comp3[i]
+//			c4 := &page.Comp4[i]
+//			c5 := &page.Comp5[i]
+//			c6 := &page.Comp6[i]
+//			c7 := &page.Comp7[i]
+//			c8 := &page.Comp8[i]
+//			c9 := &page.Comp9[i]
+//			c10 := &page.Comp10[i]
+//			// Apply domain logic here...
+//		}
+//	}
+func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) All() iter.Seq[struct {
+	Entity []Entity
+	Comp1 []T1
+	Comp2 []T2
+	Comp3 []T3
+	Comp4 []T4
+	Comp5 []T5
+	Comp6 []T6
+	Comp7 []T7
+	Comp8 []T8
+	Comp9 []T9
+	Comp10 []T10
+}] {
 	return func(yield func(
 		struct {
-			Entity core.Entity
-			Comp1 *T1
-			Comp2 *T2
-			Comp3 *T3
-			
-		},
-		struct {
-			Comp4 *T4
-			Comp5 *T5
-			Comp6 *T6
-			Comp7 *T7
-			Comp8 *T8
-			Comp9 *T9
-			Comp10 *T10
-			
+			Entity []Entity
+			Comp1 []T1
+			Comp2 []T2
+			Comp3 []T3
+			Comp4 []T4
+			Comp5 []T5
+			Comp6 []T6
+			Comp7 []T7
+			Comp8 []T8
+			Comp9 []T9
+			Comp10 []T10
 		},
 	) bool) {
-		// 1. Pre-calculate Strides (Invariant)
-		stride0 := unsafe.Sizeof(*new(T1))
-		stride1 := unsafe.Sizeof(*new(T2))
-		stride2 := unsafe.Sizeof(*new(T3))
-		stride3 := unsafe.Sizeof(*new(T4))
-		stride4 := unsafe.Sizeof(*new(T5))
-		stride5 := unsafe.Sizeof(*new(T6))
-		stride6 := unsafe.Sizeof(*new(T7))
-		stride7 := unsafe.Sizeof(*new(T8))
-		stride8 := unsafe.Sizeof(*new(T9))
-		stride9 := unsafe.Sizeof(*new(T10))
-
-		// Loop over matched archetypes
 		for _, ma := range v.Baked {
-			// 2. Load Offsets from Cache
-			offsetEntity := ma.EntityPageOffset
-			offset0 := ma.FieldsOffsets[0]
-			offset1 := ma.FieldsOffsets[1]
-			offset2 := ma.FieldsOffsets[2]
-			offset3 := ma.FieldsOffsets[3]
-			offset4 := ma.FieldsOffsets[4]
-			offset5 := ma.FieldsOffsets[5]
-			offset6 := ma.FieldsOffsets[6]
-			offset7 := ma.FieldsOffsets[7]
-			offset8 := ma.FieldsOffsets[8]
-			offset9 := ma.FieldsOffsets[9]
-
-			// 3. Loop over Physical Memory Pages
 			for _, page := range ma.Arch.Memory.Pages {
 				count := page.Len
 				if count == 0 {
 					continue
 				}
-
-				// 4. Resolve Base Pointers
 				base := page.Ptr
-				ptrEntity := unsafe.Add(base, offsetEntity)
-				ptr0 := unsafe.Add(base, offset0)
-				ptr1 := unsafe.Add(base, offset1)
-				ptr2 := unsafe.Add(base, offset2)
-				ptr3 := unsafe.Add(base, offset3)
-				ptr4 := unsafe.Add(base, offset4)
-				ptr5 := unsafe.Add(base, offset5)
-				ptr6 := unsafe.Add(base, offset6)
-				ptr7 := unsafe.Add(base, offset7)
-				ptr8 := unsafe.Add(base, offset8)
-				ptr9 := unsafe.Add(base, offset9)
-
-				// 5. Hot Loop
-				for count > 0 {
-					// Max 3 components in Head to stay in CPU Registers
-					head := struct {
-						Entity core.Entity
-						Comp1 *T1
-						Comp2 *T2
-						Comp3 *T3
+				if !yield(
+					struct {
+						Entity []Entity
+						Comp1 []T1
+						Comp2 []T2
+						Comp3 []T3
+						Comp4 []T4
+						Comp5 []T5
+						Comp6 []T6
+						Comp7 []T7
+						Comp8 []T8
+						Comp9 []T9
+						Comp10 []T10
 					}{
-						Entity: *(*core.Entity)(ptrEntity),
-						Comp1: (*T1)(ptr0),
-						Comp2: (*T2)(ptr1),
-						Comp3: (*T3)(ptr2),
-					}
-
-					// Remaining components spill over to Tail
-					tail := struct { 
-						Comp4 *T4
-						Comp5 *T5
-						Comp6 *T6
-						Comp7 *T7
-						Comp8 *T8
-						Comp9 *T9
-						Comp10 *T10
-					}{ 
-					    Comp4: (*T4)(ptr3),
-					    Comp5: (*T5)(ptr4),
-					    Comp6: (*T6)(ptr5),
-					    Comp7: (*T7)(ptr6),
-					    Comp8: (*T8)(ptr7),
-					    Comp9: (*T9)(ptr8),
-					    Comp10: (*T10)(ptr9),
-					}
-
-					if !yield(head, tail) {
-						return
-					}
-
-					// 6. Pointer Arithmetic
-					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
-					ptr0 = unsafe.Add(ptr0, stride0)
-					ptr1 = unsafe.Add(ptr1, stride1)
-					ptr2 = unsafe.Add(ptr2, stride2)
-					ptr3 = unsafe.Add(ptr3, stride3)
-					ptr4 = unsafe.Add(ptr4, stride4)
-					ptr5 = unsafe.Add(ptr5, stride5)
-					ptr6 = unsafe.Add(ptr6, stride6)
-					ptr7 = unsafe.Add(ptr7, stride7)
-					ptr8 = unsafe.Add(ptr8, stride8)
-					ptr9 = unsafe.Add(ptr9, stride9)
-
-					count--
+						Entity: unsafe.Slice((*Entity)(unsafe.Add(base, ma.EntityPageOffset)), count),
+						Comp1: unsafe.Slice((*T1)(unsafe.Add(base, ma.CompOffsets[0])), count),
+						Comp2: unsafe.Slice((*T2)(unsafe.Add(base, ma.CompOffsets[1])), count),
+						Comp3: unsafe.Slice((*T3)(unsafe.Add(base, ma.CompOffsets[2])), count),
+						Comp4: unsafe.Slice((*T4)(unsafe.Add(base, ma.CompOffsets[3])), count),
+						Comp5: unsafe.Slice((*T5)(unsafe.Add(base, ma.CompOffsets[4])), count),
+						Comp6: unsafe.Slice((*T6)(unsafe.Add(base, ma.CompOffsets[5])), count),
+						Comp7: unsafe.Slice((*T7)(unsafe.Add(base, ma.CompOffsets[6])), count),
+						Comp8: unsafe.Slice((*T8)(unsafe.Add(base, ma.CompOffsets[7])), count),
+						Comp9: unsafe.Slice((*T9)(unsafe.Add(base, ma.CompOffsets[8])), count),
+						Comp10: unsafe.Slice((*T10)(unsafe.Add(base, ma.CompOffsets[9])), count),
+					}) {
+					return
 				}
 			}
-		}
-	}
-}
-
-// Each executes the provided callback function across all matching archetypes,
-// passing components as contiguous slices (`[]T`) alongside their corresponding `[]core.Entity`.
-//
-// Unlike the iterative All() approach, this method avoids per-element iterator overhead
-// by processing data in bulk, archetype by archetype. This ensures optimal CPU cache
-// locality and allows the compiler to better optimize dense memory loops.
-//
-// Performance Note:
-// For views with fewer than 8 components (N < 8), it is recommended to use the
-// iterator-based All() method (iter.Seq2), as Each() incurs a higher setup and
-// slicing overhead that is only amortized with larger tail structures (N >= 8).
-//
-// Example usage:
-//     view10.Each(func(entities []core.Entity, c1s []T1, c2s []T2, c3s []T3, c4s []T4, c5s []T5, c6s []T6, c7s []T7, c8s []T8, c9s []T9, c10s []T10) {
-//         for i := range entities {
-//             entity := entities[i]
-//             v1 := c1s[i]
-//             v2 := c2s[i]
-//             v3 := c3s[i]
-//             v4 := c4s[i]
-//             v5 := c5s[i]
-//             v6 := c6s[i]
-//             v7 := c7s[i]
-//             v8 := c8s[i]
-//             v9 := c9s[i]
-//             v10 := c10s[i]
-//             
-//         }
-//     })
-func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Each(fn func([]core.Entity, []T1, []T2, []T3, []T4, []T5, []T6, []T7, []T8, []T9, []T10)) {
-	for _, ma := range v.Baked {
-
-		// Loop over Physical Memory Pages
-		for _, page := range ma.Arch.Memory.Pages {
-			count := page.Len
-			if count == 0 {
-				continue
-			}
-
-			// 3. Resolve Base Pointer for this Page
-			base := page.Ptr
-
-			// 4. Map raw memory pages directly to Go slices (Zero Heap Allocation)
-			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, ma.EntityPageOffset)), count)
-			c1 := unsafe.Slice((*T1)(unsafe.Add(base, ma.FieldsOffsets[0])), count)
-			c2 := unsafe.Slice((*T2)(unsafe.Add(base, ma.FieldsOffsets[1])), count)
-			c3 := unsafe.Slice((*T3)(unsafe.Add(base, ma.FieldsOffsets[2])), count)
-			c4 := unsafe.Slice((*T4)(unsafe.Add(base, ma.FieldsOffsets[3])), count)
-			c5 := unsafe.Slice((*T5)(unsafe.Add(base, ma.FieldsOffsets[4])), count)
-			c6 := unsafe.Slice((*T6)(unsafe.Add(base, ma.FieldsOffsets[5])), count)
-			c7 := unsafe.Slice((*T7)(unsafe.Add(base, ma.FieldsOffsets[6])), count)
-			c8 := unsafe.Slice((*T8)(unsafe.Add(base, ma.FieldsOffsets[7])), count)
-			c9 := unsafe.Slice((*T9)(unsafe.Add(base, ma.FieldsOffsets[8])), count)
-			c10 := unsafe.Slice((*T10)(unsafe.Add(base, ma.FieldsOffsets[9])), count)
-
-			// 5. Bulk Callback Execution (Once per page)
-			fn(entities, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
 		}
 	}
 }

@@ -35,10 +35,12 @@ func (s *PhysicsSystem) Init(ecs *goke.ECS) {
 	s.query = goke.NewView2[Position, Velocity](ecs)
 }
 func (s *PhysicsSystem) Update(lookup goke.Lookup, schedule *goke.Schedule, d time.Duration) {
-	for item := range s.query.All() {
-		v1, v2 := item.Comp1, item.Comp2
-		v1.X += v2.VX * float32(d.Seconds())
-		v1.Y += v2.VY * float32(d.Seconds())
+	for page := range s.query.All() {
+		for i, _ := range page.Entity {
+			v1, v2 := &page.Comp1[i], &page.Comp2[i]
+			v1.X += v2.VX * float32(d.Seconds())
+			v1.Y += v2.VY * float32(d.Seconds())
+		}
 	}
 }
 
@@ -51,10 +53,12 @@ func (s *HealthSystem) Init(eng *goke.ECS) {
 	s.query = goke.NewView1[Health](eng)
 }
 func (s *HealthSystem) Update(lookup goke.Lookup, schedule *goke.Schedule, d time.Duration) {
-	for item := range s.query.All() {
-		health := item.Comp1
-		if health.Current < health.Max {
-			health.Current += 1.0 // Simple regen
+	for page := range s.query.All() {
+		for i, _ := range page.Entity {
+			health := &page.Comp1[i]
+			if health.Current < health.Max {
+				health.Current += 1.0
+			}
 		}
 	}
 }
@@ -79,12 +83,12 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 
 	// Create entities with ALL components
 	blueprint := goke.NewBlueprint3[Position, Velocity, Health](ecs)
-	for range 1000 {
-		item := blueprint.Create()
-		_, pos, vel, health := item.Entity, item.Comp1, item.Comp2, item.Comp3
-		*pos = Position{0, 0}
-		*vel = Velocity{10, 10}
-		*health = Health{50, 100}
+	for page := range blueprint.Create(1000) {
+		for i, _ := range page.Entity {
+			page.Comp1[i] = Position{0, 0}
+			page.Comp2[i] = Velocity{10, 10}
+			page.Comp3[i] = Health{50, 100}
+		}
 	}
 
 	// 2. Execution Plan: Run Physics and Health in parallel
@@ -99,16 +103,18 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	// 4. Verification
 	query := goke.NewView2[Position, Health](ecs)
 	count := 0
-	for item := range query.All() {
-		v1, v2 := item.Comp1, item.Comp2
-		count++
-		// Check Physics result: 0 + 10*1s = 10
-		if v1.X != 10 {
-			t.Errorf("Physics failed: expected X=10, got %f", v1.X)
-		}
-		// Check Health result: 50 + 1 = 51
-		if v2.Current != 51 {
-			t.Errorf("Health failed: expected HP=51, got %f", v2.Current)
+	for page := range query.All() {
+		for i, _ := range page.Entity {
+			v1, v2 := &page.Comp1[i], &page.Comp2[i]
+			count++
+			// Check Physics result: 0 + 10*1s = 10
+			if v1.X != 10 {
+				t.Errorf("Physics failed: expected X=10, got %f", v1.X)
+			}
+			// Check Health result: 50 + 1 = 51
+			if v2.Current != 51 {
+				t.Errorf("Health failed: expected HP=51, got %f", v2.Current)
+			}
 		}
 	}
 

@@ -43,21 +43,21 @@ func setupECS() *goke.ECS {
 func populate(ecs *goke.ECS, count int) []core.Entity {
 	var entities []core.Entity
 	blueprint := goke.NewBlueprint10[Pos, Vel, Acc, T04, T05, T06, T07, T08, T09, T10](ecs)
-	for range count {
-		item := blueprint.Create()
+	for page := range blueprint.Create(count) {
+		for i, entity := range page.Entity {
+			page.Comp1[i] = Pos{rand.Float32() * 100, rand.Float32() * 100}
+			page.Comp2[i] = Vel{rand.Float32() * 40, 1}
+			page.Comp3[i] = Acc{rand.Float32(), 0.1}
+			page.Comp4[i] = T04{rand.Float32()}
+			page.Comp5[i] = T05{rand.Float32()}
+			page.Comp6[i] = T06{rand.Float32()}
+			page.Comp7[i] = T07{rand.Float64()}
+			page.Comp8[i] = T08{rand.Float64()}
+			page.Comp9[i] = T09{rand.Float64()}
+			page.Comp10[i] = T10{rand.Float64()}
 
-		*(item.Comp1) = Pos{rand.Float32() * 100, rand.Float32() * 100}
-		*(item.Comp2) = Vel{rand.Float32() * 40, 1}
-		*(item.Comp3) = Acc{rand.Float32(), 0.1}
-		*(item.Comp4) = T04{rand.Float32()}
-		*(item.Comp5) = T05{rand.Float32()}
-		*(item.Comp6) = T06{rand.Float32()}
-		*(item.Comp7) = T07{rand.Float64()}
-		*(item.Comp8) = T08{rand.Float64()}
-		*(item.Comp9) = T09{rand.Float64()}
-		*(item.Comp10) = T10{rand.Float64()}
-
-		entities = append(entities, item.Entity)
+			entities = append(entities, entity)
+		}
 	}
 	return entities
 }

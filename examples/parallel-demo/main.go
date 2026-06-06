@@ -34,39 +34,43 @@ func main() {
 	// 2. Setup Entities & Components
 	diceBlueprint := goke.NewBlueprint1[Dice](ecs)
 
-	item := diceBlueprint.Create()
-	diceEnt, dice := item.Entity, item.Comp1
-	*dice = Dice{Value: 0}
+	var diceEnt goke.Entity
+	for page := range diceBlueprint.Create(1) {
+		diceEnt = page.Entity[0]
+		page.Comp1[0] = Dice{Value: 0}
+	}
 
 	// Setup player entities
 	playerBlueprint := goke.NewBlueprint1[Player](ecs)
 
-	item2 := playerBlueprint.Create()
-	_, player1 := item2.Entity, item2.Comp1
-	*player1 = Player{Bet: 0}
-
-	item3 := playerBlueprint.Create()
-	_, player2 := item3.Entity, item3.Comp1
-	*player2 = Player{Bet: 0}
+	for page := range playerBlueprint.Create(2) {
+		for i, _ := range page.Entity {
+			page.Comp1[i] = Player{Bet: 0}
+		}
+	}
 
 	// 3. Define Views (for system filtering)
 	vDice := goke.NewView1[Dice](ecs)
 	vPlayers := goke.NewView1[Player](ecs)
-	vWinners := goke.NewView1[Winner](ecs)
+	vWinners := goke.NewView0(ecs, goke.Include[Winner]())
 
 	// 4. Register Systems
 
 	// System A: Roll the dice
 	rollSys := goke.RegisterSystemFunc(ecs, func(cb *goke.Schedule, d time.Duration) {
-		for res := range vDice.All() {
-			res.Comp1.Value = rand.Intn(6) + 1
+		for page := range vDice.All() {
+			for i, _ := range page.Entity {
+				page.Comp1[i].Value = rand.Intn(6) + 1
+			}
 		}
 	})
 
 	// System B: Players place their bets
 	betSys := goke.RegisterSystemFunc(ecs, func(cb *goke.Schedule, d time.Duration) {
-		for res := range vPlayers.All() {
-			res.Comp1.Bet = rand.Intn(6) + 1
+		for page := range vPlayers.All() {
+			for i, _ := range page.Entity {
+				page.Comp1[i].Bet = rand.Intn(6) + 1
+			}
 		}
 	})
 
@@ -80,13 +84,15 @@ func main() {
 		dice, _ := goke.SafeGetComponent[Dice](ecs, diceEnt, diceDesc)
 		fmt.Printf("🎲 Turn %d | Dice Result: %d\n", turnCounter, dice.Value)
 
-		for item := range vPlayers.All() {
-			entity, bet := item.Entity, item.Comp1.Bet
-			fmt.Printf("   Player %d bet: %d\n", entity, bet)
-			if bet == dice.Value {
-				gameFinished = true
-				// Defer the assignment of the Winner tag to the next Sync point
-				goke.ScheduleAddComponent(schedule, entity, winnerDesc, Winner{})
+		for page := range vPlayers.All() {
+			for i, entity := range page.Entity {
+				bet := page.Comp1[i].Bet
+				fmt.Printf("   Player %d bet: %d\n", entity, bet)
+				if bet == dice.Value {
+					gameFinished = true
+					// Defer the assignment of the Winner tag to the next Sync point
+					goke.ScheduleAddComponent(schedule, entity, winnerDesc, Winner{})
+				}
 			}
 		}
 	})

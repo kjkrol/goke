@@ -35,25 +35,25 @@ func (b *Memo) Init(compInfos []ComponentInfo) {
 
 // AllocSlot allocates space for a new entity.
 // It returns:
-// 1. *page  -> Pointer for immediate data writing (fastest access)
-// 2. uint32  -> PageIdx (to store in EntityLinkStore)
+// 1. *page   -> Pointer for immediate data writing (fastest access)
+// 2. PageIdx -> PageIdx (to store in EntityLinkStore)
 // 3. PageRow -> Row index within the page (to store in EntityLinkStore)
 func (b *Memo) AllocSlot() (*page, PageIdx, PageRow) {
 	lastIdx := PageIdx(len(b.Pages) - 1)
-	c := b.Pages[lastIdx]
+	page := b.Pages[lastIdx]
 
 	// If the current page is full, create a new one
-	if c.Len >= PageRow(b.Layout.PageCap) {
+	if page.Len >= PageRow(b.Layout.PageCap) {
 		b.addPage()
 		lastIdx++
-		c = b.Pages[lastIdx]
+		page = b.Pages[lastIdx]
 	}
 
-	row := c.Len
-	c.Len++
+	row := page.Len
+	page.Len++
 	b.Len++
 
-	return c, lastIdx, row
+	return page, lastIdx, row
 }
 
 // AllocBatch reserves up to 'count' slots in a SINGLE contiguous page.
@@ -63,32 +63,31 @@ func (b *Memo) AllocSlot() (*page, PageIdx, PageRow) {
 // 3. PageRow -> Starting row in the page
 // 4. int      -> How many slots were actually allocated (could be less than count)
 func (b *Memo) AllocBatch(count int) (*page, PageIdx, PageRow, int) {
-	lastIdx := PageIdx(len(b.Pages) - 1)
-	c := b.Pages[lastIdx]
+	lastPageIdx := PageIdx(len(b.Pages) - 1)
+	page := b.Pages[lastPageIdx]
 
-	available := int(b.Layout.PageCap) - int(c.Len)
+	available := int(b.Layout.PageCap) - int(page.Len)
 
 	if available == 0 {
 		b.addPage()
-		lastIdx++
-		c = b.Pages[lastIdx]
+		lastPageIdx++
+		page = b.Pages[lastPageIdx]
 		available = int(b.Layout.PageCap)
 	}
 
 	allocated := min(count, available)
 
-	startRow := c.Len
+	startRow := page.Len
 
-	c.Len += PageRow(allocated)
+	page.Len += PageRow(allocated)
 	b.Len += uint32(allocated)
 
-	return c, lastIdx, startRow, allocated
+	return page, lastPageIdx, startRow, allocated
 }
 
 // GetPage provides O(1) access to a page by its index.
 // Used when moving/removing entities based on EntityLinkStore data.
 func (b *Memo) GetPage(idx PageIdx) *page {
-	// In production, you might skip bounds check if you trust LinkStore
 	return b.Pages[idx]
 }
 

@@ -16,10 +16,13 @@ func BenchmarkEngine_Structural(b *testing.B) {
 
 		posDesc := goke.RegisterComponent[Pos](ecs)
 		blueprintA := goke.NewBlueprint1[Vel](ecs)
-		blueprintA.Create()
 
-		for i := 0; i < b.N; i++ {
-			entities[i] = blueprintA.Create().Entity
+		index := 0
+		for page := range blueprintA.Create(b.N) {
+			for _, e := range page.Entity {
+				entities[index] = e
+				index++
+			}
 		}
 		measurePerEntity(b, 1, func() {
 			for i := 0; i < b.N; i++ {
@@ -35,10 +38,11 @@ func BenchmarkEngine_Structural(b *testing.B) {
 
 		tagDesc := goke.RegisterComponent[Tag](ecs)
 		blueprintA := goke.NewBlueprint1[Vel](ecs)
-		blueprintA.Create()
 
-		for i := 0; i < b.N; i++ {
-			entities[i] = blueprintA.Create().Entity
+		offset := 0
+		for page := range blueprintA.Create(b.N) {
+			n := copy(entities[offset:], page.Entity)
+			offset += n
 		}
 		measurePerEntity(b, 1, func() {
 			for i := 0; i < b.N; i++ {
@@ -54,10 +58,11 @@ func BenchmarkEngine_Structural(b *testing.B) {
 
 		posDesc := goke.RegisterComponent[Pos](ecs)
 		blueprintA := goke.NewBlueprint1[Vel](ecs)
-		blueprintA.Create()
 
-		for i := 0; i < b.N; i++ {
-			entities[i] = blueprintA.Create().Entity
+		offset := 0
+		for page := range blueprintA.Create(b.N) {
+			n := copy(entities[offset:], page.Entity)
+			offset += n
 		}
 		measurePerEntity(b, 1, func() {
 			for i := 0; i < b.N; i++ {
@@ -75,11 +80,12 @@ func BenchmarkEngine_Structural(b *testing.B) {
 
 		velDesc := goke.RegisterComponent[Vel](ecs)
 		blueprintA := goke.NewBlueprint1[Vel](ecs)
-		blueprintA.Create()
 
-		item := blueprintA.Create()
-		e, vel := item.Entity, item.Comp1
-		*vel = Vel{X: 1, Y: 2}
+		var e goke.Entity
+		for page := range blueprintA.Create(1) {
+			e = page.Entity[0]
+			page.Comp1[0] = Vel{X: 1, Y: 2}
+		}
 
 		measurePerEntity(b, 1, func() {
 			for i := 0; i < b.N; i++ {
@@ -96,11 +102,12 @@ func BenchmarkEngine_Structural(b *testing.B) {
 
 		velDesc := goke.RegisterComponent[Vel](ecs)
 		blueprintA := goke.NewBlueprint1[Vel](ecs)
-		blueprintA.Create()
 
-		item := blueprintA.Create()
-		e, vel := item.Entity, item.Comp1
-		*vel = Vel{X: 1, Y: 2}
+		var e goke.Entity
+		for page := range blueprintA.Create(1) {
+			e = page.Entity[0]
+			page.Comp1[0] = Vel{X: 1, Y: 2}
+		}
 
 		measurePerEntity(b, 1, func() {
 			for i := 0; i < b.N; i++ {
@@ -119,11 +126,12 @@ func BenchmarkEngine_Structural(b *testing.B) {
 
 		_ = goke.RegisterComponent[Vel](ecs)
 		blueprintA := goke.NewBlueprint1[Vel](ecs)
-		blueprintA.Create()
 
-		item := blueprintA.Create()
-		e, vel := item.Entity, item.Comp1
-		*vel = Vel{X: 1, Y: 2}
+		var e goke.Entity
+		for page := range blueprintA.Create(1) {
+			e = page.Entity[0]
+			page.Comp1[0] = Vel{X: 1, Y: 2}
+		}
 
 		view := goke.NewView1[Vel](ecs)
 		arr := []goke.Entity{e}
@@ -152,8 +160,10 @@ func BenchmarkEngine_RemoveEntity_Clean(b *testing.B) {
 	// Pre-create entities outside the timed loop to isolate the cost of removal
 	blueprint := goke.NewBlueprint1[Pos](ecs)
 	entities := make([]goke.Entity, count)
-	for j := range count {
-		entities[j] = blueprint.Create().Entity
+	offset := 0
+	for page := range blueprint.Create(b.N) {
+		n := copy(entities[offset:], page.Entity)
+		offset += n
 	}
 
 	measurePerEntity(b, 1, func() {
@@ -165,8 +175,10 @@ func BenchmarkEngine_RemoveEntity_Clean(b *testing.B) {
 			// an early-exit check for a non-existent entity.
 			if i >= count && i%count == 0 {
 				b.StopTimer()
-				for j := range count {
-					entities[j] = blueprint.Create().Entity
+				offset := 0
+				for page := range blueprint.Create(b.N) {
+					n := copy(entities[offset:], page.Entity)
+					offset += n
 				}
 				b.StartTimer()
 			}
@@ -181,11 +193,13 @@ func BenchmarkEngine_AddRemove_Stability(b *testing.B) {
 	_ = goke.RegisterComponent[Pos](ecs)
 	blueprint := goke.NewBlueprint1[Pos](ecs)
 
+	var e goke.Entity
 	measurePerEntity(b, 1, func() {
 		for i := 0; b.Loop(); i++ {
-			item := blueprint.Create()
-			e, pos := item.Entity, item.Comp1
-			*pos = Pos{X: 1}
+			for page := range blueprint.Create(1) {
+				e = page.Entity[0]
+				page.Comp1[0] = Pos{X: 1}
+			}
 
 			// Usuwamy co drugą, żeby wymusić swapowanie w archetypie
 			if i%2 == 0 {

@@ -73,151 +73,59 @@ func NewView{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $n }},
     return &View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]{View: view}
 }
 
-// All returns an iterator (iter.Seq2) that yields components split into two structures:
-// head (containing the unique Entity identifier and components V1-V4) and tail (containing
-// remaining components V5+). This split optimizes register usage and prevents heap allocation.
+// All returns an iterator (iter.Seq) that yields physical memory pages as batches of slices.
+// Each yielded struct represents a contiguous block of memory for the matched entities
+// and their corresponding components, mapped directly to Go slices (Zero Heap Allocation) to
+// preserves the Structure of Arrays (SoA) layout.
+// By shifting the inner loop to the caller side, it guarantees optimal CPU cache coherence
+// and allows the Go compiler to easily apply advanced optimizations such as loop unrolling,
+// bounds-check elimination, and SIMD vectorization.
 //
-// The iteration is performed archetype by archetype, ensuring that data is
-// accessed contiguously in memory, which significantly reduces CPU cache misses.
-//
-// Performance Note:
-// For views with 8 or more components (N >= 8), it is recommended to use the
-// non-iterator-based Each() method instead. At this scale, the tail structure
-// grows large enough that the batch-slicing approach of Each() significantly
-// outperforms the iterator overhead of All().
+// The iteration is performed archetype by archetype, and yields page by page.
 //
 // Example usage:
-//    for head, tail := range view{{ $n }}.All() {
-//        entity := head.Entity
-//        {{ range $i := (seq 1 $n) }}{{ if le $i 4 }}v{{ $i }} := head.Comp{{ $i }}
-//        {{ else }}v{{ $i }} := tail.V{{ $i }}
-//        {{ end }}{{ end }}
-//    }
-func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) All() iter.Seq2[
-	struct {
-		Entity core.Entity
-		{{ range $i := (seq 1 $n) }}{{ if le $i 3 }}Comp{{ $i }} *T{{ $i }}
-		{{ end }}{{ end }}
-	},
-	struct {
-		{{ range $i := (seq 1 $n) }}{{ if gt $i 3 }}Comp{{ $i }} *T{{ $i }}
-		{{ end }}{{ end }}
-	},
-] {
+//	for page := range view{{ $n }}.All() {
+//		for i, entity := range page.Entity { {{- range $i := (seq 1 $n) }}
+//			c{{ $i }} := &page.Comp{{ $i }}[i]{{- end }}
+//			// Apply domain logic here...
+//		}
+//	}
+func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) All() iter.Seq[struct {
+	Entity []Entity
+	{{- range $i := (seq 1 $n) }}
+	Comp{{ $i }} []T{{ $i }}
+	{{- end }}
+}] {
 	return func(yield func(
 		struct {
-			Entity core.Entity
-			{{ range $i := (seq 1 $n) }}{{ if le $i 3 }}Comp{{ $i }} *T{{ $i }}
-			{{ end }}{{ end }}
-		},
-		struct {
-			{{ range $i := (seq 1 $n) }}{{ if gt $i 3 }}Comp{{ $i }} *T{{ $i }}
-			{{ end }}{{ end }}
+			Entity []Entity
+			{{- range $i := (seq 1 $n) }}
+			Comp{{ $i }} []T{{ $i }}
+			{{- end }}
 		},
 	) bool) {
-		// 1. Pre-calculate Strides (Invariant)
-		{{- range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
-		stride{{ $idx }} := unsafe.Sizeof(*new(T{{ $i }}))
-		{{- end }}
-
-		// Loop over matched archetypes
 		for _, ma := range v.Baked {
-			// 2. Load Offsets from Cache
-			offsetEntity := ma.EntityPageOffset
-			{{- range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
-			offset{{ $idx }} := ma.FieldsOffsets[{{ $idx }}]
-			{{- end }}
-
-			// 3. Loop over Physical Memory Pages
 			for _, page := range ma.Arch.Memory.Pages {
 				count := page.Len
 				if count == 0 {
 					continue
 				}
-
-				// 4. Resolve Base Pointers
 				base := page.Ptr
-				ptrEntity := unsafe.Add(base, offsetEntity)
-				{{- range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
-				ptr{{ $idx }} := unsafe.Add(base, offset{{ $idx }})
-				{{- end }}
-
-				// 5. Hot Loop
-				for count > 0 {
-					// Max 3 components in Head to stay in CPU Registers
-					head := struct {
-						Entity core.Entity{{ range $i := (seq 1 $n) }}{{ if le $i 3 }}
-						Comp{{ $i }} *T{{ $i }}{{ end }}{{ end }}
+				if !yield(
+					struct {
+						Entity []Entity
+						{{- range $i := (seq 1 $n) }}
+						Comp{{ $i }} []T{{ $i }}
+						{{- end }}
 					}{
-						Entity: *(*core.Entity)(ptrEntity),{{ range $i := (seq 1 $n) }}{{ if le $i 3 }}{{ $idx := sub $i 1 }}
-						Comp{{ $i }}: (*T{{ $i }})(ptr{{ $idx }}),{{ end }}{{ end }}
-					}
-
-					// Remaining components spill over to Tail
-					tail := struct { {{ range $i := (seq 1 $n) }}{{ if gt $i 3 }}
-						Comp{{ $i }} *T{{ $i }}{{ end }}{{ end }}
-					}{ {{ range $i := (seq 1 $n) }}{{ if gt $i 3 }}{{ $idx := sub $i 1 }}
-					    Comp{{ $i }}: (*T{{ $i }})(ptr{{ $idx }}),{{ end }}{{ end }}
-					}
-
-					if !yield(head, tail) {
-						return
-					}
-
-					// 6. Pointer Arithmetic
-					ptrEntity = unsafe.Add(ptrEntity, core.EntitySize)
-					{{- range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
-					ptr{{ $idx }} = unsafe.Add(ptr{{ $idx }}, stride{{ $idx }})
-					{{- end }}
-
-					count--
+						Entity: unsafe.Slice((*Entity)(unsafe.Add(base, ma.EntityPageOffset)), count),
+						{{- range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
+						Comp{{ $i }}: unsafe.Slice((*T{{ $i }})(unsafe.Add(base, ma.CompOffsets[{{ $idx }}])), count),
+						{{- end }}
+					}) {
+					return
 				}
 			}
-		}
-	}
-}
-
-// Each executes the provided callback function across all matching archetypes,
-// passing components as contiguous slices (`[]T`) alongside their corresponding `[]core.Entity`.
-//
-// Unlike the iterative All() approach, this method avoids per-element iterator overhead
-// by processing data in bulk, archetype by archetype. This ensures optimal CPU cache
-// locality and allows the compiler to better optimize dense memory loops.
-//
-// Performance Note:
-// For views with fewer than 8 components (N < 8), it is recommended to use the
-// iterator-based All() method (iter.Seq2), as Each() incurs a higher setup and
-// slicing overhead that is only amortized with larger tail structures (N >= 8).
-//
-// Example usage:
-//     view{{ $n }}.Each(func(entities []core.Entity{{ range $i := (seq 1 $n) }}, c{{ $i }}s []T{{ $i }}{{ end }}) {
-//         for i := range entities {
-//             entity := entities[i]
-//             {{ range $i := (seq 1 $n) }}v{{ $i }} := c{{ $i }}s[i]
-//             {{ end }}
-//         }
-//     })
-func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) Each(fn func([]core.Entity{{ range $i := (seq 1 $n) }}, []T{{ $i }}{{ end }})) {
-	for _, ma := range v.Baked {
-
-		// Loop over Physical Memory Pages
-		for _, page := range ma.Arch.Memory.Pages {
-			count := page.Len
-			if count == 0 {
-				continue
-			}
-
-			// 3. Resolve Base Pointer for this Page
-			base := page.Ptr
-
-			// 4. Map raw memory pages directly to Go slices (Zero Heap Allocation)
-			entities := unsafe.Slice((*core.Entity)(unsafe.Add(base, ma.EntityPageOffset)), count)
-			{{- range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
-			c{{ $i }} := unsafe.Slice((*T{{ $i }})(unsafe.Add(base, ma.FieldsOffsets[{{ $idx }}])), count)
-			{{- end }}
-
-			// 5. Bulk Callback Execution (Once per page)
-			fn(entities{{ range $i := (seq 1 $n) }}, c{{ $i }}{{ end }})
 		}
 	}
 }

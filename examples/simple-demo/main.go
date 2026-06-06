@@ -26,23 +26,24 @@ func main() {
 
 	// Initialize an entity with Order and Discount component data
 	blueprint := goke.NewBlueprint2[Order, Discount](ecs)
-	item := blueprint.Create()
-	entity := item.Entity
-	*item.Comp1 = Order{ID: "ORD-99", Total: 200.0}
-	*item.Comp2 = Discount{Percentage: 20.0}
-	// entity := goke.CreateEntity(ecs)
-	// *goke.EnsureComponent[Order](ecs, entity, orderDesc) = Order{ID: "ORD-99", Total: 200.0}
-	// *goke.EnsureComponent[Discount](ecs, entity, discountDesc) = Discount{Percentage: 20.0}
+	var entity goke.Entity
+	for page := range blueprint.Create(1) {
+		entity = page.Entity[0]
+		page.Comp1[0] = Order{ID: "ORD-99", Total: 100.0}
+		page.Comp2[0] = Discount{Percentage: 20.0}
+	}
 
 	// Define the Billing System to calculate discounted totals for unprocessed orders
 	view := goke.NewView2[Order, Discount](ecs, goke.Exclude[Processed]())
 	billing := goke.RegisterSystemFunc(ecs, func(schedule *goke.Schedule, d time.Duration) {
-		for head := range view.All() {
-			ord, disc := head.Comp1, head.Comp2
-			ord.Total = ord.Total * (1 - disc.Percentage/100)
+		for page := range view.All() {
+			for i, entity := range page.Entity {
+				ord, disc := &page.Comp1[i], &page.Comp2[i]
+				ord.Total = ord.Total * (1 - disc.Percentage/100)
 
-			// Defer the assignment of the Processed tag to the next synchronization point
-			goke.ScheduleAddComponent(schedule, head.Entity, processedDesc, Processed{})
+				// Defer the assignment of the Processed tag to the next synchronization point
+				goke.ScheduleAddComponent(schedule, entity, processedDesc, Processed{})
+			}
 		}
 	})
 
@@ -74,6 +75,7 @@ func main() {
 	// Run the main simulation loop until the exit signal is received
 	for !close {
 		goke.Tick(ecs, time.Second)
+		orderResult, _ := goke.SafeGetComponent[Order](ecs, entity, orderDesc)
 		fmt.Printf("Order id: %v value with discount: %v\n", orderResult.ID, orderResult.Total)
 	}
 }

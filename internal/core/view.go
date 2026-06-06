@@ -10,16 +10,16 @@ const EntitySize = unsafe.Sizeof(Entity(0))
 type MatchedArch struct {
 	Arch             *Archetype
 	EntityPageOffset uintptr
-	FieldsOffsets    []uintptr
-	FieldsSizes      []uintptr
+	CompOffsets      []uintptr
+	CompSizes        []uintptr
 }
 
 func (ma *MatchedArch) Clear() {
 	ma.Arch = nil
-	clear(ma.FieldsOffsets)
-	ma.FieldsOffsets = nil
-	clear(ma.FieldsSizes)
-	ma.FieldsSizes = nil
+	clear(ma.CompOffsets)
+	ma.CompOffsets = nil
+	clear(ma.CompSizes)
+	ma.CompSizes = nil
 	ma.EntityPageOffset = 0
 }
 
@@ -117,9 +117,9 @@ func (v *View) AddArchetype(arch *Archetype) {
 		oldArchStruct := &extended[len(v.Baked)]
 
 		// Check if the recycled slices are big enough for current layout
-		if cap(oldArchStruct.FieldsOffsets) >= len(v.Layout) {
-			offsets = oldArchStruct.FieldsOffsets[:len(v.Layout)]
-			sizes = oldArchStruct.FieldsSizes[:len(v.Layout)]
+		if cap(oldArchStruct.CompOffsets) >= len(v.Layout) {
+			offsets = oldArchStruct.CompOffsets[:len(v.Layout)]
+			sizes = oldArchStruct.CompSizes[:len(v.Layout)]
 		}
 	}
 
@@ -165,8 +165,8 @@ func (v *View) AddArchetype(arch *Archetype) {
 	v.Baked = append(v.Baked, MatchedArch{
 		Arch:             arch,
 		EntityPageOffset: entCol.PageOffset,
-		FieldsOffsets:    offsets,
-		FieldsSizes:      sizes,
+		CompOffsets:      offsets,
+		CompSizes:        sizes,
 	})
 }
 

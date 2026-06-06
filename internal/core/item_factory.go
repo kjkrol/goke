@@ -20,8 +20,8 @@ var bufPool = sync.Pool{
 }
 
 type ItemFactory struct {
-	reg       *Registry
-	mask      ArchetypeMask
+	Reg       *Registry
+	Mask      ArchetypeMask
 	CompInfos []ComponentInfo
 	ArchId    ArchetypeId
 }
@@ -40,8 +40,8 @@ func NewItemFactory(blueprint *Blueprint) *ItemFactory {
 	archId := blueprint.Reg.ArchetypeRegistry.getOrRegister(mask)
 
 	return &ItemFactory{
-		reg:       blueprint.Reg,
-		mask:      mask,
+		Reg:       blueprint.Reg,
+		Mask:      mask,
 		CompInfos: blueprint.compInfos,
 		ArchId:    archId,
 	}
@@ -84,7 +84,7 @@ func (b *ItemFactory) BatchCreate(count int, fn func([]Item)) {
 func (b *ItemFactory) batchCreate(count int, buf []Item) []Item {
 	output := buf[:count]
 
-	arch := &b.reg.ArchetypeRegistry.Archetypes[b.ArchId]
+	arch := &b.Reg.ArchetypeRegistry.Archetypes[b.ArchId]
 	memo := &arch.Memory
 	entityCol := &arch.Columns[EntityColumnIndex]
 
@@ -97,20 +97,20 @@ func (b *ItemFactory) batchCreate(count int, buf []Item) []Item {
 	outIdx := 0
 
 	for remaining > 0 {
-		chunk, chunkIdx, startRow, allocatedRows := memo.AllocBatch(remaining)
+		page, pageIdx, startRow, allocatedRows := memo.AllocBatch(remaining)
 
 		for i := range allocatedRows {
-			entity := b.reg.EntityPool.Next()
+			entity := b.Reg.EntityPool.Next()
 			rowIdx := startRow + PageRow(i)
 
-			destPtr := entityCol.GetPointer(chunk, rowIdx)
+			destPtr := entityCol.GetPointer(page, rowIdx)
 			*(*Entity)(destPtr) = entity
-			b.reg.ArchetypeRegistry.EntityLinkStore.Update(entity, b.ArchId, chunkIdx, rowIdx)
+			b.Reg.ArchetypeRegistry.EntityLinkStore.Update(entity, b.ArchId, pageIdx, rowIdx)
 
 			output[outIdx][0] = destPtr
 
 			for j := range b.CompInfos {
-				output[outIdx][j+1] = columns[j].GetPointer(chunk, rowIdx)
+				output[outIdx][j+1] = columns[j].GetPointer(page, rowIdx)
 			}
 
 			outIdx++

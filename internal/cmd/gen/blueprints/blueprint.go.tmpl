@@ -2,8 +2,10 @@
 package goke
 
 import (
-    "fmt"
-    "reflect"
+	"fmt"
+	"iter"
+	"reflect"
+	"unsafe"
 
     "github.com/kjkrol/goke/internal/core"
 )
@@ -51,7 +53,6 @@ func NewBlueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $
     {{ range $i := (seq 1 $n) -}}
     mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T{{ $i }}]()))
     {{ end }}
-
     // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
     for _, opt := range opts {
         if err := opt(blueprint); err != nil {
@@ -64,53 +65,67 @@ func NewBlueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $
     }
 }
 
-// Create instantiates a new entity based on the blueprint's static configuration.
-// It returns an Item{{ $n }} struct containing the unique Entity identifier along
-// with direct pointers to the newly allocated memory for each of the {{ $n }} stateful components.
+// BatchCreateX instantiates entities in bulk and returns an iterator yielding
+// memory-aligned chunks for each component.
 //
-// The resulting entity is created with the full set of predefined Tags
-// (stateless components) configured via BlueprintOptions, making it
-// immediately discoverable by relevant Views and Filters.
+// Example:
 //
-// Example usage for Blueprint{{ $n }}:
-//
-// 	item := blueprint.Create()
-{{- range $i := (seq 1 $n) }}
-// 	*item.V{{ $i }} = T{{ $i }}{ /* initialize */ }
-{{- end }}
-//
-// These pointers allow for immediate initialization of the entity's state
-// without the need for additional lookups, ensuring a highly efficient
-// construction process.
-func (b *Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) Create() Item{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}] {
-	item := b.itemFactory.Create()
-	return NewItem{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}](item)
-}
+//	for page := range blueprint.Create(100) {
+//		for i, _ := range page.Entity { {{- range $i := (seq 1 $n) }}
+//			batch.Comp1[{{ $i }}].X = 1 {{- end }}
+//		}
+//	}
 
-// BatchCreate performs bulk entity instantiation using a pre-allocated buffer.
-// It fills 'buf' with pointers to components, returning a slice of initialized
-// Item{{ $n }} containers. If 'buf' is too small, it is capped at 'count'.
-//
-// Example usage:
-//
-//    items := blueprint.BatchCreate(count, buf)
-//    for _, item := range items {
-{{- range $i := (seq 1 $n) }}
-//        item.V{{ $i }}.X = 1
-{{- end }}
-//    }
-func (b *Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) BatchCreate(count int, buf []Item{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) []Item{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}] {
-	if len(buf) < count {
-		count = len(buf)
+func (b *Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) Create(count int) iter.Seq[struct {
+	Entity []Entity
+	{{- range $i := (seq 1 $n) }}
+	Comp{{ $i }} []T{{ $i }}
+	{{- end }}
+}] {
+	reg := b.itemFactory.Reg
+	archReg := reg.ArchetypeRegistry
+	arch := archReg.Archetypes[b.itemFactory.ArchId]
+	memo := &arch.Memory
+	entityCol := &arch.Columns[core.EntityColumnIndex]
+	{{- range $i := (seq 1 $n) }}
+	col{{ $i }} := arch.GetColumn(b.itemFactory.CompInfos[{{ sub $i 1 }}].ID)
+	{{- end }}
+	remaining := count
+
+	return func(yield func(struct {
+		Entity []Entity
+		{{- range $i := (seq 1 $n) }}
+		Comp{{ $i }} []T{{ $i }}
+		{{- end }}
+	}) bool) {
+		for remaining > 0 {
+			page, pageIdx, startRow, allocatedRows := memo.AllocBatch(remaining)
+
+			for i := 0; i < int(allocatedRows); i++ {
+				entity := reg.EntityPool.Next()
+				pageRow := startRow + core.PageRow(i)
+				destPtr := entityCol.GetPointer(page, pageRow)
+				*(*Entity)(destPtr) = entity
+				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageRow)
+			}
+
+			if !yield(
+				struct {
+					Entity []Entity
+					{{- range $i := (seq 1 $n) }}
+					Comp{{ $i }} []T{{ $i }}
+					{{- end }}
+				}{
+					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startRow)), allocatedRows),
+					{{- range $i := (seq 1 $n) }}
+					Comp{{ $i }}: unsafe.Slice((*T{{ $i }})(col{{ $i }}.GetPointer(page, startRow)), allocatedRows),
+					{{- end }}
+				}) {
+				return
+			}
+
+			remaining -= int(allocatedRows)
+		}
 	}
-	output := buf[:count]
-
-	b.itemFactory.BatchCreate(count, func(items []core.Item) {
-    	for i := range items {
-    		output[i] = NewItem{{ $n }}[{{ range $j := (seq 1 $n) }}T{{ $j }}{{ if lt $j $n }}, {{ end }}{{ end }}](items[i])
-    	}
-	})
-
-	return output
 }
 {{ end }}
