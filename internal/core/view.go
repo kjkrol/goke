@@ -29,6 +29,7 @@ type View struct {
 	excludeMask ArchetypeMask
 	Layout      []ComponentInfo
 	Baked       []MatchedArch
+	archMapping []int32
 }
 
 func (v *View) Clear() {
@@ -41,6 +42,9 @@ func (v *View) Clear() {
 	}
 	clear(v.Baked)
 	v.Baked = nil
+
+	clear(v.archMapping)
+	v.archMapping = nil
 }
 
 // View factory based on Functional Options pattern
@@ -83,6 +87,16 @@ func NewView(blueprint *Blueprint, layout []ComponentInfo, reg *Registry) *View 
 func (v *View) Reindex() {
 	v.Baked = v.Baked[:0]
 	reg := v.Reg.ArchetypeRegistry
+
+	requiredLen := int(reg.lastArchetypeId)
+	if cap(v.archMapping) < requiredLen {
+		v.archMapping = make([]int32, requiredLen)
+	}
+	v.archMapping = v.archMapping[:requiredLen]
+	for i := range v.archMapping {
+		v.archMapping[i] = -1
+	}
+
 	for i := RootArchetypeId; i < reg.lastArchetypeId; i++ {
 		v.AddArchetypeIfMatch(&reg.Archetypes[i])
 	}
@@ -168,8 +182,46 @@ func (v *View) AddArchetype(arch *Archetype) {
 		CompOffsets:      offsets,
 		CompSizes:        sizes,
 	})
+
+	// Ensure archMapping can hold the new archetype's id. This grows the
+	// mapping when the view receives a freshly created archetype via
+	// ViewRegistry.OnArchetypeCreated after the initial Reindex sized the
+	// slice to the then-current lastArchetypeId.
+	if int(arch.Id) >= len(v.archMapping) {
+		v.growArchMapping(int(arch.Id) + 1)
+	}
+	v.archMapping[arch.Id] = int32(len(v.Baked) - 1)
+}
+
+// growArchMapping extends archMapping to at least `minLen` entries, padding
+// new slots with -1 ("no matched arch yet"). Capacity doubling keeps amortized
+// cost constant when many archetypes are appended in sequence.
+func (v *View) growArchMapping(minLen int) {
+	newCap := cap(v.archMapping) * 2
+	if newCap < minLen {
+		newCap = minLen
+	}
+	grown := make([]int32, minLen, newCap)
+	copy(grown, v.archMapping)
+	for i := len(v.archMapping); i < minLen; i++ {
+		grown[i] = -1
+	}
+	v.archMapping = grown
 }
 
 func (v *View) Matches(archMask ArchetypeMask) bool {
 	return archMask.Matches(v.includeMask, v.excludeMask)
+}
+
+func (v *View) GetMatchedArch(id ArchetypeId) *MatchedArch {
+	if int(id) >= len(v.archMapping) {
+		return nil
+	}
+
+	idx := v.archMapping[id]
+	if idx == -1 {
+		return nil
+	}
+
+	return &v.Baked[idx]
 }

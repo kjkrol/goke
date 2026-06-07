@@ -1,4 +1,3 @@
-//go:generate go run internal/cmd/gen/items/main.go
 //go:generate go run internal/cmd/gen/views/main.go
 //go:generate go run internal/cmd/gen/blueprints/main.go
 package goke

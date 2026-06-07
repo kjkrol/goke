@@ -21,6 +21,11 @@ type (
 	ExecutionContext = core.ExecutionContext
 	// ExecutionPlan defines the order and concurrency of system updates.
 	ExecutionPlan = core.ExecutionPlan
+
+	// FilterCache is a reusable scratchpad buffer for View*.Filter, exposed
+	// to library users as a type alias to the canonical core implementation.
+	// Hold it in a system field (or sync.Pool) to eliminate allocations
+	FilterCache = core.FilterCache
 )
 
 // ECS is the main entry point for the ECS. It acts as the coordinator

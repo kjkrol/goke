@@ -60,7 +60,7 @@ type Column struct {
 // GetPointer returns the unsafe pointer to the specific element in the given page.
 // Formula: Chunk.Data + ColumnOffset + (Row * ItemSize)
 // Cost: Simple pointer arithmetic, very fast.
-func (c *Column) GetPointer(page *page, pageRow PageRow) unsafe.Pointer {
+func (c *Column) GetPointer(page *Page, pageRow PageRow) unsafe.Pointer {
 	return unsafe.Add(page.Ptr, c.PageOffset+uintptr(pageRow)*c.ItemSize)
 }
 
@@ -201,7 +201,7 @@ func (a *Archetype) SwapRemoveEntity(targetChunkIdx PageIdx, targetRow PageRow) 
 }
 
 // zeroEntityAt clears memory at the given location to prevent stale pointers (GC).
-func (a *Archetype) zeroEntityAt(page *page, pageRow PageRow) {
+func (a *Archetype) zeroEntityAt(page *Page, pageRow PageRow) {
 	for i := range a.Columns {
 		col := &a.Columns[i]
 		ptr := col.GetPointer(page, pageRow)

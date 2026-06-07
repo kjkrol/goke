@@ -130,12 +130,32 @@ func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{
 	}
 }
 
-// Filter iterates over a provided slice of entities, yielding an Item{{ $n }}
-// for each entity that satisfies the View's component constraints.
+// Filter iterates `selected` entities and yields page-shaped views over the
+// matching ones. Each yielded value exposes Entity{{ range $i := (seq 1 $n) }}, Comp{{ $i }}{{ end }} as Go
+// slices over native memory (Zero Heap Allocation) plus an Indices slice that
+// maps each row back to its position in `selected` (useful for correlating
+// results with side-tables built during a resolve phase).
 //
-// This is highly optimized for targeted queries where the entity subset
-// is already known (e.g., from spatial partitioning, sorted lists, or event
-// payloads), allowing direct, high-speed access to their component data.
+// The `cache` parameter is a reusable scratchpad — store it in a system
+// field (or sync.Pool) to eliminate per-call allocations. Call cache.Grow(n)
+// once at startup to pre-size the buffers to your expected working set.
+//
+// Two implementation strategies are dispatched at code-generation time based
+// on the view's component count:
+//
+{{- if le $n 2 }}
+//   - View{{ $n }} (≤ 2 stateful components) uses an inline per-entity loop.
+//     For thin views the overhead of materializing the SoA cache, sorting it
+//     and yielding chunked pages exceeds the savings — so this adapter
+//     yields a 1-row page for every matching entity. The single-row Indices
+//     slice aliases cache.SingleIdx, keeping the path allocation-free.
+{{- else }}
+//   - View{{ $n }} ({{ $n }} stateful components) uses the chunked algorithm in
+//     core.WalkFilteredPages: Resolve → optional Sort (skipped for already
+//     ordered inputs) → group contiguous runs within one archetype page.
+//     The K column-offset calculations are amortized across the page, which
+//     more than compensates for the resolve+sort cost on ordered inputs.
+{{- end }}
 //
 // Safety guarantee: Filter dynamically verifies that each entity's current
 // composition (archetype) still matches the View before yielding. This safely
@@ -144,60 +164,163 @@ func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{
 //
 // Example usage:
 //
-//	selected := []Entity{e1, e5, e10}
-//	for item := range view{{ $n }}.Filter(selected) {
-//		entity := item.Entity{{ range $i := (seq 1 $n) }}
-//		comp{{ $i }} := item.Comp{{ $i }}{{ end }}
+//	for page := range view{{ $n }}.Filter(selected, &cache) {
+//		for i, originalIdx := range page.Indices {
+//			entity := page.Entity[i] {{- range $i := (seq 1 $n) }}
+//			c{{ $i }} := &page.Comp{{ $i }}[i]{{- end }}
+//			_ = originalIdx
+//		}
 //	}
-func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) Filter(selected []Entity) iter.Seq[Item{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]] {
-	return func(yield func(Item{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) bool) {
-		var lastArchID core.ArchetypeId = core.NullArchetypeId
-		var currentArch *core.Archetype
-
-		// Column descriptor cache
-		{{- range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
-		var col{{ $idx }} *core.Column
+func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) Filter(selected []Entity, cache *FilterCache) iter.Seq[struct {
+	Entity  []Entity
+	{{- range $i := (seq 1 $n) }}
+	Comp{{ $i }}   []T{{ $i }}
+	{{- end }}
+	Indices []int
+}] {
+	return func(yield func(struct {
+		Entity  []Entity
+		{{- range $i := (seq 1 $n) }}
+		Comp{{ $i }}   []T{{ $i }}
 		{{- end }}
+		Indices []int
+	}) bool) {
+{{- if le $n 2 }}
+		// Inline per-entity path (avoids WalkFilteredPages callback overhead).
+		// Cheaper than the chunked algorithm for thin views regardless of
+		// input ordering, because each entity touches only K=1..2 columns
+		// and there is no resolve/sort phase to amortize.
+		store := &v.Reg.ArchetypeRegistry.EntityLinkStore
+		idx := cache.SingleIdx[:1]
 
-		registry := v.Reg.ArchetypeRegistry
-
-		for _, entity := range selected {
-			link, ok := registry.EntityLinkStore.Get(entity)
+		var lastArchID core.ArchetypeId = core.NullArchetypeId
+		var ma *core.MatchedArch
+		for i, e := range selected {
+			link, ok := store.Get(e)
 			if !ok {
 				continue
 			}
-
-			// 1. Archetype Change Detection (Cache descriptors)
 			if link.ArchId != lastArchID {
-				currentArch = &registry.Archetypes[link.ArchId]
-
-				if !v.View.Matches(currentArch.Mask) {
-					lastArchID = core.NullArchetypeId
-					currentArch = nil
-					continue
-				}
-
-				// Cache all column descriptors for this archetype
-				{{- range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
-				col{{ $idx }} = currentArch.GetColumn(v.Layout[{{ $idx }}].ID)
-				{{- end }}
-
+				ma = v.GetMatchedArch(link.ArchId)
 				lastArchID = link.ArchId
 			}
-
-			if currentArch == nil {
+			if ma == nil {
 				continue
 			}
-
-			// 2. Resolve Page
-			// Access the physical page using the index from the link
-			chunk := currentArch.Memory.Pages[link.PageIdx]
-
-			// 3. Construct Result
-			if !yield(Item{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]{
-				Entity: entity,
+			physPage := ma.Arch.Memory.Pages[link.PageIdx]
+			row := uintptr(link.PageRow)
+			ePtr := unsafe.Add(physPage.Ptr, ma.EntityPageOffset+(row*core.EntitySize))
+			{{- range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
+			c{{ $idx }}Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[{{ $idx }}]+(row*ma.CompSizes[{{ $idx }}]))
+			{{- end }}
+			idx[0] = i
+			if !yield(struct {
+				Entity  []Entity
+				{{- range $i := (seq 1 $n) }}
+				Comp{{ $i }}   []T{{ $i }}
+				{{- end }}
+				Indices []int
+			}{
+				Entity: unsafe.Slice((*Entity)(ePtr), 1),
 				{{- range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
-				Comp{{ $i }}: (*T{{ $i }})(col{{ $idx }}.GetPointer(chunk, link.PageRow)),
+				Comp{{ $i }}: unsafe.Slice((*T{{ $i }})(c{{ $idx }}Ptr), 1),
+				{{- end }}
+				Indices: idx,
+			}) {
+				return
+			}
+		}
+{{- else }}
+		// Chunked path via core.WalkFilteredPages — pays off because the
+		// K={{ $n }} column-offset calculations are computed once per page
+		// instead of K times per row.
+		core.WalkFilteredPages(v.View, selected, cache, func(p core.FilterPage) bool {
+			ePtr := unsafe.Add(p.BasePtr, p.Matched.EntityPageOffset+(p.StartRow*core.EntitySize))
+			{{- range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
+			c{{ $idx }}Ptr := unsafe.Add(p.BasePtr, p.Matched.CompOffsets[{{ $idx }}]+(p.StartRow*p.Matched.CompSizes[{{ $idx }}]))
+			{{- end }}
+			return yield(struct {
+				Entity  []Entity
+				{{- range $i := (seq 1 $n) }}
+				Comp{{ $i }}   []T{{ $i }}
+				{{- end }}
+				Indices []int
+			}{
+				Entity: unsafe.Slice((*Entity)(ePtr), p.Count),
+				{{- range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
+				Comp{{ $i }}: unsafe.Slice((*T{{ $i }})(c{{ $idx }}Ptr), p.Count),
+				{{- end }}
+				Indices: p.Indices,
+			})
+		})
+{{- end }}
+	}
+}
+
+// FilterEach iterates `selected` entities and yields one struct per matching
+// entity — a per-entity counterpart to Filter, modelled after View0.Filter.
+//
+// Unlike Filter, FilterEach:
+//   - takes no FilterCache (no resolve/sort/grouping phases)
+//   - yields *pointers* to the live component memory (mutate in place)
+//   - returns no Indices (the caller already has each entity's position via
+//     the enumerated for-loop over the returned sequence)
+//
+// It is the lowest-overhead path for scanning a known list of entity handles
+// when the caller does not need page-shaped slices for vectorized loops.
+//
+// Safety guarantee: FilterEach dynamically verifies that each entity's
+// current composition (archetype) still matches the View before yielding,
+// so it remains safe even if entities were mutated after `selected` was built.
+//
+// Example usage:
+//
+//	for item := range view{{ $n }}.FilterEach(selected) {
+//		entity := item.Entity {{- range $i := (seq 1 $n) }}
+//		c{{ $i }} := item.Comp{{ $i }}{{- end }}
+//	}
+func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) FilterEach(selected []Entity) iter.Seq[struct {
+	Entity Entity
+	{{- range $i := (seq 1 $n) }}
+	Comp{{ $i }}  *T{{ $i }}
+	{{- end }}
+}] {
+	return func(yield func(struct {
+		Entity Entity
+		{{- range $i := (seq 1 $n) }}
+		Comp{{ $i }}  *T{{ $i }}
+		{{- end }}
+	}) bool) {
+		store := &v.Reg.ArchetypeRegistry.EntityLinkStore
+
+		var lastArchID core.ArchetypeId = core.NullArchetypeId
+		var ma *core.MatchedArch
+		for _, e := range selected {
+			link, ok := store.Get(e)
+			if !ok {
+				continue
+			}
+			if link.ArchId != lastArchID {
+				ma = v.GetMatchedArch(link.ArchId)
+				lastArchID = link.ArchId
+			}
+			if ma == nil {
+				continue
+			}
+			physPage := ma.Arch.Memory.Pages[link.PageIdx]
+			row := uintptr(link.PageRow)
+			{{- range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
+			c{{ $idx }}Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[{{ $idx }}]+(row*ma.CompSizes[{{ $idx }}]))
+			{{- end }}
+			if !yield(struct {
+				Entity Entity
+				{{- range $i := (seq 1 $n) }}
+				Comp{{ $i }}  *T{{ $i }}
+				{{- end }}
+			}{
+				Entity: e,
+				{{- range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
+				Comp{{ $i }}: (*T{{ $i }})(c{{ $idx }}Ptr),
 				{{- end }}
 			}) {
 				return

@@ -13,13 +13,10 @@ var _ goke.System = (*CollisionSystem)(nil)
 
 type CollisionSystem struct {
 	*Resources
-	collisionView *goke.View3[Position, Velocity, Collision]
-	compDescs     struct {
-		posDesc goke.ComponentDesc
-		velDesc goke.ComponentDesc
-		appDesc goke.ComponentDesc
-		colDesc goke.ComponentDesc
-	}
+	collisionView    *goke.View3[Position, Velocity, Collision]
+	contactsBuffer   []Contact
+	contactsEntities []goke.Entity
+	filterCache      goke.FilterCache
 }
 
 func NewCollisionSystem(resouces *Resources) goke.System {
@@ -30,20 +27,20 @@ func NewCollisionSystem(resouces *Resources) goke.System {
 
 func (s *CollisionSystem) Init(ecs *goke.ECS) {
 	s.collisionView = goke.NewView3[Position, Velocity, Collision](ecs)
-	s.compDescs.posDesc = goke.RegisterComponent[Position](ecs)
-	s.compDescs.velDesc = goke.RegisterComponent[Velocity](ecs)
-	s.compDescs.colDesc = goke.RegisterComponent[Collision](ecs)
 }
 
 func (s *CollisionSystem) Update(lookup goke.Lookup, sched *goke.Schedule, d time.Duration) {
 	const solverIterations = 3
 	const probeExpandMaring = 16
-	var contacts []Contact = s.broadPhase(lookup, probeExpandMaring)
-	s.narrowPhase(contacts, solverIterations)
+	s.contactsBuffer = s.contactsBuffer[:0]
+	s.contactsEntities = s.contactsEntities[:0]
+	s.broadPhase(sched, probeExpandMaring)
+
+	s.narrowPhase(solverIterations)
 	s.space.Flush(func(spatial.AABB) {})
 }
 
-func (s *CollisionSystem) broadPhase(lookup goke.Lookup, probeExpandMargin uint32) (contacts []Contact) {
+func (s *CollisionSystem) broadPhase(sched *goke.Schedule, probeExpandMargin uint32) {
 	for page := range s.collisionView.All() {
 		for i, entityA := range page.Entity {
 			pos, vel, col := &page.Comp1[i], &page.Comp2[i], &page.Comp3[i]
@@ -56,20 +53,13 @@ func (s *CollisionSystem) broadPhase(lookup goke.Lookup, probeExpandMargin uint3
 					entityB := goke.Entity(idB)
 
 					if entityA.Index() < entityB.Index() {
-
-						// TODO: przydalaby się metoda collisionView.Get(entity)
-						// albo wykorzystac collisionView.Filter3
-						// to zapytanie powinno sie odbyc w narrowphase, dlatego contact powinien nie EntityB, tylko EntityBId
-						posBptr, _ := lookup.ComponentGet(entityB, s.compDescs.posDesc.ID)
-						velBptr, _ := lookup.ComponentGet(entityB, s.compDescs.velDesc.ID)
-						colBptr, _ := lookup.ComponentGet(entityB, s.compDescs.colDesc.ID)
-
-						contacts = append(contacts, Contact{
+						s.contactsEntities = append(s.contactsEntities, entityB)
+						s.contactsBuffer = append(s.contactsBuffer, Contact{
 							EntityA: entityA, EntityB: entityB,
-							PosA: pos, PosB: (*Position)(posBptr),
-							VelA: vel, VelB: (*Velocity)(velBptr),
-							ColA: col, ColB: (*Collision)(colBptr),
-							FragA: fragA, FragB: fragB,
+							PosA:  pos,
+							VelA:  vel,
+							ColA:  col,
+							FragA: fragA,
 						})
 					}
 				})
@@ -87,11 +77,19 @@ func (s *CollisionSystem) broadPhase(lookup goke.Lookup, probeExpandMargin uint3
 	return
 }
 
-func (s *CollisionSystem) narrowPhase(contacts []Contact, solverIterations int) {
+func (s *CollisionSystem) narrowPhase(solverIterations int) {
 	now := time.Now()
 
+	for page := range s.collisionView.Filter(s.contactsEntities, &s.filterCache) {
+		for i, originalIdx := range page.Indices {
+			s.contactsBuffer[originalIdx].PosB = &page.Comp1[i]
+			s.contactsBuffer[originalIdx].VelB = &page.Comp2[i]
+			s.contactsBuffer[originalIdx].ColB = &page.Comp3[i]
+		}
+	}
+
 	for iter := 0; iter < solverIterations; iter++ {
-		for _, contact := range contacts {
+		for _, contact := range s.contactsBuffer {
 
 			boxA := contact.freshBoxA()
 			boxB := contact.freshBoxB()
@@ -102,6 +100,7 @@ func (s *CollisionSystem) narrowPhase(contacts []Contact, solverIterations int) 
 			}
 
 			if !contact.resolved {
+				// ta funkcja zmienia Vel (dla A i B) (componenty z ECS!)
 				contact.resolveVelocity(penetrationVec)
 				contact.updateStats(now)
 				s.collisionCounter++
@@ -109,6 +108,7 @@ func (s *CollisionSystem) narrowPhase(contacts []Contact, solverIterations int) 
 			}
 
 			if mtv1, mtv2, ok := contact.calculateMtv(boxA, boxB, false); ok == true {
+				// tu zmienia Pos (dla A i B) (componenty z ECS!)
 				s.space.Translate(uint64(contact.EntityA.Index()), &contact.PosA.AABB, mtv1)
 				s.space.Translate(uint64(contact.EntityB.Index()), &contact.PosB.AABB, mtv2)
 			}

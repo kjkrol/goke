@@ -1,13 +1,5 @@
 package core
 
-import "unsafe"
-
-const (
-	archetypeEntryCap = 1 + 10 // 1 entity 10 components
-)
-
-type Item [archetypeEntryCap]unsafe.Pointer
-
 type ItemFactory struct {
 	Reg       *Registry
 	Mask      ArchetypeMask
