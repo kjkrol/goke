@@ -135,15 +135,11 @@ func BenchmarkEngine_Structural(b *testing.B) {
 
 		view := goke.NewView1[Vel](ecs)
 		arr := []goke.Entity{e}
-		var cache goke.FilterCache
-		cache.Grow(1)
 
 		measurePerEntity(b, 1, func() {
 			for i := 0; i < b.N; i++ {
-				for page := range view.Filter(arr, &cache) {
-					for j := range page.Entity {
-						page.Comp1[j].X += 1.0
-					}
+				for item := range view.Filter(arr) {
+					item.Comp1.X += 1.0
 				}
 			}
 		})

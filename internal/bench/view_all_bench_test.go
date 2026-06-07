@@ -100,27 +100,6 @@ func Benchmark_View_All(b *testing.B) {
 		})
 	})
 
-	b.Run("3 comp pagable", func(b *testing.B) {
-		view3 := goke.NewView3[Pos, Vel, Acc](ecs, goke.Include[T04]())
-		fn := func() {
-			for page := range view3.All() {
-				for i, entity := range page.Entity {
-					_ = entity
-					pos, vel, acc := page.Comp1[i], page.Comp2[i], page.Comp3[i]
-					acc.X += 0.1
-					vel.X += acc.X
-					pos.X += vel.X
-				}
-			}
-		}
-
-		measurePerEntity(b, entitiesNumber, func() {
-			for b.Loop() {
-				fn()
-			}
-		})
-	})
-
 	b.Run("4 comp", func(b *testing.B) {
 		view4 := goke.NewView4[Pos, Vel, Acc, T04](ecs)
 		fn := func() {

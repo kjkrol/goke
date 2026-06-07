@@ -16,7 +16,6 @@ type CollisionSystem struct {
 	collisionView    *goke.View3[Position, Velocity, Collision]
 	contactsBuffer   []Contact
 	contactsEntities []goke.Entity
-	filterCache      goke.FilterCache
 }
 
 func NewCollisionSystem(resouces *Resources) goke.System {
@@ -80,12 +79,12 @@ func (s *CollisionSystem) broadPhase(sched *goke.Schedule, probeExpandMargin uin
 func (s *CollisionSystem) narrowPhase(solverIterations int) {
 	now := time.Now()
 
-	for page := range s.collisionView.Filter(s.contactsEntities, &s.filterCache) {
-		for i, originalIdx := range page.Indices {
-			s.contactsBuffer[originalIdx].PosB = &page.Comp1[i]
-			s.contactsBuffer[originalIdx].VelB = &page.Comp2[i]
-			s.contactsBuffer[originalIdx].ColB = &page.Comp3[i]
-		}
+	index := 0
+	for item := range s.collisionView.Filter(s.contactsEntities) {
+		s.contactsBuffer[index].PosB = item.Comp1
+		s.contactsBuffer[index].VelB = item.Comp2
+		s.contactsBuffer[index].ColB = item.Comp3
+		index++
 	}
 
 	for iter := 0; iter < solverIterations; iter++ {
