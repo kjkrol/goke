@@ -2,8 +2,6 @@ package core
 
 import "unsafe"
 
-const PageSize = L1DataCacheSize
-
 type PageIdx uint32 // Index of the page in Memo.Pages slice
 // PageRow is a type alias for the index within a page.
 // Using uint32 ensures alignment and supports >255 entities per page.
@@ -21,12 +19,9 @@ type Memo struct {
 	Len    uint32 // Global entity count (optional, but useful)
 }
 
-// Computes how components are packed into fixed size (by default 16KB) pages
-// and initialize memory pages (Pages)
 func (b *Memo) Init(compInfos []ComponentInfo) {
 	b.Layout = CalculateLayout(compInfos)
 
-	// Pre-allocate slice capacity to avoid frequent resizing at start
 	b.Pages = make([]*Page, 0, 16)
 	b.Len = 0
 
@@ -92,7 +87,7 @@ func (b *Memo) GetPage(idx PageIdx) *Page {
 }
 
 func (b *Memo) addPage() {
-	data := make([]byte, PageSize)
+	data := make([]byte, b.Layout.PageBytes)
 
 	newPage := &Page{
 		data: data,
@@ -151,8 +146,9 @@ type Page struct {
 //------------------------------------------------------------------------------
 
 type PageLayout struct {
-	PageCap uint32
-	Offsets []uintptr
+	PageCap   uint32
+	PageBytes uintptr
+	Offsets   []uintptr
 }
 
 // CalculateLayout computes the optimal memory layout for a page.
@@ -163,45 +159,38 @@ func CalculateLayout(compInfos []ComponentInfo) PageLayout {
 		totalStride += info.Size
 	}
 
-	capacity := uintptr(PageSize) / totalStride
+	capacity := uintptr(L1DataCacheSize) / totalStride
 	if capacity == 0 {
-		panic("Entity layout too large for a single memory page (16KB)")
+		capacity = 1
 	}
 
-	for capacity > 0 {
+	for capacity >= 1 {
 		offsets := make([]uintptr, len(compInfos)+1)
 		currentOffset := uintptr(0)
-		fits := true
 
-		// --- STEP A: Entity ID ---
 		entityAlign := unsafe.Alignof(Entity(0))
 		currentOffset = alignUp(currentOffset, entityAlign)
 		offsets[0] = currentOffset
 		currentOffset += unsafe.Sizeof(Entity(0)) * capacity
 
-		// --- STEP B: Components ---
 		for i, info := range compInfos {
 			currentOffset = alignUp(currentOffset, info.Align)
 			offsets[i+1] = currentOffset
 			currentOffset += info.Size * capacity
-
-			if currentOffset > PageSize {
-				fits = false
-				break
-			}
 		}
 
-		if fits {
+		if capacity == 1 || currentOffset <= L1DataCacheSize {
 			return PageLayout{
-				PageCap: uint32(capacity),
-				Offsets: offsets,
+				PageCap:   uint32(capacity),
+				PageBytes: currentOffset,
+				Offsets:   offsets,
 			}
 		}
 
 		capacity--
 	}
 
-	panic("Components too large for PageSize")
+	panic("unreachable")
 }
 
 func alignUp(ptr, align uintptr) uintptr {
