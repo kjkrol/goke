@@ -8,9 +8,8 @@ import (
 	"github.com/kjkrol/goke/internal/core"
 )
 
-// Benchmark_View_Filter mirrors Benchmark_View_Filter but exercises the
-// per-entity Filter path instead of the page-shaped Filter.
-//
+// Benchmark_View_Filter measures the performance of the View.Filter method
+// across different view configurations (0 to 10 components).
 // Each sub-benchmark runs the same N=100 subset under two access patterns:
 //   - sorted   : entities in creation order (best case for the per-entity
 //     cached archetype descriptor)
@@ -19,9 +18,6 @@ import (
 //
 // Filter yields pointers to live component memory. All variants must
 // report 0 B/op and 0 allocs/op.
-//
-// Note: View0 has no Filter (its Filter is already per-entity and
-// returns no components), so this benchmark covers View1..View10 only.
 func Benchmark_View_Filter(b *testing.B) {
 	ecs := setupECS()
 	entities := populate(ecs, entitiesNumber)
@@ -33,12 +29,32 @@ func Benchmark_View_Filter(b *testing.B) {
 		shuffledSubset[i], shuffledSubset[j] = shuffledSubset[j], shuffledSubset[i]
 	})
 
+	// --- 0 comp ---
+	b.Run("0_comp/sorted", func(b *testing.B) {
+		view := goke.NewView0(ecs)
+		measurePerEntity(b, filterSubsetSize, func() {
+			for b.Loop() {
+				for range view.Filter(sortedSubset) {
+				}
+			}
+		})
+	})
+	b.Run("0_comp/shuffled", func(b *testing.B) {
+		view := goke.NewView0(ecs)
+		measurePerEntity(b, filterSubsetSize, func() {
+			for b.Loop() {
+				for range view.Filter(shuffledSubset) {
+				}
+			}
+		})
+	})
+
 	// --- 1 comp ---
 	b.Run("1_comp/sorted", func(b *testing.B) {
 		view := goke.NewView1[Pos](ecs)
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
-				for item := range view.Filter(sortedSubset) {
+				for _, item := range view.Filter(sortedSubset) {
 					item.Comp1.X += item.Comp1.Y
 				}
 			}
@@ -48,7 +64,7 @@ func Benchmark_View_Filter(b *testing.B) {
 		view := goke.NewView1[Pos](ecs)
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
-				for item := range view.Filter(shuffledSubset) {
+				for _, item := range view.Filter(shuffledSubset) {
 					item.Comp1.X += item.Comp1.Y
 				}
 			}
@@ -60,7 +76,7 @@ func Benchmark_View_Filter(b *testing.B) {
 		view := goke.NewView2[Pos, Vel](ecs)
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
-				for item := range view.Filter(sortedSubset) {
+				for _, item := range view.Filter(sortedSubset) {
 					item.Comp1.X += item.Comp2.X
 				}
 			}
@@ -70,7 +86,7 @@ func Benchmark_View_Filter(b *testing.B) {
 		view := goke.NewView2[Pos, Vel](ecs)
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
-				for item := range view.Filter(shuffledSubset) {
+				for _, item := range view.Filter(shuffledSubset) {
 					item.Comp1.X += item.Comp2.X
 				}
 			}
@@ -82,7 +98,7 @@ func Benchmark_View_Filter(b *testing.B) {
 		view := goke.NewView3[Pos, Vel, Acc](ecs)
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
-				for item := range view.Filter(sortedSubset) {
+				for _, item := range view.Filter(sortedSubset) {
 					item.Comp1.X += item.Comp2.X
 					item.Comp3.X += item.Comp2.X
 				}
@@ -93,7 +109,7 @@ func Benchmark_View_Filter(b *testing.B) {
 		view := goke.NewView3[Pos, Vel, Acc](ecs)
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
-				for item := range view.Filter(shuffledSubset) {
+				for _, item := range view.Filter(shuffledSubset) {
 					item.Comp1.X += item.Comp2.X
 					item.Comp3.X += item.Comp2.X
 				}
@@ -106,7 +122,7 @@ func Benchmark_View_Filter(b *testing.B) {
 		view := goke.NewView4[Pos, Vel, Acc, T04](ecs)
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
-				for item := range view.Filter(sortedSubset) {
+				for _, item := range view.Filter(sortedSubset) {
 					item.Comp1.X += item.Comp2.X
 					item.Comp3.X += item.Comp4.V
 				}
@@ -117,7 +133,7 @@ func Benchmark_View_Filter(b *testing.B) {
 		view := goke.NewView4[Pos, Vel, Acc, T04](ecs)
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
-				for item := range view.Filter(shuffledSubset) {
+				for _, item := range view.Filter(shuffledSubset) {
 					item.Comp1.X += item.Comp2.X
 					item.Comp3.X += item.Comp4.V
 				}
@@ -130,7 +146,7 @@ func Benchmark_View_Filter(b *testing.B) {
 		view := goke.NewView5[Pos, Vel, Acc, T04, T05](ecs)
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
-				for item := range view.Filter(sortedSubset) {
+				for _, item := range view.Filter(sortedSubset) {
 					item.Comp1.X += item.Comp2.X
 					item.Comp3.X += item.Comp4.V
 					item.Comp5.V += 0.1
@@ -142,7 +158,7 @@ func Benchmark_View_Filter(b *testing.B) {
 		view := goke.NewView5[Pos, Vel, Acc, T04, T05](ecs)
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
-				for item := range view.Filter(shuffledSubset) {
+				for _, item := range view.Filter(shuffledSubset) {
 					item.Comp1.X += item.Comp2.X
 					item.Comp3.X += item.Comp4.V
 					item.Comp5.V += 0.1
@@ -156,7 +172,7 @@ func Benchmark_View_Filter(b *testing.B) {
 		view := goke.NewView6[Pos, Vel, Acc, T04, T05, T06](ecs)
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
-				for item := range view.Filter(sortedSubset) {
+				for _, item := range view.Filter(sortedSubset) {
 					item.Comp1.X += item.Comp2.X
 					item.Comp3.X += item.Comp4.V
 					item.Comp5.V += item.Comp6.V
@@ -168,7 +184,7 @@ func Benchmark_View_Filter(b *testing.B) {
 		view := goke.NewView6[Pos, Vel, Acc, T04, T05, T06](ecs)
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
-				for item := range view.Filter(shuffledSubset) {
+				for _, item := range view.Filter(shuffledSubset) {
 					item.Comp1.X += item.Comp2.X
 					item.Comp3.X += item.Comp4.V
 					item.Comp5.V += item.Comp6.V
@@ -182,7 +198,7 @@ func Benchmark_View_Filter(b *testing.B) {
 		view := goke.NewView7[Pos, Vel, Acc, T04, T05, T06, T07](ecs)
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
-				for item := range view.Filter(sortedSubset) {
+				for _, item := range view.Filter(sortedSubset) {
 					item.Comp1.X += item.Comp2.X
 					item.Comp3.X += item.Comp4.V
 					item.Comp5.V += item.Comp6.V
@@ -195,7 +211,7 @@ func Benchmark_View_Filter(b *testing.B) {
 		view := goke.NewView7[Pos, Vel, Acc, T04, T05, T06, T07](ecs)
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
-				for item := range view.Filter(shuffledSubset) {
+				for _, item := range view.Filter(shuffledSubset) {
 					item.Comp1.X += item.Comp2.X
 					item.Comp3.X += item.Comp4.V
 					item.Comp5.V += item.Comp6.V
@@ -210,7 +226,7 @@ func Benchmark_View_Filter(b *testing.B) {
 		view := goke.NewView8[Pos, Vel, Acc, T04, T05, T06, T07, T08](ecs)
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
-				for item := range view.Filter(sortedSubset) {
+				for _, item := range view.Filter(sortedSubset) {
 					item.Comp1.X += item.Comp2.X
 					item.Comp3.X += item.Comp4.V
 					item.Comp5.V += item.Comp6.V
@@ -223,7 +239,7 @@ func Benchmark_View_Filter(b *testing.B) {
 		view := goke.NewView8[Pos, Vel, Acc, T04, T05, T06, T07, T08](ecs)
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
-				for item := range view.Filter(shuffledSubset) {
+				for _, item := range view.Filter(shuffledSubset) {
 					item.Comp1.X += item.Comp2.X
 					item.Comp3.X += item.Comp4.V
 					item.Comp5.V += item.Comp6.V
@@ -238,7 +254,7 @@ func Benchmark_View_Filter(b *testing.B) {
 		view := goke.NewView9[Pos, Vel, Acc, T04, T05, T06, T07, T08, T09](ecs)
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
-				for item := range view.Filter(sortedSubset) {
+				for _, item := range view.Filter(sortedSubset) {
 					item.Comp1.X += item.Comp2.X
 					item.Comp3.X += item.Comp4.V
 					item.Comp5.V += item.Comp6.V
@@ -252,7 +268,7 @@ func Benchmark_View_Filter(b *testing.B) {
 		view := goke.NewView9[Pos, Vel, Acc, T04, T05, T06, T07, T08, T09](ecs)
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
-				for item := range view.Filter(shuffledSubset) {
+				for _, item := range view.Filter(shuffledSubset) {
 					item.Comp1.X += item.Comp2.X
 					item.Comp3.X += item.Comp4.V
 					item.Comp5.V += item.Comp6.V
@@ -268,7 +284,7 @@ func Benchmark_View_Filter(b *testing.B) {
 		view := goke.NewView10[Pos, Vel, Acc, T04, T05, T06, T07, T08, T09, T10](ecs)
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
-				for item := range view.Filter(sortedSubset) {
+				for _, item := range view.Filter(sortedSubset) {
 					item.Comp1.X += item.Comp2.X
 					item.Comp3.X += item.Comp4.V
 					item.Comp5.V += item.Comp6.V
@@ -282,7 +298,7 @@ func Benchmark_View_Filter(b *testing.B) {
 		view := goke.NewView10[Pos, Vel, Acc, T04, T05, T06, T07, T08, T09, T10](ecs)
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
-				for item := range view.Filter(shuffledSubset) {
+				for _, item := range view.Filter(shuffledSubset) {
 					item.Comp1.X += item.Comp2.X
 					item.Comp3.X += item.Comp4.V
 					item.Comp5.V += item.Comp6.V

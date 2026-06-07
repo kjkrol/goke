@@ -78,11 +78,11 @@ func (v *View1[T1]) All() iter.Seq[struct {
 	}
 }
 
-func (v *View1[T1]) Filter(selected []Entity) iter.Seq[struct {
+func (v *View1[T1]) Filter(selected []Entity) iter.Seq2[int, struct {
 	Entity Entity
 	Comp1  *T1
 }] {
-	return func(yield func(struct {
+	return func(yield func(int, struct {
 		Entity Entity
 		Comp1  *T1
 	}) bool) {
@@ -90,7 +90,7 @@ func (v *View1[T1]) Filter(selected []Entity) iter.Seq[struct {
 
 		var lastArchID core.ArchetypeId = core.NullArchetypeId
 		var ma *core.MatchedArch
-		for _, e := range selected {
+		for i, e := range selected {
 			link, ok := store.Get(e)
 			if !ok {
 				continue
@@ -105,7 +105,7 @@ func (v *View1[T1]) Filter(selected []Entity) iter.Seq[struct {
 			physPage := ma.Arch.Memory.Pages[link.PageIdx]
 			row := uintptr(link.PageRow)
 			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(row*ma.CompSizes[0]))
-			if !yield(struct {
+			if !yield(i, struct {
 				Entity Entity
 				Comp1  *T1
 			}{
@@ -192,12 +192,12 @@ func (v *View2[T1, T2]) All() iter.Seq[struct {
 	}
 }
 
-func (v *View2[T1, T2]) Filter(selected []Entity) iter.Seq[struct {
+func (v *View2[T1, T2]) Filter(selected []Entity) iter.Seq2[int, struct {
 	Entity Entity
 	Comp1  *T1
 	Comp2  *T2
 }] {
-	return func(yield func(struct {
+	return func(yield func(int, struct {
 		Entity Entity
 		Comp1  *T1
 		Comp2  *T2
@@ -206,7 +206,7 @@ func (v *View2[T1, T2]) Filter(selected []Entity) iter.Seq[struct {
 
 		var lastArchID core.ArchetypeId = core.NullArchetypeId
 		var ma *core.MatchedArch
-		for _, e := range selected {
+		for i, e := range selected {
 			link, ok := store.Get(e)
 			if !ok {
 				continue
@@ -222,7 +222,7 @@ func (v *View2[T1, T2]) Filter(selected []Entity) iter.Seq[struct {
 			row := uintptr(link.PageRow)
 			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(row*ma.CompSizes[0]))
 			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(row*ma.CompSizes[1]))
-			if !yield(struct {
+			if !yield(i, struct {
 				Entity Entity
 				Comp1  *T1
 				Comp2  *T2
@@ -317,13 +317,13 @@ func (v *View3[T1, T2, T3]) All() iter.Seq[struct {
 	}
 }
 
-func (v *View3[T1, T2, T3]) Filter(selected []Entity) iter.Seq[struct {
+func (v *View3[T1, T2, T3]) Filter(selected []Entity) iter.Seq2[int, struct {
 	Entity Entity
 	Comp1  *T1
 	Comp2  *T2
 	Comp3  *T3
 }] {
-	return func(yield func(struct {
+	return func(yield func(int, struct {
 		Entity Entity
 		Comp1  *T1
 		Comp2  *T2
@@ -333,7 +333,7 @@ func (v *View3[T1, T2, T3]) Filter(selected []Entity) iter.Seq[struct {
 
 		var lastArchID core.ArchetypeId = core.NullArchetypeId
 		var ma *core.MatchedArch
-		for _, e := range selected {
+		for i, e := range selected {
 			link, ok := store.Get(e)
 			if !ok {
 				continue
@@ -350,7 +350,7 @@ func (v *View3[T1, T2, T3]) Filter(selected []Entity) iter.Seq[struct {
 			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(row*ma.CompSizes[0]))
 			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(row*ma.CompSizes[1]))
 			c2Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[2]+(row*ma.CompSizes[2]))
-			if !yield(struct {
+			if !yield(i, struct {
 				Entity Entity
 				Comp1  *T1
 				Comp2  *T2
@@ -453,14 +453,14 @@ func (v *View4[T1, T2, T3, T4]) All() iter.Seq[struct {
 	}
 }
 
-func (v *View4[T1, T2, T3, T4]) Filter(selected []Entity) iter.Seq[struct {
+func (v *View4[T1, T2, T3, T4]) Filter(selected []Entity) iter.Seq2[int, struct {
 	Entity Entity
 	Comp1  *T1
 	Comp2  *T2
 	Comp3  *T3
 	Comp4  *T4
 }] {
-	return func(yield func(struct {
+	return func(yield func(int, struct {
 		Entity Entity
 		Comp1  *T1
 		Comp2  *T2
@@ -471,7 +471,7 @@ func (v *View4[T1, T2, T3, T4]) Filter(selected []Entity) iter.Seq[struct {
 
 		var lastArchID core.ArchetypeId = core.NullArchetypeId
 		var ma *core.MatchedArch
-		for _, e := range selected {
+		for i, e := range selected {
 			link, ok := store.Get(e)
 			if !ok {
 				continue
@@ -489,7 +489,7 @@ func (v *View4[T1, T2, T3, T4]) Filter(selected []Entity) iter.Seq[struct {
 			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(row*ma.CompSizes[1]))
 			c2Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[2]+(row*ma.CompSizes[2]))
 			c3Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[3]+(row*ma.CompSizes[3]))
-			if !yield(struct {
+			if !yield(i, struct {
 				Entity Entity
 				Comp1  *T1
 				Comp2  *T2
@@ -600,7 +600,7 @@ func (v *View5[T1, T2, T3, T4, T5]) All() iter.Seq[struct {
 	}
 }
 
-func (v *View5[T1, T2, T3, T4, T5]) Filter(selected []Entity) iter.Seq[struct {
+func (v *View5[T1, T2, T3, T4, T5]) Filter(selected []Entity) iter.Seq2[int, struct {
 	Entity Entity
 	Comp1  *T1
 	Comp2  *T2
@@ -608,7 +608,7 @@ func (v *View5[T1, T2, T3, T4, T5]) Filter(selected []Entity) iter.Seq[struct {
 	Comp4  *T4
 	Comp5  *T5
 }] {
-	return func(yield func(struct {
+	return func(yield func(int, struct {
 		Entity Entity
 		Comp1  *T1
 		Comp2  *T2
@@ -620,7 +620,7 @@ func (v *View5[T1, T2, T3, T4, T5]) Filter(selected []Entity) iter.Seq[struct {
 
 		var lastArchID core.ArchetypeId = core.NullArchetypeId
 		var ma *core.MatchedArch
-		for _, e := range selected {
+		for i, e := range selected {
 			link, ok := store.Get(e)
 			if !ok {
 				continue
@@ -639,7 +639,7 @@ func (v *View5[T1, T2, T3, T4, T5]) Filter(selected []Entity) iter.Seq[struct {
 			c2Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[2]+(row*ma.CompSizes[2]))
 			c3Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[3]+(row*ma.CompSizes[3]))
 			c4Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[4]+(row*ma.CompSizes[4]))
-			if !yield(struct {
+			if !yield(i, struct {
 				Entity Entity
 				Comp1  *T1
 				Comp2  *T2
@@ -758,7 +758,7 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq[struct {
 	}
 }
 
-func (v *View6[T1, T2, T3, T4, T5, T6]) Filter(selected []Entity) iter.Seq[struct {
+func (v *View6[T1, T2, T3, T4, T5, T6]) Filter(selected []Entity) iter.Seq2[int, struct {
 	Entity Entity
 	Comp1  *T1
 	Comp2  *T2
@@ -767,7 +767,7 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Filter(selected []Entity) iter.Seq[struc
 	Comp5  *T5
 	Comp6  *T6
 }] {
-	return func(yield func(struct {
+	return func(yield func(int, struct {
 		Entity Entity
 		Comp1  *T1
 		Comp2  *T2
@@ -780,7 +780,7 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Filter(selected []Entity) iter.Seq[struc
 
 		var lastArchID core.ArchetypeId = core.NullArchetypeId
 		var ma *core.MatchedArch
-		for _, e := range selected {
+		for i, e := range selected {
 			link, ok := store.Get(e)
 			if !ok {
 				continue
@@ -800,7 +800,7 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Filter(selected []Entity) iter.Seq[struc
 			c3Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[3]+(row*ma.CompSizes[3]))
 			c4Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[4]+(row*ma.CompSizes[4]))
 			c5Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[5]+(row*ma.CompSizes[5]))
-			if !yield(struct {
+			if !yield(i, struct {
 				Entity Entity
 				Comp1  *T1
 				Comp2  *T2
@@ -927,7 +927,7 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) All() iter.Seq[struct {
 	}
 }
 
-func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Filter(selected []Entity) iter.Seq[struct {
+func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Filter(selected []Entity) iter.Seq2[int, struct {
 	Entity Entity
 	Comp1  *T1
 	Comp2  *T2
@@ -937,7 +937,7 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Filter(selected []Entity) iter.Seq[s
 	Comp6  *T6
 	Comp7  *T7
 }] {
-	return func(yield func(struct {
+	return func(yield func(int, struct {
 		Entity Entity
 		Comp1  *T1
 		Comp2  *T2
@@ -951,7 +951,7 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Filter(selected []Entity) iter.Seq[s
 
 		var lastArchID core.ArchetypeId = core.NullArchetypeId
 		var ma *core.MatchedArch
-		for _, e := range selected {
+		for i, e := range selected {
 			link, ok := store.Get(e)
 			if !ok {
 				continue
@@ -972,7 +972,7 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Filter(selected []Entity) iter.Seq[s
 			c4Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[4]+(row*ma.CompSizes[4]))
 			c5Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[5]+(row*ma.CompSizes[5]))
 			c6Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[6]+(row*ma.CompSizes[6]))
-			if !yield(struct {
+			if !yield(i, struct {
 				Entity Entity
 				Comp1  *T1
 				Comp2  *T2
@@ -1107,7 +1107,7 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) All() iter.Seq[struct {
 	}
 }
 
-func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Filter(selected []Entity) iter.Seq[struct {
+func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Filter(selected []Entity) iter.Seq2[int, struct {
 	Entity Entity
 	Comp1  *T1
 	Comp2  *T2
@@ -1118,7 +1118,7 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Filter(selected []Entity) iter.S
 	Comp7  *T7
 	Comp8  *T8
 }] {
-	return func(yield func(struct {
+	return func(yield func(int, struct {
 		Entity Entity
 		Comp1  *T1
 		Comp2  *T2
@@ -1133,7 +1133,7 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Filter(selected []Entity) iter.S
 
 		var lastArchID core.ArchetypeId = core.NullArchetypeId
 		var ma *core.MatchedArch
-		for _, e := range selected {
+		for i, e := range selected {
 			link, ok := store.Get(e)
 			if !ok {
 				continue
@@ -1155,7 +1155,7 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Filter(selected []Entity) iter.S
 			c5Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[5]+(row*ma.CompSizes[5]))
 			c6Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[6]+(row*ma.CompSizes[6]))
 			c7Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[7]+(row*ma.CompSizes[7]))
-			if !yield(struct {
+			if !yield(i, struct {
 				Entity Entity
 				Comp1  *T1
 				Comp2  *T2
@@ -1298,7 +1298,7 @@ func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) All() iter.Seq[struct {
 	}
 }
 
-func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Filter(selected []Entity) iter.Seq[struct {
+func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Filter(selected []Entity) iter.Seq2[int, struct {
 	Entity Entity
 	Comp1  *T1
 	Comp2  *T2
@@ -1310,7 +1310,7 @@ func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Filter(selected []Entity) it
 	Comp8  *T8
 	Comp9  *T9
 }] {
-	return func(yield func(struct {
+	return func(yield func(int, struct {
 		Entity Entity
 		Comp1  *T1
 		Comp2  *T2
@@ -1326,7 +1326,7 @@ func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Filter(selected []Entity) it
 
 		var lastArchID core.ArchetypeId = core.NullArchetypeId
 		var ma *core.MatchedArch
-		for _, e := range selected {
+		for i, e := range selected {
 			link, ok := store.Get(e)
 			if !ok {
 				continue
@@ -1349,7 +1349,7 @@ func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Filter(selected []Entity) it
 			c6Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[6]+(row*ma.CompSizes[6]))
 			c7Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[7]+(row*ma.CompSizes[7]))
 			c8Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[8]+(row*ma.CompSizes[8]))
-			if !yield(struct {
+			if !yield(i, struct {
 				Entity Entity
 				Comp1  *T1
 				Comp2  *T2
@@ -1500,7 +1500,7 @@ func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) All() iter.Seq[struct 
 	}
 }
 
-func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Filter(selected []Entity) iter.Seq[struct {
+func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Filter(selected []Entity) iter.Seq2[int, struct {
 	Entity Entity
 	Comp1  *T1
 	Comp2  *T2
@@ -1513,7 +1513,7 @@ func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Filter(selected []Enti
 	Comp9  *T9
 	Comp10  *T10
 }] {
-	return func(yield func(struct {
+	return func(yield func(int, struct {
 		Entity Entity
 		Comp1  *T1
 		Comp2  *T2
@@ -1530,7 +1530,7 @@ func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Filter(selected []Enti
 
 		var lastArchID core.ArchetypeId = core.NullArchetypeId
 		var ma *core.MatchedArch
-		for _, e := range selected {
+		for i, e := range selected {
 			link, ok := store.Get(e)
 			if !ok {
 				continue
@@ -1554,7 +1554,7 @@ func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Filter(selected []Enti
 			c7Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[7]+(row*ma.CompSizes[7]))
 			c8Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[8]+(row*ma.CompSizes[8]))
 			c9Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[9]+(row*ma.CompSizes[9]))
-			if !yield(struct {
+			if !yield(i, struct {
 				Entity Entity
 				Comp1  *T1
 				Comp2  *T2

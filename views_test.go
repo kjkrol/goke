@@ -85,7 +85,7 @@ func TestView_WithTag_And_Without_Logic(t *testing.T) {
 
 		input := []core.Entity{eA, eB, eC}
 		var result []core.Entity
-		for head := range view.Filter(input) {
+		for _, head := range view.Filter(input) {
 			result = append(result, head.Entity)
 		}
 

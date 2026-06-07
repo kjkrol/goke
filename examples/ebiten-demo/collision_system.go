@@ -79,12 +79,10 @@ func (s *CollisionSystem) broadPhase(sched *goke.Schedule, probeExpandMargin uin
 func (s *CollisionSystem) narrowPhase(solverIterations int) {
 	now := time.Now()
 
-	index := 0
-	for item := range s.collisionView.Filter(s.contactsEntities) {
-		s.contactsBuffer[index].PosB = item.Comp1
-		s.contactsBuffer[index].VelB = item.Comp2
-		s.contactsBuffer[index].ColB = item.Comp3
-		index++
+	for i, item := range s.collisionView.Filter(s.contactsEntities) {
+		s.contactsBuffer[i].PosB = item.Comp1
+		s.contactsBuffer[i].VelB = item.Comp2
+		s.contactsBuffer[i].ColB = item.Comp3
 	}
 
 	for iter := 0; iter < solverIterations; iter++ {

@@ -92,13 +92,13 @@ func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{
 	}
 }
 
-func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) Filter(selected []Entity) iter.Seq[struct {
+func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) Filter(selected []Entity) iter.Seq2[int, struct {
 	Entity Entity
 	{{- range $i := (seq 1 $n) }}
 	Comp{{ $i }}  *T{{ $i }}
 	{{- end }}
 }] {
-	return func(yield func(struct {
+	return func(yield func(int, struct {
 		Entity Entity
 		{{- range $i := (seq 1 $n) }}
 		Comp{{ $i }}  *T{{ $i }}
@@ -108,7 +108,7 @@ func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{
 
 		var lastArchID core.ArchetypeId = core.NullArchetypeId
 		var ma *core.MatchedArch
-		for _, e := range selected {
+		for i, e := range selected {
 			link, ok := store.Get(e)
 			if !ok {
 				continue
@@ -125,7 +125,7 @@ func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{
 			{{- range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
 			c{{ $idx }}Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[{{ $idx }}]+(row*ma.CompSizes[{{ $idx }}]))
 			{{- end }}
-			if !yield(struct {
+			if !yield(i, struct {
 				Entity Entity
 				{{- range $i := (seq 1 $n) }}
 				Comp{{ $i }}  *T{{ $i }}

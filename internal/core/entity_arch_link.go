@@ -23,16 +23,15 @@ func (s *EntityLinkStore) Reset() {
 
 // Get returns the link only if the generation matches.
 func (s *EntityLinkStore) Get(entity Entity) (EntityArchLink, bool) {
-	index := entity.Index()
-	if index >= uint32(cap(s.links)) {
+	index, gen := entity.Unpack()
+	if index >= uint32(len(s.links)) {
 		return EntityArchLink{}, false
 	}
 
 	link := s.links[index]
 
-	// Safety check: compare generations.
-	// We also check ArchId to ensure the link is not empty/invalid.
-	if link.ArchId == NullArchetypeId || link.Generation != entity.Generation() {
+	// Combined check: empty slot OR stale generation.
+	if link.ArchId == NullArchetypeId || link.Generation != gen {
 		return EntityArchLink{}, false
 	}
 
@@ -41,7 +40,7 @@ func (s *EntityLinkStore) Get(entity Entity) (EntityArchLink, bool) {
 
 // Update updates the entity's location using the new Page Index and Page Row.
 func (s *EntityLinkStore) Update(entity Entity, archId ArchetypeId, pageIdx PageIdx, row PageRow) {
-	index := entity.Index()
+	index, gen := entity.Unpack()
 	if index >= uint32(cap(s.links)) {
 		s.grow(index + 1)
 	}
@@ -51,19 +50,19 @@ func (s *EntityLinkStore) Update(entity Entity, archId ArchetypeId, pageIdx Page
 		ArchId:     archId,
 		PageIdx:    pageIdx,
 		PageRow:    row,
-		Generation: entity.Generation(),
+		Generation: gen,
 	}
 }
 
 func (s *EntityLinkStore) Clear(entity Entity) {
-	index := entity.Index()
+	index, gen := entity.Unpack()
 	if index >= uint32(cap(s.links)) {
 		return
 	}
 
 	// Double-check: only clear if generations match!
 	// If they don't, it means this entity is already gone or replaced.
-	if s.links[index].Generation == entity.Generation() {
+	if s.links[index].Generation == gen {
 		s.links[index] = EntityArchLink{
 			ArchId:     NullArchetypeId,
 			PageIdx:    0,

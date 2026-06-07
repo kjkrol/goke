@@ -12,75 +12,83 @@
 
 ## Performance Metrics
 
-### Structural Operations (Apple M1 Max)
-These benchmarks highlight the efficiency of our archetype-based memory management. Every operation below results in **0 heap allocations**, ensuring no GC pressure during the simulation loop.
+### Structural Operations
+Every operation below results in **0 heap allocations** on the hot path.
 
 | Operation | Performance | Allocs | Technical Mechanism |
 | :--- | :--- | :--- | :--- |
-| **Create with 1 Comp** | **22.46 ns/op ±21%** | **0** | Blueprint-based archetype slotting |
-| **Create with 2 Comps** | **24.33 ns/op ±2%** | **0** | Blueprint-based archetype slotting |
-| **Create with 3 Comps** | **27.12 ns/op ± 3%** | **0** | Blueprint-based archetype slotting |
-| **Create with 4 Comps** | **28.72 ns/op ± 1%** | **0** | Blueprint-based archetype slotting |
-| **Add Next Component** | **37.36 ns/op ±7%** | **0** | Archetype migration (+ data move + data insert) |
-| **Add Tag** | **34.36 ns/op ± 3%** | **0** | Archetype migration (Metadata only) |
-| **Remove Component** | **9.64 ns/op ±42%** | **0** | Archetype migration (Swap-and-pop) |
-| **Remove Entity** | **17.95 ns/op ±2%** | **0** | Index recycling & record invalidation |
-| **Get Entity Component** | **4.49 ns/op ±3%** | **0** | Direct record lookup with generation check |
-| **Structural Stability** | **30.17 ns/op ±17%** | **0** | Stress test of add/remove cycles |
+| **Add Next Component** | **35.89 ns/op** | **0** | Archetype migration (move + insert) |
+| **Add Tag** | **34.11 ns/op** | **0** | Archetype migration (metadata only) |
+| **Remove Component** | **7.48 ns/op** | **0** | Archetype migration (swap-and-pop) |
+| **Remove Entity (clean)** | **2.67 ns/op** | **0** | Index recycling |
+| **Add/Remove Stability** | **86.44 ns/op** | 4 | Stress test (forced archetype churn) |
+| **Get Component** | **4.70 ns/op** | **0** | Inlined record lookup + generation check |
+| **Get Component (Safe)** | **8.72 ns/op** | **0** | Adds reflection-based type validation |
+| **Get Component via View.Filter** | **4.61 ns/op** | **0** | Single-entity Filter for type-safe access |
 
+### Batch Entity Creation (1024 entities per call)
 
+| Components | Total ns/op | ns/entity | Allocs |
+| :--- | :--- | :--- | :--- |
+| **1 comp** | 13,483 | **13.17** | 4 |
+| **2 comp** | 10,381 | **10.14** | 4 |
+| **3 comp** | 12,533 | **12.24** | 4 |
+| **4 comp** | 14,439 | **14.10** | 4 |
+| **5 comp** | 15,529 | **15.16** | 4 |
+| **6 comp** | 16,449 | **16.06** | 4 |
+| **7 comp** | 17,984 | **17.56** | 5 |
+| **8 comp** | 21,240 | **20.74** | 5 |
+| **9 comp** | 23,909 | **23.35** | 5 |
+| **10 comp** | 25,044 | **24.46** | 5 |
 
-### Query Benchmarks (Apple M1 Max)
-The following benchmarks demonstrate the efficiency of SoA (Structure of Arrays) and the $O(1)$ nature of our record-based filtering.
+### View.All (full archetype scan, SoA pages, 1k entities)
 
-#### 1. Scalability Overview: $O(N)$ vs $O(1)$
-| Registry Size ($N$) | Operation | Entities Processed | Total Time | Per Entity | Mechanism |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **1,000** | **View3.All** | 1,000 | 538.4 ns | 0.54 ns | Linear SoA |
-| **10,000** | **View3.All** | 10,000 | 6,942 ns | 0.69 ns | Linear SoA |
-| **100,000** | **View3.All** | 100,000 | 68,571 ns | 0.69 ns | Linear SoA |
-| **1,000,000** | **View3.All** | 1,000,000 | 1,397,688 ns | 1.34 ns | Linear SoA |
-| **10,000,000** | **View3.All** | 10,000,000 | 20,132,807 ns | **2.01 ns** | Linear SoA |
-| **10,000,000** | **View3.Filter** | **100** | **288.0 ns** | **2.88 ns** | **O(1) Record Lookup** |
+| Components | Total ns/op | ns/entity |
+| :--- | :--- | :--- |
+| **View0** (Entity only) | 336.8 | **0.34** |
+| **View1** | 345.6 | **0.35** |
+| **View2** | 491.0 | **0.49** |
+| **View3** | 653.6 | **0.65** |
+| **View4** | 812.4 | **0.81** |
+| **View5** | 971.0 | **0.97** |
+| **View6** | 1,143 | **1.14** |
+| **View7** | 1,374 | **1.37** |
+| **View8** | 1,573 | **1.57** |
+| **View9** | 1,768 | **1.77** |
+| **View10** | 1,960 | **1.96** |
 
-#### 2. Complexity Scaling (10M Entities Stress Test)
-| View Complexity | All Iterator | Values Iterator (No ID) |
-| :--- | :--- | :--- | 
-| **View0 (Entity Only)** | 0.34 ns | - |
-| **View1 (1 Comp)** | 1.20 ns | 1.20 ns |
-| **View3 (3 Comps)** | 2.18 ns | 2.18 ns |
-| **View8 (8 Comps)** | 2.20 ns | 2.20 ns |
+### View.Filter (per-entity subset iteration, N=100 from 1k pool)
+Yields `iter.Seq2[int, struct{Entity, Comp1, ...}]` — the index is the position in the input `selected` slice, so callers can correlate results and detect skipped entities (not matching the view or already removed).
 
+| Components | sorted | shuffled |
+| :--- | :--- | :--- |
+| **View1** | 4.22 ns/ent | 4.23 ns/ent |
+| **View2** | 4.74 ns/ent | 4.68 ns/ent |
+| **View3** | 5.53 ns/ent | 5.58 ns/ent |
+| **View4** | 6.37 ns/ent | 6.38 ns/ent |
+| **View5** | 7.39 ns/ent | 7.38 ns/ent |
+| **View6** | 8.03 ns/ent | 8.05 ns/ent |
+| **View7** | 9.03 ns/ent | 8.90 ns/ent |
+| **View8** | 9.34 ns/ent | 9.55 ns/ent |
+| **View9** | 10.54 ns/ent | 10.61 ns/ent |
+| **View10** | 10.90 ns/ent | 10.93 ns/ent |
 
 ### Key Technical Takeaways
-* **Near-Zero Latency:** Targeted queries (Filter) remain at **~2.88 ns** regardless of whether the world has 1k or 10M entities.
-* **Instruction Efficiency:** Even with 8 components, the engine processes entities bellow **~2.2 ns/entity**, fitting a 10M entity update within a **22ms** window.
-* **Values Iteration:** At 10M entities, performance saturates at the same level as standard iteration, indicating memory bandwidth limits outweigh ID generation overhead.
+* **Constant per-entity lookup:** `Filter` cost stays around 4.2 ns/entity (1 component) regardless of registry size — the index lookup is direct via record array; only the requested subset size matters.
+* **Linear iteration scaling:** `View.All` scales linearly with the component count (~0.15 ns/entity per added component), bounded by memory bandwidth.
+* **Sorted vs shuffled:** Filter results show <2% variance between sorted and shuffled access patterns, confirming that the per-entity path is dominated by record lookup, not cache locality.
+* **Zero allocations:** All hot-path operations report 0 B/op and 0 allocs/op (verified by `-benchmem`).
 
-## Benchmark Comparison: GOKe vs. [Arche](https://github.com/mlange-42/arche) (RAW Data)
+## Benchmark Comparison with Other ECS Libraries
 
-It is important to note that while **GOKe** achieves industry-leading raw iteration speeds, **Arche** is a more established framework providing a broader feature set. The performance trade-offs in **Arche** often stem from supporting complex functionalities that **GOKe** intentionally omits to maintain its lean profile, such as:
+Cross-framework benchmarks are maintained in a dedicated project:
+**[go-ecs-benchmarks](https://github.com/mlange-42/go-ecs-benchmarks)** by [@mlange-42](https://github.com/mlange-42).
 
-* **Entity Relations:** Native support for parent-child hierarchies and linked entities.
-* **Batch Operations:** Highly optimized mass entity spawning and destruction.
-* **Event Listeners:** Comprehensive system for monitoring entity and component lifecycles (in **goke/ecs**, this includes Cached Views that listen for newly created archetypes to dynamically attach them to the view).
+This project compares GOKe against other Go ECS implementations (Arche, Donburi, Ento, etc.) on a unified workload, eliminating bias from differently-shaped local benchmarks.
 
-## Benchmark Comparison: GOKe vs. Arche
-**Environment:** Apple M1 Max (ARM64)  
-**Units:** Nanoseconds per operation (**ns/op**)
-
-| Operation | GOKe | Arche | Winner | Notes |
-| :--- | :--- | :--- | :--- | :--- |
-| **Iteration (1 Comp)** | **0.36** | 0.55 | **GOKe (+52.8%)** | Superior cache locality |
-| **Iteration (2 Comp)** | **0.39** | 1.37 | **GOKe (+251.3%)** | Efficient memory layout |
-| **Iteration (3 Comp)** | **0.53** | 1.79 | **GOKe (+237.7%)** | Minimal per-entity overhead |
-| **Create Entity (1 comp)** | 22.46 | **20.60** | **Arche (+9.0%)** | Draw |
-| **Add Next Component** | 37.36 | **--** | **Arche** | Fast graph traversal |
-| **Remove Component** | **9.64** | **--** | **GOKe/Arche** | Highly optimized swap-and-pop |
-| **Remove Entity** | 17.95 | **--** | **Arche** | Fast fast cleanup |
+> ⚠️ **Check the compared versions.** The results published in go-ecs-benchmarks may lag behind GOKe's main branch. Before drawing conclusions, verify which GOKe version (tag) is used in the comparison and re-run the suite against the version you care about.
 
 ## How to benchmark
-Results may vary based on CPU architecture and cache sizes. You can run the suite using:
 ```bash
 go test -bench=. ./... -benchmem
 ```

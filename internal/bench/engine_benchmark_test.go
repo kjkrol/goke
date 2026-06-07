@@ -138,7 +138,7 @@ func BenchmarkEngine_Structural(b *testing.B) {
 
 		measurePerEntity(b, 1, func() {
 			for i := 0; i < b.N; i++ {
-				for item := range view.Filter(arr) {
+				for _, item := range view.Filter(arr) {
 					item.Comp1.X += 1.0
 				}
 			}

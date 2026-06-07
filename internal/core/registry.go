@@ -1,9 +1,14 @@
 package core
 
 import (
-	"fmt"
+	"errors"
 	"reflect"
 	"unsafe"
+)
+
+var (
+	errInvalidEntity    = errors.New("invalid entity")
+	errComponentMissing = errors.New("component not found in archetype")
 )
 
 type Registry struct {
@@ -50,7 +55,7 @@ func (r *Registry) RemoveEntity(entity Entity) bool {
 // AllocateByID ensures the entity is valid and performs the allocation in the archetype.
 func (r *Registry) AllocateByID(entity Entity, compInfo ComponentInfo) (unsafe.Pointer, error) {
 	if !r.EntityPool.IsValid(entity) {
-		return nil, fmt.Errorf("invalid entity")
+		return nil, errInvalidEntity
 	}
 
 	return r.ArchetypeRegistry.AllocateComponentMemory(entity, compInfo)
@@ -58,7 +63,7 @@ func (r *Registry) AllocateByID(entity Entity, compInfo ComponentInfo) (unsafe.P
 
 func (r *Registry) UnassignByID(entity Entity, compInfo ComponentInfo) error {
 	if !r.EntityPool.IsValid(entity) {
-		return fmt.Errorf("Invalid Entity")
+		return errInvalidEntity
 	}
 
 	r.ArchetypeRegistry.UnAssign(entity, compInfo)
@@ -70,23 +75,19 @@ func (r *Registry) RegisterComponentType(componentType reflect.Type) ComponentIn
 }
 
 func (r *Registry) ComponentGet(entity Entity, compID ComponentID) (unsafe.Pointer, error) {
-	if !r.EntityPool.IsValid(entity) {
-		return nil, fmt.Errorf("Invalid Entity")
-	}
-
 	link, ok := r.ArchetypeRegistry.EntityLinkStore.Get(entity)
 	if !ok {
-		return nil, fmt.Errorf("entity not found in registry")
+		return nil, errInvalidEntity
 	}
 
 	arch := &r.ArchetypeRegistry.Archetypes[link.ArchId]
-	col := arch.GetColumn(compID)
-	if col == nil {
-		return nil, fmt.Errorf("component not found in archetype")
+	localIdx := arch.Map[compID]
+	if localIdx == InvalidLocalID {
+		return nil, errComponentMissing
 	}
-	chunk := arch.Memory.GetPage(link.PageIdx)
-
-	return col.GetPointer(chunk, link.PageRow), nil
+	col := &arch.Columns[localIdx]
+	page := arch.Memory.Pages[link.PageIdx]
+	return unsafe.Add(page.Ptr, col.PageOffset+uintptr(link.PageRow)*col.ItemSize), nil
 }
 
 func (r *Registry) Reset() {

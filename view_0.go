@@ -72,13 +72,13 @@ func (v *View0) All() iter.Seq[struct{ Entity []Entity }] {
 
 // Filter iterates `selected` entities and yields one entity at a time
 // for those that match the View's archetype constraints.
-func (v *View0) Filter(selected []core.Entity) iter.Seq[struct{ Entity core.Entity }] {
-	return func(yield func(struct{ Entity core.Entity }) bool) {
+func (v *View0) Filter(selected []core.Entity) iter.Seq2[int, struct{ Entity core.Entity }] {
+	return func(yield func(int, struct{ Entity core.Entity }) bool) {
 		store := &v.Reg.ArchetypeRegistry.EntityLinkStore
 
 		var lastArchID core.ArchetypeId = core.NullArchetypeId
 		var ma *core.MatchedArch
-		for _, e := range selected {
+		for i, e := range selected {
 			link, ok := store.Get(e)
 			if !ok {
 				continue
@@ -90,7 +90,7 @@ func (v *View0) Filter(selected []core.Entity) iter.Seq[struct{ Entity core.Enti
 			if ma == nil {
 				continue
 			}
-			if !yield(struct{ Entity core.Entity }{Entity: e}) {
+			if !yield(i, struct{ Entity core.Entity }{Entity: e}) {
 				return
 			}
 		}

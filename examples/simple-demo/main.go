@@ -51,7 +51,7 @@ func main() {
 	close := false
 	view2 := goke.NewView0(ecs, goke.Include[Processed]())
 	teardownSystem := goke.RegisterSystemFunc(ecs, func(cb *goke.Schedule, d time.Duration) {
-		for e := range view2.Filter([]goke.Entity{entity}) {
+		for _, e := range view2.Filter([]goke.Entity{entity}) {
 			_ = e
 			close = true
 			break
