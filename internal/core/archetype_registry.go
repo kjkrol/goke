@@ -7,14 +7,13 @@ import (
 )
 
 type ArchetypeRegistry struct {
-	archetypeMaskMap         ArchetypeMaskMap
-	Archetypes               [MaxArchetypeId]Archetype
-	lastArchetypeId          ArchetypeId
-	EntityLinkStore          EntityLinkStore
-	componentsRegistry       *ComponentsRegistry
-	viewRegistry             *ViewRegistry
-	defaultArchetypePageSize int
-	sharedColsInfos          []ComponentInfo
+	archetypeMaskMap   ArchetypeMaskMap
+	Archetypes         [MaxArchetypeId]Archetype
+	lastArchetypeId    ArchetypeId
+	EntityLinkStore    EntityLinkStore
+	componentsRegistry *ComponentsRegistry
+	viewRegistry       *ViewRegistry
+	sharedColsInfos    []ComponentInfo
 }
 
 func NewArchetypeRegistry(
@@ -23,22 +22,20 @@ func NewArchetypeRegistry(
 	cfg RegistryConfig,
 ) *ArchetypeRegistry {
 	reg := ArchetypeRegistry{
-		EntityLinkStore:          NewEntityLinkStore(cfg.InitialEntityCap),
-		componentsRegistry:       componentsRegistry,
-		viewRegistry:             viewRegistry,
-		defaultArchetypePageSize: cfg.DefaultArchetypePageSize,
-		lastArchetypeId:          RootArchetypeId,
+		EntityLinkStore:    NewEntityLinkStore(cfg.InitialEntityCap),
+		componentsRegistry: componentsRegistry,
+		viewRegistry:       viewRegistry,
+		lastArchetypeId:    RootArchetypeId,
 	}
 
 	rootMask := ArchetypeMask{}
-	reg.InitArchetype(rootMask, reg.defaultArchetypePageSize)
+	reg.InitArchetype(rootMask)
 
 	return &reg
 }
 
 func (r *ArchetypeRegistry) InitArchetype(
 	mask ArchetypeMask,
-	initCapacity int,
 ) ArchetypeId {
 	if r.lastArchetypeId >= MaxArchetypeId {
 		panic(fmt.Sprintf("Max archetype number exceeded: %d", MaxArchetypeId))
@@ -230,7 +227,7 @@ func (r *ArchetypeRegistry) UnAssign(entity Entity, compInfo ComponentInfo) {
 }
 
 func (r *ArchetypeRegistry) Reset() {
-	for i := range int(r.lastArchetypeId) {
+	for i := int(RootArchetypeId); i < int(r.lastArchetypeId); i++ {
 		r.Archetypes[i].Reset()
 	}
 	clear(r.Archetypes[:])
@@ -243,7 +240,7 @@ func (r *ArchetypeRegistry) Reset() {
 
 	r.lastArchetypeId = RootArchetypeId
 	rootMask := ArchetypeMask{}
-	r.InitArchetype(rootMask, r.defaultArchetypePageSize)
+	r.InitArchetype(rootMask)
 }
 
 // --------------------------------------------------------------
@@ -252,7 +249,7 @@ func (r *ArchetypeRegistry) getOrRegister(mask ArchetypeMask) ArchetypeId {
 	if found, ok := r.archetypeMaskMap.Get(mask); ok {
 		return found
 	}
-	archId := r.InitArchetype(mask, r.defaultArchetypePageSize)
+	archId := r.InitArchetype(mask)
 	r.viewRegistry.OnArchetypeCreated(&r.Archetypes[archId])
 	return archId
 }

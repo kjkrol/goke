@@ -26,7 +26,7 @@
   </a>
 </p>
 
-**GOKe** is an ultra-lightweight, high-performance, and type-safe [Entity Component System](https://en.wikipedia.org/wiki/Entity_component_system) (aka ECS) for [Go](https://go.dev/). It is engineered for maximum data throughput, leveraging modern **Go 1.23+ Iterators** and a Data-Oriented Design (DOD) architecture.
+**GOKe** is an ultra-lightweight, high-performance, and type-safe **SoA (Structure of Arrays)** [Entity Component System](https://en.wikipedia.org/wiki/Entity_component_system) (aka ECS) for [Go](https://go.dev/). It is engineered for maximum data throughput, leveraging modern **Go 1.23+ Iterators** and a Data-Oriented Design (DOD) architecture.
 
 <p align="center">
   <a href="#installation">Installation</a> 
@@ -119,6 +119,11 @@ Core capabilities designed for predictable performance, cache locality, and zero
 * **Entity Blueprints**: Fast, template-based instantiation. Allows creating thousands of entities with identical component layouts using optimal memory copy operations.
 
 > 💡 **See it in action**: Check the `cmd` directory for the concurrent dice game simulation demonstrating parallel systems and state management.
+
+## ⚠️ Limitations
+
+* **Maximum component types: 128 by default.** Defined by `MaxComponents` in [`internal/core/archetype_mask.go`](./internal/core/archetype_mask.go). The archetype mask is a fixed-size bitset (`[MaskSize]uint64`
+with `MaskSize = 2`) for branch-free intersection checks. Raising this limit requires recompiling GOKe with edited constants (`MaskSize` and `MaxComponents`); it is **not** a runtime configuration.
 
 <a id="usage"></a>
 # 💻 Usage Example

@@ -188,7 +188,7 @@ func TestArchetypeRegistry_SwapPopIntegrity(t *testing.T) {
 	posTypeInfo := reg.componentsRegistry.GetOrRegister(reflect.TypeFor[position]())
 
 	mask := NewArchetypeMask(posTypeInfo.ID)
-	archId := reg.InitArchetype(mask, 4)
+	archId := reg.InitArchetype(mask)
 
 	// Dane testowe
 	e0, e1, e2 := Entity(10), Entity(11), Entity(12)
