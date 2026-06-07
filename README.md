@@ -111,7 +111,7 @@ go get github.com/kjkrol/goke
 
 Core capabilities designed for predictable performance, cache locality, and zero-allocation cycles:
 
-* **Type-Safe Generics**: Views (`NewView1[A]` ... `NewView8`) use Go generics to eliminate interface overhead, boxing, and runtime type assertions in the hot loop.
+* **Type-Safe Generics**: Views (`NewView1[A]` ... `NewView10`) use Go generics to eliminate interface overhead, boxing, and runtime type assertions in the hot loop.
 * **Go 1.23+ Range Iterators**: Uses native `iter.Seq` for standard `for range` loops. This allows the compiler to inline iteration logic directly, avoiding callback overhead.
 * **Deferred Mutations**: Structural changes (Create/Remove/Add components) are buffered via a **Command Buffer** and applied at synchronization points to ensure thread safety without heavy locking.
 * **Parallel Execution**: `RunParallel` distributes system execution across available CPU cores with deterministic synchronization, scaling linearly with hardware resources.
@@ -151,30 +151,36 @@ func main() {
 	_ = goke.RegisterComponent[Acc](ecs)
 
 	// --- Type-Safe Entity Template (Blueprint) ---
-	// Blueprints place the entity into the correct archetype immediately and
-	// reserve memory for all components in a single atomic operation.
-	// This returns typed pointers for direct, in-place initialization.
+	// Blueprints place entities into the correct archetype immediately and
+	// reserve memory for all components in a single batch operation.
+	// Each yielded page exposes typed slices for direct, in-place initialization.
 	blueprint := goke.NewBlueprint3[Pos, Vel, Acc](ecs)
 
-	// Create the entity and get direct access to its memory slots.
-	entity, pos, vel, acc := blueprint.Create()
-	*pos = Pos{X: 0, Y: 0}
-	*vel = Vel{X: 1, Y: 1}
-	*acc = Acc{X: 0.1, Y: 0.1}
+	var entity goke.Entity
+	for page := range blueprint.Create(1) {
+		entity = page.Entity[0]
+		page.Comp1[0] = Pos{X: 0, Y: 0}
+		page.Comp2[0] = Vel{X: 1, Y: 1}
+		page.Comp3[0] = Acc{X: 0.1, Y: 0.1}
+	}
 
 	// Initialize view for Pos, Vel, and Acc components
 	view := goke.NewView3[Pos, Vel, Acc](ecs)
 
 	// Define the movement system using the functional registration pattern
 	movementSystem := goke.RegisterSystemFunc(ecs, func(schedule *goke.Schedule, d time.Duration) {
-		// SoA (Structure of Arrays) layout ensures CPU Cache friendliness.
-		for head := range view.Values() {
-			pos, vel, acc := head.V1, head.V2, head.V3
+		// SoA (Structure of Arrays) layout ensures CPU cache friendliness.
+		// View.All yields page-shaped slices over native memory — the inner
+		// loop is on the caller side for aggressive compiler inlining.
+		for page := range view.All() {
+			for i := range page.Entity {
+				pos, vel, acc := &page.Comp1[i], &page.Comp2[i], &page.Comp3[i]
 
-			vel.X += acc.X
-			vel.Y += acc.Y
-			pos.X += vel.X
-			pos.Y += vel.Y
+				vel.X += acc.X
+				vel.Y += acc.Y
+				pos.X += vel.X
+				pos.Y += vel.Y
+			}
 		}
 	})
 
@@ -187,7 +193,7 @@ func main() {
 	// Execute a single simulation step (standard 120 TPS)
 	goke.Tick(ecs, time.Second/120)
 
-	p, _ := goke.GetComponent[Pos](ecs, entity, posDesc)
+	p := goke.GetComponent[Pos](ecs, entity, posDesc)
 	fmt.Printf("Final Position: {X: %.2f, Y: %.2f}\n", p.X, p.Y)
 }
 ```
@@ -248,14 +254,18 @@ GOKe delivers near-metal speeds by eliminating heap allocations and leveraging L
 
 | Category | Operation | Performance (1k Baseline) | Allocs | Technical Mechanism |
 | :--- | :--- | :--- | :--- | :--- |
-| **Throughput** | **Iteration** | **0.36 – 0.66 ns/ent** | **0** | Linear SoA (1-8 components) |
-| **Scalability** | **$O(1)$ Filter** | **1.39 – 5.38 ns/ent** | **0** | Centralized Record Lookup |
-| **Structural** | **Create Entity** | **21.31 - 26.84 ns/op** | **0** | Blueprint-based (1-4 comps) |
-| **Structural** | **Migrate Component** | **37.36 ns/op** | **0** | Archetype Move (Insert) |
-| **Structural** | **Remove Entity** | **17.95 ns/op** | **0** | Index Recycling |
-| **Access** | **Get Component** | **4.49 ns/op** | **0** | Direct Generation Check |
+| **Throughput** | **Iteration (View.All)** | **0.34 - 1.96 ns/ent** | **0** | Linear SoA (0-10 components) |
+| **Subset Query** | **Filter (per-entity)** | **4.22 - 10.93 ns/ent** | **0** | Per-entity record lookup + pointer math |
+| **Structural** | **Batch Create (1024 ent.)** | **10 - 25 ns/ent** | 4-5 | Blueprint-based pages |
+| **Structural** | **Migrate Component** | **35.89 ns/op** | **0** | Archetype Move (Insert) |
+| **Structural** | **Add Tag** | **34.11 ns/op** | **0** | Archetype Move (Metadata) |
+| **Structural** | **Remove Component** | **7.48 ns/op** | **0** | Swap-and-pop |
+| **Structural** | **Remove Entity** | **2.67 ns/op** | **0** | Index Recycling |
+| **Access** | **Get Component** | **4.70 ns/op** | **0** | Inlined Record Lookup |
 
 > 📊 **Deep Dive**: For a full breakdown of hardware specs, stress tests, and $O(N)$ vs $O(1)$ scaling charts, see [**BENCHMARKS.md**](./BENCHMARKS.md).
+
+> 🔬 **Cross-framework comparison**: Benchmarks against other Go ECS libraries (Arche, Donburi, Ento, etc.) are maintained in a dedicated project — [**go-ecs-benchmarks**](https://github.com/mlange-42/go-ecs-benchmarks) by [@mlange-42](https://github.com/mlange-42). ⚠️ Before drawing conclusions, verify which GOKe version (tag) is used in the comparison — published results may lag behind the main branch.
 
 ### Reproducing Results
 Run the suite on your own hardware:
@@ -267,8 +277,8 @@ go test -bench=. ./... -benchmem
 # 🗺️ Roadmap
 Current development focus and planned improvements:
 
-* **Batch Operations:** High-performance bulk operations for entity creation/destruction to maximize overhead reduction during large-scale processing.
-* **Ebitengine Integration:** Dedicated helpers for seamless state synchronization between GOKe systems and Ebitengine's loop.
+* **Ebitengine Integration:** Dedicated helpers for seamless state synchronization between GOKe systems and Ebitengine's loop — partially prototyped in the [ebiten-demo](./examples/ebiten-demo/main.go), with the goal of extracting it into a separate companion repository.
+* **Entity Relations via Tags:** Extend the Tag system to model relationships between entities (parent-child, links, ownership, ...) — adding relational semantics on top of the existing archetype-mask machinery, without sacrificing the zero-allocation hot loop.
 
 > 🛠️ **Live Feature Tracker**
 > We manage our long-term goals through GitHub Issues. View all planned core engine expansions and functional capabilities here:

@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-06-07
+
+### Breaking Changes ⚠️
+* **`View.All()` returns SoA pages directly.** Replaced the previous `Values()` / `Head` / `Tail` pattern with a single `iter.Seq[struct{Entity []Entity, Comp1 []T1, ...}]` that yields page-shaped slices over native memory. The inner loop is now on the caller side, exposing full SoA layout for SIMD-friendly access patterns and aggressive compiler inlining.
+* **`View.Filter(selected)` redesigned**: now returns `iter.Seq2[int, struct{Entity, Comp1, ...}]`. The index is the position in the input `selected` slice — callers can identify which entities were skipped (not matching the view, or already removed) and correlate results with parallel side-tables without maintaining a manual counter.
+* **`Blueprint.Create(n)` is now batch-based**: returns `iter.Seq[page]` where each yielded page exposes typed slices (`Entity[]`, `Comp1[]`, ...) for direct in-place initialization. Replaces the previous single-entity `Create()` returning a struct of pointers.
+* **`GetComponent[T]` returns `*T` directly** (without error). Use `SafeGetComponent[T]` for the error-returning variant with reflection-based type validation.
+
+### Added ✨
+* **`View0.Filter`**: membership-only iteration (no components) — useful for "does entity belong to this query?" checks against the archetype mask (`Include`/`Exclude`).
+* **`View9` and `View10`**: type-safe queries extended from 8 to 10 simultaneous components. Same extension for `NewBlueprint9` / `NewBlueprint10`.
+
+### Performance 🚀
+* **`Get Component`**: 5.13 → **4.70 ns/op** (**−8.4%**) via:
+    * Sentinel errors (no `fmt.Errorf` allocations on the error path)
+    * Inlined `EntityLinkStore.Get`, `Archetype.GetColumn`, `Memo.GetPage`
+    * Single `entity.Unpack()` instead of separate `Index()` + `Generation()` calls
+    * `len()` instead of `cap()` for slice bounds (helps Go BCE)
+* **`View.Filter` baseline**: 4.22 ns/entity for 1-component view, scaling linearly to ~11 ns/entity at 10 components — all zero-allocation.
+* **`View.All` baseline**: 0.34 ns/entity for `View0`, up to ~2 ns/entity at 10 components.
+
 ## [1.2.3] - 2026-02-17
 
 ### Architecture & Memory 🏗️

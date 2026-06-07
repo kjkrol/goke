@@ -30,10 +30,13 @@ func main() {
 	blueprint := goke.NewBlueprint3[Pos, Vel, Acc](ecs)
 
 	// Create the entity and get direct access to its memory slots.
-	entity, pos, vel, acc := blueprint.Create()
-	*pos = Pos{X: 0, Y: 0}
-	*vel = Vel{X: 1, Y: 1}
-	*acc = Acc{X: 0.1, Y: 0.1}
+	var entity goke.Entity
+	for page := range blueprint.Create(1) {
+		entity = page.Entity[0]
+		page.Comp1[0] = Pos{X: 0, Y: 0}
+		page.Comp2[0] = Vel{X: 1, Y: 1}
+		page.Comp3[0] = Acc{X: 0.1, Y: 0.1}
+	}
 
 	// Initialize view for Pos, Vel, and Acc components
 	view := goke.NewView3[Pos, Vel, Acc](ecs)
@@ -41,13 +44,15 @@ func main() {
 	// Define the movement system using the functional registration pattern
 	movementSystem := goke.RegisterSystemFunc(ecs, func(schedule *goke.Schedule, d time.Duration) {
 		// SoA (Structure of Arrays) layout ensures CPU Cache friendliness.
-		for head := range view.Values() {
-			pos, vel, acc := head.V1, head.V2, head.V3
+		for page := range view.All() {
+			for i, _ := range page.Entity {
+				pos, vel, acc := &page.Comp1[i], &page.Comp2[i], &page.Comp3[i]
 
-			vel.X += acc.X
-			vel.Y += acc.Y
-			pos.X += vel.X
-			pos.Y += vel.Y
+				vel.X += acc.X
+				vel.Y += acc.Y
+				pos.X += vel.X
+				pos.Y += vel.Y
+			}
 		}
 	})
 

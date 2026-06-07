@@ -47,9 +47,9 @@
 //     Data retrieval is handled through generated View structures. These views
 //     provide type safety without reflection overhead during the main loop.
 //     By accessing contiguous archetype columns directly, views leverage
-//     maximal hardware prefetching. Iteration results are returned through
-//     specialized Head and Tail structures, which are architected to maintain
-//     optimal throughput and minimize CPU stall cycles.
+//     maximal hardware prefetching. Bulk iteration via View.All yields
+//     SoA pages (Go slices over native memory), while subset queries via
+//     View.Filter yield per-entity records with index correlation.
 //
 // # Hardware Constraints & Limits
 //
@@ -67,14 +67,9 @@
 //   - Entity Indexing: Entities are 64-bit identifiers, allowing for a virtually
 //     unlimited number of entities, constrained only by the available system RAM.
 //
-//   - View Complexity: Queries support up to 8 simultaneous component types.
-//     For more complex filtering, an unlimited number of additional types can
-//     be filtered using With/Without constraints (Tags).
-//
-//   - Prefetching Thresholds: To prevent CPU prefetching degradation, result
-//     structures (Head/Tail) are limited to a maximum of 4 pointer fields each.
-//     Adhering to this "Rule of 4" ensures the Go compiler and hardware
-//     prefetchers can maintain peak throughput during high-frequency iteration.
+//   - View Complexity: Queries support up to 10 simultaneous component types
+//     (View1..View10). For more complex filtering, an unlimited number of
+//     additional types can be filtered using Include/Exclude constraints (Tags).
 //
 // # Maintenance & Code Generation
 //

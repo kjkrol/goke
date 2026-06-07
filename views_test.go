@@ -17,16 +17,25 @@ func TestView_WithTag_And_Without_Logic(t *testing.T) {
 	_ = goke.RegisterComponent[complexComponent](ecs)
 
 	// Entity A: Only position
+	var eA goke.Entity
 	blueprintA := goke.NewBlueprint1[position](ecs)
-	eA, _ := blueprintA.Create()
+	for page := range blueprintA.Create(1) {
+		eA = page.Entity[0]
+	}
 
 	// Entity B: position + velocity (Moving entity)
+	var eB goke.Entity
 	blueprintB := goke.NewBlueprint2[position, velocity](ecs)
-	eB, _, _ := blueprintB.Create()
+	for page := range blueprintB.Create(1) {
+		eB = page.Entity[0]
+	}
 
 	// Entity C: position + complexComponent (Static named entity)
+	var eC goke.Entity
 	blueprintC := goke.NewBlueprint2[position, complexComponent](ecs)
-	eC, _, _ := blueprintC.Create()
+	for page := range blueprintC.Create(1) {
+		eC = page.Entity[0]
+	}
 
 	// 2. Test: Filter Inclusion (WithTag) and Exclusion (Without)
 	t.Run("Inclusion and Exclusion Logic", func(t *testing.T) {
@@ -38,8 +47,10 @@ func TestView_WithTag_And_Without_Logic(t *testing.T) {
 		)
 
 		found := make(map[core.Entity]bool)
-		for head := range view.All() {
-			found[head.Entity] = true
+		for page := range view.All() {
+			for _, entity := range page.Entity {
+				found[entity] = true
+			}
 		}
 
 		assert.Len(t, found, 2, "Should find exactly 2 entities (A and C)")
@@ -58,9 +69,11 @@ func TestView_WithTag_And_Without_Logic(t *testing.T) {
 		)
 
 		count := 0
-		for head := range view.All() {
-			assert.Equal(t, eC, head.Entity, "Only Entity C has both position and complexComponent")
-			count++
+		for page := range view.All() {
+			for _, entity := range page.Entity {
+				assert.Equal(t, eC, entity, "Only Entity C has both position and complexComponent")
+				count++
+			}
 		}
 		assert.Equal(t, 1, count)
 	})
@@ -72,7 +85,7 @@ func TestView_WithTag_And_Without_Logic(t *testing.T) {
 
 		input := []core.Entity{eA, eB, eC}
 		var result []core.Entity
-		for head := range view.Filter(input) {
+		for _, head := range view.Filter(input) {
 			result = append(result, head.Entity)
 		}
 

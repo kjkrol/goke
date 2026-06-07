@@ -41,13 +41,15 @@ func (s *EntitiesRendererSystem) Draw(screen *ebiten.Image) {
 	imgW := s.pixelImage.Bounds().Dx()
 	imgH := s.pixelImage.Bounds().Dy()
 	now := time.Now()
-	for head := range s.renderView.Values() {
-		aabb, col, app := head.V1, head.V2, head.V3
-		s.draw(aabb.AABB.AABB, app, col, screen, imgW, imgH, now)
-		aabb.AABB.VisitFragments(func(pos plane.FragPosition, box geom.AABB[uint32]) bool {
-			s.draw(box, app, col, screen, imgW, imgH, now)
-			return true
-		})
+	for page := range s.renderView.All() {
+		for i, _ := range page.Entity {
+			aabb, col, app := &page.Comp1[i], &page.Comp2[i], &page.Comp3[i]
+			s.draw(aabb.AABB.AABB, app, col, screen, imgW, imgH, now)
+			aabb.AABB.VisitFragments(func(pos plane.FragPosition, box geom.AABB[uint32]) bool {
+				s.draw(box, app, col, screen, imgW, imgH, now)
+				return true
+			})
+		}
 	}
 }
 

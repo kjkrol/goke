@@ -42,7 +42,7 @@ func (b ArchetypeMask) Equals(other ArchetypeMask) bool {
 }
 
 func (b ArchetypeMask) Contains(subMask ArchetypeMask) bool {
-	for i := 0; i < MaskSize; i++ {
+	for i := range MaskSize {
 		if (b[i] & subMask[i]) != subMask[i] {
 			return false
 		}
@@ -52,7 +52,7 @@ func (b ArchetypeMask) Contains(subMask ArchetypeMask) bool {
 
 func (b ArchetypeMask) AllSet() iter.Seq[ComponentID] {
 	return func(yield func(ComponentID) bool) {
-		for wordIdx := 0; wordIdx < MaskSize; wordIdx++ {
+		for wordIdx := range MaskSize {
 			word := b[wordIdx]
 			for word != 0 {
 				bitPos := bits.TrailingZeros64(word)

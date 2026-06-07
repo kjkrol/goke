@@ -13,13 +13,9 @@ var _ goke.System = (*CollisionSystem)(nil)
 
 type CollisionSystem struct {
 	*Resources
-	collisionView *goke.View3[Position, Velocity, Collision]
-	compDescs     struct {
-		posDesc goke.ComponentDesc
-		velDesc goke.ComponentDesc
-		appDesc goke.ComponentDesc
-		colDesc goke.ComponentDesc
-	}
+	collisionView    *goke.View3[Position, Velocity, Collision]
+	contactsBuffer   []Contact
+	contactsEntities []goke.Entity
 }
 
 func NewCollisionSystem(resouces *Resources) goke.System {
@@ -30,84 +26,88 @@ func NewCollisionSystem(resouces *Resources) goke.System {
 
 func (s *CollisionSystem) Init(ecs *goke.ECS) {
 	s.collisionView = goke.NewView3[Position, Velocity, Collision](ecs)
-	s.compDescs.posDesc = goke.RegisterComponent[Position](ecs)
-	s.compDescs.velDesc = goke.RegisterComponent[Velocity](ecs)
-	s.compDescs.colDesc = goke.RegisterComponent[Collision](ecs)
 }
 
 func (s *CollisionSystem) Update(lookup goke.Lookup, sched *goke.Schedule, d time.Duration) {
 	const solverIterations = 3
 	const probeExpandMaring = 16
-	var contacts []Contact = s.broadPhase(lookup, probeExpandMaring)
-	s.narrowPhase(contacts, solverIterations)
+	s.contactsBuffer = s.contactsBuffer[:0]
+	s.contactsEntities = s.contactsEntities[:0]
+	s.broadPhase(sched, probeExpandMaring)
+
+	s.narrowPhase(solverIterations)
 	s.space.Flush(func(spatial.AABB) {})
 }
 
-func (s *CollisionSystem) broadPhase(lookup goke.Lookup, probeExpandMargin uint32) (contacts []Contact) {
-	for head := range s.collisionView.All() {
-		pos, vel, col := head.V1, head.V2, head.V3
-		entityA := head.Entity
+func (s *CollisionSystem) broadPhase(sched *goke.Schedule, probeExpandMargin uint32) {
+	for page := range s.collisionView.All() {
+		for i, entityA := range page.Entity {
+			pos, vel, col := &page.Comp1[i], &page.Comp2[i], &page.Comp3[i]
+			if vel.X == 0 && vel.Y == 0 {
+				continue
+			}
 
-		if vel.X == 0 && vel.Y == 0 {
-			continue
-		}
+			checkFunc := func(boxA geom.AABB[uint32], fragA plane.FragPosition) {
+				s.space.Query(boxA, func(idB uint64, fragB plane.FragPosition) {
+					entityB := goke.Entity(idB)
 
-		checkFunc := func(boxA geom.AABB[uint32], fragA plane.FragPosition) {
-			s.space.Query(boxA, func(idB uint64, fragB plane.FragPosition) {
-				entityB := goke.Entity(idB)
+					if entityA.Index() < entityB.Index() {
+						s.contactsEntities = append(s.contactsEntities, entityB)
+						s.contactsBuffer = append(s.contactsBuffer, Contact{
+							EntityA: entityA, EntityB: entityB,
+							PosA:  pos,
+							VelA:  vel,
+							ColA:  col,
+							FragA: fragA,
+						})
+					}
+				})
+			}
 
-				if entityA.Index() < entityB.Index() {
-
-					posBptr, _ := lookup.ComponentGet(entityB, s.compDescs.posDesc.ID)
-					velBptr, _ := lookup.ComponentGet(entityB, s.compDescs.velDesc.ID)
-					colBptr, _ := lookup.ComponentGet(entityB, s.compDescs.colDesc.ID)
-
-					contacts = append(contacts, Contact{
-						EntityA: entityA, EntityB: entityB,
-						PosA: pos, PosB: (*Position)(posBptr),
-						VelA: vel, VelB: (*Velocity)(velBptr),
-						ColA: col, ColB: (*Collision)(colBptr),
-						FragA: fragA, FragB: fragB,
-					})
-				}
+			probeBoxA := pos.AABB
+			s.space.ExpandOnly(&probeBoxA, probeExpandMargin)
+			checkFunc(probeBoxA.AABB, plane.FRAG_MAIN)
+			probeBoxA.VisitFragments(func(fragA plane.FragPosition, boxA geom.AABB[uint32]) bool {
+				checkFunc(boxA, fragA)
+				return true
 			})
 		}
-
-		probeBoxA := pos.AABB
-		s.space.ExpandOnly(&probeBoxA, probeExpandMargin)
-		checkFunc(probeBoxA.AABB, plane.FRAG_MAIN)
-		probeBoxA.VisitFragments(func(fragA plane.FragPosition, boxA geom.AABB[uint32]) bool {
-			checkFunc(boxA, fragA)
-			return true
-		})
 	}
 	return
 }
 
-func (s *CollisionSystem) narrowPhase(contacts []Contact, solverIterations int) {
+func (s *CollisionSystem) narrowPhase(solverIterations int) {
 	now := time.Now()
 
-	for iter := 0; iter < solverIterations; iter++ {
-		for _, c := range contacts {
+	for i, item := range s.collisionView.Filter(s.contactsEntities) {
+		s.contactsBuffer[i].PosB = item.Comp1
+		s.contactsBuffer[i].VelB = item.Comp2
+		s.contactsBuffer[i].ColB = item.Comp3
+	}
 
-			boxA := c.freshBoxA()
-			boxB := c.freshBoxB()
-			penetrationVec := c.penetration(boxA, boxB)
+	for iter := 0; iter < solverIterations; iter++ {
+		for _, contact := range s.contactsBuffer {
+
+			boxA := contact.freshBoxA()
+			boxB := contact.freshBoxB()
+			penetrationVec := contact.penetration(boxA, boxB)
 
 			if penetrationVec.X == 0 && penetrationVec.Y == 0 {
 				continue
 			}
 
-			if !c.resolved {
-				c.resolveVelocity(penetrationVec)
-				c.updateStats(now)
+			if !contact.resolved {
+				// ta funkcja zmienia Vel (dla A i B) (componenty z ECS!)
+				contact.resolveVelocity(penetrationVec)
+				contact.updateStats(now)
 				s.collisionCounter++
-				c.resolved = true
+				contact.resolved = true
 			}
 
-			if mtv1, mtv2, ok := c.calculateMtv(boxA, boxB, false); ok == true {
-				s.space.Translate(uint64(c.EntityA.Index()), &c.PosA.AABB, mtv1)
-				s.space.Translate(uint64(c.EntityB.Index()), &c.PosB.AABB, mtv2)
+			if mtv1, mtv2, ok := contact.calculateMtv(boxA, boxB, false); ok == true {
+				// tu zmienia Pos (dla A i B) (componenty z ECS!)
+				s.space.Translate(uint64(contact.EntityA.Index()), &contact.PosA.AABB, mtv1)
+				s.space.Translate(uint64(contact.EntityB.Index()), &contact.PosB.AABB, mtv2)
 			}
 		}
 	}

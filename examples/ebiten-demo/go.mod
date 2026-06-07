@@ -1,6 +1,6 @@
 module github.com/kjkrol/goke/examples/ebiten-demo
 
-go 1.25.3
+go 1.26.3
 
 require (
 	github.com/hajimehoshi/ebiten/v2 v2.9.8

@@ -1,6 +1,9 @@
 package core
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 type Blueprint struct {
 	Reg       *Registry
@@ -21,10 +24,8 @@ func NewBlueprint(reg *Registry) *Blueprint {
 // WithTag adds a tag ID to the blueprint.
 // Returns an error if the tag is already present to ensure definition clarity.
 func (b *Blueprint) WithTag(tagId ComponentID) error {
-	for _, id := range b.tagIDs {
-		if id == tagId {
-			return fmt.Errorf("tag with ID %d is already defined in this blueprint", tagId)
-		}
+	if slices.Contains(b.tagIDs, tagId) {
+		return fmt.Errorf("tag with ID %d is already defined in this blueprint", tagId)
 	}
 	b.tagIDs = append(b.tagIDs, tagId)
 	return nil
@@ -53,10 +54,8 @@ func (b *Blueprint) WithComp(info ComponentInfo) error {
 // ExcludeType adds a component ID to the exclusion list.
 // Returns an error if the ID is already marked for exclusion.
 func (b *Blueprint) ExcludeType(id ComponentID) error {
-	for _, existingID := range b.exCompIDs {
-		if existingID == id {
-			return fmt.Errorf("component ID %d is already in the exclusion list", id)
-		}
+	if slices.Contains(b.exCompIDs, id) {
+		return fmt.Errorf("component ID %d is already in the exclusion list", id)
 	}
 	b.exCompIDs = append(b.exCompIDs, id)
 	return nil

@@ -8,19 +8,19 @@ import (
 const EntitySize = unsafe.Sizeof(Entity(0))
 
 type MatchedArch struct {
-	Arch              *Archetype
-	EntityChunkOffset uintptr
-	FieldsOffsets     []uintptr
-	FieldsSizes       []uintptr
+	Arch             *Archetype
+	EntityPageOffset uintptr
+	CompOffsets      []uintptr
+	CompSizes        []uintptr
 }
 
 func (ma *MatchedArch) Clear() {
 	ma.Arch = nil
-	clear(ma.FieldsOffsets)
-	ma.FieldsOffsets = nil
-	clear(ma.FieldsSizes)
-	ma.FieldsSizes = nil
-	ma.EntityChunkOffset = 0
+	clear(ma.CompOffsets)
+	ma.CompOffsets = nil
+	clear(ma.CompSizes)
+	ma.CompSizes = nil
+	ma.EntityPageOffset = 0
 }
 
 type View struct {
@@ -29,6 +29,7 @@ type View struct {
 	excludeMask ArchetypeMask
 	Layout      []ComponentInfo
 	Baked       []MatchedArch
+	archMapping []int32
 }
 
 func (v *View) Clear() {
@@ -41,6 +42,9 @@ func (v *View) Clear() {
 	}
 	clear(v.Baked)
 	v.Baked = nil
+
+	clear(v.archMapping)
+	v.archMapping = nil
 }
 
 // View factory based on Functional Options pattern
@@ -83,6 +87,16 @@ func NewView(blueprint *Blueprint, layout []ComponentInfo, reg *Registry) *View 
 func (v *View) Reindex() {
 	v.Baked = v.Baked[:0]
 	reg := v.Reg.ArchetypeRegistry
+
+	requiredLen := int(reg.lastArchetypeId)
+	if cap(v.archMapping) < requiredLen {
+		v.archMapping = make([]int32, requiredLen)
+	}
+	v.archMapping = v.archMapping[:requiredLen]
+	for i := range v.archMapping {
+		v.archMapping[i] = -1
+	}
+
 	for i := RootArchetypeId; i < reg.lastArchetypeId; i++ {
 		v.AddArchetypeIfMatch(&reg.Archetypes[i])
 	}
@@ -117,9 +131,9 @@ func (v *View) AddArchetype(arch *Archetype) {
 		oldArchStruct := &extended[len(v.Baked)]
 
 		// Check if the recycled slices are big enough for current layout
-		if cap(oldArchStruct.FieldsOffsets) >= len(v.Layout) {
-			offsets = oldArchStruct.FieldsOffsets[:len(v.Layout)]
-			sizes = oldArchStruct.FieldsSizes[:len(v.Layout)]
+		if cap(oldArchStruct.CompOffsets) >= len(v.Layout) {
+			offsets = oldArchStruct.CompOffsets[:len(v.Layout)]
+			sizes = oldArchStruct.CompSizes[:len(v.Layout)]
 		}
 	}
 
@@ -132,7 +146,7 @@ func (v *View) AddArchetype(arch *Archetype) {
 	// -------------------------------------------------------------------------
 	// STEP 2: Value Caching (Flattening the Data)
 	// -------------------------------------------------------------------------
-	// We copy ChunkOffset and ItemSize from the Archetype into our local arrays.
+	// We copy PageOffset and ItemSize from the Archetype into our local arrays.
 	// This allows the View Iterator to calculate pointers purely using math,
 	// without ever dereferencing the `*Column` pointer or touching `Arch` memory.
 
@@ -149,7 +163,7 @@ func (v *View) AddArchetype(arch *Archetype) {
 		col := &arch.Columns[localIdx]
 
 		// COPY VALUES to local cache
-		offsets[i] = col.ChunkOffset
+		offsets[i] = col.PageOffset
 		sizes[i] = col.ItemSize
 	}
 
@@ -163,13 +177,51 @@ func (v *View) AddArchetype(arch *Archetype) {
 	// Note: This might overwrite an old struct in the underlying array,
 	// effectively "recycling" the slice headers we just prepared.
 	v.Baked = append(v.Baked, MatchedArch{
-		Arch:              arch,
-		EntityChunkOffset: entCol.ChunkOffset,
-		FieldsOffsets:     offsets,
-		FieldsSizes:       sizes,
+		Arch:             arch,
+		EntityPageOffset: entCol.PageOffset,
+		CompOffsets:      offsets,
+		CompSizes:        sizes,
 	})
+
+	// Ensure archMapping can hold the new archetype's id. This grows the
+	// mapping when the view receives a freshly created archetype via
+	// ViewRegistry.OnArchetypeCreated after the initial Reindex sized the
+	// slice to the then-current lastArchetypeId.
+	if int(arch.Id) >= len(v.archMapping) {
+		v.growArchMapping(int(arch.Id) + 1)
+	}
+	v.archMapping[arch.Id] = int32(len(v.Baked) - 1)
+}
+
+// growArchMapping extends archMapping to at least `minLen` entries, padding
+// new slots with -1 ("no matched arch yet"). Capacity doubling keeps amortized
+// cost constant when many archetypes are appended in sequence.
+func (v *View) growArchMapping(minLen int) {
+	newCap := cap(v.archMapping) * 2
+	if newCap < minLen {
+		newCap = minLen
+	}
+	grown := make([]int32, minLen, newCap)
+	copy(grown, v.archMapping)
+	for i := len(v.archMapping); i < minLen; i++ {
+		grown[i] = -1
+	}
+	v.archMapping = grown
 }
 
 func (v *View) Matches(archMask ArchetypeMask) bool {
 	return archMask.Matches(v.includeMask, v.excludeMask)
+}
+
+func (v *View) GetMatchedArch(id ArchetypeId) *MatchedArch {
+	if int(id) >= len(v.archMapping) {
+		return nil
+	}
+
+	idx := v.archMapping[id]
+	if idx == -1 {
+		return nil
+	}
+
+	return &v.Baked[idx]
 }

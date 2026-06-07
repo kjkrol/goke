@@ -31,31 +31,38 @@ func TestECS_UseCase(t *testing.T) {
 
 	blueprint1 := goke.NewBlueprint2[Order, Discount](ecs)
 
-	eA, order, discount := blueprint1.Create()
-	*order = Order{ID: "ORD-001", Total: 100.0}
-	*discount = Discount{Percentage: 10.0}
+	var eA, eB goke.Entity
+	for page := range blueprint1.Create(1) {
+		eA = page.Entity[0]
+		page.Comp1[0] = Order{ID: "ORD-001", Total: 100.0}
+		page.Comp2[0] = Discount{Percentage: 10.0}
+	}
 
 	blueprint2 := goke.NewBlueprint1[Order](ecs)
-	eB, order := blueprint2.Create()
-	*order = Order{ID: "ORD-002", Total: 50.0}
-
-	fmt.Printf("eB= %d\n", eB.Index())
+	for page := range blueprint2.Create(1) {
+		eB = page.Entity[0]
+		page.Comp1[0] = Order{ID: "ORD-002", Total: 50.0}
+		fmt.Printf("eB= %d\n", page.Entity[0].Index())
+	}
 
 	query1 := goke.NewView2[Order, Discount](ecs)
 	processedCount := 0
 
 	billingSystem := goke.RegisterSystemFunc(ecs, func(cb *goke.Schedule, d time.Duration) {
-		for head := range query1.All() {
-			processedCount++
-			ord, disc := head.V1, head.V2
-			ord.Total = ord.Total * (1 - disc.Percentage/100)
-			goke.ScheduleAddComponent(cb, head.Entity, processedDesc, Processed{})
+		for page := range query1.All() {
+			for i, entity := range page.Entity {
+				processedCount++
+				page.Comp1[i].Total *= (1 - page.Comp2[i].Percentage/100)
+				goke.ScheduleAddComponent(cb, entity, processedDesc, Processed{})
+			}
 		}
 	})
 	query2 := goke.NewView0(ecs, goke.Include[Processed](), goke.Include[Order](), goke.Include[Discount]())
 	cleanerSystem := goke.RegisterSystemFunc(ecs, func(schedule *goke.Schedule, d time.Duration) {
-		for head := range query2.All() {
-			goke.ScheduleRemoveEntity(schedule, head.Entity)
+		for page := range query2.All() {
+			for _, entity := range page.Entity {
+				goke.ScheduleRemoveEntity(schedule, entity)
+			}
 		}
 	})
 
@@ -69,8 +76,10 @@ func TestECS_UseCase(t *testing.T) {
 		}
 
 		ctx.Sync()
-		for head := range query2.All() {
-			fmt.Printf("entity %d\n", head.Entity.Index())
+		for page := range query2.All() {
+			for _, entity := range page.Entity {
+				fmt.Printf("entity %d\n", entity.Index())
+			}
 		}
 		ctx.Run(cleanerSystem, d)
 		ctx.Sync()
@@ -101,12 +110,15 @@ func TestECS_GetComponent_TypeSafety(t *testing.T) {
 	posDesc := goke.RegisterComponent[Position](ecs)
 	_ = goke.RegisterComponent[Velocity](ecs)
 
+	var entity goke.Entity
 	blueprint := goke.NewBlueprint1[Position](ecs)
-	e, pos := blueprint.Create()
-	*pos = Position{X: 10, Y: 20}
+	for page := range blueprint.Create(1) {
+		entity = page.Entity[0]
+		page.Comp1[0] = Position{X: 10, Y: 20}
+	}
 
 	t.Run("Should fail when requesting wrong type for valid ID", func(t *testing.T) {
-		_, err := goke.SafeGetComponent[Velocity](ecs, e, posDesc)
+		_, err := goke.SafeGetComponent[Velocity](ecs, entity, posDesc)
 
 		if err == nil {
 			t.Fatal("Expected error due to type mismatch, but got nil")
@@ -119,7 +131,7 @@ func TestECS_GetComponent_TypeSafety(t *testing.T) {
 	})
 
 	t.Run("Should succeed when type matches descriptor", func(t *testing.T) {
-		p, err := goke.SafeGetComponent[Position](ecs, e, posDesc)
+		p, err := goke.SafeGetComponent[Position](ecs, entity, posDesc)
 
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)

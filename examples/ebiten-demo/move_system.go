@@ -27,24 +27,26 @@ func (s *MovementSystem) Init(ecs *goke.ECS) {
 
 func (s *MovementSystem) Update(_ goke.Lookup, _ *goke.Schedule, d time.Duration) {
 	dt := d.Seconds()
-	for head := range s.moveView.All() {
-		pos, vel := head.V1, head.V2
-		pos.accX += float64(vel.X) * dt
-		pos.accY += float64(vel.Y) * dt
+	for page := range s.moveView.All() {
+		for i, entity := range page.Entity {
+			pos, vel := &page.Comp1[i], &page.Comp2[i]
+			pos.accX += float64(vel.X) * dt
+			pos.accY += float64(vel.Y) * dt
 
-		dx := int32(pos.accX)
-		dy := int32(pos.accY)
+			dx := int32(pos.accX)
+			dy := int32(pos.accY)
 
-		if dx != 0 {
-			pos.accX -= float64(dx)
-		}
-		if dy != 0 {
-			pos.accY -= float64(dy)
-		}
+			if dx != 0 {
+				pos.accX -= float64(dx)
+			}
+			if dy != 0 {
+				pos.accY -= float64(dy)
+			}
 
-		if dx != 0 || dy != 0 {
-			delta := geom.NewVec(uint32(dx), uint32(dy))
-			s.space.Translate(uint64(head.Entity), &pos.AABB, delta)
+			if dx != 0 || dy != 0 {
+				delta := geom.NewVec(uint32(dx), uint32(dy))
+				s.space.Translate(uint64(entity), &pos.AABB, delta)
+			}
 		}
 	}
 	s.space.Flush(func(a spatial.AABB) {})

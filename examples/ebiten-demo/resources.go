@@ -8,11 +8,11 @@ import (
 
 // --- Configuration ---
 const (
-	TPS            = 2 * 60
+	TPS            = 60 * 2
 	ScreenWidth    = 1024
 	ScreenHeight   = 1024
 	RectSize       = 16
-	BucketCapacity = 64
+	BucketCapacity = 32
 	EntityCount    = 256
 )
 
