@@ -98,10 +98,31 @@ func (b *Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }
 		Comp{{ $i }} []T{{ $i }}
 		{{- end }}
 	}) bool) {
-		for remaining > 0 {
-			page, pageIdx, startRow, allocatedRows := memo.AllocBatch(remaining)
+		pageIdx := core.PageIdx(len(memo.Pages) - 1)
+		page := &memo.Pages[pageIdx]
+		available := int(memo.Layout.PageCap) - int(page.Len)
 
-			for i := 0; i < int(allocatedRows); i++ {
+		if available == 0 {
+			pagesNeeded := (remaining + int(memo.Layout.PageCap) - 1) / int(memo.Layout.PageCap)
+			memo.AddPages(pagesNeeded)
+			pageIdx++
+			page = &memo.Pages[pageIdx]
+			available = int(memo.Layout.PageCap)
+		} else {
+			pagesNeeded := (remaining - available + int(memo.Layout.PageCap) - 1) / int(memo.Layout.PageCap)
+			if pagesNeeded > 0 {
+				memo.AddPages(pagesNeeded)
+				page = &memo.Pages[pageIdx]
+			}
+		}
+
+		for remaining > 0 {
+			allocatedRows := min(remaining, available)
+			startRow := page.Len
+			page.Len += core.PageRow(allocatedRows)
+			memo.Len += uint32(allocatedRows)
+
+			for i := 0; i < allocatedRows; i++ {
 				entity := reg.EntityPool.Next()
 				pageRow := startRow + core.PageRow(i)
 				destPtr := entityCol.GetPointer(page, pageRow)
@@ -124,7 +145,12 @@ func (b *Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }
 				return
 			}
 
-			remaining -= int(allocatedRows)
+			remaining -= allocatedRows
+			if remaining > 0 {
+				pageIdx++
+				page = &memo.Pages[pageIdx]
+				available = int(memo.Layout.PageCap)
+			}
 		}
 	}
 }

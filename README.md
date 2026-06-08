@@ -257,16 +257,16 @@ GOKe bypasses traditional bottlenecks like reflection and map lookups in the exe
 
 GOKe delivers near-metal speeds by eliminating heap allocations and leveraging L1/L2 cache locality.
 
-| Category | Operation | Performance (1k Baseline) | Allocs | Technical Mechanism |
+| Category | Operation | Performance (1024 Baseline) | Allocs | Technical Mechanism |
 | :--- | :--- | :--- | :--- | :--- |
-| **Throughput** | **Iteration (View.All)** | **0.34 - 1.96 ns/ent** | **0** | Linear SoA (0-10 components) |
-| **Subset Query** | **Filter (per-entity)** | **4.22 - 10.93 ns/ent** | **0** | Per-entity record lookup + pointer math |
-| **Structural** | **Batch Create (1024 ent.)** | **10 - 25 ns/ent** | 4-5 | Blueprint-based pages |
-| **Structural** | **Migrate Component** | **35.89 ns/op** | **0** | Archetype Move (Insert) |
-| **Structural** | **Add Tag** | **34.11 ns/op** | **0** | Archetype Move (Metadata) |
-| **Structural** | **Remove Component** | **7.48 ns/op** | **0** | Swap-and-pop |
-| **Structural** | **Remove Entity** | **2.67 ns/op** | **0** | Index Recycling |
-| **Access** | **Get Component** | **4.70 ns/op** | **0** | Inlined Record Lookup |
+| **Throughput** | **Iteration (View.All)** | **0.35 - 2.06 ns/ent** | **0** | Linear SoA (0-10 components) |
+| **Subset Query** | **Filter (per-entity)** | **3.20 - 11.33 ns/ent** | **0** | Per-entity record lookup + pointer math |
+| **Structural** | **Batch Create (1024 ent.)** | **8 - 20 ns/ent** | 4 | Blueprint-based pages |
+| **Structural** | **Migrate Component** | **36.08 ns/op** | **0** | Archetype Move (Insert) |
+| **Structural** | **Add Tag** | **33.96 ns/op** | **0** | Archetype Move (Metadata) |
+| **Structural** | **Remove Component** | **7.58 ns/op** | **0** | Swap-and-pop |
+| **Structural** | **Remove Entity** | **2.83 ns/op** | **0** | Index Recycling |
+| **Access** | **Get Component** | **4.67 ns/op** | **0** | Inlined Record Lookup |
 
 > 📊 **Deep Dive**: For a full breakdown of hardware specs, stress tests, and $O(N)$ vs $O(1)$ scaling charts, see [**BENCHMARKS.md**](./BENCHMARKS.md).
 

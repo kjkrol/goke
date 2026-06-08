@@ -17,61 +17,62 @@ Every operation below results in **0 heap allocations** on the hot path.
 
 | Operation | Performance | Allocs | Technical Mechanism |
 | :--- | :--- | :--- | :--- |
-| **Add Next Component** | **35.89 ns/op** | **0** | Archetype migration (move + insert) |
-| **Add Tag** | **34.11 ns/op** | **0** | Archetype migration (metadata only) |
-| **Remove Component** | **7.48 ns/op** | **0** | Archetype migration (swap-and-pop) |
-| **Remove Entity (clean)** | **2.67 ns/op** | **0** | Index recycling |
-| **Add/Remove Stability** | **86.44 ns/op** | 4 | Stress test (forced archetype churn) |
-| **Get Component** | **4.70 ns/op** | **0** | Inlined record lookup + generation check |
-| **Get Component (Safe)** | **8.72 ns/op** | **0** | Adds reflection-based type validation |
-| **Get Component via View.Filter** | **4.61 ns/op** | **0** | Single-entity Filter for type-safe access |
+| **Add Next Component** | **36.08 ns/op** | **0** | Archetype migration (move + insert) |
+| **Add Tag** | **33.96 ns/op** | **0** | Archetype migration (metadata only) |
+| **Remove Component** | **7.58 ns/op** | **0** | Archetype migration (swap-and-pop) |
+| **Remove Entity (clean)** | **2.83 ns/op** | **0** | Index recycling |
+| **Add/Remove Stability** | **92.82 ns/op** | 4 | Stress test (forced archetype churn) |
+| **Get Component** | **4.67 ns/op** | **0** | Inlined record lookup + generation check |
+| **Get Component (Safe)** | **8.19 ns/op** | **0** | Adds reflection-based type validation |
+| **Get Component via View.Filter** | **4.24 ns/op** | **0** | Single-entity Filter for type-safe access |
 
 ### Batch Entity Creation (1024 entities per call)
 
 | Components | Total ns/op | ns/entity | Allocs |
 | :--- | :--- | :--- | :--- |
-| **1 comp** | 13,483 | **13.17** | 4 |
-| **2 comp** | 10,381 | **10.14** | 4 |
-| **3 comp** | 12,533 | **12.24** | 4 |
-| **4 comp** | 14,439 | **14.10** | 4 |
-| **5 comp** | 15,529 | **15.16** | 4 |
-| **6 comp** | 16,449 | **16.06** | 4 |
-| **7 comp** | 17,984 | **17.56** | 5 |
-| **8 comp** | 21,240 | **20.74** | 5 |
-| **9 comp** | 23,909 | **23.35** | 5 |
-| **10 comp** | 25,044 | **24.46** | 5 |
+| **1 comp** | 10,972 | **10.71** | 4 |
+| **2 comp** | 11,567 | **11.30** | 4 |
+| **3 comp** | 9,103 | **8.89** | 4 |
+| **4 comp** | 8,572 | **8.37** | 4 |
+| **5 comp** | 7,982 | **7.80** | 4 |
+| **6 comp** | 9,216 | **9.00** | 4 |
+| **7 comp** | 11,721 | **11.45** | 4 |
+| **8 comp** | 12,388 | **12.10** | 4 |
+| **9 comp** | 20,738 | **20.25** | 4 |
+| **10 comp** | 15,771 | **15.40** | 4 |
 
-### View.All (full archetype scan, SoA pages, 1k entities)
+### View.All (full archetype scan, SoA pages, 1024 entities)
 
 | Components | Total ns/op | ns/entity |
 | :--- | :--- | :--- |
-| **View0** (Entity only) | 336.8 | **0.34** |
-| **View1** | 345.6 | **0.35** |
-| **View2** | 491.0 | **0.49** |
-| **View3** | 653.6 | **0.65** |
-| **View4** | 812.4 | **0.81** |
-| **View5** | 971.0 | **0.97** |
-| **View6** | 1,143 | **1.14** |
-| **View7** | 1,374 | **1.37** |
-| **View8** | 1,573 | **1.57** |
-| **View9** | 1,768 | **1.77** |
-| **View10** | 1,960 | **1.96** |
+| **View0** (Entity only) | 346.6 | **0.35** |
+| **View1** | 358.9 | **0.36** |
+| **View2** | 515.5 | **0.52** |
+| **View3** | 679.5 | **0.68** |
+| **View4** | 854.5 | **0.85** |
+| **View5** | 1,020 | **1.02** |
+| **View6** | 1,176 | **1.18** |
+| **View7** | 1,436 | **1.44** |
+| **View8** | 1,637 | **1.64** |
+| **View9** | 1,831 | **1.83** |
+| **View10** | 2,058 | **2.06** |
 
-### View.Filter (per-entity subset iteration, N=100 from 1k pool)
+### View.Filter (per-entity subset iteration, N=100 from 1024 pool)
 Yields `iter.Seq2[int, struct{Entity, Comp1, ...}]` — the index is the position in the input `selected` slice, so callers can correlate results and detect skipped entities (not matching the view or already removed).
 
 | Components | sorted | shuffled |
 | :--- | :--- | :--- |
-| **View1** | 4.22 ns/ent | 4.23 ns/ent |
-| **View2** | 4.74 ns/ent | 4.68 ns/ent |
-| **View3** | 5.53 ns/ent | 5.58 ns/ent |
-| **View4** | 6.37 ns/ent | 6.38 ns/ent |
-| **View5** | 7.39 ns/ent | 7.38 ns/ent |
-| **View6** | 8.03 ns/ent | 8.05 ns/ent |
-| **View7** | 9.03 ns/ent | 8.90 ns/ent |
-| **View8** | 9.34 ns/ent | 9.55 ns/ent |
-| **View9** | 10.54 ns/ent | 10.61 ns/ent |
-| **View10** | 10.90 ns/ent | 10.93 ns/ent |
+| **View0** | 3.20 ns/ent | 3.15 ns/ent |
+| **View1** | 4.31 ns/ent | 4.32 ns/ent |
+| **View2** | 4.75 ns/ent | 4.79 ns/ent |
+| **View3** | 5.58 ns/ent | 5.50 ns/ent |
+| **View4** | 6.45 ns/ent | 6.40 ns/ent |
+| **View5** | 7.42 ns/ent | 7.46 ns/ent |
+| **View6** | 8.10 ns/ent | 8.17 ns/ent |
+| **View7** | 9.27 ns/ent | 9.09 ns/ent |
+| **View8** | 9.79 ns/ent | 9.86 ns/ent |
+| **View9** | 10.78 ns/ent | 10.84 ns/ent |
+| **View10** | 11.27 ns/ent | 11.33 ns/ent |
 
 ### Key Technical Takeaways
 * **Constant per-entity lookup:** `Filter` cost stays around 4.2 ns/entity (1 component) regardless of registry size — the index lookup is direct via record array; only the requested subset size matters.

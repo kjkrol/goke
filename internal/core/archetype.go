@@ -168,7 +168,7 @@ func (a *Archetype) SwapRemoveEntity(targetChunkIdx PageIdx, targetRow PageRow) 
 	// 1. Get the real, verified tail
 	lastChunkIdx, lastChunk := a.Memory.ResolveTail()
 	lastRow := PageRow(lastChunk.Len - 1) // Safe now because lastChunk.Len > 0
-	targetChunk := a.Memory.Pages[targetChunkIdx]
+	targetChunk := &a.Memory.Pages[targetChunkIdx]
 
 	// 2. Case: Removing the last entity of the archetype
 	if targetChunkIdx == lastChunkIdx && targetRow == lastRow {
