@@ -16,6 +16,7 @@ type CollisionSystem struct {
 	collisionView    *goke.View3[Position, Velocity, Collision]
 	contactsBuffer   []Contact
 	contactsEntities []goke.Entity
+	seenPairs        map[uint64]struct{} // dedup Contactów per (EntityA.Index, EntityB.Index) - klucz: idxA<<32 | idxB
 }
 
 func NewCollisionSystem(resouces *Resources) goke.System {
@@ -26,13 +27,15 @@ func NewCollisionSystem(resouces *Resources) goke.System {
 
 func (s *CollisionSystem) Init(ecs *goke.ECS) {
 	s.collisionView = goke.NewView3[Position, Velocity, Collision](ecs)
+	s.seenPairs = make(map[uint64]struct{}, 256)
 }
 
 func (s *CollisionSystem) Update(lookup goke.Lookup, sched *goke.Schedule, d time.Duration) {
-	const solverIterations = 8
-	const probeExpandMaring = 16
+	const solverIterations = 16
+	const probeExpandMaring = 32
 	s.contactsBuffer = s.contactsBuffer[:0]
 	s.contactsEntities = s.contactsEntities[:0]
+	clear(s.seenPairs)
 	s.broadPhase(sched, probeExpandMaring)
 
 	s.narrowPhase(solverIterations)
@@ -48,17 +51,28 @@ func (s *CollisionSystem) broadPhase(sched *goke.Schedule, probeExpandMargin uin
 				s.space.Query(boxA, func(idB uint64, fragB plane.FragPosition) {
 					entityB := goke.Entity(idB)
 
-					if entityA.Index() < entityB.Index() {
-						s.contactsEntities = append(s.contactsEntities, entityB)
-						s.contactsBuffer = append(s.contactsBuffer, Contact{
-							EntityA: entityA, EntityB: entityB,
-							PosA:  pos,
-							VelA:  vel,
-							ColA:  col,
-							FragA: fragA,
-							FragB: fragB,
-						})
+					if entityA.Index() >= entityB.Index() {
+						return
 					}
+					// Dedup: dla pary (A, B) z fragmentami Query może trafiać kilka kombinacji
+					// (np. A.MAIN-B.MAIN, A.MAIN-B.FRAG_RIGHT, A.FRAG_RIGHT-B.MAIN, ...).
+					// Bez tej deduplikacji powstaje kilka Contactów dla jednej pary entities,
+					// co prowadzi do wielokrotnego swap velocity = parzysta liczba swapów = no change.
+					key := uint64(entityA.Index())<<32 | uint64(entityB.Index())
+					if _, exists := s.seenPairs[key]; exists {
+						return
+					}
+					s.seenPairs[key] = struct{}{}
+
+					s.contactsEntities = append(s.contactsEntities, entityB)
+					s.contactsBuffer = append(s.contactsBuffer, Contact{
+						EntityA: entityA, EntityB: entityB,
+						PosA:  pos,
+						VelA:  vel,
+						ColA:  col,
+						FragA: fragA,
+						FragB: fragB,
+					})
 				})
 			}
 
@@ -87,9 +101,7 @@ func (s *CollisionSystem) narrowPhase(solverIterations int) {
 		for i := range s.contactsBuffer {
 			contact := &s.contactsBuffer[i]
 
-			boxA := contact.freshBoxA()
-			boxB := contact.freshBoxB()
-			penetrationVec := contact.penetration(boxA, boxB)
+			boxA, boxB, penetrationVec := contact.findActiveCollision()
 
 			if penetrationVec.X == 0 && penetrationVec.Y == 0 {
 				continue
@@ -136,36 +148,57 @@ func (c *Contact) updateStats(now time.Time) {
 	c.ColB.counter++
 }
 
-func (c *Contact) freshBoxA() geom.AABB[uint32] {
-	if c.FragA == plane.FRAG_MAIN {
-		return c.PosA.AABB.AABB
+// findActiveCollision iteruje przez wszystkie kombinacje (mainBoxA + fragmenty A) ×
+// (mainBoxB + fragmenty B) i zwraca tę kombinację boxów wraz z penetracją, która ma
+// największą "siłę kolizji" (|pen.X| + |pen.Y|). Jeśli żadna kombinacja nie ma overlapu,
+// zwraca zerowe wartości.
+//
+// Po push-apart między iteracjami solwera geometria może się zmienić: fragment użyty
+// pierwotnie w broadphase znika (bo obiekt już nie wystaje za krawędź), ale obiekty
+// wciąż mogą się przecinać przez mainBoxy lub inne kombinacje fragmentów. Statyczne
+// freshBoxA/freshBoxB zamrażały oryginalny FragA/FragB → traciły takie zmiany.
+func (c *Contact) findActiveCollision() (boxA, boxB geom.AABB[uint32], pen geom.Vec[int32]) {
+	bestArea := int32(0)
+
+	visitA := func(bA geom.AABB[uint32]) {
+		visitB := func(bB geom.AABB[uint32]) {
+			p := c.penetration(bA, bB)
+			if p.X == 0 && p.Y == 0 {
+				return
+			}
+			area := abs32(p.X) + abs32(p.Y)
+			if area > bestArea {
+				bestArea = area
+				boxA = bA
+				boxB = bB
+				pen = p
+			}
+		}
+		// B.MAIN
+		visitB(c.PosB.AABB.AABB)
+		// B fragmenty (jeśli są)
+		c.PosB.AABB.VisitFragments(func(_ plane.FragPosition, b geom.AABB[uint32]) bool {
+			visitB(b)
+			return true
+		})
 	}
 
-	var freshBox geom.AABB[uint32]
-	c.PosA.AABB.VisitFragments(func(fp plane.FragPosition, b geom.AABB[uint32]) bool {
-		if fp == c.FragA {
-			freshBox = b
-			return false
-		}
+	// A.MAIN
+	visitA(c.PosA.AABB.AABB)
+	// A fragmenty (jeśli są)
+	c.PosA.AABB.VisitFragments(func(_ plane.FragPosition, b geom.AABB[uint32]) bool {
+		visitA(b)
 		return true
 	})
-	return freshBox
+
+	return
 }
 
-func (c *Contact) freshBoxB() geom.AABB[uint32] {
-	if c.FragB == plane.FRAG_MAIN {
-		return c.PosB.AABB.AABB
+func abs32(x int32) int32 {
+	if x < 0 {
+		return -x
 	}
-
-	var freshBox geom.AABB[uint32]
-	c.PosB.AABB.VisitFragments(func(fp plane.FragPosition, b geom.AABB[uint32]) bool {
-		if fp == c.FragB {
-			freshBox = b
-			return false
-		}
-		return true
-	})
-	return freshBox
+	return x
 }
 
 // resolveVelocity przetwarza fizykę odbicia AABB
