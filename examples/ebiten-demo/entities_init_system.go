@@ -45,7 +45,7 @@ func (s *EntitiesInitSystem) Init(ecs *goke.ECS) {
 			spawnEntity(entity, position, velocity, collision, appearance,
 				cellWidth, cellHeight, row, col)
 
-			s.space.Insert(uint64(entity.Index()), position.AABB)
+			s.space.Insert(uint64(entity), position.AABB)
 			index++
 		}
 	}
@@ -94,6 +94,7 @@ func spawnEntity(
 	*collistion = Collision{}
 
 	*appearance = Appearance{
-		Color: color.RGBA{R: 255, G: 255, B: 255, A: 255},
+		Color:    color.RGBA{R: uint8(rand.IntN(206) + 50), G: uint8(rand.IntN(206) + 50), B: uint8(rand.IntN(206) + 50), A: 255},
+		SpriteID: uint8(rand.IntN(SpriteCount)),
 	}
 }

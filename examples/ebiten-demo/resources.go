@@ -8,12 +8,12 @@ import (
 
 // --- Configuration ---
 const (
-	TPS            = 60 * 2
+	TPS            = 60
 	ScreenWidth    = 1024
 	ScreenHeight   = 1024
-	RectSize       = 16
+	RectSize       = 64 // can not exceed edge of Config.BucketSize
 	BucketCapacity = 32
-	EntityCount    = 256
+	EntityCount    = 128
 )
 
 type Statistics struct {
@@ -29,16 +29,17 @@ type Resources struct {
 	rectSize  int
 	inputs    gokebiten.InputEvents
 	Statistics
+	gamePause bool
 }
 
-var _ (gokebiten.Resources) = (*Resources)(nil)
+var _ gokebiten.Resources = (*Resources)(nil)
 
 func NewResources() *Resources {
 	space, _ := gokg.NewSpace(gokg.Config{
 		Width:          ScreenWidth,
 		Height:         ScreenHeight,
 		Toroidal:       true,
-		BucketSize:     spatial.Size64x64,
+		BucketSize:     spatial.ResolutionFrom(RectSize * 2),
 		BucketCapacity: BucketCapacity,
 		OpsBufferSize:  EntityCount * 4,
 	})

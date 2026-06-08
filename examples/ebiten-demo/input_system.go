@@ -26,7 +26,7 @@ func (s *InputSystem) Update(lookup goke.Lookup, sched *goke.Schedule, d time.Du
 
 	for _, keyEvent := range events.KeyEvents {
 		if keyEvent.Key == ebiten.KeySpace && keyEvent.Action == gokebiten.ActionPress {
-			println("Space pressed")
+			s.gamePause = !s.gamePause
 		}
 	}
 

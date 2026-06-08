@@ -29,7 +29,7 @@ func (s *CollisionSystem) Init(ecs *goke.ECS) {
 }
 
 func (s *CollisionSystem) Update(lookup goke.Lookup, sched *goke.Schedule, d time.Duration) {
-	const solverIterations = 3
+	const solverIterations = 8
 	const probeExpandMaring = 16
 	s.contactsBuffer = s.contactsBuffer[:0]
 	s.contactsEntities = s.contactsEntities[:0]
@@ -43,9 +43,6 @@ func (s *CollisionSystem) broadPhase(sched *goke.Schedule, probeExpandMargin uin
 	for page := range s.collisionView.All() {
 		for i, entityA := range page.Entity {
 			pos, vel, col := &page.Comp1[i], &page.Comp2[i], &page.Comp3[i]
-			if vel.X == 0 && vel.Y == 0 {
-				continue
-			}
 
 			checkFunc := func(boxA geom.AABB[uint32], fragA plane.FragPosition) {
 				s.space.Query(boxA, func(idB uint64, fragB plane.FragPosition) {
@@ -59,6 +56,7 @@ func (s *CollisionSystem) broadPhase(sched *goke.Schedule, probeExpandMargin uin
 							VelA:  vel,
 							ColA:  col,
 							FragA: fragA,
+							FragB: fragB,
 						})
 					}
 				})
@@ -86,7 +84,8 @@ func (s *CollisionSystem) narrowPhase(solverIterations int) {
 	}
 
 	for iter := 0; iter < solverIterations; iter++ {
-		for _, contact := range s.contactsBuffer {
+		for i := range s.contactsBuffer {
+			contact := &s.contactsBuffer[i]
 
 			boxA := contact.freshBoxA()
 			boxB := contact.freshBoxB()
@@ -106,8 +105,8 @@ func (s *CollisionSystem) narrowPhase(solverIterations int) {
 
 			if mtv1, mtv2, ok := contact.calculateMtv(boxA, boxB, false); ok == true {
 				// tu zmienia Pos (dla A i B) (componenty z ECS!)
-				s.space.Translate(uint64(contact.EntityA.Index()), &contact.PosA.AABB, mtv1)
-				s.space.Translate(uint64(contact.EntityB.Index()), &contact.PosB.AABB, mtv2)
+				s.space.Translate(uint64(contact.EntityA), &contact.PosA.AABB, mtv1)
+				s.space.Translate(uint64(contact.EntityB), &contact.PosB.AABB, mtv2)
 			}
 		}
 	}

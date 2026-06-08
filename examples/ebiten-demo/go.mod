@@ -5,7 +5,7 @@ go 1.26.3
 require (
 	github.com/hajimehoshi/ebiten/v2 v2.9.8
 	github.com/kjkrol/goke v0.0.0-00010101000000-000000000000
-	github.com/kjkrol/gokg v1.2.11
+	github.com/kjkrol/gokg v1.2.12
 )
 
 require (
