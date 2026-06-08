@@ -12,9 +12,10 @@ type PageRow uint32
 //------------------------------------------------------------------------------
 
 type Memo struct {
-	Pages  []Page
-	Layout PageLayout
-	Len    uint32
+	Pages    []Page
+	Layout   PageLayout
+	Len      uint32
+	Reserved PageIdx
 }
 
 func (b *Memo) Init(compInfos []ComponentInfo) {
@@ -73,17 +74,19 @@ func (b *Memo) AddPages(n int) {
 // It performs a "sanity check" by truncating any empty trailing pages from the Pages slice.
 func (b *Memo) ResolveTail() (PageIdx, *Page) {
 	lastIdx := len(b.Pages) - 1
+	floor := int(b.Reserved)
 
-	// Loop backwards to remove empty trailing pages.
-	// We keep at least one page (index 0) even if it's empty.
-	for lastIdx > 0 && b.Pages[lastIdx].Len == 0 {
-		// Optional: you could clear(b.Pages[lastIdx].data) here if
-		// you want to be ultra-aggressive with GC, but Clear() should handle it.
+	for lastIdx > floor && b.Pages[lastIdx].Len == 0 {
 		b.Pages = b.Pages[:lastIdx]
 		lastIdx--
 	}
 
-	return PageIdx(lastIdx), &b.Pages[lastIdx]
+	tailIdx := lastIdx
+	for tailIdx > 0 && b.Pages[tailIdx].Len == 0 {
+		tailIdx--
+	}
+
+	return PageIdx(tailIdx), &b.Pages[tailIdx]
 }
 
 func (b *Memo) Clear() {
