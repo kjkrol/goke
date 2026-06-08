@@ -88,10 +88,31 @@ func (b *Blueprint1[T1]) Create(count int) iter.Seq[struct {
 		Entity []Entity
 		Comp1 []T1
 	}) bool) {
-		for remaining > 0 {
-			page, pageIdx, startRow, allocatedRows := memo.AllocBatch(remaining)
+		pageIdx := core.PageIdx(len(memo.Pages) - 1)
+		page := &memo.Pages[pageIdx]
+		available := int(memo.Layout.PageCap) - int(page.Len)
 
-			for i := 0; i < int(allocatedRows); i++ {
+		if available == 0 {
+			pagesNeeded := (remaining + int(memo.Layout.PageCap) - 1) / int(memo.Layout.PageCap)
+			memo.AddPages(pagesNeeded)
+			pageIdx++
+			page = &memo.Pages[pageIdx]
+			available = int(memo.Layout.PageCap)
+		} else {
+			pagesNeeded := (remaining - available + int(memo.Layout.PageCap) - 1) / int(memo.Layout.PageCap)
+			if pagesNeeded > 0 {
+				memo.AddPages(pagesNeeded)
+				page = &memo.Pages[pageIdx]
+			}
+		}
+
+		for remaining > 0 {
+			allocatedRows := min(remaining, available)
+			startRow := page.Len
+			page.Len += core.PageRow(allocatedRows)
+			memo.Len += uint32(allocatedRows)
+
+			for i := 0; i < allocatedRows; i++ {
 				entity := reg.EntityPool.Next()
 				pageRow := startRow + core.PageRow(i)
 				destPtr := entityCol.GetPointer(page, pageRow)
@@ -110,7 +131,12 @@ func (b *Blueprint1[T1]) Create(count int) iter.Seq[struct {
 				return
 			}
 
-			remaining -= int(allocatedRows)
+			remaining -= allocatedRows
+			if remaining > 0 {
+				pageIdx++
+				page = &memo.Pages[pageIdx]
+				available = int(memo.Layout.PageCap)
+			}
 		}
 	}
 }
@@ -197,10 +223,31 @@ func (b *Blueprint2[T1, T2]) Create(count int) iter.Seq[struct {
 		Comp1 []T1
 		Comp2 []T2
 	}) bool) {
-		for remaining > 0 {
-			page, pageIdx, startRow, allocatedRows := memo.AllocBatch(remaining)
+		pageIdx := core.PageIdx(len(memo.Pages) - 1)
+		page := &memo.Pages[pageIdx]
+		available := int(memo.Layout.PageCap) - int(page.Len)
 
-			for i := 0; i < int(allocatedRows); i++ {
+		if available == 0 {
+			pagesNeeded := (remaining + int(memo.Layout.PageCap) - 1) / int(memo.Layout.PageCap)
+			memo.AddPages(pagesNeeded)
+			pageIdx++
+			page = &memo.Pages[pageIdx]
+			available = int(memo.Layout.PageCap)
+		} else {
+			pagesNeeded := (remaining - available + int(memo.Layout.PageCap) - 1) / int(memo.Layout.PageCap)
+			if pagesNeeded > 0 {
+				memo.AddPages(pagesNeeded)
+				page = &memo.Pages[pageIdx]
+			}
+		}
+
+		for remaining > 0 {
+			allocatedRows := min(remaining, available)
+			startRow := page.Len
+			page.Len += core.PageRow(allocatedRows)
+			memo.Len += uint32(allocatedRows)
+
+			for i := 0; i < allocatedRows; i++ {
 				entity := reg.EntityPool.Next()
 				pageRow := startRow + core.PageRow(i)
 				destPtr := entityCol.GetPointer(page, pageRow)
@@ -221,7 +268,12 @@ func (b *Blueprint2[T1, T2]) Create(count int) iter.Seq[struct {
 				return
 			}
 
-			remaining -= int(allocatedRows)
+			remaining -= allocatedRows
+			if remaining > 0 {
+				pageIdx++
+				page = &memo.Pages[pageIdx]
+				available = int(memo.Layout.PageCap)
+			}
 		}
 	}
 }
@@ -313,10 +365,31 @@ func (b *Blueprint3[T1, T2, T3]) Create(count int) iter.Seq[struct {
 		Comp2 []T2
 		Comp3 []T3
 	}) bool) {
-		for remaining > 0 {
-			page, pageIdx, startRow, allocatedRows := memo.AllocBatch(remaining)
+		pageIdx := core.PageIdx(len(memo.Pages) - 1)
+		page := &memo.Pages[pageIdx]
+		available := int(memo.Layout.PageCap) - int(page.Len)
 
-			for i := 0; i < int(allocatedRows); i++ {
+		if available == 0 {
+			pagesNeeded := (remaining + int(memo.Layout.PageCap) - 1) / int(memo.Layout.PageCap)
+			memo.AddPages(pagesNeeded)
+			pageIdx++
+			page = &memo.Pages[pageIdx]
+			available = int(memo.Layout.PageCap)
+		} else {
+			pagesNeeded := (remaining - available + int(memo.Layout.PageCap) - 1) / int(memo.Layout.PageCap)
+			if pagesNeeded > 0 {
+				memo.AddPages(pagesNeeded)
+				page = &memo.Pages[pageIdx]
+			}
+		}
+
+		for remaining > 0 {
+			allocatedRows := min(remaining, available)
+			startRow := page.Len
+			page.Len += core.PageRow(allocatedRows)
+			memo.Len += uint32(allocatedRows)
+
+			for i := 0; i < allocatedRows; i++ {
 				entity := reg.EntityPool.Next()
 				pageRow := startRow + core.PageRow(i)
 				destPtr := entityCol.GetPointer(page, pageRow)
@@ -339,7 +412,12 @@ func (b *Blueprint3[T1, T2, T3]) Create(count int) iter.Seq[struct {
 				return
 			}
 
-			remaining -= int(allocatedRows)
+			remaining -= allocatedRows
+			if remaining > 0 {
+				pageIdx++
+				page = &memo.Pages[pageIdx]
+				available = int(memo.Layout.PageCap)
+			}
 		}
 	}
 }
@@ -436,10 +514,31 @@ func (b *Blueprint4[T1, T2, T3, T4]) Create(count int) iter.Seq[struct {
 		Comp3 []T3
 		Comp4 []T4
 	}) bool) {
-		for remaining > 0 {
-			page, pageIdx, startRow, allocatedRows := memo.AllocBatch(remaining)
+		pageIdx := core.PageIdx(len(memo.Pages) - 1)
+		page := &memo.Pages[pageIdx]
+		available := int(memo.Layout.PageCap) - int(page.Len)
 
-			for i := 0; i < int(allocatedRows); i++ {
+		if available == 0 {
+			pagesNeeded := (remaining + int(memo.Layout.PageCap) - 1) / int(memo.Layout.PageCap)
+			memo.AddPages(pagesNeeded)
+			pageIdx++
+			page = &memo.Pages[pageIdx]
+			available = int(memo.Layout.PageCap)
+		} else {
+			pagesNeeded := (remaining - available + int(memo.Layout.PageCap) - 1) / int(memo.Layout.PageCap)
+			if pagesNeeded > 0 {
+				memo.AddPages(pagesNeeded)
+				page = &memo.Pages[pageIdx]
+			}
+		}
+
+		for remaining > 0 {
+			allocatedRows := min(remaining, available)
+			startRow := page.Len
+			page.Len += core.PageRow(allocatedRows)
+			memo.Len += uint32(allocatedRows)
+
+			for i := 0; i < allocatedRows; i++ {
 				entity := reg.EntityPool.Next()
 				pageRow := startRow + core.PageRow(i)
 				destPtr := entityCol.GetPointer(page, pageRow)
@@ -464,7 +563,12 @@ func (b *Blueprint4[T1, T2, T3, T4]) Create(count int) iter.Seq[struct {
 				return
 			}
 
-			remaining -= int(allocatedRows)
+			remaining -= allocatedRows
+			if remaining > 0 {
+				pageIdx++
+				page = &memo.Pages[pageIdx]
+				available = int(memo.Layout.PageCap)
+			}
 		}
 	}
 }
@@ -566,10 +670,31 @@ func (b *Blueprint5[T1, T2, T3, T4, T5]) Create(count int) iter.Seq[struct {
 		Comp4 []T4
 		Comp5 []T5
 	}) bool) {
-		for remaining > 0 {
-			page, pageIdx, startRow, allocatedRows := memo.AllocBatch(remaining)
+		pageIdx := core.PageIdx(len(memo.Pages) - 1)
+		page := &memo.Pages[pageIdx]
+		available := int(memo.Layout.PageCap) - int(page.Len)
 
-			for i := 0; i < int(allocatedRows); i++ {
+		if available == 0 {
+			pagesNeeded := (remaining + int(memo.Layout.PageCap) - 1) / int(memo.Layout.PageCap)
+			memo.AddPages(pagesNeeded)
+			pageIdx++
+			page = &memo.Pages[pageIdx]
+			available = int(memo.Layout.PageCap)
+		} else {
+			pagesNeeded := (remaining - available + int(memo.Layout.PageCap) - 1) / int(memo.Layout.PageCap)
+			if pagesNeeded > 0 {
+				memo.AddPages(pagesNeeded)
+				page = &memo.Pages[pageIdx]
+			}
+		}
+
+		for remaining > 0 {
+			allocatedRows := min(remaining, available)
+			startRow := page.Len
+			page.Len += core.PageRow(allocatedRows)
+			memo.Len += uint32(allocatedRows)
+
+			for i := 0; i < allocatedRows; i++ {
 				entity := reg.EntityPool.Next()
 				pageRow := startRow + core.PageRow(i)
 				destPtr := entityCol.GetPointer(page, pageRow)
@@ -596,7 +721,12 @@ func (b *Blueprint5[T1, T2, T3, T4, T5]) Create(count int) iter.Seq[struct {
 				return
 			}
 
-			remaining -= int(allocatedRows)
+			remaining -= allocatedRows
+			if remaining > 0 {
+				pageIdx++
+				page = &memo.Pages[pageIdx]
+				available = int(memo.Layout.PageCap)
+			}
 		}
 	}
 }
@@ -703,10 +833,31 @@ func (b *Blueprint6[T1, T2, T3, T4, T5, T6]) Create(count int) iter.Seq[struct {
 		Comp5 []T5
 		Comp6 []T6
 	}) bool) {
-		for remaining > 0 {
-			page, pageIdx, startRow, allocatedRows := memo.AllocBatch(remaining)
+		pageIdx := core.PageIdx(len(memo.Pages) - 1)
+		page := &memo.Pages[pageIdx]
+		available := int(memo.Layout.PageCap) - int(page.Len)
 
-			for i := 0; i < int(allocatedRows); i++ {
+		if available == 0 {
+			pagesNeeded := (remaining + int(memo.Layout.PageCap) - 1) / int(memo.Layout.PageCap)
+			memo.AddPages(pagesNeeded)
+			pageIdx++
+			page = &memo.Pages[pageIdx]
+			available = int(memo.Layout.PageCap)
+		} else {
+			pagesNeeded := (remaining - available + int(memo.Layout.PageCap) - 1) / int(memo.Layout.PageCap)
+			if pagesNeeded > 0 {
+				memo.AddPages(pagesNeeded)
+				page = &memo.Pages[pageIdx]
+			}
+		}
+
+		for remaining > 0 {
+			allocatedRows := min(remaining, available)
+			startRow := page.Len
+			page.Len += core.PageRow(allocatedRows)
+			memo.Len += uint32(allocatedRows)
+
+			for i := 0; i < allocatedRows; i++ {
 				entity := reg.EntityPool.Next()
 				pageRow := startRow + core.PageRow(i)
 				destPtr := entityCol.GetPointer(page, pageRow)
@@ -735,7 +886,12 @@ func (b *Blueprint6[T1, T2, T3, T4, T5, T6]) Create(count int) iter.Seq[struct {
 				return
 			}
 
-			remaining -= int(allocatedRows)
+			remaining -= allocatedRows
+			if remaining > 0 {
+				pageIdx++
+				page = &memo.Pages[pageIdx]
+				available = int(memo.Layout.PageCap)
+			}
 		}
 	}
 }
@@ -847,10 +1003,31 @@ func (b *Blueprint7[T1, T2, T3, T4, T5, T6, T7]) Create(count int) iter.Seq[stru
 		Comp6 []T6
 		Comp7 []T7
 	}) bool) {
-		for remaining > 0 {
-			page, pageIdx, startRow, allocatedRows := memo.AllocBatch(remaining)
+		pageIdx := core.PageIdx(len(memo.Pages) - 1)
+		page := &memo.Pages[pageIdx]
+		available := int(memo.Layout.PageCap) - int(page.Len)
 
-			for i := 0; i < int(allocatedRows); i++ {
+		if available == 0 {
+			pagesNeeded := (remaining + int(memo.Layout.PageCap) - 1) / int(memo.Layout.PageCap)
+			memo.AddPages(pagesNeeded)
+			pageIdx++
+			page = &memo.Pages[pageIdx]
+			available = int(memo.Layout.PageCap)
+		} else {
+			pagesNeeded := (remaining - available + int(memo.Layout.PageCap) - 1) / int(memo.Layout.PageCap)
+			if pagesNeeded > 0 {
+				memo.AddPages(pagesNeeded)
+				page = &memo.Pages[pageIdx]
+			}
+		}
+
+		for remaining > 0 {
+			allocatedRows := min(remaining, available)
+			startRow := page.Len
+			page.Len += core.PageRow(allocatedRows)
+			memo.Len += uint32(allocatedRows)
+
+			for i := 0; i < allocatedRows; i++ {
 				entity := reg.EntityPool.Next()
 				pageRow := startRow + core.PageRow(i)
 				destPtr := entityCol.GetPointer(page, pageRow)
@@ -881,7 +1058,12 @@ func (b *Blueprint7[T1, T2, T3, T4, T5, T6, T7]) Create(count int) iter.Seq[stru
 				return
 			}
 
-			remaining -= int(allocatedRows)
+			remaining -= allocatedRows
+			if remaining > 0 {
+				pageIdx++
+				page = &memo.Pages[pageIdx]
+				available = int(memo.Layout.PageCap)
+			}
 		}
 	}
 }
@@ -998,10 +1180,31 @@ func (b *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]) Create(count int) iter.Seq[
 		Comp7 []T7
 		Comp8 []T8
 	}) bool) {
-		for remaining > 0 {
-			page, pageIdx, startRow, allocatedRows := memo.AllocBatch(remaining)
+		pageIdx := core.PageIdx(len(memo.Pages) - 1)
+		page := &memo.Pages[pageIdx]
+		available := int(memo.Layout.PageCap) - int(page.Len)
 
-			for i := 0; i < int(allocatedRows); i++ {
+		if available == 0 {
+			pagesNeeded := (remaining + int(memo.Layout.PageCap) - 1) / int(memo.Layout.PageCap)
+			memo.AddPages(pagesNeeded)
+			pageIdx++
+			page = &memo.Pages[pageIdx]
+			available = int(memo.Layout.PageCap)
+		} else {
+			pagesNeeded := (remaining - available + int(memo.Layout.PageCap) - 1) / int(memo.Layout.PageCap)
+			if pagesNeeded > 0 {
+				memo.AddPages(pagesNeeded)
+				page = &memo.Pages[pageIdx]
+			}
+		}
+
+		for remaining > 0 {
+			allocatedRows := min(remaining, available)
+			startRow := page.Len
+			page.Len += core.PageRow(allocatedRows)
+			memo.Len += uint32(allocatedRows)
+
+			for i := 0; i < allocatedRows; i++ {
 				entity := reg.EntityPool.Next()
 				pageRow := startRow + core.PageRow(i)
 				destPtr := entityCol.GetPointer(page, pageRow)
@@ -1034,7 +1237,12 @@ func (b *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]) Create(count int) iter.Seq[
 				return
 			}
 
-			remaining -= int(allocatedRows)
+			remaining -= allocatedRows
+			if remaining > 0 {
+				pageIdx++
+				page = &memo.Pages[pageIdx]
+				available = int(memo.Layout.PageCap)
+			}
 		}
 	}
 }
@@ -1156,10 +1364,31 @@ func (b *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Create(count int) iter.
 		Comp8 []T8
 		Comp9 []T9
 	}) bool) {
-		for remaining > 0 {
-			page, pageIdx, startRow, allocatedRows := memo.AllocBatch(remaining)
+		pageIdx := core.PageIdx(len(memo.Pages) - 1)
+		page := &memo.Pages[pageIdx]
+		available := int(memo.Layout.PageCap) - int(page.Len)
 
-			for i := 0; i < int(allocatedRows); i++ {
+		if available == 0 {
+			pagesNeeded := (remaining + int(memo.Layout.PageCap) - 1) / int(memo.Layout.PageCap)
+			memo.AddPages(pagesNeeded)
+			pageIdx++
+			page = &memo.Pages[pageIdx]
+			available = int(memo.Layout.PageCap)
+		} else {
+			pagesNeeded := (remaining - available + int(memo.Layout.PageCap) - 1) / int(memo.Layout.PageCap)
+			if pagesNeeded > 0 {
+				memo.AddPages(pagesNeeded)
+				page = &memo.Pages[pageIdx]
+			}
+		}
+
+		for remaining > 0 {
+			allocatedRows := min(remaining, available)
+			startRow := page.Len
+			page.Len += core.PageRow(allocatedRows)
+			memo.Len += uint32(allocatedRows)
+
+			for i := 0; i < allocatedRows; i++ {
 				entity := reg.EntityPool.Next()
 				pageRow := startRow + core.PageRow(i)
 				destPtr := entityCol.GetPointer(page, pageRow)
@@ -1194,7 +1423,12 @@ func (b *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Create(count int) iter.
 				return
 			}
 
-			remaining -= int(allocatedRows)
+			remaining -= allocatedRows
+			if remaining > 0 {
+				pageIdx++
+				page = &memo.Pages[pageIdx]
+				available = int(memo.Layout.PageCap)
+			}
 		}
 	}
 }
@@ -1321,10 +1555,31 @@ func (b *Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Create(count int)
 		Comp9 []T9
 		Comp10 []T10
 	}) bool) {
-		for remaining > 0 {
-			page, pageIdx, startRow, allocatedRows := memo.AllocBatch(remaining)
+		pageIdx := core.PageIdx(len(memo.Pages) - 1)
+		page := &memo.Pages[pageIdx]
+		available := int(memo.Layout.PageCap) - int(page.Len)
 
-			for i := 0; i < int(allocatedRows); i++ {
+		if available == 0 {
+			pagesNeeded := (remaining + int(memo.Layout.PageCap) - 1) / int(memo.Layout.PageCap)
+			memo.AddPages(pagesNeeded)
+			pageIdx++
+			page = &memo.Pages[pageIdx]
+			available = int(memo.Layout.PageCap)
+		} else {
+			pagesNeeded := (remaining - available + int(memo.Layout.PageCap) - 1) / int(memo.Layout.PageCap)
+			if pagesNeeded > 0 {
+				memo.AddPages(pagesNeeded)
+				page = &memo.Pages[pageIdx]
+			}
+		}
+
+		for remaining > 0 {
+			allocatedRows := min(remaining, available)
+			startRow := page.Len
+			page.Len += core.PageRow(allocatedRows)
+			memo.Len += uint32(allocatedRows)
+
+			for i := 0; i < allocatedRows; i++ {
 				entity := reg.EntityPool.Next()
 				pageRow := startRow + core.PageRow(i)
 				destPtr := entityCol.GetPointer(page, pageRow)
@@ -1361,7 +1616,12 @@ func (b *Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Create(count int)
 				return
 			}
 
-			remaining -= int(allocatedRows)
+			remaining -= allocatedRows
+			if remaining > 0 {
+				pageIdx++
+				page = &memo.Pages[pageIdx]
+				available = int(memo.Layout.PageCap)
+			}
 		}
 	}
 }

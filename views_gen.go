@@ -57,7 +57,8 @@ func (v *View1[T1]) All() iter.Seq[struct {
 		},
 	) bool) {
 		for _, ma := range v.Baked {
-			for _, page := range ma.Arch.Memory.Pages {
+			for i := range ma.Arch.Memory.Pages {
+				page := &ma.Arch.Memory.Pages[i]
 				count := page.Len
 				if count == 0 {
 					continue
@@ -102,7 +103,7 @@ func (v *View1[T1]) Filter(selected []Entity) iter.Seq2[int, struct {
 			if ma == nil {
 				continue
 			}
-			physPage := ma.Arch.Memory.Pages[link.PageIdx]
+			physPage := &ma.Arch.Memory.Pages[link.PageIdx]
 			row := uintptr(link.PageRow)
 			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(row*ma.CompSizes[0]))
 			if !yield(i, struct {
@@ -169,7 +170,8 @@ func (v *View2[T1, T2]) All() iter.Seq[struct {
 		},
 	) bool) {
 		for _, ma := range v.Baked {
-			for _, page := range ma.Arch.Memory.Pages {
+			for i := range ma.Arch.Memory.Pages {
+				page := &ma.Arch.Memory.Pages[i]
 				count := page.Len
 				if count == 0 {
 					continue
@@ -218,7 +220,7 @@ func (v *View2[T1, T2]) Filter(selected []Entity) iter.Seq2[int, struct {
 			if ma == nil {
 				continue
 			}
-			physPage := ma.Arch.Memory.Pages[link.PageIdx]
+			physPage := &ma.Arch.Memory.Pages[link.PageIdx]
 			row := uintptr(link.PageRow)
 			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(row*ma.CompSizes[0]))
 			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(row*ma.CompSizes[1]))
@@ -292,7 +294,8 @@ func (v *View3[T1, T2, T3]) All() iter.Seq[struct {
 		},
 	) bool) {
 		for _, ma := range v.Baked {
-			for _, page := range ma.Arch.Memory.Pages {
+			for i := range ma.Arch.Memory.Pages {
+				page := &ma.Arch.Memory.Pages[i]
 				count := page.Len
 				if count == 0 {
 					continue
@@ -345,7 +348,7 @@ func (v *View3[T1, T2, T3]) Filter(selected []Entity) iter.Seq2[int, struct {
 			if ma == nil {
 				continue
 			}
-			physPage := ma.Arch.Memory.Pages[link.PageIdx]
+			physPage := &ma.Arch.Memory.Pages[link.PageIdx]
 			row := uintptr(link.PageRow)
 			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(row*ma.CompSizes[0]))
 			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(row*ma.CompSizes[1]))
@@ -426,7 +429,8 @@ func (v *View4[T1, T2, T3, T4]) All() iter.Seq[struct {
 		},
 	) bool) {
 		for _, ma := range v.Baked {
-			for _, page := range ma.Arch.Memory.Pages {
+			for i := range ma.Arch.Memory.Pages {
+				page := &ma.Arch.Memory.Pages[i]
 				count := page.Len
 				if count == 0 {
 					continue
@@ -483,7 +487,7 @@ func (v *View4[T1, T2, T3, T4]) Filter(selected []Entity) iter.Seq2[int, struct 
 			if ma == nil {
 				continue
 			}
-			physPage := ma.Arch.Memory.Pages[link.PageIdx]
+			physPage := &ma.Arch.Memory.Pages[link.PageIdx]
 			row := uintptr(link.PageRow)
 			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(row*ma.CompSizes[0]))
 			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(row*ma.CompSizes[1]))
@@ -571,7 +575,8 @@ func (v *View5[T1, T2, T3, T4, T5]) All() iter.Seq[struct {
 		},
 	) bool) {
 		for _, ma := range v.Baked {
-			for _, page := range ma.Arch.Memory.Pages {
+			for i := range ma.Arch.Memory.Pages {
+				page := &ma.Arch.Memory.Pages[i]
 				count := page.Len
 				if count == 0 {
 					continue
@@ -632,7 +637,7 @@ func (v *View5[T1, T2, T3, T4, T5]) Filter(selected []Entity) iter.Seq2[int, str
 			if ma == nil {
 				continue
 			}
-			physPage := ma.Arch.Memory.Pages[link.PageIdx]
+			physPage := &ma.Arch.Memory.Pages[link.PageIdx]
 			row := uintptr(link.PageRow)
 			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(row*ma.CompSizes[0]))
 			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(row*ma.CompSizes[1]))
@@ -727,7 +732,8 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) All() iter.Seq[struct {
 		},
 	) bool) {
 		for _, ma := range v.Baked {
-			for _, page := range ma.Arch.Memory.Pages {
+			for i := range ma.Arch.Memory.Pages {
+				page := &ma.Arch.Memory.Pages[i]
 				count := page.Len
 				if count == 0 {
 					continue
@@ -792,7 +798,7 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Filter(selected []Entity) iter.Seq2[int,
 			if ma == nil {
 				continue
 			}
-			physPage := ma.Arch.Memory.Pages[link.PageIdx]
+			physPage := &ma.Arch.Memory.Pages[link.PageIdx]
 			row := uintptr(link.PageRow)
 			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(row*ma.CompSizes[0]))
 			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(row*ma.CompSizes[1]))
@@ -894,7 +900,8 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) All() iter.Seq[struct {
 		},
 	) bool) {
 		for _, ma := range v.Baked {
-			for _, page := range ma.Arch.Memory.Pages {
+			for i := range ma.Arch.Memory.Pages {
+				page := &ma.Arch.Memory.Pages[i]
 				count := page.Len
 				if count == 0 {
 					continue
@@ -963,7 +970,7 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Filter(selected []Entity) iter.Seq2[
 			if ma == nil {
 				continue
 			}
-			physPage := ma.Arch.Memory.Pages[link.PageIdx]
+			physPage := &ma.Arch.Memory.Pages[link.PageIdx]
 			row := uintptr(link.PageRow)
 			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(row*ma.CompSizes[0]))
 			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(row*ma.CompSizes[1]))
@@ -1072,7 +1079,8 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) All() iter.Seq[struct {
 		},
 	) bool) {
 		for _, ma := range v.Baked {
-			for _, page := range ma.Arch.Memory.Pages {
+			for i := range ma.Arch.Memory.Pages {
+				page := &ma.Arch.Memory.Pages[i]
 				count := page.Len
 				if count == 0 {
 					continue
@@ -1145,7 +1153,7 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Filter(selected []Entity) iter.S
 			if ma == nil {
 				continue
 			}
-			physPage := ma.Arch.Memory.Pages[link.PageIdx]
+			physPage := &ma.Arch.Memory.Pages[link.PageIdx]
 			row := uintptr(link.PageRow)
 			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(row*ma.CompSizes[0]))
 			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(row*ma.CompSizes[1]))
@@ -1261,7 +1269,8 @@ func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) All() iter.Seq[struct {
 		},
 	) bool) {
 		for _, ma := range v.Baked {
-			for _, page := range ma.Arch.Memory.Pages {
+			for i := range ma.Arch.Memory.Pages {
+				page := &ma.Arch.Memory.Pages[i]
 				count := page.Len
 				if count == 0 {
 					continue
@@ -1338,7 +1347,7 @@ func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Filter(selected []Entity) it
 			if ma == nil {
 				continue
 			}
-			physPage := ma.Arch.Memory.Pages[link.PageIdx]
+			physPage := &ma.Arch.Memory.Pages[link.PageIdx]
 			row := uintptr(link.PageRow)
 			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(row*ma.CompSizes[0]))
 			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(row*ma.CompSizes[1]))
@@ -1461,7 +1470,8 @@ func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) All() iter.Seq[struct 
 		},
 	) bool) {
 		for _, ma := range v.Baked {
-			for _, page := range ma.Arch.Memory.Pages {
+			for i := range ma.Arch.Memory.Pages {
+				page := &ma.Arch.Memory.Pages[i]
 				count := page.Len
 				if count == 0 {
 					continue
@@ -1542,7 +1552,7 @@ func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Filter(selected []Enti
 			if ma == nil {
 				continue
 			}
-			physPage := ma.Arch.Memory.Pages[link.PageIdx]
+			physPage := &ma.Arch.Memory.Pages[link.PageIdx]
 			row := uintptr(link.PageRow)
 			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(row*ma.CompSizes[0]))
 			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(row*ma.CompSizes[1]))

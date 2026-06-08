@@ -67,7 +67,8 @@ func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{
 		},
 	) bool) {
 		for _, ma := range v.Baked {
-			for _, page := range ma.Arch.Memory.Pages {
+			for i := range ma.Arch.Memory.Pages {
+				page := &ma.Arch.Memory.Pages[i]
 				count := page.Len
 				if count == 0 {
 					continue
@@ -120,7 +121,7 @@ func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{
 			if ma == nil {
 				continue
 			}
-			physPage := ma.Arch.Memory.Pages[link.PageIdx]
+			physPage := &ma.Arch.Memory.Pages[link.PageIdx]
 			row := uintptr(link.PageRow)
 			{{- range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
 			c{{ $idx }}Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[{{ $idx }}]+(row*ma.CompSizes[{{ $idx }}]))

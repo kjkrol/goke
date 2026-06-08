@@ -12,36 +12,28 @@ type PageRow uint32
 //------------------------------------------------------------------------------
 
 type Memo struct {
-	// Pages holds pointers to all allocated pages.
-	// Using a slice allows O(1) access by PageIdx, which is crucial for EntityLinkStore.
-	Pages  []*Page
+	Pages  []Page
 	Layout PageLayout
-	Len    uint32 // Global entity count (optional, but useful)
+	Len    uint32
 }
 
 func (b *Memo) Init(compInfos []ComponentInfo) {
 	b.Layout = CalculateLayout(compInfos)
 
-	b.Pages = make([]*Page, 0, 16)
+	b.Pages = make([]Page, 0, 16)
 	b.Len = 0
 
 	b.addPage()
 }
 
-// AllocSlot allocates space for a new entity.
-// It returns:
-// 1. *page   -> Pointer for immediate data writing (fastest access)
-// 2. PageIdx -> PageIdx (to store in EntityLinkStore)
-// 3. PageRow -> Row index within the page (to store in EntityLinkStore)
 func (b *Memo) AllocSlot() (*Page, PageIdx, PageRow) {
 	lastIdx := PageIdx(len(b.Pages) - 1)
-	page := b.Pages[lastIdx]
+	page := &b.Pages[lastIdx]
 
-	// If the current page is full, create a new one
 	if page.Len >= PageRow(b.Layout.PageCap) {
 		b.addPage()
 		lastIdx++
-		page = b.Pages[lastIdx]
+		page = &b.Pages[lastIdx]
 	}
 
 	row := page.Len
@@ -51,51 +43,30 @@ func (b *Memo) AllocSlot() (*Page, PageIdx, PageRow) {
 	return page, lastIdx, row
 }
 
-// AllocBatch reserves up to 'count' slots in a SINGLE contiguous page.
-// It returns:
-// 1. *page   -> Pointer for data writing
-// 2. PageIdx -> Index of the page
-// 3. PageRow -> Starting row in the page
-// 4. int      -> How many slots were actually allocated (could be less than count)
-func (b *Memo) AllocBatch(count int) (*Page, PageIdx, PageRow, int) {
-	lastPageIdx := PageIdx(len(b.Pages) - 1)
-	page := b.Pages[lastPageIdx]
-
-	available := int(b.Layout.PageCap) - int(page.Len)
-
-	if available == 0 {
-		b.addPage()
-		lastPageIdx++
-		page = b.Pages[lastPageIdx]
-		available = int(b.Layout.PageCap)
-	}
-
-	allocated := min(count, available)
-
-	startRow := page.Len
-
-	page.Len += PageRow(allocated)
-	b.Len += uint32(allocated)
-
-	return page, lastPageIdx, startRow, allocated
-}
-
-// GetPage provides O(1) access to a page by its index.
-// Used when moving/removing entities based on EntityLinkStore data.
 func (b *Memo) GetPage(idx PageIdx) *Page {
-	return b.Pages[idx]
+	return &b.Pages[idx]
 }
 
 func (b *Memo) addPage() {
 	data := make([]byte, b.Layout.PageBytes)
-
-	newPage := &Page{
+	b.Pages = append(b.Pages, Page{
 		data: data,
 		Ptr:  unsafe.Pointer(&data[0]),
 		Len:  0,
-	}
+	})
+}
 
-	b.Pages = append(b.Pages, newPage)
+func (b *Memo) AddPages(n int) {
+	pageBytes := b.Layout.PageBytes
+	bigBlock := make([]byte, uintptr(n)*pageBytes)
+	for i := range n {
+		offset := uintptr(i) * pageBytes
+		b.Pages = append(b.Pages, Page{
+			data: bigBlock[offset : offset+pageBytes : offset+pageBytes],
+			Ptr:  unsafe.Pointer(&bigBlock[offset]),
+			Len:  0,
+		})
+	}
 }
 
 // ResolveTail returns the index and pointer of the last page that actually contains data.
@@ -112,22 +83,18 @@ func (b *Memo) ResolveTail() (PageIdx, *Page) {
 		lastIdx--
 	}
 
-	return PageIdx(lastIdx), b.Pages[lastIdx]
+	return PageIdx(lastIdx), &b.Pages[lastIdx]
 }
 
 func (b *Memo) Clear() {
-	// 1. Zero out memory for GC safety
-	for _, c := range b.Pages {
-		clear(c.data)
-		c.Len = 0
+	for i := range b.Pages {
+		clear(b.Pages[i].data)
+		b.Pages[i].Len = 0
 	}
 
-	// 2. Reset the slice
-	// We can keep the underlying array capacity to avoid re-allocations on restart
 	b.Pages = b.Pages[:0]
 	b.Len = 0
 
-	// 3. Immediately add the first fresh page
 	b.addPage()
 }
 

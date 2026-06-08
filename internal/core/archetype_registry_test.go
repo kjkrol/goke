@@ -168,7 +168,7 @@ func TestArchetypeRegistry_OverwriteIdempotency(t *testing.T) {
 	}
 
 	linkAfterArch := &reg.Archetypes[linkAfter.ArchId]
-	targetPage := linkAfterArch.Memory.Pages[linkAfter.PageIdx]
+	targetPage := &linkAfterArch.Memory.Pages[linkAfter.PageIdx]
 
 	// B. Pobierasz wskaźnik przez kolumnę (Resolve Once)
 	col := linkAfterArch.GetColumn(posTypeInfo.ID)
