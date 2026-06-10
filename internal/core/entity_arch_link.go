@@ -1,5 +1,7 @@
 package core
 
+import "github.com/kjkrol/uid"
+
 type EntityArchLink struct {
 	ArchId     ArchetypeId
 	PageIdx    PageIdx // Index of the memory page (Page) in Archetype.Memory.Pages
@@ -22,7 +24,7 @@ func (s *EntityLinkStore) Reset() {
 }
 
 // Get returns the link only if the generation matches.
-func (s *EntityLinkStore) Get(entity Entity) (EntityArchLink, bool) {
+func (s *EntityLinkStore) Get(entity uid.UID64) (EntityArchLink, bool) {
 	index, gen := entity.Unpack()
 	if index >= uint32(len(s.links)) {
 		return EntityArchLink{}, false
@@ -39,7 +41,7 @@ func (s *EntityLinkStore) Get(entity Entity) (EntityArchLink, bool) {
 }
 
 // Update updates the entity's location using the new Page Index and Page Row.
-func (s *EntityLinkStore) Update(entity Entity, archId ArchetypeId, pageIdx PageIdx, row PageRow) {
+func (s *EntityLinkStore) Update(entity uid.UID64, archId ArchetypeId, pageIdx PageIdx, row PageRow) {
 	index, gen := entity.Unpack()
 	if index >= uint32(cap(s.links)) {
 		s.grow(index + 1)
@@ -54,7 +56,7 @@ func (s *EntityLinkStore) Update(entity Entity, archId ArchetypeId, pageIdx Page
 	}
 }
 
-func (s *EntityLinkStore) Clear(entity Entity) {
+func (s *EntityLinkStore) Clear(entity uid.UID64) {
 	index, gen := entity.Unpack()
 	if index >= uint32(cap(s.links)) {
 		return

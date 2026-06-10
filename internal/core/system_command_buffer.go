@@ -1,6 +1,10 @@
 package core
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/kjkrol/uid"
+)
 
 // -------------------------------------------------------------
 
@@ -15,7 +19,7 @@ const (
 
 type systemCommand struct {
 	cType    commandType
-	entity   Entity
+	entity   uid.UID64
 	compInfo ComponentInfo
 	dataPtr  unsafe.Pointer
 }
@@ -26,11 +30,10 @@ const pageSize = 4096
 
 // SystemCommandBuffer as Linear Allocator
 type SystemCommandBuffer struct {
-	commands      []systemCommand
-	pages         [][]byte
-	pageIdx       int
-	offset        int
-	nextVirtualID uint32
+	commands []systemCommand
+	pages    [][]byte
+	pageIdx  int
+	offset   int
 }
 
 func (cb *SystemCommandBuffer) Clear() {
@@ -45,7 +48,6 @@ func (cb *SystemCommandBuffer) Clear() {
 
 	cb.pageIdx = 0
 	cb.offset = 0
-	cb.nextVirtualID = 0
 }
 
 func NewSystemCommandBuffer() *SystemCommandBuffer {
@@ -56,7 +58,7 @@ func NewSystemCommandBuffer() *SystemCommandBuffer {
 }
 
 // AddComponent safely copies component data into the buffer's pool
-func AddComponent[T any](cb *SystemCommandBuffer, e Entity, info ComponentInfo, value T) {
+func AddComponent[T any](cb *SystemCommandBuffer, e uid.UID64, info ComponentInfo, value T) {
 	size := int(unsafe.Sizeof(value))
 
 	var ptr unsafe.Pointer
@@ -77,7 +79,7 @@ func AddComponent[T any](cb *SystemCommandBuffer, e Entity, info ComponentInfo, 
 	})
 }
 
-func RemoveComponent(cb *SystemCommandBuffer, e Entity, compInfo ComponentInfo) {
+func RemoveComponent(cb *SystemCommandBuffer, e uid.UID64, compInfo ComponentInfo) {
 	cb.commands = append(cb.commands, systemCommand{
 		cType:    cmdRemoveComponent,
 		entity:   e,
@@ -85,7 +87,7 @@ func RemoveComponent(cb *SystemCommandBuffer, e Entity, compInfo ComponentInfo) 
 	})
 }
 
-func RemoveEntity(cb *SystemCommandBuffer, e Entity) {
+func RemoveEntity(cb *SystemCommandBuffer, e uid.UID64) {
 	cb.commands = append(cb.commands, systemCommand{
 		cType:  cmdRemoveEntity,
 		entity: e,
@@ -96,17 +98,13 @@ func (cb *SystemCommandBuffer) reset() {
 	cb.commands = cb.commands[:0]
 	cb.pageIdx = 0
 	cb.offset = 0
-	cb.nextVirtualID = 0
 }
 
 // reserveSpace ensures there is enough contiguous memory in the pages
 // and returns a pointer to the start of the reserved block.
 func (cb *SystemCommandBuffer) reserveSpace(size int, align int) unsafe.Pointer {
-	// 1. Align the current offset
-	// This moves the offset to the next multiple of 'align'
 	cb.offset = (cb.offset + align - 1) &^ (align - 1)
 
-	// 2. Check if it fits in the current page after alignment
 	if cb.offset+size > pageSize {
 		cb.pageIdx++
 		cb.offset = 0

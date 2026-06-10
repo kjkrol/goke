@@ -99,16 +99,10 @@ func (s *Scheduler) getBuffer(sys System) *SystemCommandBuffer {
 	return s.buffers[sys]
 }
 
+// fragment:
 func (s *Scheduler) applyBufferCommands(cb *SystemCommandBuffer) error {
-	vMap := make(map[Entity]Entity)
 	for _, cmd := range cb.commands {
-
 		target := cmd.entity
-		if target.IsVirtual() {
-			if realID, ok := vMap[target]; ok {
-				target = realID
-			}
-		}
 
 		switch cmd.cType {
 		case cmdAssignComponent:
@@ -122,7 +116,7 @@ func (s *Scheduler) applyBufferCommands(cb *SystemCommandBuffer) error {
 		case cmdRemoveComponent:
 			s.register.UnassignByID(target, cmd.compInfo)
 		case cmdRemoveEntity:
-			s.register.RemoveEntity(cmd.entity)
+			s.register.RemoveEntity(target)
 		}
 	}
 	cb.reset()

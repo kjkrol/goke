@@ -1,10 +1,10 @@
 package goke_test
+import "github.com/kjkrol/uid"
 
 import (
 	"testing"
 
 	"github.com/kjkrol/goke"
-	"github.com/kjkrol/goke/internal/core"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -46,7 +46,7 @@ func TestView_WithTag_And_Without_Logic(t *testing.T) {
 			goke.Exclude[velocity](),
 		)
 
-		found := make(map[core.Entity]bool)
+		found := make(map[uid.UID64]bool)
 		for page := range view.All() {
 			for _, entity := range page.Entity {
 				found[entity] = true
@@ -83,8 +83,8 @@ func TestView_WithTag_And_Without_Logic(t *testing.T) {
 		// Goal: From a list of entities, filter out those that are 'complexComponent'
 		view := goke.NewView0(ecs, goke.Exclude[complexComponent]())
 
-		input := []core.Entity{eA, eB, eC}
-		var result []core.Entity
+		input := []uid.UID64{eA, eB, eC}
+		var result []uid.UID64
 		for _, head := range view.Filter(input) {
 			result = append(result, head.Entity)
 		}

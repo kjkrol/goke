@@ -1,5 +1,7 @@
 package core
 
+import "github.com/kjkrol/uid"
+
 import "unsafe"
 
 type PageIdx uint32 // Index of the page in Memo.Pages slice
@@ -121,7 +123,7 @@ type PageLayout struct {
 // CalculateLayout computes the optimal memory layout for a page.
 func CalculateLayout(compInfos []ComponentInfo) PageLayout {
 
-	totalStride := unsafe.Sizeof(Entity(0))
+	totalStride := unsafe.Sizeof(uid.UID64(0))
 	for _, info := range compInfos {
 		totalStride += info.Size
 	}
@@ -135,10 +137,10 @@ func CalculateLayout(compInfos []ComponentInfo) PageLayout {
 		offsets := make([]uintptr, len(compInfos)+1)
 		currentOffset := uintptr(0)
 
-		entityAlign := unsafe.Alignof(Entity(0))
+		entityAlign := unsafe.Alignof(uid.UID64(0))
 		currentOffset = alignUp(currentOffset, entityAlign)
 		offsets[0] = currentOffset
-		currentOffset += unsafe.Sizeof(Entity(0)) * capacity
+		currentOffset += unsafe.Sizeof(uid.UID64(0)) * capacity
 
 		for i, info := range compInfos {
 			currentOffset = alignUp(currentOffset, info.Align)

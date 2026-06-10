@@ -8,9 +8,15 @@ RESULT_FILE := bench_results/bench_$(COMMIT_DATE)_$(COMMIT_HASH)$(DIRTY).txt
 
 BENCH_COUNT ?= 4
 
-.PHONY: setup
+.PHONY: setup generate
 setup:
 	go run internal/cmd/scripts/setup/setup_work.go
+
+generate:
+	go run internal/cmd/gen/blueprints/main.go
+	go run internal/cmd/gen/views/main.go
+	gofmt -w blueprints_gen.go views_gen.go
+
 test:
 	go test ./...
 bench:

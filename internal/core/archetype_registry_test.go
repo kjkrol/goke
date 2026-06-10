@@ -1,5 +1,7 @@
 package core
 
+import "github.com/kjkrol/uid"
+
 import (
 	"reflect"
 	"testing"
@@ -16,7 +18,7 @@ type velocity struct {
 // 1. Fast Path Discovery
 func TestArchetypeRegistry_FastPath(t *testing.T) {
 	reg := setupTestRegistry()
-	e1, e2 := Entity(1), Entity(2)
+	e1, e2 := uid.UID64(1), uid.UID64(2)
 	posTypeInfo := reg.componentsRegistry.GetOrRegister(reflect.TypeFor[position]())
 	posData := position{10, 20}
 
@@ -53,7 +55,7 @@ func TestArchetypeRegistry_FastPath(t *testing.T) {
 // 2. Bidirectional Cycle
 func TestArchetypeRegistry_CycleConsistency(t *testing.T) {
 	reg := setupTestRegistry()
-	e := Entity(10)
+	e := uid.UID64(10)
 	posTypeInfo := reg.componentsRegistry.GetOrRegister(reflect.TypeFor[position]())
 
 	reg.AddEntity(e, RootArchetypeId)
@@ -80,7 +82,7 @@ func TestArchetypeRegistry_CycleConsistency(t *testing.T) {
 // 3. Graph Branching
 func TestArchetypeRegistry_GraphBranching(t *testing.T) {
 	reg := setupTestRegistry()
-	e1, e2 := Entity(100), Entity(101)
+	e1, e2 := uid.UID64(100), uid.UID64(101)
 	posTypeInfo := reg.componentsRegistry.GetOrRegister(reflect.TypeFor[position]())
 	velTypeInfo := reg.componentsRegistry.GetOrRegister(reflect.TypeFor[velocity]())
 
@@ -117,7 +119,7 @@ func TestArchetypeRegistry_GraphBranching(t *testing.T) {
 // 4. Removal Strategy (Empty Mask = Removal)
 func TestArchetypeRegistry_RemovalStrategy(t *testing.T) {
 	reg := setupTestRegistry()
-	e := Entity(50)
+	e := uid.UID64(50)
 	posTypeInfo := reg.componentsRegistry.GetOrRegister(reflect.TypeFor[position]())
 	pData := position{x: 1, y: 1}
 
@@ -144,7 +146,7 @@ func TestArchetypeRegistry_RemovalStrategy(t *testing.T) {
 // 5. Data Idempotency
 func TestArchetypeRegistry_OverwriteIdempotency(t *testing.T) {
 	reg := setupTestRegistry()
-	e := Entity(7)
+	e := uid.UID64(7)
 	posTypeInfo := reg.componentsRegistry.GetOrRegister(reflect.TypeFor[position]())
 	p1 := position{1, 1}
 	p2 := position{2, 2}
@@ -191,11 +193,11 @@ func TestArchetypeRegistry_SwapPopIntegrity(t *testing.T) {
 	archId := reg.InitArchetype(mask)
 
 	// Dane testowe
-	e0, e1, e2 := Entity(10), Entity(11), Entity(12)
+	e0, e1, e2 := uid.UID64(10), uid.UID64(11), uid.UID64(12)
 	pData := position{x: 1, y: 1}
 	pData2 := position{x: 2, y: 2}
 
-	setPos := func(e Entity, p position) {
+	setPos := func(e uid.UID64, p position) {
 		reg.AddEntity(e, archId)
 		ptr, err := reg.AllocateComponentMemory(e, posTypeInfo)
 		if err != nil {
@@ -247,7 +249,7 @@ func setupTestRegistry() *ArchetypeRegistry {
 
 func TestArchetypeRegistry_AssignValidation(t *testing.T) {
 	reg := setupTestRegistry()
-	e := Entity(1)
+	e := uid.UID64(1)
 	reg.AddEntity(e, RootArchetypeId)
 	type void struct{}
 	voidTypeInfo := reg.componentsRegistry.GetOrRegister(reflect.TypeFor[void]())
@@ -258,7 +260,7 @@ func TestArchetypeRegistry_AssignValidation(t *testing.T) {
 		t.Errorf("unexpected error when assigning tag component: tags should allow nil data, but got: %v", err)
 	}
 
-	eX := Entity(3123)
+	eX := uid.UID64(3123)
 	// Case: Passing nil data
 	if _, err := reg.AllocateComponentMemory(eX, posTypeInfo); err != ErrEntityNotFound {
 		t.Errorf("expected ErrNilComponentData, got %v", err)

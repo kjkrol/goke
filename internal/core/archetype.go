@@ -1,5 +1,7 @@
 package core
 
+import "github.com/kjkrol/uid"
+
 import (
 	"unsafe"
 )
@@ -110,7 +112,7 @@ func (a *Archetype) InitArchetype(
 	// a.Map.Set(EntityID, EntityColumnIndex)
 	a.Columns[EntityColumnIndex] = Column{
 		CompID:     EntityID,
-		ItemSize:   unsafe.Sizeof(Entity(0)),
+		ItemSize:   unsafe.Sizeof(uid.UID64(0)),
 		PageOffset: a.Memory.Layout.Offsets[0], // Offset from Layout calculation
 	}
 
@@ -150,12 +152,12 @@ func (a *Archetype) GetColumn(id ComponentID) *Column {
 }
 
 // AddEntity reserves a slot and writes the Entity ID.
-func (a *Archetype) AddEntity(entity Entity) (PageIdx, PageRow) {
+func (a *Archetype) AddEntity(entity uid.UID64) (PageIdx, PageRow) {
 	page, pageIdx, pageRow := a.Memory.AllocSlot()
 
 	entityCol := &a.Columns[EntityColumnIndex]
 	destPtr := entityCol.GetPointer(page, pageRow)
-	*(*Entity)(destPtr) = entity
+	*(*uid.UID64)(destPtr) = entity
 
 	return pageIdx, pageRow
 }
@@ -163,7 +165,7 @@ func (a *Archetype) AddEntity(entity Entity) (PageIdx, PageRow) {
 // SwapRemoveEntity removes an entity at the specified location (O(1)).
 // It moves the last entity of the archetype into the empty slot (Swap).
 // Returns the entity that was moved (swappedEntity) and true if a move happened.
-func (a *Archetype) SwapRemoveEntity(targetChunkIdx PageIdx, targetRow PageRow) (swappedEntity Entity, swapped bool) {
+func (a *Archetype) SwapRemoveEntity(targetChunkIdx PageIdx, targetRow PageRow) (swappedEntity uid.UID64, swapped bool) {
 
 	// 1. Get the real, verified tail
 	lastChunkIdx, lastChunk := a.Memory.ResolveTail()
@@ -180,7 +182,7 @@ func (a *Archetype) SwapRemoveEntity(targetChunkIdx PageIdx, targetRow PageRow) 
 
 	// 3. Case: Standard Swap (Tail moves to Hole)
 	ptrLastEntity := a.GetEntityColumn().GetPointer(lastChunk, lastRow)
-	entityToMove := *(*Entity)(ptrLastEntity)
+	entityToMove := *(*uid.UID64)(ptrLastEntity)
 
 	for i := range a.Columns {
 		col := &a.Columns[i]

@@ -248,7 +248,7 @@ GOKe bypasses traditional bottlenecks like reflection and map lookups in the exe
 
 
 ## Execution Planning & Consistency
-* **Deferred Commands**: State consistency is maintained via `Commands`. Structural changes (add/remove) are buffered and applied during explicit `Sync()` points to ensure memory safety and cache integrity.
+* **Deferred Commands**: State consistency is maintained via `Commands`. Structural changes (adding/removing components or removing entities) are buffered and applied during explicit `Sync()` points to ensure memory safety and cache integrity. Note: Entity creation via command buffers is intentionally not supported. To maximize performance, developers should adopt **Object Pooling** by pre-allocating entities with blueprints and using tags to toggle their active state.
 * **Thread-Safe Concurrency**: Native support for `RunParallel` execution. GOKe provides the infrastructure for multi-core scaling, assuming the developer ensures disjoint component sets to avoid race conditions.
 
 <a id="performance"></a>

@@ -1,5 +1,7 @@
 package core
 
+import "github.com/kjkrol/uid"
+
 import (
 	"errors"
 	"fmt"
@@ -76,7 +78,7 @@ func (r *ArchetypeRegistry) Get(mask ArchetypeMask) ArchetypeId {
 }
 
 func (r *ArchetypeRegistry) AddEntity(
-	entity Entity,
+	entity uid.UID64,
 	archId ArchetypeId,
 ) (PageIdx, PageRow) {
 	arch := &r.Archetypes[archId]
@@ -85,7 +87,7 @@ func (r *ArchetypeRegistry) AddEntity(
 	return pageIdx, pageRow
 }
 
-func (r *ArchetypeRegistry) UnlinkEntity(entity Entity) {
+func (r *ArchetypeRegistry) UnlinkEntity(entity uid.UID64) {
 	link, ok := r.EntityLinkStore.Get(entity)
 	if !ok {
 		return
@@ -108,7 +110,7 @@ var (
 // AllocateComponentMemory ensures the entity has the component and
 // returns a pointer to its memory.
 func (r *ArchetypeRegistry) AllocateComponentMemory(
-	entity Entity,
+	entity uid.UID64,
 	compInfo ComponentInfo,
 ) (unsafe.Pointer, error) {
 	compID := compInfo.ID
@@ -175,7 +177,7 @@ func (r *ArchetypeRegistry) ensureNextEdgeId(
 	return nextArchId
 }
 
-func (r *ArchetypeRegistry) UnAssign(entity Entity, compInfo ComponentInfo) {
+func (r *ArchetypeRegistry) UnAssign(entity uid.UID64, compInfo ComponentInfo) {
 	link, ok := r.EntityLinkStore.Get(entity)
 	if !ok {
 		return
@@ -257,7 +259,7 @@ func (r *ArchetypeRegistry) getOrRegister(mask ArchetypeMask) ArchetypeId {
 // --------------------------------------------------------------
 
 func (r *ArchetypeRegistry) moveEntity(
-	entity Entity,
+	entity uid.UID64,
 	link EntityArchLink,
 	archId ArchetypeId,
 ) (PageIdx, PageRow) {
