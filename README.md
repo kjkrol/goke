@@ -31,34 +31,109 @@
 While primarily designed for game development, its archetype-based SoA architecture also makes it well suited for simulations, AI agents, real-time analytics, and other performance-critical workloads.
 
 <p align="center">
-  <a href="#installation">Installation</a> 
-  &nbsp;&bull;&nbsp; 
-  <a href="#usage">Usage</a>
-  &nbsp;&bull;&nbsp; 
-  <a href="#architecture">Architecture</a>
-  &nbsp;&bull;&nbsp; 
-  <a href="#performance">Performance</a>
-  &nbsp;&bull;&nbsp; 
-  <a href="#features">Features</a>
-  &nbsp;&bull;&nbsp;
-  <a href="#roadmap">Roadmap</a>
-  &nbsp;&bull;&nbsp; 
-  <a href="BENCHMARKS.md">Benchmarks</a>
-  &nbsp;&bull;&nbsp; 
-  <a href="#documentation">Documentation</a>
+    <a href="#features">Features</a>
+    &nbsp;&bull;&nbsp;
+    <a href="#installation">Installation</a> 
+    &nbsp;&bull;&nbsp;
+    <a href="BENCHMARKS.md">Benchmarks</a>
+    &nbsp;&bull;&nbsp;
+    <a href="#performance">Performance</a>
+    &nbsp;&bull;&nbsp; 
+    <a href="#usage">Usage</a>
+    &nbsp;&bull;&nbsp; 
+    <a href="#architecture">Architecture</a>
+    &nbsp;&bull;&nbsp; 
+    <a href="#roadmap">Roadmap</a>
+    &nbsp;&bull;&nbsp; 
+    <a href="#documentation">Documentation</a>
 </p>
 
-# Use Cases: Why GOKe?
+# Design Goals
 
-While native C and Rust ECS frameworks may achieve higher peak throughput, GOKe is designed to maximize performance within the Go ecosystem. For many projects, avoiding CGO boundaries, external dependencies, and cross-language integration costs can outweigh the benefits of a faster foreign implementation.
+GOKe is primarily an ECS for game development, but its archetype-based
+SoA architecture also makes it well suited for simulations, AI agents,
+real-time analytics, and other performance-critical workloads.
 
-## 🎮 Gaming
+The project is built around a few core principles:
 
-GOKe is the perfect companion for **Ebitengine** or purely server-side game loops. Managing thousands of active objects (bullets, particles, NPCs) often hits CPU bottlenecks due to pointer chasing and GC pressure. GOKe solves this via:
+- Predictable performance over clever abstractions
+- Explicit execution over automatic scheduling
+- Cache-friendly data layouts
+- Zero-allocation hot paths
+- Type-safe APIs without reflection
+- Native Go development without CGO dependencies
 
-* **Zero-Alloc Updates**: Update thousands of entities in a single tick without triggering the GC.
-* **Decoupled Logic**: Keep your rendering logic in Ebitengine and your game state in GOKe's optimized archetypes, utilizing structures like **[Bucket Grid](https://github.com/kjkrol/gokg)**.
-* **Deterministic Physics**: Run complex collision detection systems across all entities using `RunParallel`.
+While native C and Rust ECS frameworks may achieve higher peak throughput,
+GOKe is designed to maximize performance within the Go ecosystem. For many
+projects, avoiding CGO boundaries, external dependencies, and cross-language
+integration costs can outweigh the gains of a faster foreign implementation.
+
+<a id="installation"></a>
+# 📦 Installation
+
+GOKe requires **Go 1.26** or newer.
+
+```bash
+go get github.com/kjkrol/goke
+```
+
+<a id="features"></a>
+
+# ✨ Key Features
+
+* **Type-Safe API** — Fully generic component access without reflection, runtime type assertions, or interface-based component storage.
+* **Archetype-Based ECS** — Cache-friendly paged SoA storage designed for efficient iteration and predictable performance.
+* **Memory-Conscious Architecture** — Chunked SoA storage grows incrementally without costly slice reallocation, while swap-and-pop defragmentation keeps archetype pages densely packed.
+* **Zero-Allocation Hot Paths** — Iteration, filtering, component access, and structural operations execute without heap allocations.
+* **High-Throughput Entity Creation** — Blueprint-based batch creation optimized for spawning large numbers of entities.
+* **Fast Entity Lookup** — Direct entity-to-storage mapping enables constant-time component access and structural operations.
+* **Execution Plans** — Explicit scheduling model with deterministic execution order, synchronization points, and optional parallel execution.
+* **Parallel System Execution** — Run independent systems concurrently through `RunParallel()` without hidden scheduler complexity.
+* **Deferred Structural Changes** — Command buffers allow safe component and entity mutations during system execution.
+* **Generational Entity IDs** — Safe entity recycling and stale reference detection powered by `uid.UID64`.
+* **Go 1.23+ Iterators** — Native `for range` iteration powered by `iter.Seq` for idiomatic and efficient traversal.
+
+> 💡 **See the Performance & Scalability section below for benchmark results across worlds ranging from 2¹⁰ to 2²⁰ entities.**
+
+
+<a id="performance"></a>
+# ⏱️ Performance & Scalability
+GOKe is designed for predictable performance at scale. By utilizing a **Centralized Record System** (dense array lookup) instead of traditional hash maps, structural operations and query execution remain effectively independent of the total entity count ($N$).
+
+## 📊 Cross-framework comparison
+Benchmarks against other Go ECS libraries (Arche, Donburi, Ento, etc.) are maintained in a dedicated project — [**go-ecs-benchmarks**](https://github.com/mlange-42/go-ecs-benchmarks) by [@mlange-42](https://github.com/mlange-42). 
+
+⚠️ Before drawing conclusions, verify which GOKe version (tag) is used in the comparison, as published results may lag behind the latest release.
+
+## Scalability Validation
+Benchmark results were validated across worlds ranging from **2¹⁰ (1,024)** to **2²⁰ (1,048,576)** entities. Per-entity costs remained nearly constant throughout this range, demonstrating the scale-independent behavior of GOKe's core operations.
+
+| Category | Operation | Observed Cost (2¹⁰–2²⁰ Entities) | Allocs | Technical Mechanism |
+| :--- | :--- | :--- | :--- | :--- |
+| **Throughput** | **Iteration (View.All)** | **0.35 - 2.39 ns/ent** | **0** | Linear SoA (0-10 components) |
+| **Subset Query** | **Filter (per-entity)** | **3.09 - 10.85 ns/ent** | **0** | Per-entity record lookup + pointer math |
+| **Structural** | **Batch Create** | **8 - 21 ns/ent** | 4-5 | Blueprint-based pages |
+| **Structural** | **Migrate Component** | **35 ns/op** | **0** | Archetype Move (Insert) |
+| **Structural** | **Add Tag** | **33 ns/op** | **0** | Archetype Move (Metadata) |
+| **Structural** | **Remove Component** | **8 ns/op** | **0** | Swap-and-pop |
+| **Structural** | **Remove Entity** | **3 ns/op** | **0** | Index Recycling |
+| **Access** | **Get Component** | **4.5 ns/op** | **0** | Inlined Record Lookup |
+
+> **Deep Dive**: For a complete breakdown of benchmark methodology, hardware specifications, scaling tests, and performance charts, see [**BENCHMARKS.md**](./BENCHMARKS.md).
+
+### Reproducing Results
+
+Run the benchmark suite on your own hardware:
+
+```bash
+make bench
+```
+
+# Real-World Example
+
+The following demo showcases a simple collision simulation built with GOKe and Ebitengine.
+
+It simulates thousands of moving AABBs while maintaining a fixed 120 TPS update loop using archetype-based storage, cache-friendly iteration, and parallel systems.
 
 <table>
   <thead>
@@ -75,60 +150,12 @@ GOKe is the perfect companion for **Ebitengine** or purely server-side game loop
       </th>
     </tr>
   </thead>
-<tbody>
-    <tr>
-      <td colspan="2" align="center">
-        <sub>
-          <strong>Check out the <a href="examples/ebiten-demo/main.go">full source code</a></strong>
-        </sub>
-      </td>
-    </tr>
-  </tbody>
 </table>
 
-## 🧬 Simulations & High-Throughput Data
-Beyond gaming, GOKe shines in any domain where latency consistency is critical and object counts are in the millions.
-
-* **Agent-Based Simulations**: Crowd dynamics, epidemiological models, or particle physics where $O(N)$ iteration speed is the bottleneck.
-* **Real-time Telemetry**: Processing high-frequency data streams (e.g., IoT sensor fusion) where predictable memory access patterns prevent latency spikes.
-* **Heavy Compute Pipelines**: Logic that requires transforming large datasets every frame (e.g., 16ms window) without allocation overhead.
-
-## ⚖️ When NOT to use GOKe
-To ensure GOKe is the right tool for your project, consider these trade-offs:
-* **Small Data Sets:** If you only manage a few hundred objects, a simple slice of structs will be easier to maintain and fast enough.
-* **Deep Hierarchies:** ECS is designed for flat, high-speed iteration. If your data is naturally a deep tree (like a UI DOM), a classic tree structure might be more intuitive.
-* **High Structural Churn:** If you are adding/removing components from thousands of entities *every single frame*, the overhead of archetype migration might offset the iteration gains.
-
-<a id="installation"></a>
-# 📦 Installation
-
-GOKe requires **Go 1.26** or newer.
-
-```bash
-go get github.com/kjkrol/goke
-```
-
-<a id="features"></a>
-# ✨ Key Features
-
-Core capabilities designed for predictable performance, cache locality, and zero-allocation cycles:
-
-* **Type-Safe Generics**: Views (`NewView1[A]` ... `NewView10`) use Go generics to eliminate interface overhead, boxing, and runtime type assertions in the hot loop.
-* **Go 1.23+ Range Iterators**: Uses native `iter.Seq` for standard `for range` loops. This allows the compiler to inline iteration logic directly, avoiding callback overhead.
-* **Deferred Mutations**: Structural changes (Create/Remove/Add components) are buffered via a **Command Buffer** and applied at synchronization points to ensure thread safety without heavy locking.
-* **Parallel Execution**: `RunParallel` distributes system execution across available CPU cores with deterministic synchronization, scaling linearly with hardware resources.
-* **Zero-Alloc Hot Loop**: The architecture guarantees zero heap allocations during the update cycle (tick), preventing GC pauses during simulation.
-* **Entity Blueprints**: Fast, template-based instantiation. Allows creating thousands of entities with identical component layouts using optimal memory copy operations.
-
-> 💡 **See it in action**: Check the `cmd` directory for the concurrent dice game simulation demonstrating parallel systems and state management.
-
-## ⚠️ Limitations
-
-* **Maximum component types: 128 by default.** Defined by `MaxComponents` in [`internal/core/archetype_mask.go`](./internal/core/archetype_mask.go). The archetype mask is a fixed-size bitset (`[MaskSize]uint64`
-with `MaskSize = 2`) for branch-free intersection checks. Raising this limit requires recompiling GOKe with edited constants (`MaskSize` and `MaxComponents`); it is **not** a runtime configuration.
+> Source code: [examples/ebiten-demo](examples/ebiten-demo/main.go)
 
 <a id="usage"></a>
-# Usage Example
+# Example
 > **New to ECS?** Check out the [**Getting Started with GOKe**](https://github.com/kjkrol/goke/wiki/Getting-Started-with-GOKe) guide for a step-by-step deep dive into building your first simulation.
 
 ```go
@@ -227,60 +254,179 @@ Check the [**examples/**](./examples) directory for complete, ready-to-run proje
   * **Note**: Run `make` inside the example directory to fetch dependencies and start the demo.
 
 <a id="architecture"></a>
-# Core Architecture & "Mechanical Sympathy"
+# Core Architecture
 
-GOKe is an archetype-based ECS built around data-oriented design principles and cache-friendly memory layouts. By moving structural work to initialization and storing component data in chunked SoA layouts, it minimizes runtime overhead and maximizes cache locality during iteration.
+GOKe is an archetype-based ECS built around data-oriented design principles. The storage layer is designed for predictable performance, efficient memory usage, and cache-friendly iteration while maintaining a fully type-safe API.
 
-This design promotes predictable memory access patterns, reduced allocation pressure, and efficient processing of large numbers of entities.
+## Type-Safe API
 
-## Data-Oriented Memory Design
-The storage layer is engineered to maximize cache hits and eliminate allocation spikes ("GC jitter").
+All component access is resolved at compile time using Go's type system. GOKe avoids reflection, dynamic type assertions, and string-based component lookups in performance-critical code paths.
 
-* **Chunked SoA (Structure of Arrays)**: Instead of monolithic slices that require costly resizing (copying millions of elements) when capacity is exceeded, GOKe manages data in **fixed-size Memory Pages** (aligned to L1 Cache, e.g., 96KB).
-    * **Stable Growth**: Memory allocation is linear and "stepless". Adding the 1,000,001st entity simply allocates one small memory chunk, avoiding the massive latency spike of doubling a large array.
-    * **Cache Locality**: Inside each chunk, components are packed in a tight SoA layout (`[IDs...][CompA...][CompB...]`), ensuring high-efficiency hardware prefetching.
-* **Generation-based Recycling**: Entities are tracked via 64-bit IDs (32-bit Index / 32-bit Generation). This prevents **entity aliasing**—stale references to destroyed entities are instantly recognized as invalid when their memory slot is reused.
-* **Archetype Masks**: Supports rapid composition checks using fast, constant-time bitwise operations. This allows for complex queries over component types without iterating over unrelated data.
+## Archetype-Based Storage
 
-## High-Throughput Access & Iteration
-GOKe bypasses traditional bottlenecks like reflection and map lookups in the execution phase.
+Entities are grouped into archetypes according to their component composition.
 
-* **Flat Cache View**: Views pre-calculate direct pointers to component columns within active chunks. This **eliminates map lookups** and pointer chasing inside the hot loop.
-* **Zero-Overhead Iteration**: Powered by native `for range` over functions (`iter.Seq`), allowing the Go compiler to perform aggressive loop inlining directly over the memory pages.
-* **Deterministic $O(1)$ Filter**: Querying specific entities via the **Centralized Record System** takes constant time regardless of the total entity count ($N$) by mapping IDs directly to `(ChunkIndex, RowIndex)` coordinates.
-* **Hardware Prefetching Optimization**: View structures are optimized to keep the prefetcher strictly focused on the data stream, minimizing cache pollution during iteration.
+Each archetype is identified by a fixed-size **128-bit component mask**, enabling fast composition checks through bitwise operations. This allows queries to quickly determine whether an archetype matches a required component set without inspecting individual entities.
 
+The maximum number of component types is currently 128 and can be adjusted if needed.
 
-## Execution Planning & Consistency
-* **Deferred Commands**: State consistency is maintained via `Commands`. Structural changes (add/remove) are buffered and applied during explicit `Sync()` points to ensure memory safety and cache integrity.
-* **Thread-Safe Concurrency**: Native support for `RunParallel` execution. GOKe provides the infrastructure for multi-core scaling, assuming the developer ensures disjoint component sets to avoid race conditions.
+## Paged SoA Memory Layout
 
-<a id="performance"></a>
-# ⏱️ Performance & Scalability
-> The engine is engineered for extreme scalability and predictable performance. By utilizing a **Centralized Record System** (dense array lookup) instead of traditional hash maps, we have effectively decoupled both structural changes and query performance from the total entity count ($N$).
+Component data is stored using a paged **Structure of Arrays (SoA)** architecture.
 
-GOKe delivers near-metal speeds by eliminating heap allocations and leveraging L1/L2 cache locality.
+Each archetype owns one or more memory pages:
 
-| Category | Operation | Performance (1024 Baseline) | Allocs | Technical Mechanism |
-| :--- | :--- | :--- | :--- | :--- |
-| **Throughput** | **Iteration (View.All)** | **0.35 - 2.06 ns/ent** | **0** | Linear SoA (0-10 components) |
-| **Subset Query** | **Filter (per-entity)** | **3.20 - 11.33 ns/ent** | **0** | Per-entity record lookup + pointer math |
-| **Structural** | **Batch Create (1024 ent.)** | **8 - 20 ns/ent** | 4 | Blueprint-based pages |
-| **Structural** | **Migrate Component** | **36.08 ns/op** | **0** | Archetype Move (Insert) |
-| **Structural** | **Add Tag** | **33.96 ns/op** | **0** | Archetype Move (Metadata) |
-| **Structural** | **Remove Component** | **7.58 ns/op** | **0** | Swap-and-pop |
-| **Structural** | **Remove Entity** | **2.83 ns/op** | **0** | Index Recycling |
-| **Access** | **Get Component** | **4.67 ns/op** | **0** | Inlined Record Lookup |
-
-> **Deep Dive**: For a full breakdown of hardware specs, stress tests, and $O(N)$ vs $O(1)$ scaling charts, see [**BENCHMARKS.md**](./BENCHMARKS.md).
-
-> 📊 **Cross-framework comparison**: Benchmarks against other Go ECS libraries (Arche, Donburi, Ento, etc.) are maintained in a dedicated project — [**go-ecs-benchmarks**](https://github.com/mlange-42/go-ecs-benchmarks) by [@mlange-42](https://github.com/mlange-42). ⚠️ Before drawing conclusions, verify which GOKe version (tag) is used in the comparison — published results may lag behind the main branch.
-
-### Reproducing Results
-Run the suite on your own hardware:
-```bash
-make bench
+```text
+Page
+├── Entity IDs
+├── Component A
+├── Component B
+├── Component C
+└── ...
 ```
+
+Each page stores component columns contiguously, allowing systems to iterate through large numbers of entities with predictable memory access patterns and excellent cache locality.
+
+This design provides:
+
+- cache-friendly iteration
+- predictable memory growth
+- efficient memory utilization
+- minimal allocation pressure
+
+Unlike monolithic arrays, growing an archetype only requires allocating an additional page rather than resizing and copying an entire component store.
+
+## Entity Lookup
+
+Every entity is backed by a centralized record that maps directly to its storage location.
+
+```text
+EntityID
+    ↓
+Record
+    ↓
+(Archetype, Page, Row)
+```
+
+This enables direct access to entity data without hash maps or archetype scans.
+
+As a result, operations such as component access, component insertion, component removal, and entity destruction maintain stable costs regardless of total world size.
+
+## Generational Entity IDs
+
+Entities are represented by `uid.UID64`, a compact generational identifier designed for safe index recycling and stale reference detection.
+
+Destroyed entities can safely reuse storage slots without risking accidental access through outdated references.
+
+For implementation details, see the [uid](https://github.com/kjkrol/uid) package.
+
+## Dense Storage
+
+When an entity is removed, the final row of the page is immediately moved into the freed slot.
+
+This swap-and-pop strategy:
+
+- avoids holes in memory
+- maintains dense storage
+- preserves iteration performance
+- eliminates the need for background defragmentation
+
+As a result, archetype pages remain compact throughout their lifetime.
+
+# Scheduler
+
+GOKe includes a lightweight scheduler responsible for system execution, synchronization, and deferred structural changes.
+
+The scheduler is intentionally explicit. It does not perform dependency analysis, automatic system ordering, or conflict detection. Instead, developers define execution flow directly through an `ExecutionPlan`.
+
+## Systems
+
+A system is any type implementing the `System` interface:
+
+```go
+type System interface {
+    Update(
+        ReadOnlyRegistry,
+        *SystemCommandBuffer,
+        time.Duration,
+    )
+}
+```
+
+Each system receives:
+
+- read-only access to the registry
+- its own command buffer
+- frame delta time
+
+Systems can safely inspect the world state while deferring structural modifications through the command buffer.
+
+## Execution Plans
+
+Execution order is defined explicitly through an `ExecutionPlan`.
+
+```go
+goke.Plan(ecs, func(ctx goke.ExecutionContext, d time.Duration) {
+    ctx.RunParallel(d, rollSys, betSys)
+    ctx.Sync()
+
+    ctx.Run(judgeSys, d)
+    ctx.Sync()
+
+    ctx.Run(displayWinnerSys, d)
+})
+```
+
+Execution plans provide:
+
+- deterministic execution order
+- explicit synchronization points
+- optional parallel execution
+
+This makes update flow easy to reason about and avoids hidden scheduling behavior.
+
+## Parallel Execution
+
+Independent systems can be executed concurrently using `RunParallel()`.
+
+```go
+ctx.RunParallel(d,
+    physicsSystem,
+    aiSystem,
+    animationSystem,
+)
+```
+
+GOKe does not perform automatic dependency analysis.
+
+Developers are responsible for ensuring that parallel systems do not introduce conflicting writes or race conditions.
+
+## Command Buffers
+
+Each system owns a dedicated command buffer.
+
+Structural operations are queued during execution and applied later during `Sync()`:
+
+- Add Component
+- Remove Component
+- Remove Entity
+
+This allows systems to safely modify archetype composition while iterating over entities.
+
+## Synchronization
+
+Queued commands become visible only after a synchronization point.
+
+```text
+System A
+System B
+    ↓
+   Sync
+    ↓
+Changes become visible
+```
+
+This guarantees predictable behavior and prevents structural changes from invalidating active iterations.
 
 <a id="roadmap"></a>
 # 🗺️ Roadmap
@@ -293,8 +439,19 @@ Current development focus and planned improvements:
 > We manage our long-term goals through GitHub Issues. View all planned core engine expansions and functional capabilities here:
 > [**Explore all Pending Features ↗**](https://github.com/kjkrol/goke/issues?q=state%3Aopen%20label%3Afeature)
 
-# License
+# When NOT to Use GOKe
+GOKe is optimized for large-scale, data-oriented workloads. It may not be the best fit for every project.
 
+* **Small Data Sets** — For a few hundred objects, plain Go structs and slices are often simpler and sufficiently fast.
+* **Deep Hierarchies** — ECS excels at flat data layouts. Tree-oriented domains such as UI systems or DOM-like structures may be better served by traditional object graphs.
+* **High Structural Churn** — Archetype migration is efficient, but workloads that continuously add and remove components from large numbers of entities every frame may reduce the benefits of archetype-based storage.
+* **Behavior-Centric Designs** — If your application is primarily organized around objects and methods rather than data transformations, an ECS may introduce unnecessary complexity.
+
+# Limitations
+
+* **Maximum component types: 128 by default.** The archetype system uses a fixed-size bitmask (`[2]uint64`) for fast component membership checks. Projects requiring more component types can increase this limit by modifying `MaskSize` and `MaxComponents` and recompiling GOKe. This is a compile-time configuration, not a runtime setting.
+
+# License
 GOKe is licensed under the MIT License. See the LICENSE [file](./LICENSE) for more details.
 
 <a id="documentation"></a>
