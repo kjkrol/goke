@@ -9,7 +9,7 @@ import (
 	"github.com/kjkrol/goke/internal/core"
 )
 
-const entitiesNumber = 1024
+const entitiesNumber = 1024 * 1024
 const filterSubsetSize = 100
 
 type Pos struct{ X, Y float32 }

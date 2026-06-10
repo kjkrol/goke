@@ -26,7 +26,9 @@
   </a>
 </p>
 
-**GOKe** is an ultra-lightweight, high-performance, and type-safe **SoA (Structure of Arrays)** [Entity Component System](https://en.wikipedia.org/wiki/Entity_component_system) (aka ECS) for [Go](https://go.dev/). It is engineered for maximum data throughput, leveraging modern **Go 1.23+ Iterators** and a Data-Oriented Design (DOD) architecture.
+**GOKe** is a type-safe, archetype-based [Entity Component System](https://en.wikipedia.org/wiki/Entity_component_system) (ECS) for [Go](https://go.dev/). It uses a **Structure of Arrays (SoA)** storage model and Data-Oriented Design principles to enable cache-friendly iteration and efficient processing of large numbers of entities.
+
+While primarily designed for game development, its archetype-based SoA architecture also makes it well suited for simulations, AI agents, real-time analytics, and other performance-critical workloads.
 
 <p align="center">
   <a href="#installation">Installation</a> 
@@ -46,11 +48,11 @@
   <a href="#documentation">Documentation</a>
 </p>
 
-# 🚀 Use Cases: Why GOKe?
+# Use Cases: Why GOKe?
 
-GOKe is primarily a **high-performance ECS for game development**, designed to manage massive entity counts while keeping the Go Garbage Collector (GC) completely silent. However, its core architecture a **data-oriented orchestrator** — makes it suitable for any scenario requiring cache-friendly iteration over millions of objects.
+While native C and Rust ECS frameworks may achieve higher peak throughput, GOKe is designed to maximize performance within the Go ecosystem. For many projects, avoiding CGO boundaries, external dependencies, and cross-language integration costs can outweigh the benefits of a faster foreign implementation.
 
-## 🎮 Gaming (Ebitengine & Frameworks)
+## 🎮 Gaming
 
 GOKe is the perfect companion for **Ebitengine** or purely server-side game loops. Managing thousands of active objects (bullets, particles, NPCs) often hits CPU bottlenecks due to pointer chasing and GC pressure. GOKe solves this via:
 
@@ -100,7 +102,7 @@ To ensure GOKe is the right tool for your project, consider these trade-offs:
 <a id="installation"></a>
 # 📦 Installation
 
-GOKe requires **Go 1.23** or newer.
+GOKe requires **Go 1.26** or newer.
 
 ```bash
 go get github.com/kjkrol/goke
@@ -126,8 +128,8 @@ Core capabilities designed for predictable performance, cache locality, and zero
 with `MaskSize = 2`) for branch-free intersection checks. Raising this limit requires recompiling GOKe with edited constants (`MaskSize` and `MaxComponents`); it is **not** a runtime configuration.
 
 <a id="usage"></a>
-# 💻 Usage Example
-> 📘 **New to ECS?** Check out the [**Getting Started with GOKe**](https://github.com/kjkrol/goke/wiki/Getting-Started-with-GOKe) guide for a step-by-step deep dive into building your first simulation.
+# Usage Example
+> **New to ECS?** Check out the [**Getting Started with GOKe**](https://github.com/kjkrol/goke/wiki/Getting-Started-with-GOKe) guide for a step-by-step deep dive into building your first simulation.
 
 ```go
 package main
@@ -225,9 +227,11 @@ Check the [**examples/**](./examples) directory for complete, ready-to-run proje
   * **Note**: Run `make` inside the example directory to fetch dependencies and start the demo.
 
 <a id="architecture"></a>
-# 🏗️ Core Architecture & "Mechanical Sympathy"
+# Core Architecture & "Mechanical Sympathy"
 
-GOKe is an archetype-based ECS designed for deterministic performance. It shifts structural overhead (like offset calculations) to the initialization phase and uses a chunked SoA layout to maintain consistent throughput regardless of scale.
+GOKe is an archetype-based ECS built around data-oriented design principles and cache-friendly memory layouts. By moving structural work to initialization and storing component data in chunked SoA layouts, it minimizes runtime overhead and maximizes cache locality during iteration.
+
+This design promotes predictable memory access patterns, reduced allocation pressure, and efficient processing of large numbers of entities.
 
 ## Data-Oriented Memory Design
 The storage layer is engineered to maximize cache hits and eliminate allocation spikes ("GC jitter").
@@ -253,7 +257,7 @@ GOKe bypasses traditional bottlenecks like reflection and map lookups in the exe
 
 <a id="performance"></a>
 # ⏱️ Performance & Scalability
-> The engine is engineered for extreme scalability and deterministic performance. By utilizing a **Centralized Record System** (dense array lookup) instead of traditional hash maps, we have effectively decoupled both structural changes and query performance from the total entity count ($N$).
+> The engine is engineered for extreme scalability and predictable performance. By utilizing a **Centralized Record System** (dense array lookup) instead of traditional hash maps, we have effectively decoupled both structural changes and query performance from the total entity count ($N$).
 
 GOKe delivers near-metal speeds by eliminating heap allocations and leveraging L1/L2 cache locality.
 
@@ -268,14 +272,14 @@ GOKe delivers near-metal speeds by eliminating heap allocations and leveraging L
 | **Structural** | **Remove Entity** | **2.83 ns/op** | **0** | Index Recycling |
 | **Access** | **Get Component** | **4.67 ns/op** | **0** | Inlined Record Lookup |
 
-> 📊 **Deep Dive**: For a full breakdown of hardware specs, stress tests, and $O(N)$ vs $O(1)$ scaling charts, see [**BENCHMARKS.md**](./BENCHMARKS.md).
+> **Deep Dive**: For a full breakdown of hardware specs, stress tests, and $O(N)$ vs $O(1)$ scaling charts, see [**BENCHMARKS.md**](./BENCHMARKS.md).
 
-> 🔬 **Cross-framework comparison**: Benchmarks against other Go ECS libraries (Arche, Donburi, Ento, etc.) are maintained in a dedicated project — [**go-ecs-benchmarks**](https://github.com/mlange-42/go-ecs-benchmarks) by [@mlange-42](https://github.com/mlange-42). ⚠️ Before drawing conclusions, verify which GOKe version (tag) is used in the comparison — published results may lag behind the main branch.
+> 📊 **Cross-framework comparison**: Benchmarks against other Go ECS libraries (Arche, Donburi, Ento, etc.) are maintained in a dedicated project — [**go-ecs-benchmarks**](https://github.com/mlange-42/go-ecs-benchmarks) by [@mlange-42](https://github.com/mlange-42). ⚠️ Before drawing conclusions, verify which GOKe version (tag) is used in the comparison — published results may lag behind the main branch.
 
 ### Reproducing Results
 Run the suite on your own hardware:
 ```bash
-go test -bench=. ./... -benchmem
+make bench
 ```
 
 <a id="roadmap"></a>
@@ -285,7 +289,7 @@ Current development focus and planned improvements:
 * **Ebitengine Integration:** Dedicated helpers for seamless state synchronization between GOKe systems and Ebitengine's loop — partially prototyped in the [ebiten-demo](./examples/ebiten-demo/main.go), with the goal of extracting it into a separate companion repository.
 * **Entity Relations via Tags:** Extend the Tag system to model relationships between entities (parent-child, links, ownership, ...) — adding relational semantics on top of the existing archetype-mask machinery, without sacrificing the zero-allocation hot loop.
 
-> 🛠️ **Live Feature Tracker**
+> **Live Feature Tracker**
 > We manage our long-term goals through GitHub Issues. View all planned core engine expansions and functional capabilities here:
 > [**Explore all Pending Features ↗**](https://github.com/kjkrol/goke/issues?q=state%3Aopen%20label%3Afeature)
 
