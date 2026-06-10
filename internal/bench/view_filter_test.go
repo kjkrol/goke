@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/kjkrol/goke"
-	"github.com/kjkrol/goke/internal/core"
+	"github.com/kjkrol/uid"
 )
 
 // Benchmark_View_Filter measures the performance of the View.Filter method
@@ -22,8 +22,8 @@ func Benchmark_View_Filter(b *testing.B) {
 	ecs := setupECS()
 	entities := populate(ecs, entitiesNumber)
 
-	sortedSubset := append([]core.Entity(nil), entities[:filterSubsetSize]...)
-	shuffledSubset := append([]core.Entity(nil), entities[:filterSubsetSize]...)
+	sortedSubset := append([]uid.UID64(nil), entities[:filterSubsetSize]...)
+	shuffledSubset := append([]uid.UID64(nil), entities[:filterSubsetSize]...)
 	rng := rand.New(rand.NewPCG(42, 1337))
 	rng.Shuffle(len(shuffledSubset), func(i, j int) {
 		shuffledSubset[i], shuffledSubset[j] = shuffledSubset[j], shuffledSubset[i]

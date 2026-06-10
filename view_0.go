@@ -5,6 +5,7 @@ import (
 	"unsafe"
 
 	"github.com/kjkrol/goke/internal/core"
+	"github.com/kjkrol/uid"
 )
 
 // View0 provides a high-performance iterator for entities that match
@@ -73,8 +74,8 @@ func (v *View0) All() iter.Seq[struct{ Entity []Entity }] {
 
 // Filter iterates `selected` entities and yields one entity at a time
 // for those that match the View's archetype constraints.
-func (v *View0) Filter(selected []core.Entity) iter.Seq2[int, struct{ Entity core.Entity }] {
-	return func(yield func(int, struct{ Entity core.Entity }) bool) {
+func (v *View0) Filter(selected []uid.UID64) iter.Seq2[int, struct{ Entity uid.UID64 }] {
+	return func(yield func(int, struct{ Entity uid.UID64 }) bool) {
 		store := &v.Reg.ArchetypeRegistry.EntityLinkStore
 
 		var lastArchID core.ArchetypeId = core.NullArchetypeId
@@ -91,7 +92,7 @@ func (v *View0) Filter(selected []core.Entity) iter.Seq2[int, struct{ Entity cor
 			if ma == nil {
 				continue
 			}
-			if !yield(i, struct{ Entity core.Entity }{Entity: e}) {
+			if !yield(i, struct{ Entity uid.UID64 }{Entity: e}) {
 				return
 			}
 		}

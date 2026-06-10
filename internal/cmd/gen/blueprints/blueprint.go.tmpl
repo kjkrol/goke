@@ -65,17 +65,18 @@ func NewBlueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $
     }
 }
 
-// BatchCreateX instantiates entities in bulk and returns an iterator yielding
+// Create instantiates entities in bulk and returns an iterator yielding
 // memory-aligned chunks for each component.
 //
 // Example:
 //
 //	for page := range blueprint.Create(100) {
-//		for i, _ := range page.Entity { {{- range $i := (seq 1 $n) }}
-//			batch.Comp1[{{ $i }}].X = 1 {{- end }}
+//		for i := range page.Entity {
+{{- range $i := (seq 1 $n) }}
+//			page.Comp{{ $i }}[i] = ...
+{{- end }}
 //		}
 //	}
-
 func (b *Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) Create(count int) iter.Seq[struct {
 	Entity []Entity
 	{{- range $i := (seq 1 $n) }}
@@ -121,15 +122,15 @@ func (b *Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }
 		for remaining > 0 {
 			allocatedRows := min(remaining, available)
 			startRow := page.Len
-			page.Len += core.PageRow(allocatedRows)
+			page.Len += core.PageSlot(allocatedRows)
 			memo.Len += uint32(allocatedRows)
 
 			for i := 0; i < allocatedRows; i++ {
-				entity := reg.EntityPool.Next()
-				pageRow := startRow + core.PageRow(i)
-				destPtr := entityCol.GetPointer(page, pageRow)
+				entity := Entity(reg.EntityPool.Next())
+				pageSlot := startRow + core.PageSlot(i)
+				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
-				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageRow)
+				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
 			}
 
 			if !yield(

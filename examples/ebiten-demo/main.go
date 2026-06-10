@@ -19,6 +19,9 @@ func main() {
 	collisionSystem := game.RegisterScheduledSystem(NewCollisionSystem)
 	game.LogicPlan(func(ctx goke.ExecutionContext, d time.Duration) {
 		ctx.Run(inputSystem, d)
+		if resources.gamePause {
+			return
+		}
 		ctx.Sync()
 		ctx.Run(moveSystem, d)
 		ctx.Sync()

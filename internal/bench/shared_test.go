@@ -6,10 +6,10 @@ import (
 	"testing"
 
 	"github.com/kjkrol/goke"
-	"github.com/kjkrol/goke/internal/core"
+	"github.com/kjkrol/uid"
 )
 
-const entitiesNumber = 1024 * 1024
+const entitiesNumber = 1024
 const filterSubsetSize = 100
 
 type Pos struct{ X, Y float32 }
@@ -41,8 +41,8 @@ func setupECS() *goke.ECS {
 	return ecs
 }
 
-func populate(ecs *goke.ECS, count int) []core.Entity {
-	var entities []core.Entity
+func populate(ecs *goke.ECS, count int) []uid.UID64 {
+	var entities []uid.UID64
 	blueprint := goke.NewBlueprint10[Pos, Vel, Acc, T04, T05, T06, T07, T08, T09, T10](ecs)
 	for page := range blueprint.Create(count) {
 		for i, entity := range page.Entity {

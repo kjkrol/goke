@@ -1,11 +1,15 @@
 package core
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/kjkrol/uid"
+)
 
 type PageIdx uint32 // Index of the page in Memo.Pages slice
-// PageRow is a type alias for the index within a page.
+// PageSlot is a type alias for the index within a page.
 // Using uint32 ensures alignment and supports >255 entities per page.
-type PageRow uint32
+type PageSlot uint32
 
 //------------------------------------------------------------------------------
 //                          Memo (Memory Manager)
@@ -27,11 +31,11 @@ func (b *Memo) Init(compInfos []ComponentInfo) {
 	b.addPage()
 }
 
-func (b *Memo) AllocSlot() (*Page, PageIdx, PageRow) {
+func (b *Memo) AllocSlot() (*Page, PageIdx, PageSlot) {
 	lastIdx := PageIdx(len(b.Pages) - 1)
 	page := &b.Pages[lastIdx]
 
-	if page.Len >= PageRow(b.Layout.PageCap) {
+	if page.Len >= PageSlot(b.Layout.PageCap) {
 		b.addPage()
 		lastIdx++
 		page = &b.Pages[lastIdx]
@@ -106,9 +110,14 @@ func (b *Memo) Clear() {
 //------------------------------------------------------------------------------
 
 type Page struct {
+	// ┌────────────────────────────────────────────────────────────┐
+	// │ data []byte                                                │
+	// ├────────────────────────────────────────────────────────────┤
+	// │ Entity Column │ CompA Column │ CompB Column │ ...          │
+	// └────────────────────────────────────────────────────────────┘
 	data []byte
 	Ptr  unsafe.Pointer
-	Len  PageRow
+	Len  PageSlot
 }
 
 //------------------------------------------------------------------------------
@@ -124,7 +133,7 @@ type PageLayout struct {
 // CalculateLayout computes the optimal memory layout for a page.
 func CalculateLayout(compInfos []ComponentInfo) PageLayout {
 
-	totalStride := unsafe.Sizeof(Entity(0))
+	totalStride := unsafe.Sizeof(uid.UID64(0))
 	for _, info := range compInfos {
 		totalStride += info.Size
 	}
@@ -138,10 +147,10 @@ func CalculateLayout(compInfos []ComponentInfo) PageLayout {
 		offsets := make([]uintptr, len(compInfos)+1)
 		currentOffset := uintptr(0)
 
-		entityAlign := unsafe.Alignof(Entity(0))
+		entityAlign := unsafe.Alignof(uid.UID64(0))
 		currentOffset = alignUp(currentOffset, entityAlign)
 		offsets[0] = currentOffset
-		currentOffset += unsafe.Sizeof(Entity(0)) * capacity
+		currentOffset += unsafe.Sizeof(uid.UID64(0)) * capacity
 
 		for i, info := range compInfos {
 			currentOffset = alignUp(currentOffset, info.Align)

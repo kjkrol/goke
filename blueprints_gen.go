@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"unsafe"
 
-    "github.com/kjkrol/goke/internal/core"
+	"github.com/kjkrol/goke/internal/core"
 )
 
 // Blueprint1 defines a static template (recipe) for the mass construction
@@ -19,7 +19,7 @@ import (
 // require exactly 1 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint1[T1 any] struct {
-    itemFactory *core.ItemFactory
+	itemFactory *core.ItemFactory
 }
 
 // NewBlueprint1 initializes a new template for a specific combination of 1 components.
@@ -33,48 +33,47 @@ type Blueprint1[T1 any] struct {
 // This constructor panics if component registration fails or if there are
 // configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint1[T1 any](
-    ecs *ECS,
-    opts ...BlueprintOption,
+	ecs *ECS,
+	opts ...BlueprintOption,
 ) *Blueprint1[T1] {
-    registry := ecs.registry
-    blueprint := core.NewBlueprint(registry)
+	registry := ecs.registry
+	blueprint := core.NewBlueprint(registry)
 
-    // mustAdd ensures that component registration and blueprint assignment
-    // are successful. Panics immediately on failure to support fail-fast startup.
-    mustAdd := func(info core.ComponentInfo) {
-        if err := blueprint.WithComp(info); err != nil {
-            panic(fmt.Sprintf("goke: blueprint1 init failed: %v", err))
-        }
-    }
+	// mustAdd ensures that component registration and blueprint assignment
+	// are successful. Panics immediately on failure to support fail-fast startup.
+	mustAdd := func(info core.ComponentInfo) {
+		if err := blueprint.WithComp(info); err != nil {
+			panic(fmt.Sprintf("goke: blueprint1 init failed: %v", err))
+		}
+	}
 
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
-    
-    // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
-    for _, opt := range opts {
-        if err := opt(blueprint); err != nil {
-            panic(fmt.Sprintf("goke: blueprint1 option failed: %v", err))
-        }
-    }
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
 
-    return &Blueprint1[T1]{
-        itemFactory: core.NewItemFactory(blueprint),
-    }
+	// Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
+	for _, opt := range opts {
+		if err := opt(blueprint); err != nil {
+			panic(fmt.Sprintf("goke: blueprint1 option failed: %v", err))
+		}
+	}
+
+	return &Blueprint1[T1]{
+		itemFactory: core.NewItemFactory(blueprint),
+	}
 }
 
-// BatchCreateX instantiates entities in bulk and returns an iterator yielding
+// Create instantiates entities in bulk and returns an iterator yielding
 // memory-aligned chunks for each component.
 //
 // Example:
 //
 //	for page := range blueprint.Create(100) {
-//		for i, _ := range page.Entity {
-//			batch.Comp1[1].X = 1
+//		for i := range page.Entity {
+//			page.Comp1[i] = ...
 //		}
 //	}
-
 func (b *Blueprint1[T1]) Create(count int) iter.Seq[struct {
 	Entity []Entity
-	Comp1 []T1
+	Comp1  []T1
 }] {
 	reg := b.itemFactory.Reg
 	archReg := reg.ArchetypeRegistry
@@ -86,7 +85,7 @@ func (b *Blueprint1[T1]) Create(count int) iter.Seq[struct {
 
 	return func(yield func(struct {
 		Entity []Entity
-		Comp1 []T1
+		Comp1  []T1
 	}) bool) {
 		pageIdx := core.PageIdx(len(memo.Pages) - 1)
 		page := &memo.Pages[pageIdx]
@@ -111,24 +110,24 @@ func (b *Blueprint1[T1]) Create(count int) iter.Seq[struct {
 		for remaining > 0 {
 			allocatedRows := min(remaining, available)
 			startRow := page.Len
-			page.Len += core.PageRow(allocatedRows)
+			page.Len += core.PageSlot(allocatedRows)
 			memo.Len += uint32(allocatedRows)
 
 			for i := 0; i < allocatedRows; i++ {
-				entity := reg.EntityPool.Next()
-				pageRow := startRow + core.PageRow(i)
-				destPtr := entityCol.GetPointer(page, pageRow)
+				entity := Entity(reg.EntityPool.Next())
+				pageSlot := startRow + core.PageSlot(i)
+				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
-				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageRow)
+				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
 			}
 
 			if !yield(
 				struct {
 					Entity []Entity
-					Comp1 []T1
+					Comp1  []T1
 				}{
 					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startRow)), allocatedRows),
-					Comp1: unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
+					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
 				}) {
 				memo.Reserved = 0
 				return
@@ -145,6 +144,7 @@ func (b *Blueprint1[T1]) Create(count int) iter.Seq[struct {
 		memo.Reserved = 0
 	}
 }
+
 // Blueprint2 defines a static template (recipe) for the mass construction
 // of entities with a predefined set of 2 stateful components. It allows
 // for precise memory layout planning before allocation, which is essential
@@ -154,7 +154,7 @@ func (b *Blueprint1[T1]) Create(count int) iter.Seq[struct {
 // require exactly 2 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint2[T1 any, T2 any] struct {
-    itemFactory *core.ItemFactory
+	itemFactory *core.ItemFactory
 }
 
 // NewBlueprint2 initializes a new template for a specific combination of 2 components.
@@ -168,51 +168,50 @@ type Blueprint2[T1 any, T2 any] struct {
 // This constructor panics if component registration fails or if there are
 // configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint2[T1 any, T2 any](
-    ecs *ECS,
-    opts ...BlueprintOption,
+	ecs *ECS,
+	opts ...BlueprintOption,
 ) *Blueprint2[T1, T2] {
-    registry := ecs.registry
-    blueprint := core.NewBlueprint(registry)
+	registry := ecs.registry
+	blueprint := core.NewBlueprint(registry)
 
-    // mustAdd ensures that component registration and blueprint assignment
-    // are successful. Panics immediately on failure to support fail-fast startup.
-    mustAdd := func(info core.ComponentInfo) {
-        if err := blueprint.WithComp(info); err != nil {
-            panic(fmt.Sprintf("goke: blueprint2 init failed: %v", err))
-        }
-    }
+	// mustAdd ensures that component registration and blueprint assignment
+	// are successful. Panics immediately on failure to support fail-fast startup.
+	mustAdd := func(info core.ComponentInfo) {
+		if err := blueprint.WithComp(info); err != nil {
+			panic(fmt.Sprintf("goke: blueprint2 init failed: %v", err))
+		}
+	}
 
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T2]()))
-    
-    // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
-    for _, opt := range opts {
-        if err := opt(blueprint); err != nil {
-            panic(fmt.Sprintf("goke: blueprint2 option failed: %v", err))
-        }
-    }
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T2]()))
 
-    return &Blueprint2[T1, T2]{
-        itemFactory: core.NewItemFactory(blueprint),
-    }
+	// Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
+	for _, opt := range opts {
+		if err := opt(blueprint); err != nil {
+			panic(fmt.Sprintf("goke: blueprint2 option failed: %v", err))
+		}
+	}
+
+	return &Blueprint2[T1, T2]{
+		itemFactory: core.NewItemFactory(blueprint),
+	}
 }
 
-// BatchCreateX instantiates entities in bulk and returns an iterator yielding
+// Create instantiates entities in bulk and returns an iterator yielding
 // memory-aligned chunks for each component.
 //
 // Example:
 //
 //	for page := range blueprint.Create(100) {
-//		for i, _ := range page.Entity {
-//			batch.Comp1[1].X = 1
-//			batch.Comp1[2].X = 1
+//		for i := range page.Entity {
+//			page.Comp1[i] = ...
+//			page.Comp2[i] = ...
 //		}
 //	}
-
 func (b *Blueprint2[T1, T2]) Create(count int) iter.Seq[struct {
 	Entity []Entity
-	Comp1 []T1
-	Comp2 []T2
+	Comp1  []T1
+	Comp2  []T2
 }] {
 	reg := b.itemFactory.Reg
 	archReg := reg.ArchetypeRegistry
@@ -225,8 +224,8 @@ func (b *Blueprint2[T1, T2]) Create(count int) iter.Seq[struct {
 
 	return func(yield func(struct {
 		Entity []Entity
-		Comp1 []T1
-		Comp2 []T2
+		Comp1  []T1
+		Comp2  []T2
 	}) bool) {
 		pageIdx := core.PageIdx(len(memo.Pages) - 1)
 		page := &memo.Pages[pageIdx]
@@ -251,26 +250,26 @@ func (b *Blueprint2[T1, T2]) Create(count int) iter.Seq[struct {
 		for remaining > 0 {
 			allocatedRows := min(remaining, available)
 			startRow := page.Len
-			page.Len += core.PageRow(allocatedRows)
+			page.Len += core.PageSlot(allocatedRows)
 			memo.Len += uint32(allocatedRows)
 
 			for i := 0; i < allocatedRows; i++ {
-				entity := reg.EntityPool.Next()
-				pageRow := startRow + core.PageRow(i)
-				destPtr := entityCol.GetPointer(page, pageRow)
+				entity := Entity(reg.EntityPool.Next())
+				pageSlot := startRow + core.PageSlot(i)
+				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
-				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageRow)
+				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
 			}
 
 			if !yield(
 				struct {
 					Entity []Entity
-					Comp1 []T1
-					Comp2 []T2
+					Comp1  []T1
+					Comp2  []T2
 				}{
 					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startRow)), allocatedRows),
-					Comp1: unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
-					Comp2: unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
+					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
+					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
 				}) {
 				memo.Reserved = 0
 				return
@@ -287,6 +286,7 @@ func (b *Blueprint2[T1, T2]) Create(count int) iter.Seq[struct {
 		memo.Reserved = 0
 	}
 }
+
 // Blueprint3 defines a static template (recipe) for the mass construction
 // of entities with a predefined set of 3 stateful components. It allows
 // for precise memory layout planning before allocation, which is essential
@@ -296,7 +296,7 @@ func (b *Blueprint2[T1, T2]) Create(count int) iter.Seq[struct {
 // require exactly 3 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint3[T1 any, T2 any, T3 any] struct {
-    itemFactory *core.ItemFactory
+	itemFactory *core.ItemFactory
 }
 
 // NewBlueprint3 initializes a new template for a specific combination of 3 components.
@@ -310,54 +310,53 @@ type Blueprint3[T1 any, T2 any, T3 any] struct {
 // This constructor panics if component registration fails or if there are
 // configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint3[T1 any, T2 any, T3 any](
-    ecs *ECS,
-    opts ...BlueprintOption,
+	ecs *ECS,
+	opts ...BlueprintOption,
 ) *Blueprint3[T1, T2, T3] {
-    registry := ecs.registry
-    blueprint := core.NewBlueprint(registry)
+	registry := ecs.registry
+	blueprint := core.NewBlueprint(registry)
 
-    // mustAdd ensures that component registration and blueprint assignment
-    // are successful. Panics immediately on failure to support fail-fast startup.
-    mustAdd := func(info core.ComponentInfo) {
-        if err := blueprint.WithComp(info); err != nil {
-            panic(fmt.Sprintf("goke: blueprint3 init failed: %v", err))
-        }
-    }
+	// mustAdd ensures that component registration and blueprint assignment
+	// are successful. Panics immediately on failure to support fail-fast startup.
+	mustAdd := func(info core.ComponentInfo) {
+		if err := blueprint.WithComp(info); err != nil {
+			panic(fmt.Sprintf("goke: blueprint3 init failed: %v", err))
+		}
+	}
 
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T2]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T3]()))
-    
-    // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
-    for _, opt := range opts {
-        if err := opt(blueprint); err != nil {
-            panic(fmt.Sprintf("goke: blueprint3 option failed: %v", err))
-        }
-    }
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T2]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T3]()))
 
-    return &Blueprint3[T1, T2, T3]{
-        itemFactory: core.NewItemFactory(blueprint),
-    }
+	// Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
+	for _, opt := range opts {
+		if err := opt(blueprint); err != nil {
+			panic(fmt.Sprintf("goke: blueprint3 option failed: %v", err))
+		}
+	}
+
+	return &Blueprint3[T1, T2, T3]{
+		itemFactory: core.NewItemFactory(blueprint),
+	}
 }
 
-// BatchCreateX instantiates entities in bulk and returns an iterator yielding
+// Create instantiates entities in bulk and returns an iterator yielding
 // memory-aligned chunks for each component.
 //
 // Example:
 //
 //	for page := range blueprint.Create(100) {
-//		for i, _ := range page.Entity {
-//			batch.Comp1[1].X = 1
-//			batch.Comp1[2].X = 1
-//			batch.Comp1[3].X = 1
+//		for i := range page.Entity {
+//			page.Comp1[i] = ...
+//			page.Comp2[i] = ...
+//			page.Comp3[i] = ...
 //		}
 //	}
-
 func (b *Blueprint3[T1, T2, T3]) Create(count int) iter.Seq[struct {
 	Entity []Entity
-	Comp1 []T1
-	Comp2 []T2
-	Comp3 []T3
+	Comp1  []T1
+	Comp2  []T2
+	Comp3  []T3
 }] {
 	reg := b.itemFactory.Reg
 	archReg := reg.ArchetypeRegistry
@@ -371,9 +370,9 @@ func (b *Blueprint3[T1, T2, T3]) Create(count int) iter.Seq[struct {
 
 	return func(yield func(struct {
 		Entity []Entity
-		Comp1 []T1
-		Comp2 []T2
-		Comp3 []T3
+		Comp1  []T1
+		Comp2  []T2
+		Comp3  []T3
 	}) bool) {
 		pageIdx := core.PageIdx(len(memo.Pages) - 1)
 		page := &memo.Pages[pageIdx]
@@ -398,28 +397,28 @@ func (b *Blueprint3[T1, T2, T3]) Create(count int) iter.Seq[struct {
 		for remaining > 0 {
 			allocatedRows := min(remaining, available)
 			startRow := page.Len
-			page.Len += core.PageRow(allocatedRows)
+			page.Len += core.PageSlot(allocatedRows)
 			memo.Len += uint32(allocatedRows)
 
 			for i := 0; i < allocatedRows; i++ {
-				entity := reg.EntityPool.Next()
-				pageRow := startRow + core.PageRow(i)
-				destPtr := entityCol.GetPointer(page, pageRow)
+				entity := Entity(reg.EntityPool.Next())
+				pageSlot := startRow + core.PageSlot(i)
+				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
-				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageRow)
+				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
 			}
 
 			if !yield(
 				struct {
 					Entity []Entity
-					Comp1 []T1
-					Comp2 []T2
-					Comp3 []T3
+					Comp1  []T1
+					Comp2  []T2
+					Comp3  []T3
 				}{
 					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startRow)), allocatedRows),
-					Comp1: unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
-					Comp2: unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
-					Comp3: unsafe.Slice((*T3)(col3.GetPointer(page, startRow)), allocatedRows),
+					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
+					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
+					Comp3:  unsafe.Slice((*T3)(col3.GetPointer(page, startRow)), allocatedRows),
 				}) {
 				memo.Reserved = 0
 				return
@@ -436,6 +435,7 @@ func (b *Blueprint3[T1, T2, T3]) Create(count int) iter.Seq[struct {
 		memo.Reserved = 0
 	}
 }
+
 // Blueprint4 defines a static template (recipe) for the mass construction
 // of entities with a predefined set of 4 stateful components. It allows
 // for precise memory layout planning before allocation, which is essential
@@ -445,7 +445,7 @@ func (b *Blueprint3[T1, T2, T3]) Create(count int) iter.Seq[struct {
 // require exactly 4 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint4[T1 any, T2 any, T3 any, T4 any] struct {
-    itemFactory *core.ItemFactory
+	itemFactory *core.ItemFactory
 }
 
 // NewBlueprint4 initializes a new template for a specific combination of 4 components.
@@ -459,57 +459,56 @@ type Blueprint4[T1 any, T2 any, T3 any, T4 any] struct {
 // This constructor panics if component registration fails or if there are
 // configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint4[T1 any, T2 any, T3 any, T4 any](
-    ecs *ECS,
-    opts ...BlueprintOption,
+	ecs *ECS,
+	opts ...BlueprintOption,
 ) *Blueprint4[T1, T2, T3, T4] {
-    registry := ecs.registry
-    blueprint := core.NewBlueprint(registry)
+	registry := ecs.registry
+	blueprint := core.NewBlueprint(registry)
 
-    // mustAdd ensures that component registration and blueprint assignment
-    // are successful. Panics immediately on failure to support fail-fast startup.
-    mustAdd := func(info core.ComponentInfo) {
-        if err := blueprint.WithComp(info); err != nil {
-            panic(fmt.Sprintf("goke: blueprint4 init failed: %v", err))
-        }
-    }
+	// mustAdd ensures that component registration and blueprint assignment
+	// are successful. Panics immediately on failure to support fail-fast startup.
+	mustAdd := func(info core.ComponentInfo) {
+		if err := blueprint.WithComp(info); err != nil {
+			panic(fmt.Sprintf("goke: blueprint4 init failed: %v", err))
+		}
+	}
 
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T2]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T3]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T4]()))
-    
-    // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
-    for _, opt := range opts {
-        if err := opt(blueprint); err != nil {
-            panic(fmt.Sprintf("goke: blueprint4 option failed: %v", err))
-        }
-    }
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T2]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T3]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T4]()))
 
-    return &Blueprint4[T1, T2, T3, T4]{
-        itemFactory: core.NewItemFactory(blueprint),
-    }
+	// Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
+	for _, opt := range opts {
+		if err := opt(blueprint); err != nil {
+			panic(fmt.Sprintf("goke: blueprint4 option failed: %v", err))
+		}
+	}
+
+	return &Blueprint4[T1, T2, T3, T4]{
+		itemFactory: core.NewItemFactory(blueprint),
+	}
 }
 
-// BatchCreateX instantiates entities in bulk and returns an iterator yielding
+// Create instantiates entities in bulk and returns an iterator yielding
 // memory-aligned chunks for each component.
 //
 // Example:
 //
 //	for page := range blueprint.Create(100) {
-//		for i, _ := range page.Entity {
-//			batch.Comp1[1].X = 1
-//			batch.Comp1[2].X = 1
-//			batch.Comp1[3].X = 1
-//			batch.Comp1[4].X = 1
+//		for i := range page.Entity {
+//			page.Comp1[i] = ...
+//			page.Comp2[i] = ...
+//			page.Comp3[i] = ...
+//			page.Comp4[i] = ...
 //		}
 //	}
-
 func (b *Blueprint4[T1, T2, T3, T4]) Create(count int) iter.Seq[struct {
 	Entity []Entity
-	Comp1 []T1
-	Comp2 []T2
-	Comp3 []T3
-	Comp4 []T4
+	Comp1  []T1
+	Comp2  []T2
+	Comp3  []T3
+	Comp4  []T4
 }] {
 	reg := b.itemFactory.Reg
 	archReg := reg.ArchetypeRegistry
@@ -524,10 +523,10 @@ func (b *Blueprint4[T1, T2, T3, T4]) Create(count int) iter.Seq[struct {
 
 	return func(yield func(struct {
 		Entity []Entity
-		Comp1 []T1
-		Comp2 []T2
-		Comp3 []T3
-		Comp4 []T4
+		Comp1  []T1
+		Comp2  []T2
+		Comp3  []T3
+		Comp4  []T4
 	}) bool) {
 		pageIdx := core.PageIdx(len(memo.Pages) - 1)
 		page := &memo.Pages[pageIdx]
@@ -552,30 +551,30 @@ func (b *Blueprint4[T1, T2, T3, T4]) Create(count int) iter.Seq[struct {
 		for remaining > 0 {
 			allocatedRows := min(remaining, available)
 			startRow := page.Len
-			page.Len += core.PageRow(allocatedRows)
+			page.Len += core.PageSlot(allocatedRows)
 			memo.Len += uint32(allocatedRows)
 
 			for i := 0; i < allocatedRows; i++ {
-				entity := reg.EntityPool.Next()
-				pageRow := startRow + core.PageRow(i)
-				destPtr := entityCol.GetPointer(page, pageRow)
+				entity := Entity(reg.EntityPool.Next())
+				pageSlot := startRow + core.PageSlot(i)
+				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
-				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageRow)
+				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
 			}
 
 			if !yield(
 				struct {
 					Entity []Entity
-					Comp1 []T1
-					Comp2 []T2
-					Comp3 []T3
-					Comp4 []T4
+					Comp1  []T1
+					Comp2  []T2
+					Comp3  []T3
+					Comp4  []T4
 				}{
 					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startRow)), allocatedRows),
-					Comp1: unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
-					Comp2: unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
-					Comp3: unsafe.Slice((*T3)(col3.GetPointer(page, startRow)), allocatedRows),
-					Comp4: unsafe.Slice((*T4)(col4.GetPointer(page, startRow)), allocatedRows),
+					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
+					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
+					Comp3:  unsafe.Slice((*T3)(col3.GetPointer(page, startRow)), allocatedRows),
+					Comp4:  unsafe.Slice((*T4)(col4.GetPointer(page, startRow)), allocatedRows),
 				}) {
 				memo.Reserved = 0
 				return
@@ -592,6 +591,7 @@ func (b *Blueprint4[T1, T2, T3, T4]) Create(count int) iter.Seq[struct {
 		memo.Reserved = 0
 	}
 }
+
 // Blueprint5 defines a static template (recipe) for the mass construction
 // of entities with a predefined set of 5 stateful components. It allows
 // for precise memory layout planning before allocation, which is essential
@@ -601,7 +601,7 @@ func (b *Blueprint4[T1, T2, T3, T4]) Create(count int) iter.Seq[struct {
 // require exactly 5 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint5[T1 any, T2 any, T3 any, T4 any, T5 any] struct {
-    itemFactory *core.ItemFactory
+	itemFactory *core.ItemFactory
 }
 
 // NewBlueprint5 initializes a new template for a specific combination of 5 components.
@@ -615,60 +615,59 @@ type Blueprint5[T1 any, T2 any, T3 any, T4 any, T5 any] struct {
 // This constructor panics if component registration fails or if there are
 // configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint5[T1 any, T2 any, T3 any, T4 any, T5 any](
-    ecs *ECS,
-    opts ...BlueprintOption,
+	ecs *ECS,
+	opts ...BlueprintOption,
 ) *Blueprint5[T1, T2, T3, T4, T5] {
-    registry := ecs.registry
-    blueprint := core.NewBlueprint(registry)
+	registry := ecs.registry
+	blueprint := core.NewBlueprint(registry)
 
-    // mustAdd ensures that component registration and blueprint assignment
-    // are successful. Panics immediately on failure to support fail-fast startup.
-    mustAdd := func(info core.ComponentInfo) {
-        if err := blueprint.WithComp(info); err != nil {
-            panic(fmt.Sprintf("goke: blueprint5 init failed: %v", err))
-        }
-    }
+	// mustAdd ensures that component registration and blueprint assignment
+	// are successful. Panics immediately on failure to support fail-fast startup.
+	mustAdd := func(info core.ComponentInfo) {
+		if err := blueprint.WithComp(info); err != nil {
+			panic(fmt.Sprintf("goke: blueprint5 init failed: %v", err))
+		}
+	}
 
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T2]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T3]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T4]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T5]()))
-    
-    // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
-    for _, opt := range opts {
-        if err := opt(blueprint); err != nil {
-            panic(fmt.Sprintf("goke: blueprint5 option failed: %v", err))
-        }
-    }
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T2]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T3]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T4]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T5]()))
 
-    return &Blueprint5[T1, T2, T3, T4, T5]{
-        itemFactory: core.NewItemFactory(blueprint),
-    }
+	// Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
+	for _, opt := range opts {
+		if err := opt(blueprint); err != nil {
+			panic(fmt.Sprintf("goke: blueprint5 option failed: %v", err))
+		}
+	}
+
+	return &Blueprint5[T1, T2, T3, T4, T5]{
+		itemFactory: core.NewItemFactory(blueprint),
+	}
 }
 
-// BatchCreateX instantiates entities in bulk and returns an iterator yielding
+// Create instantiates entities in bulk and returns an iterator yielding
 // memory-aligned chunks for each component.
 //
 // Example:
 //
 //	for page := range blueprint.Create(100) {
-//		for i, _ := range page.Entity {
-//			batch.Comp1[1].X = 1
-//			batch.Comp1[2].X = 1
-//			batch.Comp1[3].X = 1
-//			batch.Comp1[4].X = 1
-//			batch.Comp1[5].X = 1
+//		for i := range page.Entity {
+//			page.Comp1[i] = ...
+//			page.Comp2[i] = ...
+//			page.Comp3[i] = ...
+//			page.Comp4[i] = ...
+//			page.Comp5[i] = ...
 //		}
 //	}
-
 func (b *Blueprint5[T1, T2, T3, T4, T5]) Create(count int) iter.Seq[struct {
 	Entity []Entity
-	Comp1 []T1
-	Comp2 []T2
-	Comp3 []T3
-	Comp4 []T4
-	Comp5 []T5
+	Comp1  []T1
+	Comp2  []T2
+	Comp3  []T3
+	Comp4  []T4
+	Comp5  []T5
 }] {
 	reg := b.itemFactory.Reg
 	archReg := reg.ArchetypeRegistry
@@ -684,11 +683,11 @@ func (b *Blueprint5[T1, T2, T3, T4, T5]) Create(count int) iter.Seq[struct {
 
 	return func(yield func(struct {
 		Entity []Entity
-		Comp1 []T1
-		Comp2 []T2
-		Comp3 []T3
-		Comp4 []T4
-		Comp5 []T5
+		Comp1  []T1
+		Comp2  []T2
+		Comp3  []T3
+		Comp4  []T4
+		Comp5  []T5
 	}) bool) {
 		pageIdx := core.PageIdx(len(memo.Pages) - 1)
 		page := &memo.Pages[pageIdx]
@@ -713,32 +712,32 @@ func (b *Blueprint5[T1, T2, T3, T4, T5]) Create(count int) iter.Seq[struct {
 		for remaining > 0 {
 			allocatedRows := min(remaining, available)
 			startRow := page.Len
-			page.Len += core.PageRow(allocatedRows)
+			page.Len += core.PageSlot(allocatedRows)
 			memo.Len += uint32(allocatedRows)
 
 			for i := 0; i < allocatedRows; i++ {
-				entity := reg.EntityPool.Next()
-				pageRow := startRow + core.PageRow(i)
-				destPtr := entityCol.GetPointer(page, pageRow)
+				entity := Entity(reg.EntityPool.Next())
+				pageSlot := startRow + core.PageSlot(i)
+				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
-				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageRow)
+				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
 			}
 
 			if !yield(
 				struct {
 					Entity []Entity
-					Comp1 []T1
-					Comp2 []T2
-					Comp3 []T3
-					Comp4 []T4
-					Comp5 []T5
+					Comp1  []T1
+					Comp2  []T2
+					Comp3  []T3
+					Comp4  []T4
+					Comp5  []T5
 				}{
 					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startRow)), allocatedRows),
-					Comp1: unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
-					Comp2: unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
-					Comp3: unsafe.Slice((*T3)(col3.GetPointer(page, startRow)), allocatedRows),
-					Comp4: unsafe.Slice((*T4)(col4.GetPointer(page, startRow)), allocatedRows),
-					Comp5: unsafe.Slice((*T5)(col5.GetPointer(page, startRow)), allocatedRows),
+					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
+					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
+					Comp3:  unsafe.Slice((*T3)(col3.GetPointer(page, startRow)), allocatedRows),
+					Comp4:  unsafe.Slice((*T4)(col4.GetPointer(page, startRow)), allocatedRows),
+					Comp5:  unsafe.Slice((*T5)(col5.GetPointer(page, startRow)), allocatedRows),
 				}) {
 				memo.Reserved = 0
 				return
@@ -755,6 +754,7 @@ func (b *Blueprint5[T1, T2, T3, T4, T5]) Create(count int) iter.Seq[struct {
 		memo.Reserved = 0
 	}
 }
+
 // Blueprint6 defines a static template (recipe) for the mass construction
 // of entities with a predefined set of 6 stateful components. It allows
 // for precise memory layout planning before allocation, which is essential
@@ -764,7 +764,7 @@ func (b *Blueprint5[T1, T2, T3, T4, T5]) Create(count int) iter.Seq[struct {
 // require exactly 6 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any] struct {
-    itemFactory *core.ItemFactory
+	itemFactory *core.ItemFactory
 }
 
 // NewBlueprint6 initializes a new template for a specific combination of 6 components.
@@ -778,63 +778,62 @@ type Blueprint6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any] struct {
 // This constructor panics if component registration fails or if there are
 // configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any](
-    ecs *ECS,
-    opts ...BlueprintOption,
+	ecs *ECS,
+	opts ...BlueprintOption,
 ) *Blueprint6[T1, T2, T3, T4, T5, T6] {
-    registry := ecs.registry
-    blueprint := core.NewBlueprint(registry)
+	registry := ecs.registry
+	blueprint := core.NewBlueprint(registry)
 
-    // mustAdd ensures that component registration and blueprint assignment
-    // are successful. Panics immediately on failure to support fail-fast startup.
-    mustAdd := func(info core.ComponentInfo) {
-        if err := blueprint.WithComp(info); err != nil {
-            panic(fmt.Sprintf("goke: blueprint6 init failed: %v", err))
-        }
-    }
+	// mustAdd ensures that component registration and blueprint assignment
+	// are successful. Panics immediately on failure to support fail-fast startup.
+	mustAdd := func(info core.ComponentInfo) {
+		if err := blueprint.WithComp(info); err != nil {
+			panic(fmt.Sprintf("goke: blueprint6 init failed: %v", err))
+		}
+	}
 
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T2]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T3]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T4]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T5]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T6]()))
-    
-    // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
-    for _, opt := range opts {
-        if err := opt(blueprint); err != nil {
-            panic(fmt.Sprintf("goke: blueprint6 option failed: %v", err))
-        }
-    }
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T2]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T3]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T4]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T5]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T6]()))
 
-    return &Blueprint6[T1, T2, T3, T4, T5, T6]{
-        itemFactory: core.NewItemFactory(blueprint),
-    }
+	// Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
+	for _, opt := range opts {
+		if err := opt(blueprint); err != nil {
+			panic(fmt.Sprintf("goke: blueprint6 option failed: %v", err))
+		}
+	}
+
+	return &Blueprint6[T1, T2, T3, T4, T5, T6]{
+		itemFactory: core.NewItemFactory(blueprint),
+	}
 }
 
-// BatchCreateX instantiates entities in bulk and returns an iterator yielding
+// Create instantiates entities in bulk and returns an iterator yielding
 // memory-aligned chunks for each component.
 //
 // Example:
 //
 //	for page := range blueprint.Create(100) {
-//		for i, _ := range page.Entity {
-//			batch.Comp1[1].X = 1
-//			batch.Comp1[2].X = 1
-//			batch.Comp1[3].X = 1
-//			batch.Comp1[4].X = 1
-//			batch.Comp1[5].X = 1
-//			batch.Comp1[6].X = 1
+//		for i := range page.Entity {
+//			page.Comp1[i] = ...
+//			page.Comp2[i] = ...
+//			page.Comp3[i] = ...
+//			page.Comp4[i] = ...
+//			page.Comp5[i] = ...
+//			page.Comp6[i] = ...
 //		}
 //	}
-
 func (b *Blueprint6[T1, T2, T3, T4, T5, T6]) Create(count int) iter.Seq[struct {
 	Entity []Entity
-	Comp1 []T1
-	Comp2 []T2
-	Comp3 []T3
-	Comp4 []T4
-	Comp5 []T5
-	Comp6 []T6
+	Comp1  []T1
+	Comp2  []T2
+	Comp3  []T3
+	Comp4  []T4
+	Comp5  []T5
+	Comp6  []T6
 }] {
 	reg := b.itemFactory.Reg
 	archReg := reg.ArchetypeRegistry
@@ -851,12 +850,12 @@ func (b *Blueprint6[T1, T2, T3, T4, T5, T6]) Create(count int) iter.Seq[struct {
 
 	return func(yield func(struct {
 		Entity []Entity
-		Comp1 []T1
-		Comp2 []T2
-		Comp3 []T3
-		Comp4 []T4
-		Comp5 []T5
-		Comp6 []T6
+		Comp1  []T1
+		Comp2  []T2
+		Comp3  []T3
+		Comp4  []T4
+		Comp5  []T5
+		Comp6  []T6
 	}) bool) {
 		pageIdx := core.PageIdx(len(memo.Pages) - 1)
 		page := &memo.Pages[pageIdx]
@@ -881,34 +880,34 @@ func (b *Blueprint6[T1, T2, T3, T4, T5, T6]) Create(count int) iter.Seq[struct {
 		for remaining > 0 {
 			allocatedRows := min(remaining, available)
 			startRow := page.Len
-			page.Len += core.PageRow(allocatedRows)
+			page.Len += core.PageSlot(allocatedRows)
 			memo.Len += uint32(allocatedRows)
 
 			for i := 0; i < allocatedRows; i++ {
-				entity := reg.EntityPool.Next()
-				pageRow := startRow + core.PageRow(i)
-				destPtr := entityCol.GetPointer(page, pageRow)
+				entity := Entity(reg.EntityPool.Next())
+				pageSlot := startRow + core.PageSlot(i)
+				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
-				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageRow)
+				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
 			}
 
 			if !yield(
 				struct {
 					Entity []Entity
-					Comp1 []T1
-					Comp2 []T2
-					Comp3 []T3
-					Comp4 []T4
-					Comp5 []T5
-					Comp6 []T6
+					Comp1  []T1
+					Comp2  []T2
+					Comp3  []T3
+					Comp4  []T4
+					Comp5  []T5
+					Comp6  []T6
 				}{
 					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startRow)), allocatedRows),
-					Comp1: unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
-					Comp2: unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
-					Comp3: unsafe.Slice((*T3)(col3.GetPointer(page, startRow)), allocatedRows),
-					Comp4: unsafe.Slice((*T4)(col4.GetPointer(page, startRow)), allocatedRows),
-					Comp5: unsafe.Slice((*T5)(col5.GetPointer(page, startRow)), allocatedRows),
-					Comp6: unsafe.Slice((*T6)(col6.GetPointer(page, startRow)), allocatedRows),
+					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
+					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
+					Comp3:  unsafe.Slice((*T3)(col3.GetPointer(page, startRow)), allocatedRows),
+					Comp4:  unsafe.Slice((*T4)(col4.GetPointer(page, startRow)), allocatedRows),
+					Comp5:  unsafe.Slice((*T5)(col5.GetPointer(page, startRow)), allocatedRows),
+					Comp6:  unsafe.Slice((*T6)(col6.GetPointer(page, startRow)), allocatedRows),
 				}) {
 				memo.Reserved = 0
 				return
@@ -925,6 +924,7 @@ func (b *Blueprint6[T1, T2, T3, T4, T5, T6]) Create(count int) iter.Seq[struct {
 		memo.Reserved = 0
 	}
 }
+
 // Blueprint7 defines a static template (recipe) for the mass construction
 // of entities with a predefined set of 7 stateful components. It allows
 // for precise memory layout planning before allocation, which is essential
@@ -934,7 +934,7 @@ func (b *Blueprint6[T1, T2, T3, T4, T5, T6]) Create(count int) iter.Seq[struct {
 // require exactly 7 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any] struct {
-    itemFactory *core.ItemFactory
+	itemFactory *core.ItemFactory
 }
 
 // NewBlueprint7 initializes a new template for a specific combination of 7 components.
@@ -948,66 +948,65 @@ type Blueprint7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any] struct {
 // This constructor panics if component registration fails or if there are
 // configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any](
-    ecs *ECS,
-    opts ...BlueprintOption,
+	ecs *ECS,
+	opts ...BlueprintOption,
 ) *Blueprint7[T1, T2, T3, T4, T5, T6, T7] {
-    registry := ecs.registry
-    blueprint := core.NewBlueprint(registry)
+	registry := ecs.registry
+	blueprint := core.NewBlueprint(registry)
 
-    // mustAdd ensures that component registration and blueprint assignment
-    // are successful. Panics immediately on failure to support fail-fast startup.
-    mustAdd := func(info core.ComponentInfo) {
-        if err := blueprint.WithComp(info); err != nil {
-            panic(fmt.Sprintf("goke: blueprint7 init failed: %v", err))
-        }
-    }
+	// mustAdd ensures that component registration and blueprint assignment
+	// are successful. Panics immediately on failure to support fail-fast startup.
+	mustAdd := func(info core.ComponentInfo) {
+		if err := blueprint.WithComp(info); err != nil {
+			panic(fmt.Sprintf("goke: blueprint7 init failed: %v", err))
+		}
+	}
 
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T2]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T3]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T4]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T5]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T6]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T7]()))
-    
-    // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
-    for _, opt := range opts {
-        if err := opt(blueprint); err != nil {
-            panic(fmt.Sprintf("goke: blueprint7 option failed: %v", err))
-        }
-    }
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T2]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T3]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T4]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T5]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T6]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T7]()))
 
-    return &Blueprint7[T1, T2, T3, T4, T5, T6, T7]{
-        itemFactory: core.NewItemFactory(blueprint),
-    }
+	// Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
+	for _, opt := range opts {
+		if err := opt(blueprint); err != nil {
+			panic(fmt.Sprintf("goke: blueprint7 option failed: %v", err))
+		}
+	}
+
+	return &Blueprint7[T1, T2, T3, T4, T5, T6, T7]{
+		itemFactory: core.NewItemFactory(blueprint),
+	}
 }
 
-// BatchCreateX instantiates entities in bulk and returns an iterator yielding
+// Create instantiates entities in bulk and returns an iterator yielding
 // memory-aligned chunks for each component.
 //
 // Example:
 //
 //	for page := range blueprint.Create(100) {
-//		for i, _ := range page.Entity {
-//			batch.Comp1[1].X = 1
-//			batch.Comp1[2].X = 1
-//			batch.Comp1[3].X = 1
-//			batch.Comp1[4].X = 1
-//			batch.Comp1[5].X = 1
-//			batch.Comp1[6].X = 1
-//			batch.Comp1[7].X = 1
+//		for i := range page.Entity {
+//			page.Comp1[i] = ...
+//			page.Comp2[i] = ...
+//			page.Comp3[i] = ...
+//			page.Comp4[i] = ...
+//			page.Comp5[i] = ...
+//			page.Comp6[i] = ...
+//			page.Comp7[i] = ...
 //		}
 //	}
-
 func (b *Blueprint7[T1, T2, T3, T4, T5, T6, T7]) Create(count int) iter.Seq[struct {
 	Entity []Entity
-	Comp1 []T1
-	Comp2 []T2
-	Comp3 []T3
-	Comp4 []T4
-	Comp5 []T5
-	Comp6 []T6
-	Comp7 []T7
+	Comp1  []T1
+	Comp2  []T2
+	Comp3  []T3
+	Comp4  []T4
+	Comp5  []T5
+	Comp6  []T6
+	Comp7  []T7
 }] {
 	reg := b.itemFactory.Reg
 	archReg := reg.ArchetypeRegistry
@@ -1025,13 +1024,13 @@ func (b *Blueprint7[T1, T2, T3, T4, T5, T6, T7]) Create(count int) iter.Seq[stru
 
 	return func(yield func(struct {
 		Entity []Entity
-		Comp1 []T1
-		Comp2 []T2
-		Comp3 []T3
-		Comp4 []T4
-		Comp5 []T5
-		Comp6 []T6
-		Comp7 []T7
+		Comp1  []T1
+		Comp2  []T2
+		Comp3  []T3
+		Comp4  []T4
+		Comp5  []T5
+		Comp6  []T6
+		Comp7  []T7
 	}) bool) {
 		pageIdx := core.PageIdx(len(memo.Pages) - 1)
 		page := &memo.Pages[pageIdx]
@@ -1056,36 +1055,36 @@ func (b *Blueprint7[T1, T2, T3, T4, T5, T6, T7]) Create(count int) iter.Seq[stru
 		for remaining > 0 {
 			allocatedRows := min(remaining, available)
 			startRow := page.Len
-			page.Len += core.PageRow(allocatedRows)
+			page.Len += core.PageSlot(allocatedRows)
 			memo.Len += uint32(allocatedRows)
 
 			for i := 0; i < allocatedRows; i++ {
-				entity := reg.EntityPool.Next()
-				pageRow := startRow + core.PageRow(i)
-				destPtr := entityCol.GetPointer(page, pageRow)
+				entity := Entity(reg.EntityPool.Next())
+				pageSlot := startRow + core.PageSlot(i)
+				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
-				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageRow)
+				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
 			}
 
 			if !yield(
 				struct {
 					Entity []Entity
-					Comp1 []T1
-					Comp2 []T2
-					Comp3 []T3
-					Comp4 []T4
-					Comp5 []T5
-					Comp6 []T6
-					Comp7 []T7
+					Comp1  []T1
+					Comp2  []T2
+					Comp3  []T3
+					Comp4  []T4
+					Comp5  []T5
+					Comp6  []T6
+					Comp7  []T7
 				}{
 					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startRow)), allocatedRows),
-					Comp1: unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
-					Comp2: unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
-					Comp3: unsafe.Slice((*T3)(col3.GetPointer(page, startRow)), allocatedRows),
-					Comp4: unsafe.Slice((*T4)(col4.GetPointer(page, startRow)), allocatedRows),
-					Comp5: unsafe.Slice((*T5)(col5.GetPointer(page, startRow)), allocatedRows),
-					Comp6: unsafe.Slice((*T6)(col6.GetPointer(page, startRow)), allocatedRows),
-					Comp7: unsafe.Slice((*T7)(col7.GetPointer(page, startRow)), allocatedRows),
+					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
+					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
+					Comp3:  unsafe.Slice((*T3)(col3.GetPointer(page, startRow)), allocatedRows),
+					Comp4:  unsafe.Slice((*T4)(col4.GetPointer(page, startRow)), allocatedRows),
+					Comp5:  unsafe.Slice((*T5)(col5.GetPointer(page, startRow)), allocatedRows),
+					Comp6:  unsafe.Slice((*T6)(col6.GetPointer(page, startRow)), allocatedRows),
+					Comp7:  unsafe.Slice((*T7)(col7.GetPointer(page, startRow)), allocatedRows),
 				}) {
 				memo.Reserved = 0
 				return
@@ -1102,6 +1101,7 @@ func (b *Blueprint7[T1, T2, T3, T4, T5, T6, T7]) Create(count int) iter.Seq[stru
 		memo.Reserved = 0
 	}
 }
+
 // Blueprint8 defines a static template (recipe) for the mass construction
 // of entities with a predefined set of 8 stateful components. It allows
 // for precise memory layout planning before allocation, which is essential
@@ -1111,7 +1111,7 @@ func (b *Blueprint7[T1, T2, T3, T4, T5, T6, T7]) Create(count int) iter.Seq[stru
 // require exactly 8 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any] struct {
-    itemFactory *core.ItemFactory
+	itemFactory *core.ItemFactory
 }
 
 // NewBlueprint8 initializes a new template for a specific combination of 8 components.
@@ -1125,69 +1125,68 @@ type Blueprint8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any] 
 // This constructor panics if component registration fails or if there are
 // configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any](
-    ecs *ECS,
-    opts ...BlueprintOption,
+	ecs *ECS,
+	opts ...BlueprintOption,
 ) *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8] {
-    registry := ecs.registry
-    blueprint := core.NewBlueprint(registry)
+	registry := ecs.registry
+	blueprint := core.NewBlueprint(registry)
 
-    // mustAdd ensures that component registration and blueprint assignment
-    // are successful. Panics immediately on failure to support fail-fast startup.
-    mustAdd := func(info core.ComponentInfo) {
-        if err := blueprint.WithComp(info); err != nil {
-            panic(fmt.Sprintf("goke: blueprint8 init failed: %v", err))
-        }
-    }
+	// mustAdd ensures that component registration and blueprint assignment
+	// are successful. Panics immediately on failure to support fail-fast startup.
+	mustAdd := func(info core.ComponentInfo) {
+		if err := blueprint.WithComp(info); err != nil {
+			panic(fmt.Sprintf("goke: blueprint8 init failed: %v", err))
+		}
+	}
 
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T2]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T3]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T4]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T5]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T6]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T7]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T8]()))
-    
-    // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
-    for _, opt := range opts {
-        if err := opt(blueprint); err != nil {
-            panic(fmt.Sprintf("goke: blueprint8 option failed: %v", err))
-        }
-    }
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T2]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T3]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T4]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T5]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T6]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T7]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T8]()))
 
-    return &Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]{
-        itemFactory: core.NewItemFactory(blueprint),
-    }
+	// Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
+	for _, opt := range opts {
+		if err := opt(blueprint); err != nil {
+			panic(fmt.Sprintf("goke: blueprint8 option failed: %v", err))
+		}
+	}
+
+	return &Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]{
+		itemFactory: core.NewItemFactory(blueprint),
+	}
 }
 
-// BatchCreateX instantiates entities in bulk and returns an iterator yielding
+// Create instantiates entities in bulk and returns an iterator yielding
 // memory-aligned chunks for each component.
 //
 // Example:
 //
 //	for page := range blueprint.Create(100) {
-//		for i, _ := range page.Entity {
-//			batch.Comp1[1].X = 1
-//			batch.Comp1[2].X = 1
-//			batch.Comp1[3].X = 1
-//			batch.Comp1[4].X = 1
-//			batch.Comp1[5].X = 1
-//			batch.Comp1[6].X = 1
-//			batch.Comp1[7].X = 1
-//			batch.Comp1[8].X = 1
+//		for i := range page.Entity {
+//			page.Comp1[i] = ...
+//			page.Comp2[i] = ...
+//			page.Comp3[i] = ...
+//			page.Comp4[i] = ...
+//			page.Comp5[i] = ...
+//			page.Comp6[i] = ...
+//			page.Comp7[i] = ...
+//			page.Comp8[i] = ...
 //		}
 //	}
-
 func (b *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]) Create(count int) iter.Seq[struct {
 	Entity []Entity
-	Comp1 []T1
-	Comp2 []T2
-	Comp3 []T3
-	Comp4 []T4
-	Comp5 []T5
-	Comp6 []T6
-	Comp7 []T7
-	Comp8 []T8
+	Comp1  []T1
+	Comp2  []T2
+	Comp3  []T3
+	Comp4  []T4
+	Comp5  []T5
+	Comp6  []T6
+	Comp7  []T7
+	Comp8  []T8
 }] {
 	reg := b.itemFactory.Reg
 	archReg := reg.ArchetypeRegistry
@@ -1206,14 +1205,14 @@ func (b *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]) Create(count int) iter.Seq[
 
 	return func(yield func(struct {
 		Entity []Entity
-		Comp1 []T1
-		Comp2 []T2
-		Comp3 []T3
-		Comp4 []T4
-		Comp5 []T5
-		Comp6 []T6
-		Comp7 []T7
-		Comp8 []T8
+		Comp1  []T1
+		Comp2  []T2
+		Comp3  []T3
+		Comp4  []T4
+		Comp5  []T5
+		Comp6  []T6
+		Comp7  []T7
+		Comp8  []T8
 	}) bool) {
 		pageIdx := core.PageIdx(len(memo.Pages) - 1)
 		page := &memo.Pages[pageIdx]
@@ -1238,38 +1237,38 @@ func (b *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]) Create(count int) iter.Seq[
 		for remaining > 0 {
 			allocatedRows := min(remaining, available)
 			startRow := page.Len
-			page.Len += core.PageRow(allocatedRows)
+			page.Len += core.PageSlot(allocatedRows)
 			memo.Len += uint32(allocatedRows)
 
 			for i := 0; i < allocatedRows; i++ {
-				entity := reg.EntityPool.Next()
-				pageRow := startRow + core.PageRow(i)
-				destPtr := entityCol.GetPointer(page, pageRow)
+				entity := Entity(reg.EntityPool.Next())
+				pageSlot := startRow + core.PageSlot(i)
+				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
-				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageRow)
+				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
 			}
 
 			if !yield(
 				struct {
 					Entity []Entity
-					Comp1 []T1
-					Comp2 []T2
-					Comp3 []T3
-					Comp4 []T4
-					Comp5 []T5
-					Comp6 []T6
-					Comp7 []T7
-					Comp8 []T8
+					Comp1  []T1
+					Comp2  []T2
+					Comp3  []T3
+					Comp4  []T4
+					Comp5  []T5
+					Comp6  []T6
+					Comp7  []T7
+					Comp8  []T8
 				}{
 					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startRow)), allocatedRows),
-					Comp1: unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
-					Comp2: unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
-					Comp3: unsafe.Slice((*T3)(col3.GetPointer(page, startRow)), allocatedRows),
-					Comp4: unsafe.Slice((*T4)(col4.GetPointer(page, startRow)), allocatedRows),
-					Comp5: unsafe.Slice((*T5)(col5.GetPointer(page, startRow)), allocatedRows),
-					Comp6: unsafe.Slice((*T6)(col6.GetPointer(page, startRow)), allocatedRows),
-					Comp7: unsafe.Slice((*T7)(col7.GetPointer(page, startRow)), allocatedRows),
-					Comp8: unsafe.Slice((*T8)(col8.GetPointer(page, startRow)), allocatedRows),
+					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
+					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
+					Comp3:  unsafe.Slice((*T3)(col3.GetPointer(page, startRow)), allocatedRows),
+					Comp4:  unsafe.Slice((*T4)(col4.GetPointer(page, startRow)), allocatedRows),
+					Comp5:  unsafe.Slice((*T5)(col5.GetPointer(page, startRow)), allocatedRows),
+					Comp6:  unsafe.Slice((*T6)(col6.GetPointer(page, startRow)), allocatedRows),
+					Comp7:  unsafe.Slice((*T7)(col7.GetPointer(page, startRow)), allocatedRows),
+					Comp8:  unsafe.Slice((*T8)(col8.GetPointer(page, startRow)), allocatedRows),
 				}) {
 				memo.Reserved = 0
 				return
@@ -1286,6 +1285,7 @@ func (b *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]) Create(count int) iter.Seq[
 		memo.Reserved = 0
 	}
 }
+
 // Blueprint9 defines a static template (recipe) for the mass construction
 // of entities with a predefined set of 9 stateful components. It allows
 // for precise memory layout planning before allocation, which is essential
@@ -1295,7 +1295,7 @@ func (b *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]) Create(count int) iter.Seq[
 // require exactly 9 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint9[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T9 any] struct {
-    itemFactory *core.ItemFactory
+	itemFactory *core.ItemFactory
 }
 
 // NewBlueprint9 initializes a new template for a specific combination of 9 components.
@@ -1309,72 +1309,71 @@ type Blueprint9[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, 
 // This constructor panics if component registration fails or if there are
 // configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint9[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T9 any](
-    ecs *ECS,
-    opts ...BlueprintOption,
+	ecs *ECS,
+	opts ...BlueprintOption,
 ) *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9] {
-    registry := ecs.registry
-    blueprint := core.NewBlueprint(registry)
+	registry := ecs.registry
+	blueprint := core.NewBlueprint(registry)
 
-    // mustAdd ensures that component registration and blueprint assignment
-    // are successful. Panics immediately on failure to support fail-fast startup.
-    mustAdd := func(info core.ComponentInfo) {
-        if err := blueprint.WithComp(info); err != nil {
-            panic(fmt.Sprintf("goke: blueprint9 init failed: %v", err))
-        }
-    }
+	// mustAdd ensures that component registration and blueprint assignment
+	// are successful. Panics immediately on failure to support fail-fast startup.
+	mustAdd := func(info core.ComponentInfo) {
+		if err := blueprint.WithComp(info); err != nil {
+			panic(fmt.Sprintf("goke: blueprint9 init failed: %v", err))
+		}
+	}
 
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T2]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T3]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T4]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T5]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T6]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T7]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T8]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T9]()))
-    
-    // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
-    for _, opt := range opts {
-        if err := opt(blueprint); err != nil {
-            panic(fmt.Sprintf("goke: blueprint9 option failed: %v", err))
-        }
-    }
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T2]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T3]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T4]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T5]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T6]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T7]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T8]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T9]()))
 
-    return &Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]{
-        itemFactory: core.NewItemFactory(blueprint),
-    }
+	// Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
+	for _, opt := range opts {
+		if err := opt(blueprint); err != nil {
+			panic(fmt.Sprintf("goke: blueprint9 option failed: %v", err))
+		}
+	}
+
+	return &Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]{
+		itemFactory: core.NewItemFactory(blueprint),
+	}
 }
 
-// BatchCreateX instantiates entities in bulk and returns an iterator yielding
+// Create instantiates entities in bulk and returns an iterator yielding
 // memory-aligned chunks for each component.
 //
 // Example:
 //
 //	for page := range blueprint.Create(100) {
-//		for i, _ := range page.Entity {
-//			batch.Comp1[1].X = 1
-//			batch.Comp1[2].X = 1
-//			batch.Comp1[3].X = 1
-//			batch.Comp1[4].X = 1
-//			batch.Comp1[5].X = 1
-//			batch.Comp1[6].X = 1
-//			batch.Comp1[7].X = 1
-//			batch.Comp1[8].X = 1
-//			batch.Comp1[9].X = 1
+//		for i := range page.Entity {
+//			page.Comp1[i] = ...
+//			page.Comp2[i] = ...
+//			page.Comp3[i] = ...
+//			page.Comp4[i] = ...
+//			page.Comp5[i] = ...
+//			page.Comp6[i] = ...
+//			page.Comp7[i] = ...
+//			page.Comp8[i] = ...
+//			page.Comp9[i] = ...
 //		}
 //	}
-
 func (b *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Create(count int) iter.Seq[struct {
 	Entity []Entity
-	Comp1 []T1
-	Comp2 []T2
-	Comp3 []T3
-	Comp4 []T4
-	Comp5 []T5
-	Comp6 []T6
-	Comp7 []T7
-	Comp8 []T8
-	Comp9 []T9
+	Comp1  []T1
+	Comp2  []T2
+	Comp3  []T3
+	Comp4  []T4
+	Comp5  []T5
+	Comp6  []T6
+	Comp7  []T7
+	Comp8  []T8
+	Comp9  []T9
 }] {
 	reg := b.itemFactory.Reg
 	archReg := reg.ArchetypeRegistry
@@ -1394,15 +1393,15 @@ func (b *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Create(count int) iter.
 
 	return func(yield func(struct {
 		Entity []Entity
-		Comp1 []T1
-		Comp2 []T2
-		Comp3 []T3
-		Comp4 []T4
-		Comp5 []T5
-		Comp6 []T6
-		Comp7 []T7
-		Comp8 []T8
-		Comp9 []T9
+		Comp1  []T1
+		Comp2  []T2
+		Comp3  []T3
+		Comp4  []T4
+		Comp5  []T5
+		Comp6  []T6
+		Comp7  []T7
+		Comp8  []T8
+		Comp9  []T9
 	}) bool) {
 		pageIdx := core.PageIdx(len(memo.Pages) - 1)
 		page := &memo.Pages[pageIdx]
@@ -1427,40 +1426,40 @@ func (b *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Create(count int) iter.
 		for remaining > 0 {
 			allocatedRows := min(remaining, available)
 			startRow := page.Len
-			page.Len += core.PageRow(allocatedRows)
+			page.Len += core.PageSlot(allocatedRows)
 			memo.Len += uint32(allocatedRows)
 
 			for i := 0; i < allocatedRows; i++ {
-				entity := reg.EntityPool.Next()
-				pageRow := startRow + core.PageRow(i)
-				destPtr := entityCol.GetPointer(page, pageRow)
+				entity := Entity(reg.EntityPool.Next())
+				pageSlot := startRow + core.PageSlot(i)
+				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
-				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageRow)
+				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
 			}
 
 			if !yield(
 				struct {
 					Entity []Entity
-					Comp1 []T1
-					Comp2 []T2
-					Comp3 []T3
-					Comp4 []T4
-					Comp5 []T5
-					Comp6 []T6
-					Comp7 []T7
-					Comp8 []T8
-					Comp9 []T9
+					Comp1  []T1
+					Comp2  []T2
+					Comp3  []T3
+					Comp4  []T4
+					Comp5  []T5
+					Comp6  []T6
+					Comp7  []T7
+					Comp8  []T8
+					Comp9  []T9
 				}{
 					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startRow)), allocatedRows),
-					Comp1: unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
-					Comp2: unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
-					Comp3: unsafe.Slice((*T3)(col3.GetPointer(page, startRow)), allocatedRows),
-					Comp4: unsafe.Slice((*T4)(col4.GetPointer(page, startRow)), allocatedRows),
-					Comp5: unsafe.Slice((*T5)(col5.GetPointer(page, startRow)), allocatedRows),
-					Comp6: unsafe.Slice((*T6)(col6.GetPointer(page, startRow)), allocatedRows),
-					Comp7: unsafe.Slice((*T7)(col7.GetPointer(page, startRow)), allocatedRows),
-					Comp8: unsafe.Slice((*T8)(col8.GetPointer(page, startRow)), allocatedRows),
-					Comp9: unsafe.Slice((*T9)(col9.GetPointer(page, startRow)), allocatedRows),
+					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
+					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
+					Comp3:  unsafe.Slice((*T3)(col3.GetPointer(page, startRow)), allocatedRows),
+					Comp4:  unsafe.Slice((*T4)(col4.GetPointer(page, startRow)), allocatedRows),
+					Comp5:  unsafe.Slice((*T5)(col5.GetPointer(page, startRow)), allocatedRows),
+					Comp6:  unsafe.Slice((*T6)(col6.GetPointer(page, startRow)), allocatedRows),
+					Comp7:  unsafe.Slice((*T7)(col7.GetPointer(page, startRow)), allocatedRows),
+					Comp8:  unsafe.Slice((*T8)(col8.GetPointer(page, startRow)), allocatedRows),
+					Comp9:  unsafe.Slice((*T9)(col9.GetPointer(page, startRow)), allocatedRows),
 				}) {
 				memo.Reserved = 0
 				return
@@ -1477,6 +1476,7 @@ func (b *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Create(count int) iter.
 		memo.Reserved = 0
 	}
 }
+
 // Blueprint10 defines a static template (recipe) for the mass construction
 // of entities with a predefined set of 10 stateful components. It allows
 // for precise memory layout planning before allocation, which is essential
@@ -1486,7 +1486,7 @@ func (b *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Create(count int) iter.
 // require exactly 10 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint10[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T9 any, T10 any] struct {
-    itemFactory *core.ItemFactory
+	itemFactory *core.ItemFactory
 }
 
 // NewBlueprint10 initializes a new template for a specific combination of 10 components.
@@ -1500,74 +1500,73 @@ type Blueprint10[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any,
 // This constructor panics if component registration fails or if there are
 // configuration conflicts, ensuring a fail-fast behavior during system initialization.
 func NewBlueprint10[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T9 any, T10 any](
-    ecs *ECS,
-    opts ...BlueprintOption,
+	ecs *ECS,
+	opts ...BlueprintOption,
 ) *Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10] {
-    registry := ecs.registry
-    blueprint := core.NewBlueprint(registry)
+	registry := ecs.registry
+	blueprint := core.NewBlueprint(registry)
 
-    // mustAdd ensures that component registration and blueprint assignment
-    // are successful. Panics immediately on failure to support fail-fast startup.
-    mustAdd := func(info core.ComponentInfo) {
-        if err := blueprint.WithComp(info); err != nil {
-            panic(fmt.Sprintf("goke: blueprint10 init failed: %v", err))
-        }
-    }
+	// mustAdd ensures that component registration and blueprint assignment
+	// are successful. Panics immediately on failure to support fail-fast startup.
+	mustAdd := func(info core.ComponentInfo) {
+		if err := blueprint.WithComp(info); err != nil {
+			panic(fmt.Sprintf("goke: blueprint10 init failed: %v", err))
+		}
+	}
 
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T2]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T3]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T4]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T5]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T6]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T7]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T8]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T9]()))
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T10]()))
-    
-    // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
-    for _, opt := range opts {
-        if err := opt(blueprint); err != nil {
-            panic(fmt.Sprintf("goke: blueprint10 option failed: %v", err))
-        }
-    }
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T1]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T2]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T3]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T4]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T5]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T6]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T7]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T8]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T9]()))
+	mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T10]()))
 
-    return &Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]{
-        itemFactory: core.NewItemFactory(blueprint),
-    }
+	// Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
+	for _, opt := range opts {
+		if err := opt(blueprint); err != nil {
+			panic(fmt.Sprintf("goke: blueprint10 option failed: %v", err))
+		}
+	}
+
+	return &Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]{
+		itemFactory: core.NewItemFactory(blueprint),
+	}
 }
 
-// BatchCreateX instantiates entities in bulk and returns an iterator yielding
+// Create instantiates entities in bulk and returns an iterator yielding
 // memory-aligned chunks for each component.
 //
 // Example:
 //
 //	for page := range blueprint.Create(100) {
-//		for i, _ := range page.Entity {
-//			batch.Comp1[1].X = 1
-//			batch.Comp1[2].X = 1
-//			batch.Comp1[3].X = 1
-//			batch.Comp1[4].X = 1
-//			batch.Comp1[5].X = 1
-//			batch.Comp1[6].X = 1
-//			batch.Comp1[7].X = 1
-//			batch.Comp1[8].X = 1
-//			batch.Comp1[9].X = 1
-//			batch.Comp1[10].X = 1
+//		for i := range page.Entity {
+//			page.Comp1[i] = ...
+//			page.Comp2[i] = ...
+//			page.Comp3[i] = ...
+//			page.Comp4[i] = ...
+//			page.Comp5[i] = ...
+//			page.Comp6[i] = ...
+//			page.Comp7[i] = ...
+//			page.Comp8[i] = ...
+//			page.Comp9[i] = ...
+//			page.Comp10[i] = ...
 //		}
 //	}
-
 func (b *Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Create(count int) iter.Seq[struct {
 	Entity []Entity
-	Comp1 []T1
-	Comp2 []T2
-	Comp3 []T3
-	Comp4 []T4
-	Comp5 []T5
-	Comp6 []T6
-	Comp7 []T7
-	Comp8 []T8
-	Comp9 []T9
+	Comp1  []T1
+	Comp2  []T2
+	Comp3  []T3
+	Comp4  []T4
+	Comp5  []T5
+	Comp6  []T6
+	Comp7  []T7
+	Comp8  []T8
+	Comp9  []T9
 	Comp10 []T10
 }] {
 	reg := b.itemFactory.Reg
@@ -1589,15 +1588,15 @@ func (b *Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Create(count int)
 
 	return func(yield func(struct {
 		Entity []Entity
-		Comp1 []T1
-		Comp2 []T2
-		Comp3 []T3
-		Comp4 []T4
-		Comp5 []T5
-		Comp6 []T6
-		Comp7 []T7
-		Comp8 []T8
-		Comp9 []T9
+		Comp1  []T1
+		Comp2  []T2
+		Comp3  []T3
+		Comp4  []T4
+		Comp5  []T5
+		Comp6  []T6
+		Comp7  []T7
+		Comp8  []T8
+		Comp9  []T9
 		Comp10 []T10
 	}) bool) {
 		pageIdx := core.PageIdx(len(memo.Pages) - 1)
@@ -1623,41 +1622,41 @@ func (b *Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Create(count int)
 		for remaining > 0 {
 			allocatedRows := min(remaining, available)
 			startRow := page.Len
-			page.Len += core.PageRow(allocatedRows)
+			page.Len += core.PageSlot(allocatedRows)
 			memo.Len += uint32(allocatedRows)
 
 			for i := 0; i < allocatedRows; i++ {
-				entity := reg.EntityPool.Next()
-				pageRow := startRow + core.PageRow(i)
-				destPtr := entityCol.GetPointer(page, pageRow)
+				entity := Entity(reg.EntityPool.Next())
+				pageSlot := startRow + core.PageSlot(i)
+				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
-				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageRow)
+				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
 			}
 
 			if !yield(
 				struct {
 					Entity []Entity
-					Comp1 []T1
-					Comp2 []T2
-					Comp3 []T3
-					Comp4 []T4
-					Comp5 []T5
-					Comp6 []T6
-					Comp7 []T7
-					Comp8 []T8
-					Comp9 []T9
+					Comp1  []T1
+					Comp2  []T2
+					Comp3  []T3
+					Comp4  []T4
+					Comp5  []T5
+					Comp6  []T6
+					Comp7  []T7
+					Comp8  []T8
+					Comp9  []T9
 					Comp10 []T10
 				}{
 					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startRow)), allocatedRows),
-					Comp1: unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
-					Comp2: unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
-					Comp3: unsafe.Slice((*T3)(col3.GetPointer(page, startRow)), allocatedRows),
-					Comp4: unsafe.Slice((*T4)(col4.GetPointer(page, startRow)), allocatedRows),
-					Comp5: unsafe.Slice((*T5)(col5.GetPointer(page, startRow)), allocatedRows),
-					Comp6: unsafe.Slice((*T6)(col6.GetPointer(page, startRow)), allocatedRows),
-					Comp7: unsafe.Slice((*T7)(col7.GetPointer(page, startRow)), allocatedRows),
-					Comp8: unsafe.Slice((*T8)(col8.GetPointer(page, startRow)), allocatedRows),
-					Comp9: unsafe.Slice((*T9)(col9.GetPointer(page, startRow)), allocatedRows),
+					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
+					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
+					Comp3:  unsafe.Slice((*T3)(col3.GetPointer(page, startRow)), allocatedRows),
+					Comp4:  unsafe.Slice((*T4)(col4.GetPointer(page, startRow)), allocatedRows),
+					Comp5:  unsafe.Slice((*T5)(col5.GetPointer(page, startRow)), allocatedRows),
+					Comp6:  unsafe.Slice((*T6)(col6.GetPointer(page, startRow)), allocatedRows),
+					Comp7:  unsafe.Slice((*T7)(col7.GetPointer(page, startRow)), allocatedRows),
+					Comp8:  unsafe.Slice((*T8)(col8.GetPointer(page, startRow)), allocatedRows),
+					Comp9:  unsafe.Slice((*T9)(col9.GetPointer(page, startRow)), allocatedRows),
 					Comp10: unsafe.Slice((*T10)(col10.GetPointer(page, startRow)), allocatedRows),
 				}) {
 				memo.Reserved = 0
@@ -1675,4 +1674,3 @@ func (b *Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Create(count int)
 		memo.Reserved = 0
 	}
 }
-

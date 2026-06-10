@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"unsafe"
+
+	"github.com/kjkrol/uid"
 )
 
 type ArchetypeRegistry struct {
@@ -76,16 +78,16 @@ func (r *ArchetypeRegistry) Get(mask ArchetypeMask) ArchetypeId {
 }
 
 func (r *ArchetypeRegistry) AddEntity(
-	entity Entity,
+	entity uid.UID64,
 	archId ArchetypeId,
-) (PageIdx, PageRow) {
+) (PageIdx, PageSlot) {
 	arch := &r.Archetypes[archId]
-	pageIdx, pageRow := arch.AddEntity(entity)
-	r.EntityLinkStore.Update(entity, archId, pageIdx, pageRow)
-	return pageIdx, pageRow
+	pageIdx, pageSlot := arch.AddEntity(entity)
+	r.EntityLinkStore.Update(entity, archId, pageIdx, pageSlot)
+	return pageIdx, pageSlot
 }
 
-func (r *ArchetypeRegistry) UnlinkEntity(entity Entity) {
+func (r *ArchetypeRegistry) UnlinkEntity(entity uid.UID64) {
 	link, ok := r.EntityLinkStore.Get(entity)
 	if !ok {
 		return
@@ -108,7 +110,7 @@ var (
 // AllocateComponentMemory ensures the entity has the component and
 // returns a pointer to its memory.
 func (r *ArchetypeRegistry) AllocateComponentMemory(
-	entity Entity,
+	entity uid.UID64,
 	compInfo ComponentInfo,
 ) (unsafe.Pointer, error) {
 	compID := compInfo.ID
@@ -122,7 +124,7 @@ func (r *ArchetypeRegistry) AllocateComponentMemory(
 
 	var targetArch *Archetype
 	var targetPageIdx PageIdx
-	var targetRow PageRow
+	var targetRow PageSlot
 
 	// -------------------------------------------------------------------------
 	// "FAST PATH" (Component already exists/allocated)
@@ -175,7 +177,7 @@ func (r *ArchetypeRegistry) ensureNextEdgeId(
 	return nextArchId
 }
 
-func (r *ArchetypeRegistry) UnAssign(entity Entity, compInfo ComponentInfo) {
+func (r *ArchetypeRegistry) UnAssign(entity uid.UID64, compInfo ComponentInfo) {
 	link, ok := r.EntityLinkStore.Get(entity)
 	if !ok {
 		return
@@ -257,10 +259,10 @@ func (r *ArchetypeRegistry) getOrRegister(mask ArchetypeMask) ArchetypeId {
 // --------------------------------------------------------------
 
 func (r *ArchetypeRegistry) moveEntity(
-	entity Entity,
+	entity uid.UID64,
 	link EntityArchLink,
 	archId ArchetypeId,
-) (PageIdx, PageRow) {
+) (PageIdx, PageSlot) {
 	oldArch := &r.Archetypes[link.ArchId]
 	newArch := &r.Archetypes[archId]
 

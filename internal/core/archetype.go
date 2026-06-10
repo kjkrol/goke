@@ -2,6 +2,8 @@ package core
 
 import (
 	"unsafe"
+
+	"github.com/kjkrol/uid"
 )
 
 // -----------------------------------------------------------------------------
@@ -60,8 +62,8 @@ type Column struct {
 // GetPointer returns the unsafe pointer to the specific element in the given page.
 // Formula: Chunk.Data + ColumnOffset + (Row * ItemSize)
 // Cost: Simple pointer arithmetic, very fast.
-func (c *Column) GetPointer(page *Page, pageRow PageRow) unsafe.Pointer {
-	return unsafe.Add(page.Ptr, c.PageOffset+uintptr(pageRow)*c.ItemSize)
+func (c *Column) GetPointer(page *Page, pageSlot PageSlot) unsafe.Pointer {
+	return unsafe.Add(page.Ptr, c.PageOffset+uintptr(pageSlot)*c.ItemSize)
 }
 
 // -----------------------------------------------------------------------------
@@ -110,7 +112,7 @@ func (a *Archetype) InitArchetype(
 	// a.Map.Set(EntityID, EntityColumnIndex)
 	a.Columns[EntityColumnIndex] = Column{
 		CompID:     EntityID,
-		ItemSize:   unsafe.Sizeof(Entity(0)),
+		ItemSize:   unsafe.Sizeof(uid.UID64(0)),
 		PageOffset: a.Memory.Layout.Offsets[0], // Offset from Layout calculation
 	}
 
@@ -150,24 +152,24 @@ func (a *Archetype) GetColumn(id ComponentID) *Column {
 }
 
 // AddEntity reserves a slot and writes the Entity ID.
-func (a *Archetype) AddEntity(entity Entity) (PageIdx, PageRow) {
-	page, pageIdx, pageRow := a.Memory.AllocSlot()
+func (a *Archetype) AddEntity(entity uid.UID64) (PageIdx, PageSlot) {
+	page, pageIdx, pageSlot := a.Memory.AllocSlot()
 
 	entityCol := &a.Columns[EntityColumnIndex]
-	destPtr := entityCol.GetPointer(page, pageRow)
-	*(*Entity)(destPtr) = entity
+	destPtr := entityCol.GetPointer(page, pageSlot)
+	*(*uid.UID64)(destPtr) = entity
 
-	return pageIdx, pageRow
+	return pageIdx, pageSlot
 }
 
 // SwapRemoveEntity removes an entity at the specified location (O(1)).
 // It moves the last entity of the archetype into the empty slot (Swap).
 // Returns the entity that was moved (swappedEntity) and true if a move happened.
-func (a *Archetype) SwapRemoveEntity(targetChunkIdx PageIdx, targetRow PageRow) (swappedEntity Entity, swapped bool) {
+func (a *Archetype) SwapRemoveEntity(targetChunkIdx PageIdx, targetRow PageSlot) (swappedEntity uid.UID64, swapped bool) {
 
 	// 1. Get the real, verified tail
 	lastChunkIdx, lastChunk := a.Memory.ResolveTail()
-	lastRow := PageRow(lastChunk.Len - 1) // Safe now because lastChunk.Len > 0
+	lastRow := PageSlot(lastChunk.Len - 1) // Safe now because lastChunk.Len > 0
 	targetChunk := &a.Memory.Pages[targetChunkIdx]
 
 	// 2. Case: Removing the last entity of the archetype
@@ -180,7 +182,7 @@ func (a *Archetype) SwapRemoveEntity(targetChunkIdx PageIdx, targetRow PageRow) 
 
 	// 3. Case: Standard Swap (Tail moves to Hole)
 	ptrLastEntity := a.GetEntityColumn().GetPointer(lastChunk, lastRow)
-	entityToMove := *(*Entity)(ptrLastEntity)
+	entityToMove := *(*uid.UID64)(ptrLastEntity)
 
 	for i := range a.Columns {
 		col := &a.Columns[i]
@@ -201,10 +203,10 @@ func (a *Archetype) SwapRemoveEntity(targetChunkIdx PageIdx, targetRow PageRow) 
 }
 
 // zeroEntityAt clears memory at the given location to prevent stale pointers (GC).
-func (a *Archetype) zeroEntityAt(page *Page, pageRow PageRow) {
+func (a *Archetype) zeroEntityAt(page *Page, pageSlot PageSlot) {
 	for i := range a.Columns {
 		col := &a.Columns[i]
-		ptr := col.GetPointer(page, pageRow)
+		ptr := col.GetPointer(page, pageSlot)
 		zeroMemory(ptr, col.ItemSize)
 	}
 }

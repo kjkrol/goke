@@ -22,5 +22,9 @@ type Collision struct {
 }
 
 type Appearance struct {
-	Color color.RGBA
+	Color    color.RGBA
+	SpriteID uint8
 }
+
+const SpriteCount = 4
+

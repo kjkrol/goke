@@ -3,9 +3,11 @@ package core
 import (
 	"fmt"
 	"unsafe"
+
+	"github.com/kjkrol/uid"
 )
 
-const EntitySize = unsafe.Sizeof(Entity(0))
+const EntitySize = unsafe.Sizeof(uid.UID64(0))
 
 type MatchedArch struct {
 	Arch             *Archetype

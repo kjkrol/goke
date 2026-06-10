@@ -4,6 +4,8 @@ import (
 	"errors"
 	"reflect"
 	"unsafe"
+
+	"github.com/kjkrol/uid"
 )
 
 var (
@@ -12,7 +14,7 @@ var (
 )
 
 type Registry struct {
-	EntityPool         EntityGenerationalPool
+	EntityPool         uid.UID64Pool
 	ComponentsRegistry ComponentsRegistry
 	ViewRegistry       ViewRegistry
 	ArchetypeRegistry  *ArchetypeRegistry
@@ -23,7 +25,7 @@ var _ ReadOnlyRegistry = (*Registry)(nil)
 func NewRegistry(cfg RegistryConfig) *Registry {
 	validateConst()
 	reg := &Registry{
-		EntityPool:         NewEntityGenerator(cfg.InitialEntityCap, cfg.FreeIndicesCap),
+		EntityPool:         uid.NewUID64Pool(cfg.InitialEntityCap, cfg.FreeIndicesCap),
 		ComponentsRegistry: NewComponentsRegistry(),
 		ViewRegistry:       NewViewRegistry(cfg.ViewRegistryInitCap),
 	}
@@ -36,13 +38,13 @@ func NewRegistry(cfg RegistryConfig) *Registry {
 // Deprecated: This method should not be used directly in the public API.
 // To ensure consistent state and proper component initialization,
 // entities should be created through a ArchetypeEntryBlueprint instead.
-func (r *Registry) CreateEntity() Entity {
+func (r *Registry) CreateEntity() uid.UID64 {
 	entity := r.EntityPool.Next()
 	r.ArchetypeRegistry.AddEntity(entity, RootArchetypeId)
 	return entity
 }
 
-func (r *Registry) RemoveEntity(entity Entity) bool {
+func (r *Registry) RemoveEntity(entity uid.UID64) bool {
 	if !r.EntityPool.IsValid(entity) {
 		return false
 	}
@@ -53,7 +55,7 @@ func (r *Registry) RemoveEntity(entity Entity) bool {
 }
 
 // AllocateByID ensures the entity is valid and performs the allocation in the archetype.
-func (r *Registry) AllocateByID(entity Entity, compInfo ComponentInfo) (unsafe.Pointer, error) {
+func (r *Registry) AllocateByID(entity uid.UID64, compInfo ComponentInfo) (unsafe.Pointer, error) {
 	if !r.EntityPool.IsValid(entity) {
 		return nil, errInvalidEntity
 	}
@@ -61,7 +63,7 @@ func (r *Registry) AllocateByID(entity Entity, compInfo ComponentInfo) (unsafe.P
 	return r.ArchetypeRegistry.AllocateComponentMemory(entity, compInfo)
 }
 
-func (r *Registry) UnassignByID(entity Entity, compInfo ComponentInfo) error {
+func (r *Registry) UnassignByID(entity uid.UID64, compInfo ComponentInfo) error {
 	if !r.EntityPool.IsValid(entity) {
 		return errInvalidEntity
 	}
@@ -74,7 +76,7 @@ func (r *Registry) RegisterComponentType(componentType reflect.Type) ComponentIn
 	return r.ComponentsRegistry.GetOrRegister(componentType)
 }
 
-func (r *Registry) ComponentGet(entity Entity, compID ComponentID) (unsafe.Pointer, error) {
+func (r *Registry) ComponentGet(entity uid.UID64, compID ComponentID) (unsafe.Pointer, error) {
 	link, ok := r.ArchetypeRegistry.EntityLinkStore.Get(entity)
 	if !ok {
 		return nil, errInvalidEntity

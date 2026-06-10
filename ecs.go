@@ -6,11 +6,12 @@ import (
 	"time"
 
 	"github.com/kjkrol/goke/internal/core"
+	"github.com/kjkrol/uid"
 )
 
 type (
 	// Entity represents a 64-bit unique identifier for an object in the ECS world.
-	Entity = core.Entity
+	Entity = uid.UID64
 	// ComponentID is a unique integer identifier for a specific component type.
 	ComponentID = core.ComponentID
 	// ComponentDesc is a component descriptor; it contains metadata about a component type, such as its ID and memory size.
