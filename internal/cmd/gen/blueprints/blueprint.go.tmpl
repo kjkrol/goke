@@ -117,18 +117,20 @@ func (b *Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }
 			}
 		}
 
+		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
+
 		for remaining > 0 {
 			allocatedRows := min(remaining, available)
 			startRow := page.Len
-			page.Len += core.PageRow(allocatedRows)
+			page.Len += core.PageSlot(allocatedRows)
 			memo.Len += uint32(allocatedRows)
 
 			for i := 0; i < allocatedRows; i++ {
 				entity := Entity(reg.EntityPool.Next())
-				pageRow := startRow + core.PageRow(i)
-				destPtr := entityCol.GetPointer(page, pageRow)
+				pageSlot := startRow + core.PageSlot(i)
+				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
-				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageRow)
+				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
 			}
 
 			if !yield(
@@ -143,6 +145,7 @@ func (b *Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }
 					Comp{{ $i }}: unsafe.Slice((*T{{ $i }})(col{{ $i }}.GetPointer(page, startRow)), allocatedRows),
 					{{- end }}
 				}) {
+				memo.Reserved = 0
 				return
 			}
 
@@ -153,6 +156,8 @@ func (b *Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }
 				available = int(memo.Layout.PageCap)
 			}
 		}
+
+		memo.Reserved = 0
 	}
 }
 {{ end }}

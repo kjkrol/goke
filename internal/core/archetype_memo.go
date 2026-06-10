@@ -1,22 +1,25 @@
 package core
 
-import "github.com/kjkrol/uid"
+import (
+	"unsafe"
 
-import "unsafe"
+	"github.com/kjkrol/uid"
+)
 
 type PageIdx uint32 // Index of the page in Memo.Pages slice
-// PageRow is a type alias for the index within a page.
+// PageSlot is a type alias for the index within a page.
 // Using uint32 ensures alignment and supports >255 entities per page.
-type PageRow uint32
+type PageSlot uint32
 
 //------------------------------------------------------------------------------
 //                          Memo (Memory Manager)
 //------------------------------------------------------------------------------
 
 type Memo struct {
-	Pages  []Page
-	Layout PageLayout
-	Len    uint32
+	Pages    []Page
+	Layout   PageLayout
+	Len      uint32
+	Reserved PageIdx
 }
 
 func (b *Memo) Init(compInfos []ComponentInfo) {
@@ -28,11 +31,11 @@ func (b *Memo) Init(compInfos []ComponentInfo) {
 	b.addPage()
 }
 
-func (b *Memo) AllocSlot() (*Page, PageIdx, PageRow) {
+func (b *Memo) AllocSlot() (*Page, PageIdx, PageSlot) {
 	lastIdx := PageIdx(len(b.Pages) - 1)
 	page := &b.Pages[lastIdx]
 
-	if page.Len >= PageRow(b.Layout.PageCap) {
+	if page.Len >= PageSlot(b.Layout.PageCap) {
 		b.addPage()
 		lastIdx++
 		page = &b.Pages[lastIdx]
@@ -75,17 +78,19 @@ func (b *Memo) AddPages(n int) {
 // It performs a "sanity check" by truncating any empty trailing pages from the Pages slice.
 func (b *Memo) ResolveTail() (PageIdx, *Page) {
 	lastIdx := len(b.Pages) - 1
+	floor := int(b.Reserved)
 
-	// Loop backwards to remove empty trailing pages.
-	// We keep at least one page (index 0) even if it's empty.
-	for lastIdx > 0 && b.Pages[lastIdx].Len == 0 {
-		// Optional: you could clear(b.Pages[lastIdx].data) here if
-		// you want to be ultra-aggressive with GC, but Clear() should handle it.
+	for lastIdx > floor && b.Pages[lastIdx].Len == 0 {
 		b.Pages = b.Pages[:lastIdx]
 		lastIdx--
 	}
 
-	return PageIdx(lastIdx), &b.Pages[lastIdx]
+	tailIdx := lastIdx
+	for tailIdx > 0 && b.Pages[tailIdx].Len == 0 {
+		tailIdx--
+	}
+
+	return PageIdx(tailIdx), &b.Pages[tailIdx]
 }
 
 func (b *Memo) Clear() {
@@ -105,9 +110,14 @@ func (b *Memo) Clear() {
 //------------------------------------------------------------------------------
 
 type Page struct {
+	// ┌────────────────────────────────────────────────────────────┐
+	// │ data []byte                                                │
+	// ├────────────────────────────────────────────────────────────┤
+	// │ Entity Column │ CompA Column │ CompB Column │ ...          │
+	// └────────────────────────────────────────────────────────────┘
 	data []byte
 	Ptr  unsafe.Pointer
-	Len  PageRow
+	Len  PageSlot
 }
 
 //------------------------------------------------------------------------------

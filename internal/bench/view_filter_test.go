@@ -1,11 +1,11 @@
 package bench_test
-import "github.com/kjkrol/uid"
 
 import (
 	"math/rand/v2"
 	"testing"
 
 	"github.com/kjkrol/goke"
+	"github.com/kjkrol/uid"
 )
 
 // Benchmark_View_Filter measures the performance of the View.Filter method

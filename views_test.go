@@ -1,10 +1,10 @@
 package goke_test
-import "github.com/kjkrol/uid"
 
 import (
 	"testing"
 
 	"github.com/kjkrol/goke"
+	"github.com/kjkrol/uid"
 	"github.com/stretchr/testify/assert"
 )
 

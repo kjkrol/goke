@@ -1,10 +1,10 @@
 package core
 
-import "github.com/kjkrol/uid"
-
 import (
 	"time"
 	"unsafe"
+
+	"github.com/kjkrol/uid"
 )
 
 type ReadOnlyRegistry interface {

@@ -1,11 +1,11 @@
 package core
 
-import "github.com/kjkrol/uid"
-
 import (
 	"errors"
 	"fmt"
 	"unsafe"
+
+	"github.com/kjkrol/uid"
 )
 
 type ArchetypeRegistry struct {
@@ -80,11 +80,11 @@ func (r *ArchetypeRegistry) Get(mask ArchetypeMask) ArchetypeId {
 func (r *ArchetypeRegistry) AddEntity(
 	entity uid.UID64,
 	archId ArchetypeId,
-) (PageIdx, PageRow) {
+) (PageIdx, PageSlot) {
 	arch := &r.Archetypes[archId]
-	pageIdx, pageRow := arch.AddEntity(entity)
-	r.EntityLinkStore.Update(entity, archId, pageIdx, pageRow)
-	return pageIdx, pageRow
+	pageIdx, pageSlot := arch.AddEntity(entity)
+	r.EntityLinkStore.Update(entity, archId, pageIdx, pageSlot)
+	return pageIdx, pageSlot
 }
 
 func (r *ArchetypeRegistry) UnlinkEntity(entity uid.UID64) {
@@ -124,7 +124,7 @@ func (r *ArchetypeRegistry) AllocateComponentMemory(
 
 	var targetArch *Archetype
 	var targetPageIdx PageIdx
-	var targetRow PageRow
+	var targetRow PageSlot
 
 	// -------------------------------------------------------------------------
 	// "FAST PATH" (Component already exists/allocated)
@@ -262,7 +262,7 @@ func (r *ArchetypeRegistry) moveEntity(
 	entity uid.UID64,
 	link EntityArchLink,
 	archId ArchetypeId,
-) (PageIdx, PageRow) {
+) (PageIdx, PageSlot) {
 	oldArch := &r.Archetypes[link.ArchId]
 	newArch := &r.Archetypes[archId]
 

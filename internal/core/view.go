@@ -1,10 +1,10 @@
 package core
 
-import "github.com/kjkrol/uid"
-
 import (
 	"fmt"
 	"unsafe"
+
+	"github.com/kjkrol/uid"
 )
 
 const EntitySize = unsafe.Sizeof(uid.UID64(0))

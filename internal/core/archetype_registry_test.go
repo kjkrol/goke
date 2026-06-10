@@ -1,10 +1,10 @@
 package core
 
-import "github.com/kjkrol/uid"
-
 import (
 	"reflect"
 	"testing"
+
+	"github.com/kjkrol/uid"
 )
 
 type position struct {

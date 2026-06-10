@@ -1,5 +1,4 @@
 package bench_test
-import "github.com/kjkrol/uid"
 
 import (
 	"math/rand/v2"
@@ -7,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/kjkrol/goke"
+	"github.com/kjkrol/uid"
 )
 
 const entitiesNumber = 1024

@@ -1,11 +1,11 @@
 package goke
-import "github.com/kjkrol/uid"
 
 import (
 	"iter"
 	"unsafe"
 
 	"github.com/kjkrol/goke/internal/core"
+	"github.com/kjkrol/uid"
 )
 
 // View0 provides a high-performance iterator for entities that match

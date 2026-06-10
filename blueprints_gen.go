@@ -105,18 +105,20 @@ func (b *Blueprint1[T1]) Create(count int) iter.Seq[struct {
 			}
 		}
 
+		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
+
 		for remaining > 0 {
 			allocatedRows := min(remaining, available)
 			startRow := page.Len
-			page.Len += core.PageRow(allocatedRows)
+			page.Len += core.PageSlot(allocatedRows)
 			memo.Len += uint32(allocatedRows)
 
 			for i := 0; i < allocatedRows; i++ {
 				entity := Entity(reg.EntityPool.Next())
-				pageRow := startRow + core.PageRow(i)
-				destPtr := entityCol.GetPointer(page, pageRow)
+				pageSlot := startRow + core.PageSlot(i)
+				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
-				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageRow)
+				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
 			}
 
 			if !yield(
@@ -127,6 +129,7 @@ func (b *Blueprint1[T1]) Create(count int) iter.Seq[struct {
 					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startRow)), allocatedRows),
 					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
 				}) {
+				memo.Reserved = 0
 				return
 			}
 
@@ -137,6 +140,8 @@ func (b *Blueprint1[T1]) Create(count int) iter.Seq[struct {
 				available = int(memo.Layout.PageCap)
 			}
 		}
+
+		memo.Reserved = 0
 	}
 }
 
@@ -240,18 +245,20 @@ func (b *Blueprint2[T1, T2]) Create(count int) iter.Seq[struct {
 			}
 		}
 
+		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
+
 		for remaining > 0 {
 			allocatedRows := min(remaining, available)
 			startRow := page.Len
-			page.Len += core.PageRow(allocatedRows)
+			page.Len += core.PageSlot(allocatedRows)
 			memo.Len += uint32(allocatedRows)
 
 			for i := 0; i < allocatedRows; i++ {
 				entity := Entity(reg.EntityPool.Next())
-				pageRow := startRow + core.PageRow(i)
-				destPtr := entityCol.GetPointer(page, pageRow)
+				pageSlot := startRow + core.PageSlot(i)
+				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
-				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageRow)
+				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
 			}
 
 			if !yield(
@@ -264,6 +271,7 @@ func (b *Blueprint2[T1, T2]) Create(count int) iter.Seq[struct {
 					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
 					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
 				}) {
+				memo.Reserved = 0
 				return
 			}
 
@@ -274,6 +282,8 @@ func (b *Blueprint2[T1, T2]) Create(count int) iter.Seq[struct {
 				available = int(memo.Layout.PageCap)
 			}
 		}
+
+		memo.Reserved = 0
 	}
 }
 
@@ -382,18 +392,20 @@ func (b *Blueprint3[T1, T2, T3]) Create(count int) iter.Seq[struct {
 			}
 		}
 
+		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
+
 		for remaining > 0 {
 			allocatedRows := min(remaining, available)
 			startRow := page.Len
-			page.Len += core.PageRow(allocatedRows)
+			page.Len += core.PageSlot(allocatedRows)
 			memo.Len += uint32(allocatedRows)
 
 			for i := 0; i < allocatedRows; i++ {
 				entity := Entity(reg.EntityPool.Next())
-				pageRow := startRow + core.PageRow(i)
-				destPtr := entityCol.GetPointer(page, pageRow)
+				pageSlot := startRow + core.PageSlot(i)
+				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
-				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageRow)
+				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
 			}
 
 			if !yield(
@@ -408,6 +420,7 @@ func (b *Blueprint3[T1, T2, T3]) Create(count int) iter.Seq[struct {
 					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
 					Comp3:  unsafe.Slice((*T3)(col3.GetPointer(page, startRow)), allocatedRows),
 				}) {
+				memo.Reserved = 0
 				return
 			}
 
@@ -418,6 +431,8 @@ func (b *Blueprint3[T1, T2, T3]) Create(count int) iter.Seq[struct {
 				available = int(memo.Layout.PageCap)
 			}
 		}
+
+		memo.Reserved = 0
 	}
 }
 
@@ -531,18 +546,20 @@ func (b *Blueprint4[T1, T2, T3, T4]) Create(count int) iter.Seq[struct {
 			}
 		}
 
+		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
+
 		for remaining > 0 {
 			allocatedRows := min(remaining, available)
 			startRow := page.Len
-			page.Len += core.PageRow(allocatedRows)
+			page.Len += core.PageSlot(allocatedRows)
 			memo.Len += uint32(allocatedRows)
 
 			for i := 0; i < allocatedRows; i++ {
 				entity := Entity(reg.EntityPool.Next())
-				pageRow := startRow + core.PageRow(i)
-				destPtr := entityCol.GetPointer(page, pageRow)
+				pageSlot := startRow + core.PageSlot(i)
+				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
-				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageRow)
+				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
 			}
 
 			if !yield(
@@ -559,6 +576,7 @@ func (b *Blueprint4[T1, T2, T3, T4]) Create(count int) iter.Seq[struct {
 					Comp3:  unsafe.Slice((*T3)(col3.GetPointer(page, startRow)), allocatedRows),
 					Comp4:  unsafe.Slice((*T4)(col4.GetPointer(page, startRow)), allocatedRows),
 				}) {
+				memo.Reserved = 0
 				return
 			}
 
@@ -569,6 +587,8 @@ func (b *Blueprint4[T1, T2, T3, T4]) Create(count int) iter.Seq[struct {
 				available = int(memo.Layout.PageCap)
 			}
 		}
+
+		memo.Reserved = 0
 	}
 }
 
@@ -687,18 +707,20 @@ func (b *Blueprint5[T1, T2, T3, T4, T5]) Create(count int) iter.Seq[struct {
 			}
 		}
 
+		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
+
 		for remaining > 0 {
 			allocatedRows := min(remaining, available)
 			startRow := page.Len
-			page.Len += core.PageRow(allocatedRows)
+			page.Len += core.PageSlot(allocatedRows)
 			memo.Len += uint32(allocatedRows)
 
 			for i := 0; i < allocatedRows; i++ {
 				entity := Entity(reg.EntityPool.Next())
-				pageRow := startRow + core.PageRow(i)
-				destPtr := entityCol.GetPointer(page, pageRow)
+				pageSlot := startRow + core.PageSlot(i)
+				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
-				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageRow)
+				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
 			}
 
 			if !yield(
@@ -717,6 +739,7 @@ func (b *Blueprint5[T1, T2, T3, T4, T5]) Create(count int) iter.Seq[struct {
 					Comp4:  unsafe.Slice((*T4)(col4.GetPointer(page, startRow)), allocatedRows),
 					Comp5:  unsafe.Slice((*T5)(col5.GetPointer(page, startRow)), allocatedRows),
 				}) {
+				memo.Reserved = 0
 				return
 			}
 
@@ -727,6 +750,8 @@ func (b *Blueprint5[T1, T2, T3, T4, T5]) Create(count int) iter.Seq[struct {
 				available = int(memo.Layout.PageCap)
 			}
 		}
+
+		memo.Reserved = 0
 	}
 }
 
@@ -850,18 +875,20 @@ func (b *Blueprint6[T1, T2, T3, T4, T5, T6]) Create(count int) iter.Seq[struct {
 			}
 		}
 
+		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
+
 		for remaining > 0 {
 			allocatedRows := min(remaining, available)
 			startRow := page.Len
-			page.Len += core.PageRow(allocatedRows)
+			page.Len += core.PageSlot(allocatedRows)
 			memo.Len += uint32(allocatedRows)
 
 			for i := 0; i < allocatedRows; i++ {
 				entity := Entity(reg.EntityPool.Next())
-				pageRow := startRow + core.PageRow(i)
-				destPtr := entityCol.GetPointer(page, pageRow)
+				pageSlot := startRow + core.PageSlot(i)
+				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
-				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageRow)
+				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
 			}
 
 			if !yield(
@@ -882,6 +909,7 @@ func (b *Blueprint6[T1, T2, T3, T4, T5, T6]) Create(count int) iter.Seq[struct {
 					Comp5:  unsafe.Slice((*T5)(col5.GetPointer(page, startRow)), allocatedRows),
 					Comp6:  unsafe.Slice((*T6)(col6.GetPointer(page, startRow)), allocatedRows),
 				}) {
+				memo.Reserved = 0
 				return
 			}
 
@@ -892,6 +920,8 @@ func (b *Blueprint6[T1, T2, T3, T4, T5, T6]) Create(count int) iter.Seq[struct {
 				available = int(memo.Layout.PageCap)
 			}
 		}
+
+		memo.Reserved = 0
 	}
 }
 
@@ -1020,18 +1050,20 @@ func (b *Blueprint7[T1, T2, T3, T4, T5, T6, T7]) Create(count int) iter.Seq[stru
 			}
 		}
 
+		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
+
 		for remaining > 0 {
 			allocatedRows := min(remaining, available)
 			startRow := page.Len
-			page.Len += core.PageRow(allocatedRows)
+			page.Len += core.PageSlot(allocatedRows)
 			memo.Len += uint32(allocatedRows)
 
 			for i := 0; i < allocatedRows; i++ {
 				entity := Entity(reg.EntityPool.Next())
-				pageRow := startRow + core.PageRow(i)
-				destPtr := entityCol.GetPointer(page, pageRow)
+				pageSlot := startRow + core.PageSlot(i)
+				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
-				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageRow)
+				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
 			}
 
 			if !yield(
@@ -1054,6 +1086,7 @@ func (b *Blueprint7[T1, T2, T3, T4, T5, T6, T7]) Create(count int) iter.Seq[stru
 					Comp6:  unsafe.Slice((*T6)(col6.GetPointer(page, startRow)), allocatedRows),
 					Comp7:  unsafe.Slice((*T7)(col7.GetPointer(page, startRow)), allocatedRows),
 				}) {
+				memo.Reserved = 0
 				return
 			}
 
@@ -1064,6 +1097,8 @@ func (b *Blueprint7[T1, T2, T3, T4, T5, T6, T7]) Create(count int) iter.Seq[stru
 				available = int(memo.Layout.PageCap)
 			}
 		}
+
+		memo.Reserved = 0
 	}
 }
 
@@ -1197,18 +1232,20 @@ func (b *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]) Create(count int) iter.Seq[
 			}
 		}
 
+		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
+
 		for remaining > 0 {
 			allocatedRows := min(remaining, available)
 			startRow := page.Len
-			page.Len += core.PageRow(allocatedRows)
+			page.Len += core.PageSlot(allocatedRows)
 			memo.Len += uint32(allocatedRows)
 
 			for i := 0; i < allocatedRows; i++ {
 				entity := Entity(reg.EntityPool.Next())
-				pageRow := startRow + core.PageRow(i)
-				destPtr := entityCol.GetPointer(page, pageRow)
+				pageSlot := startRow + core.PageSlot(i)
+				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
-				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageRow)
+				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
 			}
 
 			if !yield(
@@ -1233,6 +1270,7 @@ func (b *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]) Create(count int) iter.Seq[
 					Comp7:  unsafe.Slice((*T7)(col7.GetPointer(page, startRow)), allocatedRows),
 					Comp8:  unsafe.Slice((*T8)(col8.GetPointer(page, startRow)), allocatedRows),
 				}) {
+				memo.Reserved = 0
 				return
 			}
 
@@ -1243,6 +1281,8 @@ func (b *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]) Create(count int) iter.Seq[
 				available = int(memo.Layout.PageCap)
 			}
 		}
+
+		memo.Reserved = 0
 	}
 }
 
@@ -1381,18 +1421,20 @@ func (b *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Create(count int) iter.
 			}
 		}
 
+		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
+
 		for remaining > 0 {
 			allocatedRows := min(remaining, available)
 			startRow := page.Len
-			page.Len += core.PageRow(allocatedRows)
+			page.Len += core.PageSlot(allocatedRows)
 			memo.Len += uint32(allocatedRows)
 
 			for i := 0; i < allocatedRows; i++ {
 				entity := Entity(reg.EntityPool.Next())
-				pageRow := startRow + core.PageRow(i)
-				destPtr := entityCol.GetPointer(page, pageRow)
+				pageSlot := startRow + core.PageSlot(i)
+				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
-				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageRow)
+				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
 			}
 
 			if !yield(
@@ -1419,6 +1461,7 @@ func (b *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Create(count int) iter.
 					Comp8:  unsafe.Slice((*T8)(col8.GetPointer(page, startRow)), allocatedRows),
 					Comp9:  unsafe.Slice((*T9)(col9.GetPointer(page, startRow)), allocatedRows),
 				}) {
+				memo.Reserved = 0
 				return
 			}
 
@@ -1429,6 +1472,8 @@ func (b *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Create(count int) iter.
 				available = int(memo.Layout.PageCap)
 			}
 		}
+
+		memo.Reserved = 0
 	}
 }
 
@@ -1572,18 +1617,20 @@ func (b *Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Create(count int)
 			}
 		}
 
+		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
+
 		for remaining > 0 {
 			allocatedRows := min(remaining, available)
 			startRow := page.Len
-			page.Len += core.PageRow(allocatedRows)
+			page.Len += core.PageSlot(allocatedRows)
 			memo.Len += uint32(allocatedRows)
 
 			for i := 0; i < allocatedRows; i++ {
 				entity := Entity(reg.EntityPool.Next())
-				pageRow := startRow + core.PageRow(i)
-				destPtr := entityCol.GetPointer(page, pageRow)
+				pageSlot := startRow + core.PageSlot(i)
+				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
-				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageRow)
+				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
 			}
 
 			if !yield(
@@ -1612,6 +1659,7 @@ func (b *Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Create(count int)
 					Comp9:  unsafe.Slice((*T9)(col9.GetPointer(page, startRow)), allocatedRows),
 					Comp10: unsafe.Slice((*T10)(col10.GetPointer(page, startRow)), allocatedRows),
 				}) {
+				memo.Reserved = 0
 				return
 			}
 
@@ -1622,5 +1670,7 @@ func (b *Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Create(count int)
 				available = int(memo.Layout.PageCap)
 			}
 		}
+
+		memo.Reserved = 0
 	}
 }

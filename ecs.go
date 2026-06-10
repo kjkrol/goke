@@ -1,5 +1,4 @@
 package goke
-import "github.com/kjkrol/uid"
 
 import (
 	"fmt"
@@ -7,6 +6,7 @@ import (
 	"time"
 
 	"github.com/kjkrol/goke/internal/core"
+	"github.com/kjkrol/uid"
 )
 
 type (

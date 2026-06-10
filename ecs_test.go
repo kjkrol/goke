@@ -1,7 +1,6 @@
 package goke_test
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -42,7 +41,6 @@ func TestECS_UseCase(t *testing.T) {
 	for page := range blueprint2.Create(1) {
 		eB = page.Entity[0]
 		page.Comp1[0] = Order{ID: "ORD-002", Total: 50.0}
-		fmt.Printf("eB= %d\n", page.Entity[0].Index())
 	}
 
 	query1 := goke.NewView2[Order, Discount](ecs)
@@ -78,7 +76,7 @@ func TestECS_UseCase(t *testing.T) {
 		ctx.Sync()
 		for page := range query2.All() {
 			for _, entity := range page.Entity {
-				fmt.Printf("entity %d\n", entity.Index())
+				_ = entity
 			}
 		}
 		ctx.Run(cleanerSystem, d)
