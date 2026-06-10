@@ -16,7 +16,7 @@ type CollisionSystem struct {
 	collisionView    *goke.View3[Position, Velocity, Collision]
 	contactsBuffer   []Contact
 	contactsEntities []goke.Entity
-	seenPairs        map[uint64]struct{} // dedup Contactów per (EntityA.Index, EntityB.Index) - klucz: idxA<<32 | idxB
+	// seenPairs        map[uint64]struct{} // dedup Contactów per (EntityA.Index, EntityB.Index) - klucz: idxA<<32 | idxB
 
 }
 
@@ -28,7 +28,7 @@ func NewCollisionSystem(resouces *Resources) goke.System {
 
 func (s *CollisionSystem) Init(ecs *goke.ECS) {
 	s.collisionView = goke.NewView3[Position, Velocity, Collision](ecs)
-	s.seenPairs = make(map[uint64]struct{}, 256)
+	// s.seenPairs = make(map[uint64]struct{}, 256)
 }
 
 func (s *CollisionSystem) Update(lookup goke.Lookup, sched *goke.Schedule, d time.Duration) {
@@ -36,7 +36,7 @@ func (s *CollisionSystem) Update(lookup goke.Lookup, sched *goke.Schedule, d tim
 	const probeExpandMaring = 32
 	s.contactsBuffer = s.contactsBuffer[:0]
 	s.contactsEntities = s.contactsEntities[:0]
-	clear(s.seenPairs)
+	// clear(s.seenPairs)
 	s.broadPhase(probeExpandMaring)
 
 	s.narrowPhase(solverIterations)
@@ -59,11 +59,11 @@ func (s *CollisionSystem) broadPhase(probeExpandMargin uint32) {
 					// (np. A.MAIN-B.MAIN, A.MAIN-B.FRAG_RIGHT, A.FRAG_RIGHT-B.MAIN, ...).
 					// Bez tej deduplikacji powstaje kilka Contactów dla jednej pary entities,
 					// co prowadzi do wielokrotnego swap velocity = parzysta liczba swapów = no change.
-					key := uint64(entityA.Index())<<32 | uint64(entityB.Index())
-					if _, exists := s.seenPairs[key]; exists {
-						return
-					}
-					s.seenPairs[key] = struct{}{}
+					// key := uint64(entityA.Index())<<32 | uint64(entityB.Index())
+					// if _, exists := s.seenPairs[key]; exists {
+					// 	return
+					// }
+					// s.seenPairs[key] = struct{}{}
 
 					s.contactsEntities = append(s.contactsEntities, entityB)
 					s.contactsBuffer = append(s.contactsBuffer, Contact{
