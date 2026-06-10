@@ -274,18 +274,41 @@ The maximum number of component types is currently 128 and can be adjusted if ne
 
 Component data is stored using a paged **Structure of Arrays (SoA)** architecture.
 
-Each archetype owns one or more memory pages:
+Each archetype owns one or more memory pages. From the system's perspective, a page exposes typed component columns:
 
 ```text
 Page
-├── Entity IDs
-├── Component A
-├── Component B
-├── Component C
-└── ...
+
+┌─────────────┬─────────────┬─────────────┬─────────────┐
+│ []Entity    │ []CompA     │ []CompB     │ []CompC     │
+├─────────────┼─────────────┼─────────────┼─────────────┤
+│ e0          │ a0          │ b0          │ c0          │
+│ e1          │ a1          │ b1          │ c1          │
+│ e2          │ a2          │ b2          │ c2          │
+│ ...         │ ...         │ ...         │ ...         │
+└─────────────┴─────────────┴─────────────┴─────────────┘
 ```
 
-Each page stores component columns contiguously, allowing systems to iterate through large numbers of entities with predictable memory access patterns and excellent cache locality.
+This layout allows systems to iterate over large numbers of entities with predictable memory access patterns and excellent cache locality.
+
+Internally, these columns are not separate allocations. Each page is backed by a single contiguous memory block, while typed slices are reconstructed from precomputed layout offsets:
+
+```text
+Page (single allocation)
+
+┌────────────────────────────────────────────────────────────┐
+│ data []byte                                                │
+├────────────────────────────────────────────────────────────┤
+│ Entity Column │ CompA Column │ CompB Column │ ...          │
+└────────────────────────────────────────────────────────────┘
+
+Layout Offsets
+
+Entity Column ─► offset 0
+CompA Column  ─► offset A
+CompB Column  ─► offset B
+CompC Column  ─► offset C
+```
 
 This design provides:
 
