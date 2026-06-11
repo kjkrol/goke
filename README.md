@@ -133,14 +133,14 @@ It simulates thousands of moving AABBs while maintaining a fixed 120 TPS update 
   <thead>
     <tr>
       <th style="text-align: left; vertical-align: top; width: 400px;">
-        <video src="https://github.com/user-attachments/assets/fa8d1aca-2060-466d-8204-9d6a7443d580" width="400" autoplay loop muted playsinline></video>
+        <video src="https://github.com/user-attachments/assets/2b921500-eb3e-49bf-98ee-ac741746e64d" width="400" autoplay loop muted playsinline></video>
         <br>
-          <sub><strong>Stats:</strong> 2048 colliding AABBs | 120 TPS | 0.1-1 collisions/tick</sub>
+          <sub><strong>Stats:</strong> 2306 colliding AABBs | 120 TPS | 50 collisions/tick</sub>
       </th>
       <th style="text-align: left; vertical-align: top; width: 400px;">
-        <video src="https://github.com/user-attachments/assets/f1ef2c0b-fb7b-478a-bc88-77faa48c0623" width="400" autoplay loop muted playsinline></video>
+        <video src="https://github.com/user-attachments/assets/50695c5a-4f77-4352-87da-1fa13168415b" width="400" autoplay loop muted playsinline></video>
         <br>
-        <sub><strong>Stats:</strong> 64 colliding AABBs | 120 TPS | 0.1-1 collisions/tick</sub>
+        <sub><strong>Stats:</strong> 524 colliding AABBs | 120 TPS | 15 collisions/tick</sub>
       </th>
     </tr>
   </thead>
