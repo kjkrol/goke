@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/kjkrol/goke/internal/core"
+	"github.com/kjkrol/goke/internal/system"
 )
 
 type (
@@ -15,7 +16,7 @@ type (
 	// Schedule manages structural changes to the world that are deferred until
 	// a synchronization point. It allows for safe modification of entities and
 	// components during system updates without invalidating current iterators.
-	Schedule = core.SystemCommandBuffer
+	Schedule = system.SystemCommandBuffer
 
 	// System is the interface for logic units that process entity data.
 	//
@@ -35,20 +36,20 @@ type (
 // already has this component, the existing data will be overwritten
 // when the schedule is applied.
 func ScheduleAddComponent[T any](schedule *Schedule, e Entity, compDesc ComponentDesc, value T) {
-	core.AddComponent(schedule, e, compDesc, value)
+	system.AddComponent(schedule, e, compDesc, value)
 }
 
 // ScheduleRemoveComponent queues the removal of a component from an entity.
 // This operation is ignored if the entity does not have the specified component.
 func ScheduleRemoveComponent(schedule *Schedule, e Entity, compDesc ComponentDesc) {
-	core.RemoveComponent(schedule, e, compDesc)
+	system.RemoveComponent(schedule, e, compDesc)
 }
 
 // ScheduleRemoveEntity queues the destruction of an entity and all its
 // associated components. Any pending operations on this entity in the
 // same schedule will be discarded.
 func ScheduleRemoveEntity(schedule *Schedule, e Entity) {
-	core.RemoveEntity(schedule, e)
+	system.RemoveEntity(schedule, e)
 }
 
 // SystemFunc defines a function signature for stateless logic units.

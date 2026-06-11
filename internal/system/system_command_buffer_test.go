@@ -1,10 +1,11 @@
-package core
+package system
 
 import (
 	"reflect"
 	"testing"
 	"time"
 
+	"github.com/kjkrol/goke/internal/core"
 	"github.com/kjkrol/uid"
 )
 
@@ -17,19 +18,19 @@ type mockCompB struct {
 }
 
 type modifyTestSystem struct {
-	compA  ComponentInfo
-	compB  ComponentInfo
+	compA  core.ComponentInfo
+	compB  core.ComponentInfo
 	target uid.UID64
 }
 
-func (s *modifyTestSystem) Update(reg ReadOnlyRegistry, cb *SystemCommandBuffer, d time.Duration) {
+func (s *modifyTestSystem) Update(reg core.ReadOnlyRegistry, cb *SystemCommandBuffer, d time.Duration) {
 	// Mutujemy już wygenerowaną i przydzieloną encję
 	RemoveComponent(cb, s.target, s.compA)
 	AddComponent(cb, s.target, s.compB, mockCompB{Msg: "added"})
 }
 
 func TestScheduler_ComponentCommands(t *testing.T) {
-	reg := NewRegistry(RegistryConfig{
+	reg := core.NewRegistry(core.RegistryConfig{
 		InitialEntityCap:            100,
 		InitialArchetypeRegistryCap: 100,
 		FreeIndicesCap:              100,

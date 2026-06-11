@@ -1,8 +1,9 @@
-package core
+package system
 
 import (
 	"unsafe"
 
+	"github.com/kjkrol/goke/internal/core"
 	"github.com/kjkrol/uid"
 )
 
@@ -20,7 +21,7 @@ const (
 type systemCommand struct {
 	cType    commandType
 	entity   uid.UID64
-	compInfo ComponentInfo
+	compInfo core.ComponentInfo
 	dataPtr  unsafe.Pointer
 }
 
@@ -58,7 +59,7 @@ func NewSystemCommandBuffer() *SystemCommandBuffer {
 }
 
 // AddComponent safely copies component data into the buffer's pool
-func AddComponent[T any](cb *SystemCommandBuffer, e uid.UID64, info ComponentInfo, value T) {
+func AddComponent[T any](cb *SystemCommandBuffer, e uid.UID64, info core.ComponentInfo, value T) {
 	size := int(unsafe.Sizeof(value))
 
 	var ptr unsafe.Pointer
@@ -79,7 +80,7 @@ func AddComponent[T any](cb *SystemCommandBuffer, e uid.UID64, info ComponentInf
 	})
 }
 
-func RemoveComponent(cb *SystemCommandBuffer, e uid.UID64, compInfo ComponentInfo) {
+func RemoveComponent(cb *SystemCommandBuffer, e uid.UID64, compInfo core.ComponentInfo) {
 	cb.commands = append(cb.commands, systemCommand{
 		cType:    cmdRemoveComponent,
 		entity:   e,

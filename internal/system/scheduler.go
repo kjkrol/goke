@@ -1,9 +1,12 @@
-package core
+package system
 
 import (
 	"fmt"
 	"sync"
 	"time"
+	"unsafe"
+
+	"github.com/kjkrol/goke/internal/core"
 )
 
 type ExecutionContext interface {
@@ -15,7 +18,7 @@ type ExecutionContext interface {
 type ExecutionPlan func(ExecutionContext, time.Duration)
 
 type Scheduler struct {
-	register *Registry
+	register *core.Registry
 	systems  []System
 	buffers  map[System]*SystemCommandBuffer
 	plan     ExecutionPlan
@@ -33,7 +36,7 @@ func (s *Scheduler) Reset() {
 	s.plan = nil
 }
 
-func NewScheduler(register *Registry) Scheduler {
+func NewScheduler(register *core.Registry) Scheduler {
 	return Scheduler{
 		register: register,
 		buffers:  make(map[System]*SystemCommandBuffer),
@@ -106,6 +109,7 @@ func (s *Scheduler) applyBufferCommands(cb *SystemCommandBuffer) error {
 
 		switch cmd.cType {
 		case cmdAssignComponent:
+			// TODD: need to be tested !!!
 			ptr, err := s.register.AllocateByID(target, cmd.compInfo)
 			if err != nil {
 				return fmt.Errorf("failed to allocate ID for target %d: %w", target, err)
@@ -121,4 +125,8 @@ func (s *Scheduler) applyBufferCommands(cb *SystemCommandBuffer) error {
 	}
 	cb.reset()
 	return nil
+}
+
+func copyMemory(dst, src unsafe.Pointer, size uintptr) {
+	copy(unsafe.Slice((*byte)(dst), size), unsafe.Slice((*byte)(src), size))
 }

@@ -20,6 +20,10 @@ type Registry struct {
 	ArchetypeRegistry  *ArchetypeRegistry
 }
 
+type ReadOnlyRegistry interface {
+	ComponentGet(e uid.UID64, compID ComponentID) (unsafe.Pointer, error)
+}
+
 var _ ReadOnlyRegistry = (*Registry)(nil)
 
 func NewRegistry(cfg RegistryConfig) *Registry {
