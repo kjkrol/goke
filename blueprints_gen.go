@@ -108,14 +108,14 @@ func (b *Blueprint1[T1]) Create(count int) iter.Seq[struct {
 		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
 
 		for remaining > 0 {
-			allocatedRows := min(remaining, available)
-			startRow := page.Len
-			page.Len += core.PageSlot(allocatedRows)
-			memo.Len += uint32(allocatedRows)
+			allocatedSlots := min(remaining, available)
+			startSlot := page.Len
+			page.Len += core.PageSlot(allocatedSlots)
+			memo.Len += uint32(allocatedSlots)
 
-			for i := 0; i < allocatedRows; i++ {
+			for i := range allocatedSlots {
 				entity := Entity(reg.EntityPool.Next())
-				pageSlot := startRow + core.PageSlot(i)
+				pageSlot := startSlot + core.PageSlot(i)
 				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
 				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
@@ -126,14 +126,14 @@ func (b *Blueprint1[T1]) Create(count int) iter.Seq[struct {
 					Entity []Entity
 					Comp1  []T1
 				}{
-					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startRow)), allocatedRows),
-					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
+					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startSlot)), allocatedSlots),
+					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startSlot)), allocatedSlots),
 				}) {
 				memo.Reserved = 0
 				return
 			}
 
-			remaining -= allocatedRows
+			remaining -= allocatedSlots
 			if remaining > 0 {
 				pageIdx++
 				page = &memo.Pages[pageIdx]
@@ -248,14 +248,14 @@ func (b *Blueprint2[T1, T2]) Create(count int) iter.Seq[struct {
 		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
 
 		for remaining > 0 {
-			allocatedRows := min(remaining, available)
-			startRow := page.Len
-			page.Len += core.PageSlot(allocatedRows)
-			memo.Len += uint32(allocatedRows)
+			allocatedSlots := min(remaining, available)
+			startSlot := page.Len
+			page.Len += core.PageSlot(allocatedSlots)
+			memo.Len += uint32(allocatedSlots)
 
-			for i := 0; i < allocatedRows; i++ {
+			for i := range allocatedSlots {
 				entity := Entity(reg.EntityPool.Next())
-				pageSlot := startRow + core.PageSlot(i)
+				pageSlot := startSlot + core.PageSlot(i)
 				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
 				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
@@ -267,15 +267,15 @@ func (b *Blueprint2[T1, T2]) Create(count int) iter.Seq[struct {
 					Comp1  []T1
 					Comp2  []T2
 				}{
-					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startRow)), allocatedRows),
-					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
-					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
+					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startSlot)), allocatedSlots),
+					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startSlot)), allocatedSlots),
+					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startSlot)), allocatedSlots),
 				}) {
 				memo.Reserved = 0
 				return
 			}
 
-			remaining -= allocatedRows
+			remaining -= allocatedSlots
 			if remaining > 0 {
 				pageIdx++
 				page = &memo.Pages[pageIdx]
@@ -395,14 +395,14 @@ func (b *Blueprint3[T1, T2, T3]) Create(count int) iter.Seq[struct {
 		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
 
 		for remaining > 0 {
-			allocatedRows := min(remaining, available)
-			startRow := page.Len
-			page.Len += core.PageSlot(allocatedRows)
-			memo.Len += uint32(allocatedRows)
+			allocatedSlots := min(remaining, available)
+			startSlot := page.Len
+			page.Len += core.PageSlot(allocatedSlots)
+			memo.Len += uint32(allocatedSlots)
 
-			for i := 0; i < allocatedRows; i++ {
+			for i := range allocatedSlots {
 				entity := Entity(reg.EntityPool.Next())
-				pageSlot := startRow + core.PageSlot(i)
+				pageSlot := startSlot + core.PageSlot(i)
 				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
 				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
@@ -415,16 +415,16 @@ func (b *Blueprint3[T1, T2, T3]) Create(count int) iter.Seq[struct {
 					Comp2  []T2
 					Comp3  []T3
 				}{
-					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startRow)), allocatedRows),
-					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
-					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
-					Comp3:  unsafe.Slice((*T3)(col3.GetPointer(page, startRow)), allocatedRows),
+					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startSlot)), allocatedSlots),
+					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startSlot)), allocatedSlots),
+					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startSlot)), allocatedSlots),
+					Comp3:  unsafe.Slice((*T3)(col3.GetPointer(page, startSlot)), allocatedSlots),
 				}) {
 				memo.Reserved = 0
 				return
 			}
 
-			remaining -= allocatedRows
+			remaining -= allocatedSlots
 			if remaining > 0 {
 				pageIdx++
 				page = &memo.Pages[pageIdx]
@@ -549,14 +549,14 @@ func (b *Blueprint4[T1, T2, T3, T4]) Create(count int) iter.Seq[struct {
 		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
 
 		for remaining > 0 {
-			allocatedRows := min(remaining, available)
-			startRow := page.Len
-			page.Len += core.PageSlot(allocatedRows)
-			memo.Len += uint32(allocatedRows)
+			allocatedSlots := min(remaining, available)
+			startSlot := page.Len
+			page.Len += core.PageSlot(allocatedSlots)
+			memo.Len += uint32(allocatedSlots)
 
-			for i := 0; i < allocatedRows; i++ {
+			for i := range allocatedSlots {
 				entity := Entity(reg.EntityPool.Next())
-				pageSlot := startRow + core.PageSlot(i)
+				pageSlot := startSlot + core.PageSlot(i)
 				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
 				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
@@ -570,17 +570,17 @@ func (b *Blueprint4[T1, T2, T3, T4]) Create(count int) iter.Seq[struct {
 					Comp3  []T3
 					Comp4  []T4
 				}{
-					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startRow)), allocatedRows),
-					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
-					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
-					Comp3:  unsafe.Slice((*T3)(col3.GetPointer(page, startRow)), allocatedRows),
-					Comp4:  unsafe.Slice((*T4)(col4.GetPointer(page, startRow)), allocatedRows),
+					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startSlot)), allocatedSlots),
+					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startSlot)), allocatedSlots),
+					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startSlot)), allocatedSlots),
+					Comp3:  unsafe.Slice((*T3)(col3.GetPointer(page, startSlot)), allocatedSlots),
+					Comp4:  unsafe.Slice((*T4)(col4.GetPointer(page, startSlot)), allocatedSlots),
 				}) {
 				memo.Reserved = 0
 				return
 			}
 
-			remaining -= allocatedRows
+			remaining -= allocatedSlots
 			if remaining > 0 {
 				pageIdx++
 				page = &memo.Pages[pageIdx]
@@ -710,14 +710,14 @@ func (b *Blueprint5[T1, T2, T3, T4, T5]) Create(count int) iter.Seq[struct {
 		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
 
 		for remaining > 0 {
-			allocatedRows := min(remaining, available)
-			startRow := page.Len
-			page.Len += core.PageSlot(allocatedRows)
-			memo.Len += uint32(allocatedRows)
+			allocatedSlots := min(remaining, available)
+			startSlot := page.Len
+			page.Len += core.PageSlot(allocatedSlots)
+			memo.Len += uint32(allocatedSlots)
 
-			for i := 0; i < allocatedRows; i++ {
+			for i := range allocatedSlots {
 				entity := Entity(reg.EntityPool.Next())
-				pageSlot := startRow + core.PageSlot(i)
+				pageSlot := startSlot + core.PageSlot(i)
 				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
 				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
@@ -732,18 +732,18 @@ func (b *Blueprint5[T1, T2, T3, T4, T5]) Create(count int) iter.Seq[struct {
 					Comp4  []T4
 					Comp5  []T5
 				}{
-					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startRow)), allocatedRows),
-					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
-					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
-					Comp3:  unsafe.Slice((*T3)(col3.GetPointer(page, startRow)), allocatedRows),
-					Comp4:  unsafe.Slice((*T4)(col4.GetPointer(page, startRow)), allocatedRows),
-					Comp5:  unsafe.Slice((*T5)(col5.GetPointer(page, startRow)), allocatedRows),
+					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startSlot)), allocatedSlots),
+					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startSlot)), allocatedSlots),
+					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startSlot)), allocatedSlots),
+					Comp3:  unsafe.Slice((*T3)(col3.GetPointer(page, startSlot)), allocatedSlots),
+					Comp4:  unsafe.Slice((*T4)(col4.GetPointer(page, startSlot)), allocatedSlots),
+					Comp5:  unsafe.Slice((*T5)(col5.GetPointer(page, startSlot)), allocatedSlots),
 				}) {
 				memo.Reserved = 0
 				return
 			}
 
-			remaining -= allocatedRows
+			remaining -= allocatedSlots
 			if remaining > 0 {
 				pageIdx++
 				page = &memo.Pages[pageIdx]
@@ -878,14 +878,14 @@ func (b *Blueprint6[T1, T2, T3, T4, T5, T6]) Create(count int) iter.Seq[struct {
 		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
 
 		for remaining > 0 {
-			allocatedRows := min(remaining, available)
-			startRow := page.Len
-			page.Len += core.PageSlot(allocatedRows)
-			memo.Len += uint32(allocatedRows)
+			allocatedSlots := min(remaining, available)
+			startSlot := page.Len
+			page.Len += core.PageSlot(allocatedSlots)
+			memo.Len += uint32(allocatedSlots)
 
-			for i := 0; i < allocatedRows; i++ {
+			for i := range allocatedSlots {
 				entity := Entity(reg.EntityPool.Next())
-				pageSlot := startRow + core.PageSlot(i)
+				pageSlot := startSlot + core.PageSlot(i)
 				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
 				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
@@ -901,19 +901,19 @@ func (b *Blueprint6[T1, T2, T3, T4, T5, T6]) Create(count int) iter.Seq[struct {
 					Comp5  []T5
 					Comp6  []T6
 				}{
-					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startRow)), allocatedRows),
-					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
-					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
-					Comp3:  unsafe.Slice((*T3)(col3.GetPointer(page, startRow)), allocatedRows),
-					Comp4:  unsafe.Slice((*T4)(col4.GetPointer(page, startRow)), allocatedRows),
-					Comp5:  unsafe.Slice((*T5)(col5.GetPointer(page, startRow)), allocatedRows),
-					Comp6:  unsafe.Slice((*T6)(col6.GetPointer(page, startRow)), allocatedRows),
+					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startSlot)), allocatedSlots),
+					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startSlot)), allocatedSlots),
+					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startSlot)), allocatedSlots),
+					Comp3:  unsafe.Slice((*T3)(col3.GetPointer(page, startSlot)), allocatedSlots),
+					Comp4:  unsafe.Slice((*T4)(col4.GetPointer(page, startSlot)), allocatedSlots),
+					Comp5:  unsafe.Slice((*T5)(col5.GetPointer(page, startSlot)), allocatedSlots),
+					Comp6:  unsafe.Slice((*T6)(col6.GetPointer(page, startSlot)), allocatedSlots),
 				}) {
 				memo.Reserved = 0
 				return
 			}
 
-			remaining -= allocatedRows
+			remaining -= allocatedSlots
 			if remaining > 0 {
 				pageIdx++
 				page = &memo.Pages[pageIdx]
@@ -1053,14 +1053,14 @@ func (b *Blueprint7[T1, T2, T3, T4, T5, T6, T7]) Create(count int) iter.Seq[stru
 		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
 
 		for remaining > 0 {
-			allocatedRows := min(remaining, available)
-			startRow := page.Len
-			page.Len += core.PageSlot(allocatedRows)
-			memo.Len += uint32(allocatedRows)
+			allocatedSlots := min(remaining, available)
+			startSlot := page.Len
+			page.Len += core.PageSlot(allocatedSlots)
+			memo.Len += uint32(allocatedSlots)
 
-			for i := 0; i < allocatedRows; i++ {
+			for i := range allocatedSlots {
 				entity := Entity(reg.EntityPool.Next())
-				pageSlot := startRow + core.PageSlot(i)
+				pageSlot := startSlot + core.PageSlot(i)
 				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
 				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
@@ -1077,20 +1077,20 @@ func (b *Blueprint7[T1, T2, T3, T4, T5, T6, T7]) Create(count int) iter.Seq[stru
 					Comp6  []T6
 					Comp7  []T7
 				}{
-					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startRow)), allocatedRows),
-					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
-					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
-					Comp3:  unsafe.Slice((*T3)(col3.GetPointer(page, startRow)), allocatedRows),
-					Comp4:  unsafe.Slice((*T4)(col4.GetPointer(page, startRow)), allocatedRows),
-					Comp5:  unsafe.Slice((*T5)(col5.GetPointer(page, startRow)), allocatedRows),
-					Comp6:  unsafe.Slice((*T6)(col6.GetPointer(page, startRow)), allocatedRows),
-					Comp7:  unsafe.Slice((*T7)(col7.GetPointer(page, startRow)), allocatedRows),
+					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startSlot)), allocatedSlots),
+					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startSlot)), allocatedSlots),
+					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startSlot)), allocatedSlots),
+					Comp3:  unsafe.Slice((*T3)(col3.GetPointer(page, startSlot)), allocatedSlots),
+					Comp4:  unsafe.Slice((*T4)(col4.GetPointer(page, startSlot)), allocatedSlots),
+					Comp5:  unsafe.Slice((*T5)(col5.GetPointer(page, startSlot)), allocatedSlots),
+					Comp6:  unsafe.Slice((*T6)(col6.GetPointer(page, startSlot)), allocatedSlots),
+					Comp7:  unsafe.Slice((*T7)(col7.GetPointer(page, startSlot)), allocatedSlots),
 				}) {
 				memo.Reserved = 0
 				return
 			}
 
-			remaining -= allocatedRows
+			remaining -= allocatedSlots
 			if remaining > 0 {
 				pageIdx++
 				page = &memo.Pages[pageIdx]
@@ -1235,14 +1235,14 @@ func (b *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]) Create(count int) iter.Seq[
 		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
 
 		for remaining > 0 {
-			allocatedRows := min(remaining, available)
-			startRow := page.Len
-			page.Len += core.PageSlot(allocatedRows)
-			memo.Len += uint32(allocatedRows)
+			allocatedSlots := min(remaining, available)
+			startSlot := page.Len
+			page.Len += core.PageSlot(allocatedSlots)
+			memo.Len += uint32(allocatedSlots)
 
-			for i := 0; i < allocatedRows; i++ {
+			for i := range allocatedSlots {
 				entity := Entity(reg.EntityPool.Next())
-				pageSlot := startRow + core.PageSlot(i)
+				pageSlot := startSlot + core.PageSlot(i)
 				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
 				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
@@ -1260,21 +1260,21 @@ func (b *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]) Create(count int) iter.Seq[
 					Comp7  []T7
 					Comp8  []T8
 				}{
-					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startRow)), allocatedRows),
-					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
-					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
-					Comp3:  unsafe.Slice((*T3)(col3.GetPointer(page, startRow)), allocatedRows),
-					Comp4:  unsafe.Slice((*T4)(col4.GetPointer(page, startRow)), allocatedRows),
-					Comp5:  unsafe.Slice((*T5)(col5.GetPointer(page, startRow)), allocatedRows),
-					Comp6:  unsafe.Slice((*T6)(col6.GetPointer(page, startRow)), allocatedRows),
-					Comp7:  unsafe.Slice((*T7)(col7.GetPointer(page, startRow)), allocatedRows),
-					Comp8:  unsafe.Slice((*T8)(col8.GetPointer(page, startRow)), allocatedRows),
+					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startSlot)), allocatedSlots),
+					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startSlot)), allocatedSlots),
+					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startSlot)), allocatedSlots),
+					Comp3:  unsafe.Slice((*T3)(col3.GetPointer(page, startSlot)), allocatedSlots),
+					Comp4:  unsafe.Slice((*T4)(col4.GetPointer(page, startSlot)), allocatedSlots),
+					Comp5:  unsafe.Slice((*T5)(col5.GetPointer(page, startSlot)), allocatedSlots),
+					Comp6:  unsafe.Slice((*T6)(col6.GetPointer(page, startSlot)), allocatedSlots),
+					Comp7:  unsafe.Slice((*T7)(col7.GetPointer(page, startSlot)), allocatedSlots),
+					Comp8:  unsafe.Slice((*T8)(col8.GetPointer(page, startSlot)), allocatedSlots),
 				}) {
 				memo.Reserved = 0
 				return
 			}
 
-			remaining -= allocatedRows
+			remaining -= allocatedSlots
 			if remaining > 0 {
 				pageIdx++
 				page = &memo.Pages[pageIdx]
@@ -1424,14 +1424,14 @@ func (b *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Create(count int) iter.
 		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
 
 		for remaining > 0 {
-			allocatedRows := min(remaining, available)
-			startRow := page.Len
-			page.Len += core.PageSlot(allocatedRows)
-			memo.Len += uint32(allocatedRows)
+			allocatedSlots := min(remaining, available)
+			startSlot := page.Len
+			page.Len += core.PageSlot(allocatedSlots)
+			memo.Len += uint32(allocatedSlots)
 
-			for i := 0; i < allocatedRows; i++ {
+			for i := range allocatedSlots {
 				entity := Entity(reg.EntityPool.Next())
-				pageSlot := startRow + core.PageSlot(i)
+				pageSlot := startSlot + core.PageSlot(i)
 				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
 				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
@@ -1450,22 +1450,22 @@ func (b *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Create(count int) iter.
 					Comp8  []T8
 					Comp9  []T9
 				}{
-					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startRow)), allocatedRows),
-					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
-					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
-					Comp3:  unsafe.Slice((*T3)(col3.GetPointer(page, startRow)), allocatedRows),
-					Comp4:  unsafe.Slice((*T4)(col4.GetPointer(page, startRow)), allocatedRows),
-					Comp5:  unsafe.Slice((*T5)(col5.GetPointer(page, startRow)), allocatedRows),
-					Comp6:  unsafe.Slice((*T6)(col6.GetPointer(page, startRow)), allocatedRows),
-					Comp7:  unsafe.Slice((*T7)(col7.GetPointer(page, startRow)), allocatedRows),
-					Comp8:  unsafe.Slice((*T8)(col8.GetPointer(page, startRow)), allocatedRows),
-					Comp9:  unsafe.Slice((*T9)(col9.GetPointer(page, startRow)), allocatedRows),
+					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startSlot)), allocatedSlots),
+					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startSlot)), allocatedSlots),
+					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startSlot)), allocatedSlots),
+					Comp3:  unsafe.Slice((*T3)(col3.GetPointer(page, startSlot)), allocatedSlots),
+					Comp4:  unsafe.Slice((*T4)(col4.GetPointer(page, startSlot)), allocatedSlots),
+					Comp5:  unsafe.Slice((*T5)(col5.GetPointer(page, startSlot)), allocatedSlots),
+					Comp6:  unsafe.Slice((*T6)(col6.GetPointer(page, startSlot)), allocatedSlots),
+					Comp7:  unsafe.Slice((*T7)(col7.GetPointer(page, startSlot)), allocatedSlots),
+					Comp8:  unsafe.Slice((*T8)(col8.GetPointer(page, startSlot)), allocatedSlots),
+					Comp9:  unsafe.Slice((*T9)(col9.GetPointer(page, startSlot)), allocatedSlots),
 				}) {
 				memo.Reserved = 0
 				return
 			}
 
-			remaining -= allocatedRows
+			remaining -= allocatedSlots
 			if remaining > 0 {
 				pageIdx++
 				page = &memo.Pages[pageIdx]
@@ -1620,14 +1620,14 @@ func (b *Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Create(count int)
 		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
 
 		for remaining > 0 {
-			allocatedRows := min(remaining, available)
-			startRow := page.Len
-			page.Len += core.PageSlot(allocatedRows)
-			memo.Len += uint32(allocatedRows)
+			allocatedSlots := min(remaining, available)
+			startSlot := page.Len
+			page.Len += core.PageSlot(allocatedSlots)
+			memo.Len += uint32(allocatedSlots)
 
-			for i := 0; i < allocatedRows; i++ {
+			for i := range allocatedSlots {
 				entity := Entity(reg.EntityPool.Next())
-				pageSlot := startRow + core.PageSlot(i)
+				pageSlot := startSlot + core.PageSlot(i)
 				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
 				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
@@ -1647,23 +1647,23 @@ func (b *Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Create(count int)
 					Comp9  []T9
 					Comp10 []T10
 				}{
-					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startRow)), allocatedRows),
-					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startRow)), allocatedRows),
-					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startRow)), allocatedRows),
-					Comp3:  unsafe.Slice((*T3)(col3.GetPointer(page, startRow)), allocatedRows),
-					Comp4:  unsafe.Slice((*T4)(col4.GetPointer(page, startRow)), allocatedRows),
-					Comp5:  unsafe.Slice((*T5)(col5.GetPointer(page, startRow)), allocatedRows),
-					Comp6:  unsafe.Slice((*T6)(col6.GetPointer(page, startRow)), allocatedRows),
-					Comp7:  unsafe.Slice((*T7)(col7.GetPointer(page, startRow)), allocatedRows),
-					Comp8:  unsafe.Slice((*T8)(col8.GetPointer(page, startRow)), allocatedRows),
-					Comp9:  unsafe.Slice((*T9)(col9.GetPointer(page, startRow)), allocatedRows),
-					Comp10: unsafe.Slice((*T10)(col10.GetPointer(page, startRow)), allocatedRows),
+					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startSlot)), allocatedSlots),
+					Comp1:  unsafe.Slice((*T1)(col1.GetPointer(page, startSlot)), allocatedSlots),
+					Comp2:  unsafe.Slice((*T2)(col2.GetPointer(page, startSlot)), allocatedSlots),
+					Comp3:  unsafe.Slice((*T3)(col3.GetPointer(page, startSlot)), allocatedSlots),
+					Comp4:  unsafe.Slice((*T4)(col4.GetPointer(page, startSlot)), allocatedSlots),
+					Comp5:  unsafe.Slice((*T5)(col5.GetPointer(page, startSlot)), allocatedSlots),
+					Comp6:  unsafe.Slice((*T6)(col6.GetPointer(page, startSlot)), allocatedSlots),
+					Comp7:  unsafe.Slice((*T7)(col7.GetPointer(page, startSlot)), allocatedSlots),
+					Comp8:  unsafe.Slice((*T8)(col8.GetPointer(page, startSlot)), allocatedSlots),
+					Comp9:  unsafe.Slice((*T9)(col9.GetPointer(page, startSlot)), allocatedSlots),
+					Comp10: unsafe.Slice((*T10)(col10.GetPointer(page, startSlot)), allocatedSlots),
 				}) {
 				memo.Reserved = 0
 				return
 			}
 
-			remaining -= allocatedRows
+			remaining -= allocatedSlots
 			if remaining > 0 {
 				pageIdx++
 				page = &memo.Pages[pageIdx]

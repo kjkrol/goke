@@ -18,8 +18,8 @@ type PageSlot uint32
 type Memo struct {
 	Pages    []Page
 	Layout   PageLayout
-	Len      uint32
-	Reserved PageIdx
+	Len      uint32  // Total number of active entities across all pages (O(1) tracking).
+	Reserved PageIdx // Prevents truncation of the currently processed page during chunked iteration/creation.
 }
 
 func (b *Memo) Init(compInfos []ComponentInfo) {
@@ -41,11 +41,11 @@ func (b *Memo) AllocSlot() (*Page, PageIdx, PageSlot) {
 		page = &b.Pages[lastIdx]
 	}
 
-	row := page.Len
+	slot := page.Len
 	page.Len++
 	b.Len++
 
-	return page, lastIdx, row
+	return page, lastIdx, slot
 }
 
 func (b *Memo) GetPage(idx PageIdx) *Page {
@@ -186,4 +186,8 @@ func copyMemory(dst, src unsafe.Pointer, size uintptr) {
 
 func zeroMemory(ptr unsafe.Pointer, size uintptr) {
 	clear(unsafe.Slice((*byte)(ptr), size))
+}
+
+func (p *Page) GetPointer(offset uintptr, itemSize uintptr, slot PageSlot) unsafe.Pointer {
+	return unsafe.Add(p.Ptr, offset+(uintptr(slot)*itemSize))
 }

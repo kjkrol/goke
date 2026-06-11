@@ -224,3 +224,7 @@ func (a *Archetype) linkPrevArch(prevArch *Archetype, compID ComponentID) {
 	a.graph.edgesPrev[compID] = prevArch.Id
 	prevArch.graph.edgesNext[compID] = a.Id
 }
+
+func (c *Column) GetColumnStart(page *Page) unsafe.Pointer {
+	return unsafe.Add(page.Ptr, c.PageOffset)
+}

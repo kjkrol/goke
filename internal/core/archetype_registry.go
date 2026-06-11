@@ -94,10 +94,10 @@ func (r *ArchetypeRegistry) UnlinkEntity(entity uid.UID64) {
 	}
 
 	linkArch := &r.Archetypes[link.ArchId]
-	swappedEntity, swapped := linkArch.SwapRemoveEntity(link.PageIdx, link.PageRow)
+	swappedEntity, swapped := linkArch.SwapRemoveEntity(link.PageIdx, link.PageSlot)
 
 	if swapped {
-		r.EntityLinkStore.Update(swappedEntity, link.ArchId, link.PageIdx, link.PageRow)
+		r.EntityLinkStore.Update(swappedEntity, link.ArchId, link.PageIdx, link.PageSlot)
 	}
 
 	r.EntityLinkStore.Clear(entity)
@@ -132,7 +132,7 @@ func (r *ArchetypeRegistry) AllocateComponentMemory(
 	if currentArch.Mask.IsSet(compID) {
 		targetArch = currentArch
 		targetPageIdx = link.PageIdx
-		targetRow = link.PageRow
+		targetRow = link.PageSlot
 	} else {
 
 		// ---------------------------------------------------------------------
@@ -266,7 +266,7 @@ func (r *ArchetypeRegistry) moveEntity(
 	oldArch := &r.Archetypes[link.ArchId]
 	newArch := &r.Archetypes[archId]
 
-	newPageIdx, newRow := newArch.AddEntity(entity)
+	newPageIdx, newSlot := newArch.AddEntity(entity)
 
 	srcPage := oldArch.Memory.GetPage(link.PageIdx)
 	dstPage := newArch.Memory.GetPage(newPageIdx)
@@ -281,24 +281,24 @@ func (r *ArchetypeRegistry) moveEntity(
 
 		// copying shared components
 		if srcCol := oldArch.GetColumn(dstCol.CompID); srcCol != nil {
-			srcPtr := srcCol.GetPointer(srcPage, link.PageRow)
-			dstPtr := dstCol.GetPointer(dstPage, newRow)
+			srcPtr := srcCol.GetPointer(srcPage, link.PageSlot)
+			dstPtr := dstCol.GetPointer(dstPage, newSlot)
 
 			copyMemory(dstPtr, srcPtr, dstCol.ItemSize)
 		}
 	}
 
 	// Remove from old location (Swap Remove)
-	swappedEntity, swapped := oldArch.SwapRemoveEntity(link.PageIdx, link.PageRow)
+	swappedEntity, swapped := oldArch.SwapRemoveEntity(link.PageIdx, link.PageSlot)
 
 	// Update LinkStore
 	// If an entity was swapped to fill the gap -> update it
 	if swapped {
-		r.EntityLinkStore.Update(swappedEntity, link.ArchId, link.PageIdx, link.PageRow)
+		r.EntityLinkStore.Update(swappedEntity, link.ArchId, link.PageIdx, link.PageSlot)
 	}
 
 	// Update the moved entity's location
-	r.EntityLinkStore.Update(entity, newArch.Id, newPageIdx, newRow)
+	r.EntityLinkStore.Update(entity, newArch.Id, newPageIdx, newSlot)
 
-	return newPageIdx, newRow
+	return newPageIdx, newSlot
 }

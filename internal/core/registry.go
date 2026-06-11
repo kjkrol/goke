@@ -88,7 +88,7 @@ func (r *Registry) ComponentGet(entity uid.UID64, compID ComponentID) (unsafe.Po
 		return nil, errComponentMissing
 	}
 	col := &arch.Columns[localIdx]
-	return unsafe.Add(arch.Memory.Pages[link.PageIdx].Ptr, col.PageOffset+uintptr(link.PageRow)*col.ItemSize), nil
+	return unsafe.Add(arch.Memory.Pages[link.PageIdx].Ptr, col.PageOffset+uintptr(link.PageSlot)*col.ItemSize), nil
 }
 
 func (r *Registry) Reset() {

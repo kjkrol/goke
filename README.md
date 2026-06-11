@@ -328,7 +328,7 @@ EntityID
     ↓
 Record
     ↓
-(Archetype, Page, Row)
+(Archetype, Page, Slot)
 ```
 
 This enables direct access to entity data without hash maps or archetype scans.
@@ -345,7 +345,7 @@ For implementation details, see the [uid](https://github.com/kjkrol/uid) package
 
 ## Dense Storage
 
-When an entity is removed, the final row of the page is immediately moved into the freed slot.
+When an entity is removed, the final slot of the page is immediately moved into the freed slot.
 
 This swap-and-pop strategy:
 
