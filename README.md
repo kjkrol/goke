@@ -28,8 +28,6 @@
 
 **GOKe** is a type-safe, archetype-based [Entity Component System](https://en.wikipedia.org/wiki/Entity_component_system) (ECS) for [Go](https://go.dev/). It uses a **Structure of Arrays (SoA)** storage model and Data-Oriented Design principles to enable cache-friendly iteration and efficient processing of large numbers of entities.
 
-While primarily designed for game development, its archetype-based SoA architecture also makes it well suited for simulations, AI agents, real-time analytics, and other performance-critical workloads.
-
 <p align="center">
     <a href="#features">Features</a>
     &nbsp;&bull;&nbsp;
@@ -81,16 +79,16 @@ go get github.com/kjkrol/goke
 
 # ✨ Key Features
 
-* **Strictly Zero-Allocation API** All runtime hot paths—including iteration, component access, and view filtering—execute with zero heap allocations. Memory allocation occurs solely during structural data insertion, completely eliminating Garbage Collector pressure during standard processing loops.
-* **Cache-Friendly Paged Iteration** Traversing entities relies on direct access to memory page blocks. This layout tightly packs data to maximize CPU cache line hit rates, guaranteeing ultra-fast and hardware-efficient iteration throughput.
-* **Memory-Conscious Storage (Chunked SoA)** Data is laid out in chunked SoA (Structure of Arrays) pages. Capacity growth allocates new pages rather than triggering massive, blocking slice reallocations. Deleted entities invoke an immediate *swap-and-pop* from the tail, ensuring memory remains densely packed without fragmentation.
-* **Generational O(1) Lookups** Direct entity-to-storage mapping provides constant-time component retrieval. Backed by 64-bit identifiers (`uid.UID64`), it guarantees safe entity recycling while natively preventing the ABA problem and stale memory reference bugs.
-* **Blueprint-based Mass Spawning** High-throughput, template-based instantiation optimized for spawning large batches of entities simultaneously. This design relies on contiguous memory layout copying, making it the required backbone for implementing efficient Object Pooling patterns.
-* **Safe Parallel Execution & Scheduling** An explicit scheduling model with deterministic execution order and built-in parallel capabilities (`RunParallel`). Structural changes requested during parallel systems are safely captured by Command Buffers and applied at clear `Sync()` points, eliminating data races without hidden locking overhead. (Note: Runtime entity creation inside systems is not supported; use blueprints and object pooling).
-* **Type-Safe API** — Fully generic component access without reflection, runtime type assertions, or interface-based component storage.
+## ✨ Key Features
 
+* **Strictly Zero-Allocation API** All runtime hot paths—including iteration, component access, and view filtering—execute without heap allocations. Memory is allocated only during structural changes (entity creation, component addition, or storage growth), eliminating garbage collector pressure during normal update loops.
+* **Cache-Friendly Paged Iteration** Entity traversal operates directly on contiguous memory pages. This layout maximizes CPU cache locality and enables highly efficient iteration throughput.
+* **Memory-Conscious Storage (Chunked SoA)** Data is stored in chunked Structure-of-Arrays (SoA) pages. Capacity growth allocates new pages instead of triggering large slice reallocations. Deleted entities are removed using a swap-and-pop operation, keeping storage densely packed and avoiding fragmentation.
+* **Generational O(1) Lookups** Direct entity-to-storage mapping provides constant-time component access. Backed by 64-bit identifiers (`uid.UID64`), it enables safe entity recycling while preventing ABA issues and stale entity references.
+* **Blueprint-Based Mass Spawning** High-throughput template instantiation optimized for creating large batches of entities. Blueprints leverage contiguous memory copying and integrate naturally with high-performance object pooling workflows.
+* **Safe Parallel Execution & Scheduling** An explicit scheduling model provides deterministic execution order with built-in parallel execution (`RunParallel`). Structural changes requested during parallel execution are captured by Command Buffers and applied at explicit `Sync()` points, eliminating data races without hidden locking overhead. Runtime entity creation inside systems is intentionally unsupported; use blueprints or object pools instead.
+* **Type-Safe API** Fully generic component access without reflection, runtime type assertions, or interface-based component storage.
 > 💡 **See the Performance & Scalability section below for benchmark results across worlds ranging from 2¹⁰ to 2²⁰ entities.**
-
 
 <a id="performance"></a>
 # ⏱️ Performance & Scalability

@@ -26,59 +26,63 @@ Every operation below results in **0 heap allocations** on the hot path.
 | **Get Component (Safe)** | **8.19 ns/op** | **0** | Adds reflection-based type validation |
 | **Get Component via View.Filter** | **4.24 ns/op** | **0** | Single-entity Filter for type-safe access |
 
-### Batch Entity Creation (1024 entities per call)
+### Batch Entity Creation
 
-| Components | Total ns/op | ns/entity | Allocs |
-| :--- | :--- | :--- | :--- |
-| **1 comp** | 10,972 | **10.71** | 4 |
-| **2 comp** | 11,567 | **11.30** | 4 |
-| **3 comp** | 9,103 | **8.89** | 4 |
-| **4 comp** | 8,572 | **8.37** | 4 |
-| **5 comp** | 7,982 | **7.80** | 4 |
-| **6 comp** | 9,216 | **9.00** | 4 |
-| **7 comp** | 11,721 | **11.45** | 4 |
-| **8 comp** | 12,388 | **12.10** | 4 |
-| **9 comp** | 20,738 | **20.25** | 4 |
-| **10 comp** | 15,771 | **15.40** | 4 |
+| Components | 2¹⁰ ns/entity | 2¹⁰ Allocs | 2²⁰ ns/entity | 2²⁰ Allocs |
+| :--- | ---: | ---: | ---: | ---: |
+| **1 comp** | 12.87 | 4 | 18.86 | 5 |
+| **2 comp** | 9.98 | 4 | 12.78 | 5 |
+| **3 comp** | 9.54 | 4 | 14.03 | 5 |
+| **4 comp** | 8.93 | 4 | 12.09 | 5 |
+| **5 comp** | 10.05 | 4 | 12.21 | 5 |
+| **6 comp** | 9.59 | 4 | 19.32 | 5 |
+| **7 comp** | 10.71 | 4 | 18.48 | 5 |
+| **8 comp** | 12.08 | 4 | 17.80 | 5 |
+| **9 comp** | 13.02 | 4 | 22.45 | 5 |
+| **10 comp** | 14.24 | 4 | 20.42 | 5 |
 
-### View.All (full archetype scan, SoA pages, 1024 entities)
+The additional allocation at 2²⁰ entities comes from page growth during large batch construction. Despite the 1024× increase in entity count, creation remains O(n) with a per-entity cost in the low tens of nanoseconds.
 
-| Components | Total ns/op | ns/entity |
-| :--- | :--- | :--- |
-| **View0** (Entity only) | 346.6 | **0.35** |
-| **View1** | 358.9 | **0.36** |
-| **View2** | 515.5 | **0.52** |
-| **View3** | 679.5 | **0.68** |
-| **View4** | 854.5 | **0.85** |
-| **View5** | 1,020 | **1.02** |
-| **View6** | 1,176 | **1.18** |
-| **View7** | 1,436 | **1.44** |
-| **View8** | 1,637 | **1.64** |
-| **View9** | 1,831 | **1.83** |
-| **View10** | 2,058 | **2.06** |
+### View.All (full archetype scan, SoA pages)
 
-### View.Filter (per-entity subset iteration, N=100 from 1024 pool)
+| Components | 2¹⁰ (1,024) ns/entity | 2²⁰ (1,048,576) ns/entity |
+| :--- | ---: | ---: |
+| **View0** (Entity only) | **0.354** | **0.341** |
+| **View1** | **0.358** | **0.344** |
+| **View2** | **0.505** | **0.506** |
+| **View3** | **0.703** | **0.662** |
+| **View4** | **0.839** | **0.842** |
+| **View5** | **1.017** | **1.050** |
+| **View6** | **1.165** | **1.242** |
+| **View7** | **1.420** | **1.550** |
+| **View8** | **1.654** | **1.833** |
+| **View9** | **1.831** | **2.178** |
+| **View10** | **2.029** | **2.530** |
+
+### View.Filter (per-entity subset iteration, N=100)
+
 Yields `iter.Seq2[int, struct{Entity, Comp1, ...}]` — the index is the position in the input `selected` slice, so callers can correlate results and detect skipped entities (not matching the view or already removed).
 
-| Components | sorted | shuffled |
-| :--- | :--- | :--- |
-| **View0** | 3.20 ns/ent | 3.15 ns/ent |
-| **View1** | 4.31 ns/ent | 4.32 ns/ent |
-| **View2** | 4.75 ns/ent | 4.79 ns/ent |
-| **View3** | 5.58 ns/ent | 5.50 ns/ent |
-| **View4** | 6.45 ns/ent | 6.40 ns/ent |
-| **View5** | 7.42 ns/ent | 7.46 ns/ent |
-| **View6** | 8.10 ns/ent | 8.17 ns/ent |
-| **View7** | 9.27 ns/ent | 9.09 ns/ent |
-| **View8** | 9.79 ns/ent | 9.86 ns/ent |
-| **View9** | 10.78 ns/ent | 10.84 ns/ent |
-| **View10** | 11.27 ns/ent | 11.33 ns/ent |
+| Components | 2¹⁰ sorted | 2¹⁰ shuffled | 2²⁰ sorted | 2²⁰ shuffled |
+| :--- | ---: | ---: | ---: | ---: |
+| **View0** | 3.120 ns/ent | 3.109 ns/ent | 3.151 ns/ent | 3.124 ns/ent |
+| **View1** | 4.237 ns/ent | 4.234 ns/ent | 4.251 ns/ent | 4.304 ns/ent |
+| **View2** | 4.726 ns/ent | 4.740 ns/ent | 4.774 ns/ent | 4.682 ns/ent |
+| **View3** | 5.444 ns/ent | 5.476 ns/ent | 5.584 ns/ent | 5.596 ns/ent |
+| **View4** | 6.736 ns/ent | 6.230 ns/ent | 6.320 ns/ent | 6.496 ns/ent |
+| **View5** | 7.257 ns/ent | 7.253 ns/ent | 7.538 ns/ent | 7.431 ns/ent |
+| **View6** | 7.900 ns/ent | 8.022 ns/ent | 8.015 ns/ent | 8.244 ns/ent |
+| **View7** | 9.038 ns/ent | 8.969 ns/ent | 9.298 ns/ent | 9.045 ns/ent |
+| **View8** | 9.924 ns/ent | 9.452 ns/ent | 9.966 ns/ent | 9.883 ns/ent |
+| **View9** | 10.63 ns/ent | 10.63 ns/ent | 10.80 ns/ent | 10.54 ns/ent |
+| **View10** | 11.04 ns/ent | 11.18 ns/ent | 11.46 ns/ent | 11.40 ns/ent |
 
 ### Key Technical Takeaways
-* **Constant per-entity lookup:** `Filter` cost stays around 4.2 ns/entity (1 component) regardless of registry size — the index lookup is direct via record array; only the requested subset size matters.
-* **Linear iteration scaling:** `View.All` scales linearly with the component count (~0.15 ns/entity per added component), bounded by memory bandwidth.
-* **Sorted vs shuffled:** Filter results show <2% variance between sorted and shuffled access patterns, confirming that the per-entity path is dominated by record lookup, not cache locality.
-* **Zero allocations:** All hot-path operations report 0 B/op and 0 allocs/op (verified by `-benchmem`).
+* **Scale-independent queries:** `Filter` cost remains statistically unchanged from **2¹⁰** to **2²⁰** entities. Query cost depends primarily on the number of requested components (~3.1–11.5 ns/entity), not on total entity count.
+* **Linear iteration scaling:** `View.All` scales approximately linearly with component count, ranging from **0.34 ns/entity** (0 components) to **2.5 ns/entity** (10 components), reflecting predictable SoA traversal costs.
+* **Sorted vs shuffled:** Filter results show only minor variance between sorted and shuffled entity orders, indicating that the hot path is dominated by direct record lookup and pointer arithmetic rather than access locality.
+* **Scale-independent structural operations:** Component migration (~37 ns), tag insertion (~34 ns), component removal (~9 ns), entity destruction (~3 ns), and component access (~4.6 ns) remain effectively constant from **2¹⁰** to **2²⁰** entities.
+* **Zero allocations on hot paths:** All query, iteration, lookup, and migration operations report **0 B/op** and **0 allocs/op** (`-benchmem`).
 
 ## Benchmark Comparison with Other ECS Libraries
 
