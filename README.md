@@ -4,7 +4,7 @@
   <img src=".github/docs/img/logo.png" alt="GOKe Logo" width="300">
   <br>
   <a href="https://go.dev">
-    <img src="https://img.shields.io/badge/Go-1.23+-00ADD8?style=flat-square&logo=go" alt="Go Version">
+    <img src="https://img.shields.io/badge/Go-1.26+-00ADD8?style=flat-square&logo=go" alt="Go Version">
   </a>
   <a href="https://pkg.go.dev/github.com/kjkrol/goke">
     <img src="https://img.shields.io/badge/GoDoc-Reference-007d9c?style=flat-square&logo=go" alt="GoDoc">
@@ -57,11 +57,11 @@ real-time analytics, and other performance-critical workloads.
 The project is built around a few core principles:
 
 - Predictable performance over clever abstractions
-- Explicit execution over automatic scheduling
 - Cache-friendly data layouts
 - Zero-allocation hot paths
 - Type-safe APIs without reflection
 - Native Go development without CGO dependencies
+- Explicit execution over automatic scheduling
 
 While native C and Rust ECS frameworks may achieve higher peak throughput,
 GOKe is designed to maximize performance within the Go ecosystem. For many
@@ -81,17 +81,13 @@ go get github.com/kjkrol/goke
 
 # ✨ Key Features
 
+* **Strictly Zero-Allocation API** All runtime hot paths—including iteration, component access, and view filtering—execute with zero heap allocations. Memory allocation occurs solely during structural data insertion, completely eliminating Garbage Collector pressure during standard processing loops.
+* **Cache-Friendly Paged Iteration** Traversing entities relies on direct access to memory page blocks. This layout tightly packs data to maximize CPU cache line hit rates, guaranteeing ultra-fast and hardware-efficient iteration throughput.
+* **Memory-Conscious Storage (Chunked SoA)** Data is laid out in chunked SoA (Structure of Arrays) pages. Capacity growth allocates new pages rather than triggering massive, blocking slice reallocations. Deleted entities invoke an immediate *swap-and-pop* from the tail, ensuring memory remains densely packed without fragmentation.
+* **Generational O(1) Lookups** Direct entity-to-storage mapping provides constant-time component retrieval. Backed by 64-bit identifiers (`uid.UID64`), it guarantees safe entity recycling while natively preventing the ABA problem and stale memory reference bugs.
+* **Blueprint-based Mass Spawning** High-throughput, template-based instantiation optimized for spawning large batches of entities simultaneously. This design relies on contiguous memory layout copying, making it the required backbone for implementing efficient Object Pooling patterns.
+* **Safe Parallel Execution & Scheduling** An explicit scheduling model with deterministic execution order and built-in parallel capabilities (`RunParallel`). Structural changes requested during parallel systems are safely captured by Command Buffers and applied at clear `Sync()` points, eliminating data races without hidden locking overhead. (Note: Runtime entity creation inside systems is not supported; use blueprints and object pooling).
 * **Type-Safe API** — Fully generic component access without reflection, runtime type assertions, or interface-based component storage.
-* **Archetype-Based ECS** — Cache-friendly paged SoA storage designed for efficient iteration and predictable performance.
-* **Memory-Conscious Architecture** — Chunked SoA storage grows incrementally without costly slice reallocation, while swap-and-pop defragmentation keeps archetype pages densely packed.
-* **Zero-Allocation Hot Paths** — Iteration, filtering, component access, and structural operations execute without heap allocations.
-* **High-Throughput Entity Creation** — Blueprint-based batch creation optimized for spawning large numbers of entities.
-* **Fast Entity Lookup** — Direct entity-to-storage mapping enables constant-time component access and structural operations.
-* **Execution Plans** — Explicit scheduling model with deterministic execution order, synchronization points, and optional parallel execution.
-* **Parallel System Execution** — Run independent systems concurrently through `RunParallel()` without hidden scheduler complexity.
-* **Deferred Structural Changes** — Command buffers allow safe component and entity mutations during system execution.
-* **Generational Entity IDs** — Safe entity recycling and stale reference detection powered by `uid.UID64`.
-* **Go 1.23+ Iterators** — Native `for range` iteration powered by `iter.Seq` for idiomatic and efficient traversal.
 
 > 💡 **See the Performance & Scalability section below for benchmark results across worlds ranging from 2¹⁰ to 2²⁰ entities.**
 
