@@ -4,9 +4,9 @@ import "github.com/kjkrol/uid"
 
 type EntityArchLink struct {
 	ArchId     ArchetypeId
-	PageIdx    PageIdx // Index of the memory page (Page) in Archetype.Memory.Pages
-	PageRow    PageSlot // Index of the row within that specific Page
-	Generation uint32  // Entity generation for validation
+	PageIdx    PageIdx  // Index of the memory page (Page) in Archetype.Memory.Pages
+	PageSlot   PageSlot // Index of the slot within that specific Page
+	Generation uint32   // Entity generation for validation
 }
 
 type EntityLinkStore struct {
@@ -41,7 +41,7 @@ func (s *EntityLinkStore) Get(entity uid.UID64) (EntityArchLink, bool) {
 }
 
 // Update updates the entity's location using the new Page Index and Page Row.
-func (s *EntityLinkStore) Update(entity uid.UID64, archId ArchetypeId, pageIdx PageIdx, row PageSlot) {
+func (s *EntityLinkStore) Update(entity uid.UID64, archId ArchetypeId, pageIdx PageIdx, slot PageSlot) {
 	index, gen := entity.Unpack()
 	if index >= uint32(cap(s.links)) {
 		s.grow(index + 1)
@@ -51,7 +51,7 @@ func (s *EntityLinkStore) Update(entity uid.UID64, archId ArchetypeId, pageIdx P
 	s.links[index] = EntityArchLink{
 		ArchId:     archId,
 		PageIdx:    pageIdx,
-		PageRow:    row,
+		PageSlot:   slot,
 		Generation: gen,
 	}
 }
@@ -68,7 +68,7 @@ func (s *EntityLinkStore) Clear(entity uid.UID64) {
 		s.links[index] = EntityArchLink{
 			ArchId:     NullArchetypeId,
 			PageIdx:    0,
-			PageRow:    0,
+			PageSlot:   0,
 			Generation: 0, // Reset to 0 to prevent any stale handle matches
 		}
 	}

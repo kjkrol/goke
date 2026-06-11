@@ -103,8 +103,8 @@ func (v *View1[T1]) Filter(selected []Entity) iter.Seq2[int, struct {
 				continue
 			}
 			physPage := &ma.Arch.Memory.Pages[link.PageIdx]
-			row := uintptr(link.PageRow)
-			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(row*ma.CompSizes[0]))
+			slot := uintptr(link.PageSlot)
+			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(slot*ma.CompSizes[0]))
 			if !yield(i, struct {
 				Entity Entity
 				Comp1  *T1
@@ -220,9 +220,9 @@ func (v *View2[T1, T2]) Filter(selected []Entity) iter.Seq2[int, struct {
 				continue
 			}
 			physPage := &ma.Arch.Memory.Pages[link.PageIdx]
-			row := uintptr(link.PageRow)
-			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(row*ma.CompSizes[0]))
-			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(row*ma.CompSizes[1]))
+			slot := uintptr(link.PageSlot)
+			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(slot*ma.CompSizes[0]))
+			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(slot*ma.CompSizes[1]))
 			if !yield(i, struct {
 				Entity Entity
 				Comp1  *T1
@@ -348,10 +348,10 @@ func (v *View3[T1, T2, T3]) Filter(selected []Entity) iter.Seq2[int, struct {
 				continue
 			}
 			physPage := &ma.Arch.Memory.Pages[link.PageIdx]
-			row := uintptr(link.PageRow)
-			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(row*ma.CompSizes[0]))
-			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(row*ma.CompSizes[1]))
-			c2Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[2]+(row*ma.CompSizes[2]))
+			slot := uintptr(link.PageSlot)
+			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(slot*ma.CompSizes[0]))
+			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(slot*ma.CompSizes[1]))
+			c2Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[2]+(slot*ma.CompSizes[2]))
 			if !yield(i, struct {
 				Entity Entity
 				Comp1  *T1
@@ -487,11 +487,11 @@ func (v *View4[T1, T2, T3, T4]) Filter(selected []Entity) iter.Seq2[int, struct 
 				continue
 			}
 			physPage := &ma.Arch.Memory.Pages[link.PageIdx]
-			row := uintptr(link.PageRow)
-			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(row*ma.CompSizes[0]))
-			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(row*ma.CompSizes[1]))
-			c2Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[2]+(row*ma.CompSizes[2]))
-			c3Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[3]+(row*ma.CompSizes[3]))
+			slot := uintptr(link.PageSlot)
+			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(slot*ma.CompSizes[0]))
+			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(slot*ma.CompSizes[1]))
+			c2Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[2]+(slot*ma.CompSizes[2]))
+			c3Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[3]+(slot*ma.CompSizes[3]))
 			if !yield(i, struct {
 				Entity Entity
 				Comp1  *T1
@@ -637,12 +637,12 @@ func (v *View5[T1, T2, T3, T4, T5]) Filter(selected []Entity) iter.Seq2[int, str
 				continue
 			}
 			physPage := &ma.Arch.Memory.Pages[link.PageIdx]
-			row := uintptr(link.PageRow)
-			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(row*ma.CompSizes[0]))
-			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(row*ma.CompSizes[1]))
-			c2Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[2]+(row*ma.CompSizes[2]))
-			c3Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[3]+(row*ma.CompSizes[3]))
-			c4Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[4]+(row*ma.CompSizes[4]))
+			slot := uintptr(link.PageSlot)
+			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(slot*ma.CompSizes[0]))
+			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(slot*ma.CompSizes[1]))
+			c2Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[2]+(slot*ma.CompSizes[2]))
+			c3Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[3]+(slot*ma.CompSizes[3]))
+			c4Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[4]+(slot*ma.CompSizes[4]))
 			if !yield(i, struct {
 				Entity Entity
 				Comp1  *T1
@@ -798,13 +798,13 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Filter(selected []Entity) iter.Seq2[int,
 				continue
 			}
 			physPage := &ma.Arch.Memory.Pages[link.PageIdx]
-			row := uintptr(link.PageRow)
-			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(row*ma.CompSizes[0]))
-			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(row*ma.CompSizes[1]))
-			c2Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[2]+(row*ma.CompSizes[2]))
-			c3Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[3]+(row*ma.CompSizes[3]))
-			c4Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[4]+(row*ma.CompSizes[4]))
-			c5Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[5]+(row*ma.CompSizes[5]))
+			slot := uintptr(link.PageSlot)
+			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(slot*ma.CompSizes[0]))
+			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(slot*ma.CompSizes[1]))
+			c2Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[2]+(slot*ma.CompSizes[2]))
+			c3Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[3]+(slot*ma.CompSizes[3]))
+			c4Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[4]+(slot*ma.CompSizes[4]))
+			c5Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[5]+(slot*ma.CompSizes[5]))
 			if !yield(i, struct {
 				Entity Entity
 				Comp1  *T1
@@ -970,14 +970,14 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Filter(selected []Entity) iter.Seq2[
 				continue
 			}
 			physPage := &ma.Arch.Memory.Pages[link.PageIdx]
-			row := uintptr(link.PageRow)
-			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(row*ma.CompSizes[0]))
-			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(row*ma.CompSizes[1]))
-			c2Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[2]+(row*ma.CompSizes[2]))
-			c3Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[3]+(row*ma.CompSizes[3]))
-			c4Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[4]+(row*ma.CompSizes[4]))
-			c5Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[5]+(row*ma.CompSizes[5]))
-			c6Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[6]+(row*ma.CompSizes[6]))
+			slot := uintptr(link.PageSlot)
+			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(slot*ma.CompSizes[0]))
+			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(slot*ma.CompSizes[1]))
+			c2Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[2]+(slot*ma.CompSizes[2]))
+			c3Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[3]+(slot*ma.CompSizes[3]))
+			c4Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[4]+(slot*ma.CompSizes[4]))
+			c5Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[5]+(slot*ma.CompSizes[5]))
+			c6Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[6]+(slot*ma.CompSizes[6]))
 			if !yield(i, struct {
 				Entity Entity
 				Comp1  *T1
@@ -1153,15 +1153,15 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Filter(selected []Entity) iter.S
 				continue
 			}
 			physPage := &ma.Arch.Memory.Pages[link.PageIdx]
-			row := uintptr(link.PageRow)
-			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(row*ma.CompSizes[0]))
-			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(row*ma.CompSizes[1]))
-			c2Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[2]+(row*ma.CompSizes[2]))
-			c3Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[3]+(row*ma.CompSizes[3]))
-			c4Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[4]+(row*ma.CompSizes[4]))
-			c5Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[5]+(row*ma.CompSizes[5]))
-			c6Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[6]+(row*ma.CompSizes[6]))
-			c7Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[7]+(row*ma.CompSizes[7]))
+			slot := uintptr(link.PageSlot)
+			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(slot*ma.CompSizes[0]))
+			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(slot*ma.CompSizes[1]))
+			c2Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[2]+(slot*ma.CompSizes[2]))
+			c3Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[3]+(slot*ma.CompSizes[3]))
+			c4Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[4]+(slot*ma.CompSizes[4]))
+			c5Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[5]+(slot*ma.CompSizes[5]))
+			c6Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[6]+(slot*ma.CompSizes[6]))
+			c7Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[7]+(slot*ma.CompSizes[7]))
 			if !yield(i, struct {
 				Entity Entity
 				Comp1  *T1
@@ -1347,16 +1347,16 @@ func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Filter(selected []Entity) it
 				continue
 			}
 			physPage := &ma.Arch.Memory.Pages[link.PageIdx]
-			row := uintptr(link.PageRow)
-			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(row*ma.CompSizes[0]))
-			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(row*ma.CompSizes[1]))
-			c2Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[2]+(row*ma.CompSizes[2]))
-			c3Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[3]+(row*ma.CompSizes[3]))
-			c4Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[4]+(row*ma.CompSizes[4]))
-			c5Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[5]+(row*ma.CompSizes[5]))
-			c6Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[6]+(row*ma.CompSizes[6]))
-			c7Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[7]+(row*ma.CompSizes[7]))
-			c8Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[8]+(row*ma.CompSizes[8]))
+			slot := uintptr(link.PageSlot)
+			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(slot*ma.CompSizes[0]))
+			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(slot*ma.CompSizes[1]))
+			c2Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[2]+(slot*ma.CompSizes[2]))
+			c3Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[3]+(slot*ma.CompSizes[3]))
+			c4Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[4]+(slot*ma.CompSizes[4]))
+			c5Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[5]+(slot*ma.CompSizes[5]))
+			c6Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[6]+(slot*ma.CompSizes[6]))
+			c7Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[7]+(slot*ma.CompSizes[7]))
+			c8Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[8]+(slot*ma.CompSizes[8]))
 			if !yield(i, struct {
 				Entity Entity
 				Comp1  *T1
@@ -1552,17 +1552,17 @@ func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Filter(selected []Enti
 				continue
 			}
 			physPage := &ma.Arch.Memory.Pages[link.PageIdx]
-			row := uintptr(link.PageRow)
-			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(row*ma.CompSizes[0]))
-			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(row*ma.CompSizes[1]))
-			c2Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[2]+(row*ma.CompSizes[2]))
-			c3Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[3]+(row*ma.CompSizes[3]))
-			c4Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[4]+(row*ma.CompSizes[4]))
-			c5Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[5]+(row*ma.CompSizes[5]))
-			c6Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[6]+(row*ma.CompSizes[6]))
-			c7Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[7]+(row*ma.CompSizes[7]))
-			c8Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[8]+(row*ma.CompSizes[8]))
-			c9Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[9]+(row*ma.CompSizes[9]))
+			slot := uintptr(link.PageSlot)
+			c0Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[0]+(slot*ma.CompSizes[0]))
+			c1Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[1]+(slot*ma.CompSizes[1]))
+			c2Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[2]+(slot*ma.CompSizes[2]))
+			c3Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[3]+(slot*ma.CompSizes[3]))
+			c4Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[4]+(slot*ma.CompSizes[4]))
+			c5Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[5]+(slot*ma.CompSizes[5]))
+			c6Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[6]+(slot*ma.CompSizes[6]))
+			c7Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[7]+(slot*ma.CompSizes[7]))
+			c8Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[8]+(slot*ma.CompSizes[8]))
+			c9Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[9]+(slot*ma.CompSizes[9]))
 			if !yield(i, struct {
 				Entity Entity
 				Comp1  *T1

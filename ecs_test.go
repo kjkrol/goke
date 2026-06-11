@@ -139,3 +139,148 @@ func TestECS_GetComponent_TypeSafety(t *testing.T) {
 		}
 	})
 }
+
+func TestECS_GetComponent(t *testing.T) {
+	ecs := goke.New()
+	posDesc := goke.RegisterComponent[Position](ecs)
+
+	var entity goke.Entity
+	blueprint := goke.NewBlueprint1[Position](ecs)
+	for page := range blueprint.Create(1) {
+		entity = page.Entity[0]
+		page.Comp1[0] = Position{X: 10, Y: 20}
+	}
+
+	ptr := goke.GetComponent[Position](ecs, entity, posDesc)
+	if ptr == nil {
+		t.Fatalf("expected component")
+	}
+	if ptr.X != 10 {
+		t.Errorf("wrong value")
+	}
+
+	fakeEntity := goke.Entity(999)
+	ptrFake := goke.GetComponent[Position](ecs, fakeEntity, posDesc)
+	if ptrFake != nil {
+		t.Errorf("expected nil")
+	}
+}
+
+func TestECS_RemoveComponent(t *testing.T) {
+	ecs := goke.New()
+	posDesc := goke.RegisterComponent[Position](ecs)
+
+	var entity goke.Entity
+	blueprint := goke.NewBlueprint1[Position](ecs)
+	for page := range blueprint.Create(1) {
+		entity = page.Entity[0]
+	}
+
+	err := goke.RemoveComponent(ecs, entity, posDesc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	ptr := goke.GetComponent[Position](ecs, entity, posDesc)
+	if ptr != nil {
+		t.Errorf("expected component to be removed")
+	}
+}
+
+func TestECS_RemoveEntity(t *testing.T) {
+	ecs := goke.New()
+	posDesc := goke.RegisterComponent[Position](ecs)
+	_ = posDesc // to avoid unused variable error if any
+
+	var entity goke.Entity
+	blueprint := goke.NewBlueprint1[Position](ecs)
+	for page := range blueprint.Create(1) {
+		entity = page.Entity[0]
+	}
+
+	ok := goke.RemoveEntity(ecs, entity)
+	if !ok {
+		t.Errorf("expected entity to be removed")
+	}
+
+	ok = goke.RemoveEntity(ecs, entity)
+	if ok {
+		t.Errorf("expected false for already removed entity")
+	}
+}
+
+func TestECS_EnsureComponent(t *testing.T) {
+	ecs := goke.New()
+	posDesc := goke.RegisterComponent[Position](ecs)
+	_ = goke.RegisterComponent[Velocity](ecs)
+
+	var entity goke.Entity
+	blueprint := goke.NewBlueprint1[Position](ecs)
+	for page := range blueprint.Create(1) {
+		entity = page.Entity[0]
+	}
+
+	_, err := goke.SafeEnsureComponent[Velocity](ecs, entity, posDesc)
+	if err == nil {
+		t.Errorf("expected type mismatch error")
+	}
+
+	ptr := goke.EnsureComponent[Position](ecs, entity, posDesc)
+	if ptr == nil {
+		t.Fatalf("expected valid pointer")
+	}
+	ptr.X = 55
+
+	val := goke.GetComponent[Position](ecs, entity, posDesc)
+	if val.X != 55 {
+		t.Errorf("expected 55, got %v", val.X)
+	}
+
+	fakeEntity := goke.Entity(999)
+	_, err = goke.SafeEnsureComponent[Position](ecs, fakeEntity, posDesc)
+	if err == nil {
+		t.Errorf("expected invalid entity error")
+	}
+}
+
+func TestECS_EnsureComponent_Panic(t *testing.T) {
+	ecs := goke.New()
+	posDesc := goke.RegisterComponent[Position](ecs)
+
+	fakeEntity := goke.Entity(999)
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("expected EnsureComponent to panic on invalid entity")
+		}
+	}()
+
+	goke.EnsureComponent[Position](ecs, fakeEntity, posDesc)
+}
+
+func TestECS_Reset(t *testing.T) {
+	ecs := goke.New()
+	posDesc := goke.RegisterComponent[Position](ecs)
+
+	var entity goke.Entity
+	blueprint := goke.NewBlueprint1[Position](ecs)
+	for page := range blueprint.Create(1) {
+		entity = page.Entity[0]
+	}
+
+	goke.Reset(ecs)
+
+	ptr := goke.GetComponent[Position](ecs, entity, posDesc)
+	if ptr != nil {
+		t.Errorf("expected entity to be reset/removed")
+	}
+}
+
+func TestECS_NewWithOptions(t *testing.T) {
+	ecs := goke.New(func(c *goke.ECSConfig) {
+		c.FreeIndicesCap = 500
+	})
+	if ecs == nil {
+		t.Fatal("expected ecs")
+	}
+}

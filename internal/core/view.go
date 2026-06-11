@@ -227,3 +227,16 @@ func (v *View) GetMatchedArch(id ArchetypeId) *MatchedArch {
 
 	return &v.Baked[idx]
 }
+
+func (ma *MatchedArch) GetPointer(pageIdx PageIdx, slot PageSlot, compIdx int) unsafe.Pointer {
+	physPage := &ma.Arch.Memory.Pages[pageIdx]
+	return unsafe.Add(physPage.Ptr, ma.CompOffsets[compIdx]+(uintptr(slot)*ma.CompSizes[compIdx]))
+}
+
+func (ma *MatchedArch) GetColumnStart(page *Page, compIdx int) unsafe.Pointer {
+	return unsafe.Add(page.Ptr, ma.CompOffsets[compIdx])
+}
+
+func (ma *MatchedArch) GetEntityColumnStart(page *Page) unsafe.Pointer {
+	return unsafe.Add(page.Ptr, ma.EntityPageOffset)
+}

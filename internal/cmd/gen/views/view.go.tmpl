@@ -122,9 +122,9 @@ func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{
 				continue
 			}
 			physPage := &ma.Arch.Memory.Pages[link.PageIdx]
-			row := uintptr(link.PageRow)
+			slot := uintptr(link.PageSlot)
 			{{- range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
-			c{{ $idx }}Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[{{ $idx }}]+(row*ma.CompSizes[{{ $idx }}]))
+			c{{ $idx }}Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[{{ $idx }}]+(slot*ma.CompSizes[{{ $idx }}]))
 			{{- end }}
 			if !yield(i, struct {
 				Entity Entity

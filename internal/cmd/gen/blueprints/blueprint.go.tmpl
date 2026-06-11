@@ -120,14 +120,14 @@ func (b *Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }
 		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
 
 		for remaining > 0 {
-			allocatedRows := min(remaining, available)
-			startRow := page.Len
-			page.Len += core.PageSlot(allocatedRows)
-			memo.Len += uint32(allocatedRows)
+			allocatedSlots := min(remaining, available)
+			startSlot := page.Len
+			page.Len += core.PageSlot(allocatedSlots)
+			memo.Len += uint32(allocatedSlots)
 
-			for i := 0; i < allocatedRows; i++ {
+			for i := range allocatedSlots {
 				entity := Entity(reg.EntityPool.Next())
-				pageSlot := startRow + core.PageSlot(i)
+				pageSlot := startSlot + core.PageSlot(i)
 				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
 				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
@@ -140,16 +140,16 @@ func (b *Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }
 					Comp{{ $i }} []T{{ $i }}
 					{{- end }}
 				}{
-					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startRow)), allocatedRows),
+					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startSlot)), allocatedSlots),
 					{{- range $i := (seq 1 $n) }}
-					Comp{{ $i }}: unsafe.Slice((*T{{ $i }})(col{{ $i }}.GetPointer(page, startRow)), allocatedRows),
+					Comp{{ $i }}: unsafe.Slice((*T{{ $i }})(col{{ $i }}.GetPointer(page, startSlot)), allocatedSlots),
 					{{- end }}
 				}) {
 				memo.Reserved = 0
 				return
 			}
 
-			remaining -= allocatedRows
+			remaining -= allocatedSlots
 			if remaining > 0 {
 				pageIdx++
 				page = &memo.Pages[pageIdx]
