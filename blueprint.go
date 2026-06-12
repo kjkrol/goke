@@ -3,13 +3,13 @@ package goke
 import (
 	"reflect"
 
-	"github.com/kjkrol/goke/internal/core"
+	"github.com/kjkrol/goke/internal/reg"
 )
 
-type BlueprintOption func(*core.Blueprint) error
+type BlueprintOption func(*reg.Blueprint) error
 
 func Include[T any]() BlueprintOption {
-	return func(b *core.Blueprint) error {
+	return func(b *reg.Blueprint) error {
 		componentType := reflect.TypeFor[T]()
 		compInfo := b.Reg.ComponentsRegistry.GetOrRegister(componentType)
 		return b.WithTag(compInfo.ID)
@@ -17,7 +17,7 @@ func Include[T any]() BlueprintOption {
 }
 
 func Exclude[T any]() BlueprintOption {
-	return func(b *core.Blueprint) error {
+	return func(b *reg.Blueprint) error {
 		componentType := reflect.TypeFor[T]()
 		compInfo := b.Reg.ComponentsRegistry.GetOrRegister(componentType)
 		return b.ExcludeType(compInfo.ID)

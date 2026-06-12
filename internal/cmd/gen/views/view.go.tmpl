@@ -7,13 +7,15 @@ import (
 	"unsafe"
 
     "github.com/kjkrol/goke/internal/core"
+	"github.com/kjkrol/goke/internal/reg"
+	"github.com/kjkrol/goke/internal/view"
 )
 
 {{ range $n := .Range }}
 // --------------- View{{ $n }} ---------------
 
 type View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $n }}, {{ end }}{{ end }}] struct {
-    *core.View
+    *view.View
 }
 
 func NewView{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $n }}, {{ end }}{{ end }}](
@@ -21,7 +23,7 @@ func NewView{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $n }},
     opts ...BlueprintOption,
 ) *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}] {
     registry := ecs.registry
-    blueprint := core.NewBlueprint(registry)
+    blueprint := reg.NewBlueprint(registry)
     componentsRegistry := &registry.ComponentsRegistry
 
     mustAdd := func(info core.ComponentInfo) {
@@ -48,7 +50,7 @@ func NewView{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $n }},
         {{ range $i := (seq 1 $n) }}info{{ $i }}, {{end}}
     }
 
-    view := core.NewView(blueprint, layout, registry)
+    view := reg.NewView(blueprint, layout, registry)
     return &View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]{View: view}
 }
 
@@ -105,10 +107,10 @@ func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{
 		Comp{{ $i }}  *T{{ $i }}
 		{{- end }}
 	}) bool) {
-		store := &v.Reg.ArchetypeRegistry.EntityLinkStore
+		store := &v.ArchReg.EntityLinkStore
 
 		var lastArchID core.ArchetypeId = core.NullArchetypeId
-		var ma *core.MatchedArch
+		var ma *view.MatchedArch
 		for i, e := range selected {
 			link, ok := store.Get(e)
 			if !ok {

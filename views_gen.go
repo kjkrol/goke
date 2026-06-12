@@ -7,12 +7,14 @@ import (
 	"unsafe"
 
 	"github.com/kjkrol/goke/internal/core"
+	"github.com/kjkrol/goke/internal/reg"
+	"github.com/kjkrol/goke/internal/view"
 )
 
 // --------------- View1 ---------------
 
 type View1[T1 any] struct {
-	*core.View
+	*view.View
 }
 
 func NewView1[T1 any](
@@ -20,7 +22,7 @@ func NewView1[T1 any](
 	opts ...BlueprintOption,
 ) *View1[T1] {
 	registry := ecs.registry
-	blueprint := core.NewBlueprint(registry)
+	blueprint := reg.NewBlueprint(registry)
 	componentsRegistry := &registry.ComponentsRegistry
 
 	mustAdd := func(info core.ComponentInfo) {
@@ -41,7 +43,7 @@ func NewView1[T1 any](
 		info1,
 	}
 
-	view := core.NewView(blueprint, layout, registry)
+	view := reg.NewView(blueprint, layout, registry)
 	return &View1[T1]{View: view}
 }
 
@@ -86,10 +88,10 @@ func (v *View1[T1]) Filter(selected []Entity) iter.Seq2[int, struct {
 		Entity Entity
 		Comp1  *T1
 	}) bool) {
-		store := &v.Reg.ArchetypeRegistry.EntityLinkStore
+		store := &v.ArchReg.EntityLinkStore
 
 		var lastArchID core.ArchetypeId = core.NullArchetypeId
-		var ma *core.MatchedArch
+		var ma *view.MatchedArch
 		for i, e := range selected {
 			link, ok := store.Get(e)
 			if !ok {
@@ -121,7 +123,7 @@ func (v *View1[T1]) Filter(selected []Entity) iter.Seq2[int, struct {
 // --------------- View2 ---------------
 
 type View2[T1 any, T2 any] struct {
-	*core.View
+	*view.View
 }
 
 func NewView2[T1 any, T2 any](
@@ -129,7 +131,7 @@ func NewView2[T1 any, T2 any](
 	opts ...BlueprintOption,
 ) *View2[T1, T2] {
 	registry := ecs.registry
-	blueprint := core.NewBlueprint(registry)
+	blueprint := reg.NewBlueprint(registry)
 	componentsRegistry := &registry.ComponentsRegistry
 
 	mustAdd := func(info core.ComponentInfo) {
@@ -152,7 +154,7 @@ func NewView2[T1 any, T2 any](
 		info1, info2,
 	}
 
-	view := core.NewView(blueprint, layout, registry)
+	view := reg.NewView(blueprint, layout, registry)
 	return &View2[T1, T2]{View: view}
 }
 
@@ -203,10 +205,10 @@ func (v *View2[T1, T2]) Filter(selected []Entity) iter.Seq2[int, struct {
 		Comp1  *T1
 		Comp2  *T2
 	}) bool) {
-		store := &v.Reg.ArchetypeRegistry.EntityLinkStore
+		store := &v.ArchReg.EntityLinkStore
 
 		var lastArchID core.ArchetypeId = core.NullArchetypeId
-		var ma *core.MatchedArch
+		var ma *view.MatchedArch
 		for i, e := range selected {
 			link, ok := store.Get(e)
 			if !ok {
@@ -241,7 +243,7 @@ func (v *View2[T1, T2]) Filter(selected []Entity) iter.Seq2[int, struct {
 // --------------- View3 ---------------
 
 type View3[T1 any, T2 any, T3 any] struct {
-	*core.View
+	*view.View
 }
 
 func NewView3[T1 any, T2 any, T3 any](
@@ -249,7 +251,7 @@ func NewView3[T1 any, T2 any, T3 any](
 	opts ...BlueprintOption,
 ) *View3[T1, T2, T3] {
 	registry := ecs.registry
-	blueprint := core.NewBlueprint(registry)
+	blueprint := reg.NewBlueprint(registry)
 	componentsRegistry := &registry.ComponentsRegistry
 
 	mustAdd := func(info core.ComponentInfo) {
@@ -274,7 +276,7 @@ func NewView3[T1 any, T2 any, T3 any](
 		info1, info2, info3,
 	}
 
-	view := core.NewView(blueprint, layout, registry)
+	view := reg.NewView(blueprint, layout, registry)
 	return &View3[T1, T2, T3]{View: view}
 }
 
@@ -331,10 +333,10 @@ func (v *View3[T1, T2, T3]) Filter(selected []Entity) iter.Seq2[int, struct {
 		Comp2  *T2
 		Comp3  *T3
 	}) bool) {
-		store := &v.Reg.ArchetypeRegistry.EntityLinkStore
+		store := &v.ArchReg.EntityLinkStore
 
 		var lastArchID core.ArchetypeId = core.NullArchetypeId
-		var ma *core.MatchedArch
+		var ma *view.MatchedArch
 		for i, e := range selected {
 			link, ok := store.Get(e)
 			if !ok {
@@ -372,7 +374,7 @@ func (v *View3[T1, T2, T3]) Filter(selected []Entity) iter.Seq2[int, struct {
 // --------------- View4 ---------------
 
 type View4[T1 any, T2 any, T3 any, T4 any] struct {
-	*core.View
+	*view.View
 }
 
 func NewView4[T1 any, T2 any, T3 any, T4 any](
@@ -380,7 +382,7 @@ func NewView4[T1 any, T2 any, T3 any, T4 any](
 	opts ...BlueprintOption,
 ) *View4[T1, T2, T3, T4] {
 	registry := ecs.registry
-	blueprint := core.NewBlueprint(registry)
+	blueprint := reg.NewBlueprint(registry)
 	componentsRegistry := &registry.ComponentsRegistry
 
 	mustAdd := func(info core.ComponentInfo) {
@@ -407,7 +409,7 @@ func NewView4[T1 any, T2 any, T3 any, T4 any](
 		info1, info2, info3, info4,
 	}
 
-	view := core.NewView(blueprint, layout, registry)
+	view := reg.NewView(blueprint, layout, registry)
 	return &View4[T1, T2, T3, T4]{View: view}
 }
 
@@ -470,10 +472,10 @@ func (v *View4[T1, T2, T3, T4]) Filter(selected []Entity) iter.Seq2[int, struct 
 		Comp3  *T3
 		Comp4  *T4
 	}) bool) {
-		store := &v.Reg.ArchetypeRegistry.EntityLinkStore
+		store := &v.ArchReg.EntityLinkStore
 
 		var lastArchID core.ArchetypeId = core.NullArchetypeId
-		var ma *core.MatchedArch
+		var ma *view.MatchedArch
 		for i, e := range selected {
 			link, ok := store.Get(e)
 			if !ok {
@@ -514,7 +516,7 @@ func (v *View4[T1, T2, T3, T4]) Filter(selected []Entity) iter.Seq2[int, struct 
 // --------------- View5 ---------------
 
 type View5[T1 any, T2 any, T3 any, T4 any, T5 any] struct {
-	*core.View
+	*view.View
 }
 
 func NewView5[T1 any, T2 any, T3 any, T4 any, T5 any](
@@ -522,7 +524,7 @@ func NewView5[T1 any, T2 any, T3 any, T4 any, T5 any](
 	opts ...BlueprintOption,
 ) *View5[T1, T2, T3, T4, T5] {
 	registry := ecs.registry
-	blueprint := core.NewBlueprint(registry)
+	blueprint := reg.NewBlueprint(registry)
 	componentsRegistry := &registry.ComponentsRegistry
 
 	mustAdd := func(info core.ComponentInfo) {
@@ -551,7 +553,7 @@ func NewView5[T1 any, T2 any, T3 any, T4 any, T5 any](
 		info1, info2, info3, info4, info5,
 	}
 
-	view := core.NewView(blueprint, layout, registry)
+	view := reg.NewView(blueprint, layout, registry)
 	return &View5[T1, T2, T3, T4, T5]{View: view}
 }
 
@@ -620,10 +622,10 @@ func (v *View5[T1, T2, T3, T4, T5]) Filter(selected []Entity) iter.Seq2[int, str
 		Comp4  *T4
 		Comp5  *T5
 	}) bool) {
-		store := &v.Reg.ArchetypeRegistry.EntityLinkStore
+		store := &v.ArchReg.EntityLinkStore
 
 		var lastArchID core.ArchetypeId = core.NullArchetypeId
-		var ma *core.MatchedArch
+		var ma *view.MatchedArch
 		for i, e := range selected {
 			link, ok := store.Get(e)
 			if !ok {
@@ -667,7 +669,7 @@ func (v *View5[T1, T2, T3, T4, T5]) Filter(selected []Entity) iter.Seq2[int, str
 // --------------- View6 ---------------
 
 type View6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any] struct {
-	*core.View
+	*view.View
 }
 
 func NewView6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any](
@@ -675,7 +677,7 @@ func NewView6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any](
 	opts ...BlueprintOption,
 ) *View6[T1, T2, T3, T4, T5, T6] {
 	registry := ecs.registry
-	blueprint := core.NewBlueprint(registry)
+	blueprint := reg.NewBlueprint(registry)
 	componentsRegistry := &registry.ComponentsRegistry
 
 	mustAdd := func(info core.ComponentInfo) {
@@ -706,7 +708,7 @@ func NewView6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any](
 		info1, info2, info3, info4, info5, info6,
 	}
 
-	view := core.NewView(blueprint, layout, registry)
+	view := reg.NewView(blueprint, layout, registry)
 	return &View6[T1, T2, T3, T4, T5, T6]{View: view}
 }
 
@@ -781,10 +783,10 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Filter(selected []Entity) iter.Seq2[int,
 		Comp5  *T5
 		Comp6  *T6
 	}) bool) {
-		store := &v.Reg.ArchetypeRegistry.EntityLinkStore
+		store := &v.ArchReg.EntityLinkStore
 
 		var lastArchID core.ArchetypeId = core.NullArchetypeId
-		var ma *core.MatchedArch
+		var ma *view.MatchedArch
 		for i, e := range selected {
 			link, ok := store.Get(e)
 			if !ok {
@@ -831,7 +833,7 @@ func (v *View6[T1, T2, T3, T4, T5, T6]) Filter(selected []Entity) iter.Seq2[int,
 // --------------- View7 ---------------
 
 type View7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any] struct {
-	*core.View
+	*view.View
 }
 
 func NewView7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any](
@@ -839,7 +841,7 @@ func NewView7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any](
 	opts ...BlueprintOption,
 ) *View7[T1, T2, T3, T4, T5, T6, T7] {
 	registry := ecs.registry
-	blueprint := core.NewBlueprint(registry)
+	blueprint := reg.NewBlueprint(registry)
 	componentsRegistry := &registry.ComponentsRegistry
 
 	mustAdd := func(info core.ComponentInfo) {
@@ -872,7 +874,7 @@ func NewView7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any](
 		info1, info2, info3, info4, info5, info6, info7,
 	}
 
-	view := core.NewView(blueprint, layout, registry)
+	view := reg.NewView(blueprint, layout, registry)
 	return &View7[T1, T2, T3, T4, T5, T6, T7]{View: view}
 }
 
@@ -953,10 +955,10 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Filter(selected []Entity) iter.Seq2[
 		Comp6  *T6
 		Comp7  *T7
 	}) bool) {
-		store := &v.Reg.ArchetypeRegistry.EntityLinkStore
+		store := &v.ArchReg.EntityLinkStore
 
 		var lastArchID core.ArchetypeId = core.NullArchetypeId
-		var ma *core.MatchedArch
+		var ma *view.MatchedArch
 		for i, e := range selected {
 			link, ok := store.Get(e)
 			if !ok {
@@ -1006,7 +1008,7 @@ func (v *View7[T1, T2, T3, T4, T5, T6, T7]) Filter(selected []Entity) iter.Seq2[
 // --------------- View8 ---------------
 
 type View8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any] struct {
-	*core.View
+	*view.View
 }
 
 func NewView8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any](
@@ -1014,7 +1016,7 @@ func NewView8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any](
 	opts ...BlueprintOption,
 ) *View8[T1, T2, T3, T4, T5, T6, T7, T8] {
 	registry := ecs.registry
-	blueprint := core.NewBlueprint(registry)
+	blueprint := reg.NewBlueprint(registry)
 	componentsRegistry := &registry.ComponentsRegistry
 
 	mustAdd := func(info core.ComponentInfo) {
@@ -1049,7 +1051,7 @@ func NewView8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any](
 		info1, info2, info3, info4, info5, info6, info7, info8,
 	}
 
-	view := core.NewView(blueprint, layout, registry)
+	view := reg.NewView(blueprint, layout, registry)
 	return &View8[T1, T2, T3, T4, T5, T6, T7, T8]{View: view}
 }
 
@@ -1136,10 +1138,10 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Filter(selected []Entity) iter.S
 		Comp7  *T7
 		Comp8  *T8
 	}) bool) {
-		store := &v.Reg.ArchetypeRegistry.EntityLinkStore
+		store := &v.ArchReg.EntityLinkStore
 
 		var lastArchID core.ArchetypeId = core.NullArchetypeId
-		var ma *core.MatchedArch
+		var ma *view.MatchedArch
 		for i, e := range selected {
 			link, ok := store.Get(e)
 			if !ok {
@@ -1192,7 +1194,7 @@ func (v *View8[T1, T2, T3, T4, T5, T6, T7, T8]) Filter(selected []Entity) iter.S
 // --------------- View9 ---------------
 
 type View9[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T9 any] struct {
-	*core.View
+	*view.View
 }
 
 func NewView9[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T9 any](
@@ -1200,7 +1202,7 @@ func NewView9[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T9
 	opts ...BlueprintOption,
 ) *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9] {
 	registry := ecs.registry
-	blueprint := core.NewBlueprint(registry)
+	blueprint := reg.NewBlueprint(registry)
 	componentsRegistry := &registry.ComponentsRegistry
 
 	mustAdd := func(info core.ComponentInfo) {
@@ -1237,7 +1239,7 @@ func NewView9[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T9
 		info1, info2, info3, info4, info5, info6, info7, info8, info9,
 	}
 
-	view := core.NewView(blueprint, layout, registry)
+	view := reg.NewView(blueprint, layout, registry)
 	return &View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]{View: view}
 }
 
@@ -1330,10 +1332,10 @@ func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Filter(selected []Entity) it
 		Comp8  *T8
 		Comp9  *T9
 	}) bool) {
-		store := &v.Reg.ArchetypeRegistry.EntityLinkStore
+		store := &v.ArchReg.EntityLinkStore
 
 		var lastArchID core.ArchetypeId = core.NullArchetypeId
-		var ma *core.MatchedArch
+		var ma *view.MatchedArch
 		for i, e := range selected {
 			link, ok := store.Get(e)
 			if !ok {
@@ -1389,7 +1391,7 @@ func (v *View9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Filter(selected []Entity) it
 // --------------- View10 ---------------
 
 type View10[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T9 any, T10 any] struct {
-	*core.View
+	*view.View
 }
 
 func NewView10[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T9 any, T10 any](
@@ -1397,7 +1399,7 @@ func NewView10[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T
 	opts ...BlueprintOption,
 ) *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10] {
 	registry := ecs.registry
-	blueprint := core.NewBlueprint(registry)
+	blueprint := reg.NewBlueprint(registry)
 	componentsRegistry := &registry.ComponentsRegistry
 
 	mustAdd := func(info core.ComponentInfo) {
@@ -1436,7 +1438,7 @@ func NewView10[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T
 		info1, info2, info3, info4, info5, info6, info7, info8, info9, info10,
 	}
 
-	view := core.NewView(blueprint, layout, registry)
+	view := reg.NewView(blueprint, layout, registry)
 	return &View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]{View: view}
 }
 
@@ -1535,10 +1537,10 @@ func (v *View10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Filter(selected []Enti
 		Comp9  *T9
 		Comp10 *T10
 	}) bool) {
-		store := &v.Reg.ArchetypeRegistry.EntityLinkStore
+		store := &v.ArchReg.EntityLinkStore
 
 		var lastArchID core.ArchetypeId = core.NullArchetypeId
-		var ma *core.MatchedArch
+		var ma *view.MatchedArch
 		for i, e := range selected {
 			link, ok := store.Get(e)
 			if !ok {

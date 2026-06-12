@@ -8,6 +8,8 @@ import (
 	"unsafe"
 
 	"github.com/kjkrol/goke/internal/core"
+	"github.com/kjkrol/goke/internal/mem"
+	"github.com/kjkrol/goke/internal/reg"
 )
 
 // Blueprint1 defines a static template (recipe) for the mass construction
@@ -19,7 +21,7 @@ import (
 // require exactly 1 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint1[T1 any] struct {
-	itemFactory *core.ItemFactory
+	itemFactory *reg.ItemFactory
 }
 
 // NewBlueprint1 initializes a new template for a specific combination of 1 components.
@@ -37,7 +39,7 @@ func NewBlueprint1[T1 any](
 	opts ...BlueprintOption,
 ) *Blueprint1[T1] {
 	registry := ecs.registry
-	blueprint := core.NewBlueprint(registry)
+	blueprint := reg.NewBlueprint(registry)
 
 	// mustAdd ensures that component registration and blueprint assignment
 	// are successful. Panics immediately on failure to support fail-fast startup.
@@ -57,7 +59,7 @@ func NewBlueprint1[T1 any](
 	}
 
 	return &Blueprint1[T1]{
-		itemFactory: core.NewItemFactory(blueprint),
+		itemFactory: reg.NewItemFactory(blueprint),
 	}
 }
 
@@ -79,7 +81,7 @@ func (b *Blueprint1[T1]) Create(count int) iter.Seq[struct {
 	archReg := reg.ArchetypeRegistry
 	arch := &archReg.Archetypes[b.itemFactory.ArchId]
 	memo := &arch.Memory
-	entityCol := &arch.Columns[core.EntityColumnIndex]
+	entityCol := &arch.Columns[mem.EntityColumnIndex]
 	col1 := arch.GetColumn(b.itemFactory.CompInfos[0].ID)
 	remaining := count
 
@@ -87,7 +89,7 @@ func (b *Blueprint1[T1]) Create(count int) iter.Seq[struct {
 		Entity []Entity
 		Comp1  []T1
 	}) bool) {
-		pageIdx := core.PageIdx(len(memo.Pages) - 1)
+		pageIdx := mem.PageIdx(len(memo.Pages) - 1)
 		page := &memo.Pages[pageIdx]
 		available := int(memo.Layout.PageCap) - int(page.Len)
 
@@ -105,17 +107,17 @@ func (b *Blueprint1[T1]) Create(count int) iter.Seq[struct {
 			}
 		}
 
-		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
+		memo.Reserved = mem.PageIdx(len(memo.Pages) - 1)
 
 		for remaining > 0 {
 			allocatedSlots := min(remaining, available)
 			startSlot := page.Len
-			page.Len += core.PageSlot(allocatedSlots)
+			page.Len += mem.PageSlot(allocatedSlots)
 			memo.Len += uint32(allocatedSlots)
 
 			for i := range allocatedSlots {
 				entity := Entity(reg.EntityPool.Next())
-				pageSlot := startSlot + core.PageSlot(i)
+				pageSlot := startSlot + mem.PageSlot(i)
 				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
 				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
@@ -154,7 +156,7 @@ func (b *Blueprint1[T1]) Create(count int) iter.Seq[struct {
 // require exactly 2 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint2[T1 any, T2 any] struct {
-	itemFactory *core.ItemFactory
+	itemFactory *reg.ItemFactory
 }
 
 // NewBlueprint2 initializes a new template for a specific combination of 2 components.
@@ -172,7 +174,7 @@ func NewBlueprint2[T1 any, T2 any](
 	opts ...BlueprintOption,
 ) *Blueprint2[T1, T2] {
 	registry := ecs.registry
-	blueprint := core.NewBlueprint(registry)
+	blueprint := reg.NewBlueprint(registry)
 
 	// mustAdd ensures that component registration and blueprint assignment
 	// are successful. Panics immediately on failure to support fail-fast startup.
@@ -193,7 +195,7 @@ func NewBlueprint2[T1 any, T2 any](
 	}
 
 	return &Blueprint2[T1, T2]{
-		itemFactory: core.NewItemFactory(blueprint),
+		itemFactory: reg.NewItemFactory(blueprint),
 	}
 }
 
@@ -217,7 +219,7 @@ func (b *Blueprint2[T1, T2]) Create(count int) iter.Seq[struct {
 	archReg := reg.ArchetypeRegistry
 	arch := &archReg.Archetypes[b.itemFactory.ArchId]
 	memo := &arch.Memory
-	entityCol := &arch.Columns[core.EntityColumnIndex]
+	entityCol := &arch.Columns[mem.EntityColumnIndex]
 	col1 := arch.GetColumn(b.itemFactory.CompInfos[0].ID)
 	col2 := arch.GetColumn(b.itemFactory.CompInfos[1].ID)
 	remaining := count
@@ -227,7 +229,7 @@ func (b *Blueprint2[T1, T2]) Create(count int) iter.Seq[struct {
 		Comp1  []T1
 		Comp2  []T2
 	}) bool) {
-		pageIdx := core.PageIdx(len(memo.Pages) - 1)
+		pageIdx := mem.PageIdx(len(memo.Pages) - 1)
 		page := &memo.Pages[pageIdx]
 		available := int(memo.Layout.PageCap) - int(page.Len)
 
@@ -245,17 +247,17 @@ func (b *Blueprint2[T1, T2]) Create(count int) iter.Seq[struct {
 			}
 		}
 
-		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
+		memo.Reserved = mem.PageIdx(len(memo.Pages) - 1)
 
 		for remaining > 0 {
 			allocatedSlots := min(remaining, available)
 			startSlot := page.Len
-			page.Len += core.PageSlot(allocatedSlots)
+			page.Len += mem.PageSlot(allocatedSlots)
 			memo.Len += uint32(allocatedSlots)
 
 			for i := range allocatedSlots {
 				entity := Entity(reg.EntityPool.Next())
-				pageSlot := startSlot + core.PageSlot(i)
+				pageSlot := startSlot + mem.PageSlot(i)
 				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
 				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
@@ -296,7 +298,7 @@ func (b *Blueprint2[T1, T2]) Create(count int) iter.Seq[struct {
 // require exactly 3 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint3[T1 any, T2 any, T3 any] struct {
-	itemFactory *core.ItemFactory
+	itemFactory *reg.ItemFactory
 }
 
 // NewBlueprint3 initializes a new template for a specific combination of 3 components.
@@ -314,7 +316,7 @@ func NewBlueprint3[T1 any, T2 any, T3 any](
 	opts ...BlueprintOption,
 ) *Blueprint3[T1, T2, T3] {
 	registry := ecs.registry
-	blueprint := core.NewBlueprint(registry)
+	blueprint := reg.NewBlueprint(registry)
 
 	// mustAdd ensures that component registration and blueprint assignment
 	// are successful. Panics immediately on failure to support fail-fast startup.
@@ -336,7 +338,7 @@ func NewBlueprint3[T1 any, T2 any, T3 any](
 	}
 
 	return &Blueprint3[T1, T2, T3]{
-		itemFactory: core.NewItemFactory(blueprint),
+		itemFactory: reg.NewItemFactory(blueprint),
 	}
 }
 
@@ -362,7 +364,7 @@ func (b *Blueprint3[T1, T2, T3]) Create(count int) iter.Seq[struct {
 	archReg := reg.ArchetypeRegistry
 	arch := &archReg.Archetypes[b.itemFactory.ArchId]
 	memo := &arch.Memory
-	entityCol := &arch.Columns[core.EntityColumnIndex]
+	entityCol := &arch.Columns[mem.EntityColumnIndex]
 	col1 := arch.GetColumn(b.itemFactory.CompInfos[0].ID)
 	col2 := arch.GetColumn(b.itemFactory.CompInfos[1].ID)
 	col3 := arch.GetColumn(b.itemFactory.CompInfos[2].ID)
@@ -374,7 +376,7 @@ func (b *Blueprint3[T1, T2, T3]) Create(count int) iter.Seq[struct {
 		Comp2  []T2
 		Comp3  []T3
 	}) bool) {
-		pageIdx := core.PageIdx(len(memo.Pages) - 1)
+		pageIdx := mem.PageIdx(len(memo.Pages) - 1)
 		page := &memo.Pages[pageIdx]
 		available := int(memo.Layout.PageCap) - int(page.Len)
 
@@ -392,17 +394,17 @@ func (b *Blueprint3[T1, T2, T3]) Create(count int) iter.Seq[struct {
 			}
 		}
 
-		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
+		memo.Reserved = mem.PageIdx(len(memo.Pages) - 1)
 
 		for remaining > 0 {
 			allocatedSlots := min(remaining, available)
 			startSlot := page.Len
-			page.Len += core.PageSlot(allocatedSlots)
+			page.Len += mem.PageSlot(allocatedSlots)
 			memo.Len += uint32(allocatedSlots)
 
 			for i := range allocatedSlots {
 				entity := Entity(reg.EntityPool.Next())
-				pageSlot := startSlot + core.PageSlot(i)
+				pageSlot := startSlot + mem.PageSlot(i)
 				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
 				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
@@ -445,7 +447,7 @@ func (b *Blueprint3[T1, T2, T3]) Create(count int) iter.Seq[struct {
 // require exactly 4 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint4[T1 any, T2 any, T3 any, T4 any] struct {
-	itemFactory *core.ItemFactory
+	itemFactory *reg.ItemFactory
 }
 
 // NewBlueprint4 initializes a new template for a specific combination of 4 components.
@@ -463,7 +465,7 @@ func NewBlueprint4[T1 any, T2 any, T3 any, T4 any](
 	opts ...BlueprintOption,
 ) *Blueprint4[T1, T2, T3, T4] {
 	registry := ecs.registry
-	blueprint := core.NewBlueprint(registry)
+	blueprint := reg.NewBlueprint(registry)
 
 	// mustAdd ensures that component registration and blueprint assignment
 	// are successful. Panics immediately on failure to support fail-fast startup.
@@ -486,7 +488,7 @@ func NewBlueprint4[T1 any, T2 any, T3 any, T4 any](
 	}
 
 	return &Blueprint4[T1, T2, T3, T4]{
-		itemFactory: core.NewItemFactory(blueprint),
+		itemFactory: reg.NewItemFactory(blueprint),
 	}
 }
 
@@ -514,7 +516,7 @@ func (b *Blueprint4[T1, T2, T3, T4]) Create(count int) iter.Seq[struct {
 	archReg := reg.ArchetypeRegistry
 	arch := &archReg.Archetypes[b.itemFactory.ArchId]
 	memo := &arch.Memory
-	entityCol := &arch.Columns[core.EntityColumnIndex]
+	entityCol := &arch.Columns[mem.EntityColumnIndex]
 	col1 := arch.GetColumn(b.itemFactory.CompInfos[0].ID)
 	col2 := arch.GetColumn(b.itemFactory.CompInfos[1].ID)
 	col3 := arch.GetColumn(b.itemFactory.CompInfos[2].ID)
@@ -528,7 +530,7 @@ func (b *Blueprint4[T1, T2, T3, T4]) Create(count int) iter.Seq[struct {
 		Comp3  []T3
 		Comp4  []T4
 	}) bool) {
-		pageIdx := core.PageIdx(len(memo.Pages) - 1)
+		pageIdx := mem.PageIdx(len(memo.Pages) - 1)
 		page := &memo.Pages[pageIdx]
 		available := int(memo.Layout.PageCap) - int(page.Len)
 
@@ -546,17 +548,17 @@ func (b *Blueprint4[T1, T2, T3, T4]) Create(count int) iter.Seq[struct {
 			}
 		}
 
-		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
+		memo.Reserved = mem.PageIdx(len(memo.Pages) - 1)
 
 		for remaining > 0 {
 			allocatedSlots := min(remaining, available)
 			startSlot := page.Len
-			page.Len += core.PageSlot(allocatedSlots)
+			page.Len += mem.PageSlot(allocatedSlots)
 			memo.Len += uint32(allocatedSlots)
 
 			for i := range allocatedSlots {
 				entity := Entity(reg.EntityPool.Next())
-				pageSlot := startSlot + core.PageSlot(i)
+				pageSlot := startSlot + mem.PageSlot(i)
 				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
 				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
@@ -601,7 +603,7 @@ func (b *Blueprint4[T1, T2, T3, T4]) Create(count int) iter.Seq[struct {
 // require exactly 5 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint5[T1 any, T2 any, T3 any, T4 any, T5 any] struct {
-	itemFactory *core.ItemFactory
+	itemFactory *reg.ItemFactory
 }
 
 // NewBlueprint5 initializes a new template for a specific combination of 5 components.
@@ -619,7 +621,7 @@ func NewBlueprint5[T1 any, T2 any, T3 any, T4 any, T5 any](
 	opts ...BlueprintOption,
 ) *Blueprint5[T1, T2, T3, T4, T5] {
 	registry := ecs.registry
-	blueprint := core.NewBlueprint(registry)
+	blueprint := reg.NewBlueprint(registry)
 
 	// mustAdd ensures that component registration and blueprint assignment
 	// are successful. Panics immediately on failure to support fail-fast startup.
@@ -643,7 +645,7 @@ func NewBlueprint5[T1 any, T2 any, T3 any, T4 any, T5 any](
 	}
 
 	return &Blueprint5[T1, T2, T3, T4, T5]{
-		itemFactory: core.NewItemFactory(blueprint),
+		itemFactory: reg.NewItemFactory(blueprint),
 	}
 }
 
@@ -673,7 +675,7 @@ func (b *Blueprint5[T1, T2, T3, T4, T5]) Create(count int) iter.Seq[struct {
 	archReg := reg.ArchetypeRegistry
 	arch := &archReg.Archetypes[b.itemFactory.ArchId]
 	memo := &arch.Memory
-	entityCol := &arch.Columns[core.EntityColumnIndex]
+	entityCol := &arch.Columns[mem.EntityColumnIndex]
 	col1 := arch.GetColumn(b.itemFactory.CompInfos[0].ID)
 	col2 := arch.GetColumn(b.itemFactory.CompInfos[1].ID)
 	col3 := arch.GetColumn(b.itemFactory.CompInfos[2].ID)
@@ -689,7 +691,7 @@ func (b *Blueprint5[T1, T2, T3, T4, T5]) Create(count int) iter.Seq[struct {
 		Comp4  []T4
 		Comp5  []T5
 	}) bool) {
-		pageIdx := core.PageIdx(len(memo.Pages) - 1)
+		pageIdx := mem.PageIdx(len(memo.Pages) - 1)
 		page := &memo.Pages[pageIdx]
 		available := int(memo.Layout.PageCap) - int(page.Len)
 
@@ -707,17 +709,17 @@ func (b *Blueprint5[T1, T2, T3, T4, T5]) Create(count int) iter.Seq[struct {
 			}
 		}
 
-		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
+		memo.Reserved = mem.PageIdx(len(memo.Pages) - 1)
 
 		for remaining > 0 {
 			allocatedSlots := min(remaining, available)
 			startSlot := page.Len
-			page.Len += core.PageSlot(allocatedSlots)
+			page.Len += mem.PageSlot(allocatedSlots)
 			memo.Len += uint32(allocatedSlots)
 
 			for i := range allocatedSlots {
 				entity := Entity(reg.EntityPool.Next())
-				pageSlot := startSlot + core.PageSlot(i)
+				pageSlot := startSlot + mem.PageSlot(i)
 				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
 				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
@@ -764,7 +766,7 @@ func (b *Blueprint5[T1, T2, T3, T4, T5]) Create(count int) iter.Seq[struct {
 // require exactly 6 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any] struct {
-	itemFactory *core.ItemFactory
+	itemFactory *reg.ItemFactory
 }
 
 // NewBlueprint6 initializes a new template for a specific combination of 6 components.
@@ -782,7 +784,7 @@ func NewBlueprint6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any](
 	opts ...BlueprintOption,
 ) *Blueprint6[T1, T2, T3, T4, T5, T6] {
 	registry := ecs.registry
-	blueprint := core.NewBlueprint(registry)
+	blueprint := reg.NewBlueprint(registry)
 
 	// mustAdd ensures that component registration and blueprint assignment
 	// are successful. Panics immediately on failure to support fail-fast startup.
@@ -807,7 +809,7 @@ func NewBlueprint6[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any](
 	}
 
 	return &Blueprint6[T1, T2, T3, T4, T5, T6]{
-		itemFactory: core.NewItemFactory(blueprint),
+		itemFactory: reg.NewItemFactory(blueprint),
 	}
 }
 
@@ -839,7 +841,7 @@ func (b *Blueprint6[T1, T2, T3, T4, T5, T6]) Create(count int) iter.Seq[struct {
 	archReg := reg.ArchetypeRegistry
 	arch := &archReg.Archetypes[b.itemFactory.ArchId]
 	memo := &arch.Memory
-	entityCol := &arch.Columns[core.EntityColumnIndex]
+	entityCol := &arch.Columns[mem.EntityColumnIndex]
 	col1 := arch.GetColumn(b.itemFactory.CompInfos[0].ID)
 	col2 := arch.GetColumn(b.itemFactory.CompInfos[1].ID)
 	col3 := arch.GetColumn(b.itemFactory.CompInfos[2].ID)
@@ -857,7 +859,7 @@ func (b *Blueprint6[T1, T2, T3, T4, T5, T6]) Create(count int) iter.Seq[struct {
 		Comp5  []T5
 		Comp6  []T6
 	}) bool) {
-		pageIdx := core.PageIdx(len(memo.Pages) - 1)
+		pageIdx := mem.PageIdx(len(memo.Pages) - 1)
 		page := &memo.Pages[pageIdx]
 		available := int(memo.Layout.PageCap) - int(page.Len)
 
@@ -875,17 +877,17 @@ func (b *Blueprint6[T1, T2, T3, T4, T5, T6]) Create(count int) iter.Seq[struct {
 			}
 		}
 
-		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
+		memo.Reserved = mem.PageIdx(len(memo.Pages) - 1)
 
 		for remaining > 0 {
 			allocatedSlots := min(remaining, available)
 			startSlot := page.Len
-			page.Len += core.PageSlot(allocatedSlots)
+			page.Len += mem.PageSlot(allocatedSlots)
 			memo.Len += uint32(allocatedSlots)
 
 			for i := range allocatedSlots {
 				entity := Entity(reg.EntityPool.Next())
-				pageSlot := startSlot + core.PageSlot(i)
+				pageSlot := startSlot + mem.PageSlot(i)
 				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
 				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
@@ -934,7 +936,7 @@ func (b *Blueprint6[T1, T2, T3, T4, T5, T6]) Create(count int) iter.Seq[struct {
 // require exactly 7 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any] struct {
-	itemFactory *core.ItemFactory
+	itemFactory *reg.ItemFactory
 }
 
 // NewBlueprint7 initializes a new template for a specific combination of 7 components.
@@ -952,7 +954,7 @@ func NewBlueprint7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any](
 	opts ...BlueprintOption,
 ) *Blueprint7[T1, T2, T3, T4, T5, T6, T7] {
 	registry := ecs.registry
-	blueprint := core.NewBlueprint(registry)
+	blueprint := reg.NewBlueprint(registry)
 
 	// mustAdd ensures that component registration and blueprint assignment
 	// are successful. Panics immediately on failure to support fail-fast startup.
@@ -978,7 +980,7 @@ func NewBlueprint7[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any](
 	}
 
 	return &Blueprint7[T1, T2, T3, T4, T5, T6, T7]{
-		itemFactory: core.NewItemFactory(blueprint),
+		itemFactory: reg.NewItemFactory(blueprint),
 	}
 }
 
@@ -1012,7 +1014,7 @@ func (b *Blueprint7[T1, T2, T3, T4, T5, T6, T7]) Create(count int) iter.Seq[stru
 	archReg := reg.ArchetypeRegistry
 	arch := &archReg.Archetypes[b.itemFactory.ArchId]
 	memo := &arch.Memory
-	entityCol := &arch.Columns[core.EntityColumnIndex]
+	entityCol := &arch.Columns[mem.EntityColumnIndex]
 	col1 := arch.GetColumn(b.itemFactory.CompInfos[0].ID)
 	col2 := arch.GetColumn(b.itemFactory.CompInfos[1].ID)
 	col3 := arch.GetColumn(b.itemFactory.CompInfos[2].ID)
@@ -1032,7 +1034,7 @@ func (b *Blueprint7[T1, T2, T3, T4, T5, T6, T7]) Create(count int) iter.Seq[stru
 		Comp6  []T6
 		Comp7  []T7
 	}) bool) {
-		pageIdx := core.PageIdx(len(memo.Pages) - 1)
+		pageIdx := mem.PageIdx(len(memo.Pages) - 1)
 		page := &memo.Pages[pageIdx]
 		available := int(memo.Layout.PageCap) - int(page.Len)
 
@@ -1050,17 +1052,17 @@ func (b *Blueprint7[T1, T2, T3, T4, T5, T6, T7]) Create(count int) iter.Seq[stru
 			}
 		}
 
-		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
+		memo.Reserved = mem.PageIdx(len(memo.Pages) - 1)
 
 		for remaining > 0 {
 			allocatedSlots := min(remaining, available)
 			startSlot := page.Len
-			page.Len += core.PageSlot(allocatedSlots)
+			page.Len += mem.PageSlot(allocatedSlots)
 			memo.Len += uint32(allocatedSlots)
 
 			for i := range allocatedSlots {
 				entity := Entity(reg.EntityPool.Next())
-				pageSlot := startSlot + core.PageSlot(i)
+				pageSlot := startSlot + mem.PageSlot(i)
 				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
 				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
@@ -1111,7 +1113,7 @@ func (b *Blueprint7[T1, T2, T3, T4, T5, T6, T7]) Create(count int) iter.Seq[stru
 // require exactly 8 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any] struct {
-	itemFactory *core.ItemFactory
+	itemFactory *reg.ItemFactory
 }
 
 // NewBlueprint8 initializes a new template for a specific combination of 8 components.
@@ -1129,7 +1131,7 @@ func NewBlueprint8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 an
 	opts ...BlueprintOption,
 ) *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8] {
 	registry := ecs.registry
-	blueprint := core.NewBlueprint(registry)
+	blueprint := reg.NewBlueprint(registry)
 
 	// mustAdd ensures that component registration and blueprint assignment
 	// are successful. Panics immediately on failure to support fail-fast startup.
@@ -1156,7 +1158,7 @@ func NewBlueprint8[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 an
 	}
 
 	return &Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]{
-		itemFactory: core.NewItemFactory(blueprint),
+		itemFactory: reg.NewItemFactory(blueprint),
 	}
 }
 
@@ -1192,7 +1194,7 @@ func (b *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]) Create(count int) iter.Seq[
 	archReg := reg.ArchetypeRegistry
 	arch := &archReg.Archetypes[b.itemFactory.ArchId]
 	memo := &arch.Memory
-	entityCol := &arch.Columns[core.EntityColumnIndex]
+	entityCol := &arch.Columns[mem.EntityColumnIndex]
 	col1 := arch.GetColumn(b.itemFactory.CompInfos[0].ID)
 	col2 := arch.GetColumn(b.itemFactory.CompInfos[1].ID)
 	col3 := arch.GetColumn(b.itemFactory.CompInfos[2].ID)
@@ -1214,7 +1216,7 @@ func (b *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]) Create(count int) iter.Seq[
 		Comp7  []T7
 		Comp8  []T8
 	}) bool) {
-		pageIdx := core.PageIdx(len(memo.Pages) - 1)
+		pageIdx := mem.PageIdx(len(memo.Pages) - 1)
 		page := &memo.Pages[pageIdx]
 		available := int(memo.Layout.PageCap) - int(page.Len)
 
@@ -1232,17 +1234,17 @@ func (b *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]) Create(count int) iter.Seq[
 			}
 		}
 
-		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
+		memo.Reserved = mem.PageIdx(len(memo.Pages) - 1)
 
 		for remaining > 0 {
 			allocatedSlots := min(remaining, available)
 			startSlot := page.Len
-			page.Len += core.PageSlot(allocatedSlots)
+			page.Len += mem.PageSlot(allocatedSlots)
 			memo.Len += uint32(allocatedSlots)
 
 			for i := range allocatedSlots {
 				entity := Entity(reg.EntityPool.Next())
-				pageSlot := startSlot + core.PageSlot(i)
+				pageSlot := startSlot + mem.PageSlot(i)
 				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
 				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
@@ -1295,7 +1297,7 @@ func (b *Blueprint8[T1, T2, T3, T4, T5, T6, T7, T8]) Create(count int) iter.Seq[
 // require exactly 9 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint9[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T9 any] struct {
-	itemFactory *core.ItemFactory
+	itemFactory *reg.ItemFactory
 }
 
 // NewBlueprint9 initializes a new template for a specific combination of 9 components.
@@ -1313,7 +1315,7 @@ func NewBlueprint9[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 an
 	opts ...BlueprintOption,
 ) *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9] {
 	registry := ecs.registry
-	blueprint := core.NewBlueprint(registry)
+	blueprint := reg.NewBlueprint(registry)
 
 	// mustAdd ensures that component registration and blueprint assignment
 	// are successful. Panics immediately on failure to support fail-fast startup.
@@ -1341,7 +1343,7 @@ func NewBlueprint9[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 an
 	}
 
 	return &Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]{
-		itemFactory: core.NewItemFactory(blueprint),
+		itemFactory: reg.NewItemFactory(blueprint),
 	}
 }
 
@@ -1379,7 +1381,7 @@ func (b *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Create(count int) iter.
 	archReg := reg.ArchetypeRegistry
 	arch := &archReg.Archetypes[b.itemFactory.ArchId]
 	memo := &arch.Memory
-	entityCol := &arch.Columns[core.EntityColumnIndex]
+	entityCol := &arch.Columns[mem.EntityColumnIndex]
 	col1 := arch.GetColumn(b.itemFactory.CompInfos[0].ID)
 	col2 := arch.GetColumn(b.itemFactory.CompInfos[1].ID)
 	col3 := arch.GetColumn(b.itemFactory.CompInfos[2].ID)
@@ -1403,7 +1405,7 @@ func (b *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Create(count int) iter.
 		Comp8  []T8
 		Comp9  []T9
 	}) bool) {
-		pageIdx := core.PageIdx(len(memo.Pages) - 1)
+		pageIdx := mem.PageIdx(len(memo.Pages) - 1)
 		page := &memo.Pages[pageIdx]
 		available := int(memo.Layout.PageCap) - int(page.Len)
 
@@ -1421,17 +1423,17 @@ func (b *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Create(count int) iter.
 			}
 		}
 
-		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
+		memo.Reserved = mem.PageIdx(len(memo.Pages) - 1)
 
 		for remaining > 0 {
 			allocatedSlots := min(remaining, available)
 			startSlot := page.Len
-			page.Len += core.PageSlot(allocatedSlots)
+			page.Len += mem.PageSlot(allocatedSlots)
 			memo.Len += uint32(allocatedSlots)
 
 			for i := range allocatedSlots {
 				entity := Entity(reg.EntityPool.Next())
-				pageSlot := startSlot + core.PageSlot(i)
+				pageSlot := startSlot + mem.PageSlot(i)
 				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
 				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
@@ -1486,7 +1488,7 @@ func (b *Blueprint9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Create(count int) iter.
 // require exactly 10 distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint10[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 any, T9 any, T10 any] struct {
-	itemFactory *core.ItemFactory
+	itemFactory *reg.ItemFactory
 }
 
 // NewBlueprint10 initializes a new template for a specific combination of 10 components.
@@ -1504,7 +1506,7 @@ func NewBlueprint10[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 a
 	opts ...BlueprintOption,
 ) *Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10] {
 	registry := ecs.registry
-	blueprint := core.NewBlueprint(registry)
+	blueprint := reg.NewBlueprint(registry)
 
 	// mustAdd ensures that component registration and blueprint assignment
 	// are successful. Panics immediately on failure to support fail-fast startup.
@@ -1533,7 +1535,7 @@ func NewBlueprint10[T1 any, T2 any, T3 any, T4 any, T5 any, T6 any, T7 any, T8 a
 	}
 
 	return &Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]{
-		itemFactory: core.NewItemFactory(blueprint),
+		itemFactory: reg.NewItemFactory(blueprint),
 	}
 }
 
@@ -1573,7 +1575,7 @@ func (b *Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Create(count int)
 	archReg := reg.ArchetypeRegistry
 	arch := &archReg.Archetypes[b.itemFactory.ArchId]
 	memo := &arch.Memory
-	entityCol := &arch.Columns[core.EntityColumnIndex]
+	entityCol := &arch.Columns[mem.EntityColumnIndex]
 	col1 := arch.GetColumn(b.itemFactory.CompInfos[0].ID)
 	col2 := arch.GetColumn(b.itemFactory.CompInfos[1].ID)
 	col3 := arch.GetColumn(b.itemFactory.CompInfos[2].ID)
@@ -1599,7 +1601,7 @@ func (b *Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Create(count int)
 		Comp9  []T9
 		Comp10 []T10
 	}) bool) {
-		pageIdx := core.PageIdx(len(memo.Pages) - 1)
+		pageIdx := mem.PageIdx(len(memo.Pages) - 1)
 		page := &memo.Pages[pageIdx]
 		available := int(memo.Layout.PageCap) - int(page.Len)
 
@@ -1617,17 +1619,17 @@ func (b *Blueprint10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) Create(count int)
 			}
 		}
 
-		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
+		memo.Reserved = mem.PageIdx(len(memo.Pages) - 1)
 
 		for remaining > 0 {
 			allocatedSlots := min(remaining, available)
 			startSlot := page.Len
-			page.Len += core.PageSlot(allocatedSlots)
+			page.Len += mem.PageSlot(allocatedSlots)
 			memo.Len += uint32(allocatedSlots)
 
 			for i := range allocatedSlots {
 				entity := Entity(reg.EntityPool.Next())
-				pageSlot := startSlot + core.PageSlot(i)
+				pageSlot := startSlot + mem.PageSlot(i)
 				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
 				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)

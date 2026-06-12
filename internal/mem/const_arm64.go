@@ -1,6 +1,6 @@
 //go:build arm64
 
-package core
+package mem
 
 // L1DataCacheSize: 128KB for ARM64.
 // ARM64 architectures (Apple M1/M2/M3) have L1 Data Cache(64KB - 128KB)

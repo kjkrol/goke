@@ -8,6 +8,8 @@ import (
 	"unsafe"
 
     "github.com/kjkrol/goke/internal/core"
+	"github.com/kjkrol/goke/internal/mem"
+	"github.com/kjkrol/goke/internal/reg"
 )
 
 {{ range $n := .Range }}
@@ -22,7 +24,7 @@ import (
 // require exactly {{ $n }} distinct data structures to be stored contiguously,
 // ensuring optimal data locality and cache efficiency.
 type Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $n }}, {{ end }}{{ end }}] struct {
-    itemFactory *core.ItemFactory
+    itemFactory *reg.ItemFactory
 }
 
 // NewBlueprint{{ $n }} initializes a new template for a specific combination of {{ $n }} components.
@@ -40,7 +42,7 @@ func NewBlueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $
     opts ...BlueprintOption,
 ) *Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}] {
     registry := ecs.registry
-    blueprint := core.NewBlueprint(registry)
+    blueprint := reg.NewBlueprint(registry)
 
     // mustAdd ensures that component registration and blueprint assignment
     // are successful. Panics immediately on failure to support fail-fast startup.
@@ -61,7 +63,7 @@ func NewBlueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $
     }
 
     return &Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]{
-        itemFactory: core.NewItemFactory(blueprint),
+        itemFactory: reg.NewItemFactory(blueprint),
     }
 }
 
@@ -87,7 +89,7 @@ func (b *Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }
 	archReg := reg.ArchetypeRegistry
 	arch := &archReg.Archetypes[b.itemFactory.ArchId]
 	memo := &arch.Memory
-	entityCol := &arch.Columns[core.EntityColumnIndex]
+	entityCol := &arch.Columns[mem.EntityColumnIndex]
 	{{- range $i := (seq 1 $n) }}
 	col{{ $i }} := arch.GetColumn(b.itemFactory.CompInfos[{{ sub $i 1 }}].ID)
 	{{- end }}
@@ -99,7 +101,7 @@ func (b *Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }
 		Comp{{ $i }} []T{{ $i }}
 		{{- end }}
 	}) bool) {
-		pageIdx := core.PageIdx(len(memo.Pages) - 1)
+		pageIdx := mem.PageIdx(len(memo.Pages) - 1)
 		page := &memo.Pages[pageIdx]
 		available := int(memo.Layout.PageCap) - int(page.Len)
 
@@ -117,17 +119,17 @@ func (b *Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }
 			}
 		}
 
-		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
+		memo.Reserved = mem.PageIdx(len(memo.Pages) - 1)
 
 		for remaining > 0 {
 			allocatedSlots := min(remaining, available)
 			startSlot := page.Len
-			page.Len += core.PageSlot(allocatedSlots)
+			page.Len += mem.PageSlot(allocatedSlots)
 			memo.Len += uint32(allocatedSlots)
 
 			for i := range allocatedSlots {
 				entity := Entity(reg.EntityPool.Next())
-				pageSlot := startSlot + core.PageSlot(i)
+				pageSlot := startSlot + mem.PageSlot(i)
 				destPtr := entityCol.GetPointer(page, pageSlot)
 				*(*Entity)(destPtr) = entity
 				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)

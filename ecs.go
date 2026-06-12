@@ -6,7 +6,8 @@ import (
 	"time"
 
 	"github.com/kjkrol/goke/internal/core"
-	"github.com/kjkrol/goke/internal/system"
+	"github.com/kjkrol/goke/internal/reg"
+	"github.com/kjkrol/goke/internal/exec"
 	"github.com/kjkrol/uid"
 )
 
@@ -18,11 +19,11 @@ type (
 	// ComponentDesc is a component descriptor; it contains metadata about a component type, such as its ID and memory size.
 	ComponentDesc = core.ComponentInfo
 
-	ECSConfig = core.RegistryConfig
+	ECSConfig = reg.RegistryConfig
 	// ExecutionContext provides methods to run systems (parallel or sync) within a plan.
-	ExecutionContext = system.ExecutionContext
+	ExecutionContext = exec.RunCtx
 	// ExecutionPlan defines the order and concurrency of system updates.
-	ExecutionPlan = system.ExecutionPlan
+	ExecutionPlan = exec.Plan
 )
 
 // ECS is the main entry point for the ECS. It acts as the coordinator
@@ -31,8 +32,8 @@ type (
 // Use the ECS to manage the lifecycle of entities, register component
 // types, and define the execution flow of your application.
 type ECS struct {
-	registry  *core.Registry
-	scheduler system.Scheduler
+	registry  *reg.Registry
+	scheduler exec.Scheduler
 }
 
 // New creates and initializes a new ECS instance.
@@ -50,9 +51,9 @@ func New(opts ...ECSOption) *ECS {
 	}
 
 	ecs := ECS{
-		registry: core.NewRegistry(config),
+		registry: reg.NewRegistry(config),
 	}
-	ecs.scheduler = system.NewScheduler(ecs.registry)
+	ecs.scheduler = exec.NewScheduler(ecs.registry)
 	return &ecs
 }
 

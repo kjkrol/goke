@@ -1,14 +1,16 @@
-package core
+package reg
+
+import "github.com/kjkrol/goke/internal/core"
 
 type ItemFactory struct {
 	Reg       *Registry
-	Mask      ArchetypeMask
-	CompInfos []ComponentInfo
-	ArchId    ArchetypeId
+	Mask      core.ArchetypeMask
+	CompInfos []core.ComponentInfo
+	ArchId    core.ArchetypeId
 }
 
 func NewItemFactory(blueprint *Blueprint) *ItemFactory {
-	var mask ArchetypeMask
+	var mask core.ArchetypeMask
 
 	for _, info := range blueprint.compInfos {
 		mask = mask.Set(info.ID)
@@ -18,7 +20,7 @@ func NewItemFactory(blueprint *Blueprint) *ItemFactory {
 		mask = mask.Set(tag)
 	}
 
-	archId := blueprint.Reg.ArchetypeRegistry.getOrRegister(mask)
+	archId := blueprint.Reg.ArchetypeRegistry.GetOrRegister(mask)
 
 	return &ItemFactory{
 		Reg:       blueprint.Reg,

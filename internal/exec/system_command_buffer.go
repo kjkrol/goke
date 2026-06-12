@@ -1,4 +1,4 @@
-package system
+package exec
 
 import (
 	"unsafe"
@@ -29,15 +29,15 @@ type systemCommand struct {
 
 const pageSize = 4096
 
-// SystemCommandBuffer as Linear Allocator
-type SystemCommandBuffer struct {
+// CommandBuf as Linear Allocator
+type CommandBuf struct {
 	commands []systemCommand
 	pages    [][]byte
 	pageIdx  int
 	offset   int
 }
 
-func (cb *SystemCommandBuffer) Clear() {
+func (cb *CommandBuf) Clear() {
 	clear(cb.commands)
 	cb.commands = cb.commands[:0]
 
@@ -51,15 +51,15 @@ func (cb *SystemCommandBuffer) Clear() {
 	cb.offset = 0
 }
 
-func NewSystemCommandBuffer() *SystemCommandBuffer {
-	return &SystemCommandBuffer{
+func NewCommandBuf() *CommandBuf {
+	return &CommandBuf{
 		commands: make([]systemCommand, 0, 128),
 		pages:    [][]byte{make([]byte, pageSize)},
 	}
 }
 
 // AddComponent safely copies component data into the buffer's pool
-func AddComponent[T any](cb *SystemCommandBuffer, e uid.UID64, info core.ComponentInfo, value T) {
+func AddComponent[T any](cb *CommandBuf, e uid.UID64, info core.ComponentInfo, value T) {
 	size := int(unsafe.Sizeof(value))
 
 	var ptr unsafe.Pointer
@@ -80,7 +80,7 @@ func AddComponent[T any](cb *SystemCommandBuffer, e uid.UID64, info core.Compone
 	})
 }
 
-func RemoveComponent(cb *SystemCommandBuffer, e uid.UID64, compInfo core.ComponentInfo) {
+func RemoveComponent(cb *CommandBuf, e uid.UID64, compInfo core.ComponentInfo) {
 	cb.commands = append(cb.commands, systemCommand{
 		cType:    cmdRemoveComponent,
 		entity:   e,
@@ -88,14 +88,14 @@ func RemoveComponent(cb *SystemCommandBuffer, e uid.UID64, compInfo core.Compone
 	})
 }
 
-func RemoveEntity(cb *SystemCommandBuffer, e uid.UID64) {
+func RemoveEntity(cb *CommandBuf, e uid.UID64) {
 	cb.commands = append(cb.commands, systemCommand{
 		cType:  cmdRemoveEntity,
 		entity: e,
 	})
 }
 
-func (cb *SystemCommandBuffer) reset() {
+func (cb *CommandBuf) reset() {
 	cb.commands = cb.commands[:0]
 	cb.pageIdx = 0
 	cb.offset = 0
@@ -103,7 +103,7 @@ func (cb *SystemCommandBuffer) reset() {
 
 // reserveSpace ensures there is enough contiguous memory in the pages
 // and returns a pointer to the start of the reserved block.
-func (cb *SystemCommandBuffer) reserveSpace(size int, align int) unsafe.Pointer {
+func (cb *CommandBuf) reserveSpace(size int, align int) unsafe.Pointer {
 	cb.offset = (cb.offset + align - 1) &^ (align - 1)
 
 	if cb.offset+size > pageSize {

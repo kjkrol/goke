@@ -1,4 +1,4 @@
-package core
+package reg
 
 // RegistryConfig defines the initial sizing of internal data structures.
 type RegistryConfig struct {

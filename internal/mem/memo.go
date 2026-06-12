@@ -1,33 +1,27 @@
-package core
+package mem
 
 import (
 	"unsafe"
 
 	"github.com/kjkrol/uid"
+
+	"github.com/kjkrol/goke/internal/core"
 )
 
-type PageIdx uint32 // Index of the page in Memo.Pages slice
-// PageSlot is a type alias for the index within a page.
-// Using uint32 ensures alignment and supports >255 entities per page.
+type PageIdx uint32
 type PageSlot uint32
-
-//------------------------------------------------------------------------------
-//                          Memo (Memory Manager)
-//------------------------------------------------------------------------------
 
 type Memo struct {
 	Pages    []Page
 	Layout   PageLayout
-	Len      uint32  // Total number of active entities across all pages (O(1) tracking).
-	Reserved PageIdx // Prevents truncation of the currently processed page during chunked iteration/creation.
+	Len      uint32
+	Reserved PageIdx
 }
 
-func (b *Memo) Init(compInfos []ComponentInfo) {
+func (b *Memo) Init(compInfos []core.ComponentInfo) {
 	b.Layout = CalculateLayout(compInfos)
-
 	b.Pages = make([]Page, 0, 16)
 	b.Len = 0
-
 	b.addPage()
 }
 
@@ -74,8 +68,6 @@ func (b *Memo) AddPages(n int) {
 	}
 }
 
-// ResolveTail returns the index and pointer of the last page that actually contains data.
-// It performs a "sanity check" by truncating any empty trailing pages from the Pages slice.
 func (b *Memo) ResolveTail() (PageIdx, *Page) {
 	lastIdx := len(b.Pages) - 1
 	floor := int(b.Reserved)
@@ -98,31 +90,20 @@ func (b *Memo) Clear() {
 		clear(b.Pages[i].data)
 		b.Pages[i].Len = 0
 	}
-
 	b.Pages = b.Pages[:0]
 	b.Len = 0
-
 	b.addPage()
 }
 
-//------------------------------------------------------------------------------
-//                          page
-//------------------------------------------------------------------------------
-
 type Page struct {
-	// ┌────────────────────────────────────────────────────────────┐
-	// │ data []byte                                                │
-	// ├────────────────────────────────────────────────────────────┤
-	// │ Entity Column │ CompA Column │ CompB Column │ ...          │
-	// └────────────────────────────────────────────────────────────┘
 	data []byte
 	Ptr  unsafe.Pointer
 	Len  PageSlot
 }
 
-//------------------------------------------------------------------------------
-//                          CalculateLayout
-//------------------------------------------------------------------------------
+func (p *Page) GetPointer(offset uintptr, itemSize uintptr, slot PageSlot) unsafe.Pointer {
+	return unsafe.Add(p.Ptr, offset+(uintptr(slot)*itemSize))
+}
 
 type PageLayout struct {
 	PageCap   uint32
@@ -130,9 +111,7 @@ type PageLayout struct {
 	Offsets   []uintptr
 }
 
-// CalculateLayout computes the optimal memory layout for a page.
-func CalculateLayout(compInfos []ComponentInfo) PageLayout {
-
+func CalculateLayout(compInfos []core.ComponentInfo) PageLayout {
 	totalStride := unsafe.Sizeof(uid.UID64(0))
 	for _, info := range compInfos {
 		totalStride += info.Size
@@ -176,18 +155,10 @@ func alignUp(ptr, align uintptr) uintptr {
 	return (ptr + align - 1) & ^(align - 1)
 }
 
-// -----------------------------------------------------------------------------
-// Low-Level Helpers
-// -----------------------------------------------------------------------------
-
-func copyMemory(dst, src unsafe.Pointer, size uintptr) {
+func CopyMemory(dst, src unsafe.Pointer, size uintptr) {
 	copy(unsafe.Slice((*byte)(dst), size), unsafe.Slice((*byte)(src), size))
 }
 
-func zeroMemory(ptr unsafe.Pointer, size uintptr) {
+func ZeroMemory(ptr unsafe.Pointer, size uintptr) {
 	clear(unsafe.Slice((*byte)(ptr), size))
-}
-
-func (p *Page) GetPointer(offset uintptr, itemSize uintptr, slot PageSlot) unsafe.Pointer {
-	return unsafe.Add(p.Ptr, offset+(uintptr(slot)*itemSize))
 }

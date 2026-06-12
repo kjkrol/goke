@@ -1,4 +1,4 @@
-package system
+package exec
 
 import (
 	"reflect"
@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/kjkrol/goke/internal/core"
+	"github.com/kjkrol/goke/internal/reg"
 	"github.com/kjkrol/uid"
 )
 
@@ -23,30 +24,28 @@ type modifyTestSystem struct {
 	target uid.UID64
 }
 
-func (s *modifyTestSystem) Update(reg core.ReadOnlyRegistry, cb *SystemCommandBuffer, d time.Duration) {
-	// Mutujemy już wygenerowaną i przydzieloną encję
+func (s *modifyTestSystem) Update(_ core.ComponentReader, cb *CommandBuf, d time.Duration) {
 	RemoveComponent(cb, s.target, s.compA)
 	AddComponent(cb, s.target, s.compB, mockCompB{Msg: "added"})
 }
 
 func TestScheduler_ComponentCommands(t *testing.T) {
-	reg := core.NewRegistry(core.RegistryConfig{
+	registry := reg.NewRegistry(reg.RegistryConfig{
 		InitialEntityCap:            100,
 		InitialArchetypeRegistryCap: 100,
 		FreeIndicesCap:              100,
 		ViewRegistryInitCap:         10,
 	})
 
-	compA := reg.RegisterComponentType(reflect.TypeFor[mockCompA]())
-	compB := reg.RegisterComponentType(reflect.TypeFor[mockCompB]())
+	compA := registry.RegisterComponentType(reflect.TypeFor[mockCompA]())
+	compB := registry.RegisterComponentType(reflect.TypeFor[mockCompB]())
 
-	sched := NewScheduler(reg)
+	sched := NewScheduler(registry)
 
-	// Symulacja prealokacji: Object Pooling
-	e := reg.CreateEntity()
-	ptrA, _ := reg.AllocateByID(e, compA)
+	e := registry.CreateEntity()
+	ptrA, _ := registry.AllocateByID(e, compA)
 	*(*mockCompA)(ptrA) = mockCompA{Val: 100}
-	reg.AllocateByID(e, compB) // Rejestrujemy oba by UnAssign zadziałało
+	registry.AllocateByID(e, compB)
 
 	sys := &modifyTestSystem{
 		compA:  compA,
@@ -62,14 +61,12 @@ func TestScheduler_ComponentCommands(t *testing.T) {
 		t.Fatalf("Sync failed: %v", err)
 	}
 
-	// Powinno usunąć Component A
-	_, err = reg.ComponentGet(e, compA.ID)
+	_, err = registry.ComponentGet(e, compA.ID)
 	if err == nil {
 		t.Errorf("Expected compA to be removed")
 	}
 
-	// Powinno nadpisać Component B
-	ptrB, err := reg.ComponentGet(e, compB.ID)
+	ptrB, err := registry.ComponentGet(e, compB.ID)
 	if err != nil {
 		t.Fatalf("Expected compB to be present")
 	}
@@ -79,7 +76,7 @@ func TestScheduler_ComponentCommands(t *testing.T) {
 }
 
 func TestSystemCommandBuffer_Clear(t *testing.T) {
-	cb := NewSystemCommandBuffer()
+	cb := NewCommandBuf()
 
 	RemoveEntity(cb, uid.UID64(1))
 
@@ -95,7 +92,7 @@ func TestSystemCommandBuffer_Clear(t *testing.T) {
 }
 
 func TestSystemCommandBuffer_ReserveSpace(t *testing.T) {
-	cb := NewSystemCommandBuffer()
+	cb := NewCommandBuf()
 
 	p1 := cb.reserveSpace(10, 1)
 	if p1 == nil {

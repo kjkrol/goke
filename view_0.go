@@ -5,6 +5,8 @@ import (
 	"unsafe"
 
 	"github.com/kjkrol/goke/internal/core"
+	"github.com/kjkrol/goke/internal/reg"
+	"github.com/kjkrol/goke/internal/view"
 	"github.com/kjkrol/uid"
 )
 
@@ -12,7 +14,7 @@ import (
 // a specific architectural mask but does not require access to any
 // specific component data columns.
 type View0 struct {
-	*core.View
+	*view.View
 }
 
 // NewView0 initializes a query for entities matching the provided options,
@@ -23,13 +25,13 @@ type View0 struct {
 //	// Find all entities with "EnemyTag"
 //	view := goke.NewView0(ecs, goke.WithTag(EnemyTag))
 func NewView0(ecs *ECS, opts ...BlueprintOption) *View0 {
-	blueprint := core.NewBlueprint(ecs.registry)
+	blueprint := reg.NewBlueprint(ecs.registry)
 	for _, opt := range opts {
 		opt(blueprint)
 	}
 	// Empty component slice because View0 doesn't read component data
-	view := core.NewView(blueprint, []core.ComponentInfo{}, ecs.registry)
-	return &View0{View: view}
+	v := reg.NewView(blueprint, []core.ComponentInfo{}, ecs.registry)
+	return &View0{View: v}
 }
 
 // All returns an iterator (iter.Seq) that yields physical memory pages as batches of slices.
@@ -76,10 +78,10 @@ func (v *View0) All() iter.Seq[struct{ Entity []Entity }] {
 // for those that match the View's archetype constraints.
 func (v *View0) Filter(selected []uid.UID64) iter.Seq2[int, struct{ Entity uid.UID64 }] {
 	return func(yield func(int, struct{ Entity uid.UID64 }) bool) {
-		store := &v.Reg.ArchetypeRegistry.EntityLinkStore
+		store := &v.ArchReg.EntityLinkStore
 
 		var lastArchID core.ArchetypeId = core.NullArchetypeId
-		var ma *core.MatchedArch
+		var ma *view.MatchedArch
 		for i, e := range selected {
 			link, ok := store.Get(e)
 			if !ok {

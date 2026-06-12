@@ -79,8 +79,6 @@ go get github.com/kjkrol/goke
 
 # ✨ Key Features
 
-## ✨ Key Features
-
 * **Strictly Zero-Allocation API** All runtime hot paths—including iteration, component access, and view filtering—execute without heap allocations. Memory is allocated only during structural changes (entity creation, component addition, or storage growth), eliminating garbage collector pressure during normal update loops.
 * **Cache-Friendly Paged Iteration** Entity traversal operates directly on contiguous memory pages. This layout maximizes CPU cache locality and enables highly efficient iteration throughput.
 * **Memory-Conscious Storage (Chunked SoA)** Data is stored in chunked Structure-of-Arrays (SoA) pages. Capacity growth allocates new pages instead of triggering large slice reallocations. Deleted entities are removed using a swap-and-pop operation, keeping storage densely packed and avoiding fragmentation.

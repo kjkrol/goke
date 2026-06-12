@@ -1,4 +1,4 @@
-package system
+package exec
 
 import (
 	"fmt"
@@ -6,23 +6,25 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/kjkrol/goke/internal/core"
+	"github.com/kjkrol/goke/internal/reg"
 )
 
-type ExecutionContext interface {
-	Run(System, time.Duration)
-	RunParallel(time.Duration, ...System)
+type RunCtx interface {
+	Run(Runnable, time.Duration)
+	RunParallel(time.Duration, ...Runnable)
 	Sync() error
 }
 
-type ExecutionPlan func(ExecutionContext, time.Duration)
+type Plan func(RunCtx, time.Duration)
 
 type Scheduler struct {
-	register *core.Registry
-	systems  []System
-	buffers  map[System]*SystemCommandBuffer
-	plan     ExecutionPlan
+	register *reg.Registry
+	systems  []Runnable
+	buffers  map[Runnable]*CommandBuf
+	plan     Plan
 }
+
+var _ RunCtx = (*Scheduler)(nil)
 
 func (s *Scheduler) Reset() {
 	clear(s.systems)
@@ -36,45 +38,43 @@ func (s *Scheduler) Reset() {
 	s.plan = nil
 }
 
-func NewScheduler(register *core.Registry) Scheduler {
+func NewScheduler(register *reg.Registry) Scheduler {
 	return Scheduler{
 		register: register,
-		buffers:  make(map[System]*SystemCommandBuffer),
-		systems:  make([]System, 0),
+		buffers:  make(map[Runnable]*CommandBuf),
+		systems:  make([]Runnable, 0),
 	}
 }
 
-var _ ExecutionContext = (*Scheduler)(nil)
-
-func (s *Scheduler) SetExecutionPlan(plan ExecutionPlan) {
+func (s *Scheduler) SetExecutionPlan(plan Plan) {
 	s.plan = plan
 }
 
-func (s *Scheduler) RegisterSystem(sys System) {
+func (s *Scheduler) RegisterSystem(sys Runnable) {
 	s.systems = append(s.systems, sys)
-	s.buffers[sys] = NewSystemCommandBuffer()
+	s.buffers[sys] = NewCommandBuf()
 }
 
 func (s *Scheduler) Tick(duration time.Duration) {
 	if s.plan == nil {
-		panic("ECS Error: ExecutionPlan is not defined! Use SetPlan() before starting the loop.")
+		panic("ECS Error: Plan is not defined! Use Plan() before starting the loop.")
 	}
 	s.plan(s, duration)
 }
 
 // -------------------------------------------------------------
 
-func (s *Scheduler) Run(sys System, d time.Duration) {
+func (s *Scheduler) Run(sys Runnable, d time.Duration) {
 	cb := s.getBuffer(sys)
 	sys.Update(s.register, cb, d)
 }
 
-func (s *Scheduler) RunParallel(d time.Duration, systems ...System) {
+func (s *Scheduler) RunParallel(d time.Duration, systems ...Runnable) {
 	var wg sync.WaitGroup
 
 	for _, sys := range systems {
 		wg.Add(1)
-		go func(currSys System) {
+		go func(currSys Runnable) {
 			defer wg.Done()
 			cb := s.getBuffer(currSys)
 			currSys.Update(s.register, cb, d)
@@ -98,12 +98,11 @@ func (s *Scheduler) Sync() error {
 
 // -------------------------------------------------------------
 
-func (s *Scheduler) getBuffer(sys System) *SystemCommandBuffer {
+func (s *Scheduler) getBuffer(sys Runnable) *CommandBuf {
 	return s.buffers[sys]
 }
 
-// fragment:
-func (s *Scheduler) applyBufferCommands(cb *SystemCommandBuffer) error {
+func (s *Scheduler) applyBufferCommands(cb *CommandBuf) error {
 	for _, cmd := range cb.commands {
 		target := cmd.entity
 

@@ -1,12 +1,17 @@
-package core
+package arch
 
-import "github.com/kjkrol/uid"
+import (
+	"github.com/kjkrol/uid"
+
+	"github.com/kjkrol/goke/internal/core"
+	"github.com/kjkrol/goke/internal/mem"
+)
 
 type EntityArchLink struct {
-	ArchId     ArchetypeId
-	PageIdx    PageIdx  // Index of the memory page (Page) in Archetype.Memory.Pages
-	PageSlot   PageSlot // Index of the slot within that specific Page
-	Generation uint32   // Entity generation for validation
+	ArchId     core.ArchetypeId
+	PageIdx    mem.PageIdx
+	PageSlot   mem.PageSlot
+	Generation uint32
 }
 
 type EntityLinkStore struct {
@@ -23,7 +28,6 @@ func (s *EntityLinkStore) Reset() {
 	clear(s.links)
 }
 
-// Get returns the link only if the generation matches.
 func (s *EntityLinkStore) Get(entity uid.UID64) (EntityArchLink, bool) {
 	index, gen := entity.Unpack()
 	if index >= uint32(len(s.links)) {
@@ -32,22 +36,19 @@ func (s *EntityLinkStore) Get(entity uid.UID64) (EntityArchLink, bool) {
 
 	link := s.links[index]
 
-	// Combined check: empty slot OR stale generation.
-	if link.ArchId == NullArchetypeId || link.Generation != gen {
+	if link.ArchId == core.NullArchetypeId || link.Generation != gen {
 		return EntityArchLink{}, false
 	}
 
 	return link, true
 }
 
-// Update updates the entity's location using the new Page Index and Page Row.
-func (s *EntityLinkStore) Update(entity uid.UID64, archId ArchetypeId, pageIdx PageIdx, slot PageSlot) {
+func (s *EntityLinkStore) Update(entity uid.UID64, archId core.ArchetypeId, pageIdx mem.PageIdx, slot mem.PageSlot) {
 	index, gen := entity.Unpack()
 	if index >= uint32(cap(s.links)) {
 		s.grow(index + 1)
 	}
 
-	// Store location (Page Index + Row) AND the current generation
 	s.links[index] = EntityArchLink{
 		ArchId:     archId,
 		PageIdx:    pageIdx,
@@ -62,21 +63,18 @@ func (s *EntityLinkStore) Clear(entity uid.UID64) {
 		return
 	}
 
-	// Double-check: only clear if generations match!
-	// If they don't, it means this entity is already gone or replaced.
 	if s.links[index].Generation == gen {
 		s.links[index] = EntityArchLink{
-			ArchId:     NullArchetypeId,
+			ArchId:     core.NullArchetypeId,
 			PageIdx:    0,
 			PageSlot:   0,
-			Generation: 0, // Reset to 0 to prevent any stale handle matches
+			Generation: 0,
 		}
 	}
 }
 
 func (s *EntityLinkStore) grow(minLen uint32) {
 	newCap := max(uint32(len(s.links))*2, minLen)
-
 	newLinks := make([]EntityArchLink, newCap)
 	copy(newLinks, s.links)
 	s.links = newLinks

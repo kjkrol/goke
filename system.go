@@ -4,27 +4,26 @@ import (
 	"time"
 
 	"github.com/kjkrol/goke/internal/core"
-	"github.com/kjkrol/goke/internal/system"
+	"github.com/kjkrol/goke/internal/exec"
 )
 
 type (
-	// Lookup provides a thread-safe, read-only view of the components.
-	// It is used by systems to inspect the state of entities without the risk
-	// of concurrent modification.
-	Lookup = core.ReadOnlyRegistry
+	// Lookup provides a read-only view of component data.
+	// Used by systems to inspect entity state without the risk of concurrent modification.
+	Lookup = core.ComponentReader
 
-	// Schedule manages structural changes to the world that are deferred until
-	// a synchronization point. It allows for safe modification of entities and
-	// components during system updates without invalidating current iterators.
-	Schedule = system.SystemCommandBuffer
+	// Schedule collects structural changes (add/remove component, destroy entity)
+	// and applies them at the next synchronization point, keeping iterators valid
+	// during system updates.
+	Schedule = exec.CommandBuf
 
-	// System is the interface for logic units that process entity data.
+	// System is the interface for logic units that process entity data each tick.
 	//
-	// Update is called by the scheduler and receives a ReadOnlyRegistry to inspect
-	// data and a SystemCommandBuffer to request changes.
+	// Update receives a read-only Lookup for inspecting state and a Schedule
+	// for queuing deferred changes.
 	//
-	// Init is called once when the system is registered, providing access
-	// to the ECS instance for setup (e.g., pre-registering components or views).
+	// Init is called once on registration, giving the system access to the ECS
+	// for setup such as pre-registering components or views.
 	System interface {
 		Update(Lookup, *Schedule, time.Duration)
 		Init(*ECS)
@@ -36,20 +35,20 @@ type (
 // already has this component, the existing data will be overwritten
 // when the schedule is applied.
 func ScheduleAddComponent[T any](schedule *Schedule, e Entity, compDesc ComponentDesc, value T) {
-	system.AddComponent(schedule, e, compDesc, value)
+	exec.AddComponent(schedule, e, compDesc, value)
 }
 
 // ScheduleRemoveComponent queues the removal of a component from an entity.
 // This operation is ignored if the entity does not have the specified component.
 func ScheduleRemoveComponent(schedule *Schedule, e Entity, compDesc ComponentDesc) {
-	system.RemoveComponent(schedule, e, compDesc)
+	exec.RemoveComponent(schedule, e, compDesc)
 }
 
 // ScheduleRemoveEntity queues the destruction of an entity and all its
 // associated components. Any pending operations on this entity in the
 // same schedule will be discarded.
 func ScheduleRemoveEntity(schedule *Schedule, e Entity) {
-	system.RemoveEntity(schedule, e)
+	exec.RemoveEntity(schedule, e)
 }
 
 // SystemFunc defines a function signature for stateless logic units.

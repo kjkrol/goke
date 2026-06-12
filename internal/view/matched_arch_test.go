@@ -1,26 +1,29 @@
-package core
+package view
 
 import (
 	"testing"
 	"unsafe"
+
+	"github.com/kjkrol/goke/internal/arch"
+	"github.com/kjkrol/goke/internal/mem"
 )
 
 func TestMatchedArch_GetPointer(t *testing.T) {
 	data := make([]byte, 1024)
-	page := Page{Ptr: unsafe.Pointer(&data[0])}
-	arch := &Archetype{
-		Memory: Memo{
-			Pages: []Page{page},
+	page := mem.Page{Ptr: unsafe.Pointer(&data[0])}
+	a := &arch.Archetype{
+		Memory: mem.Memo{
+			Pages: []mem.Page{page},
 		},
 	}
 
 	ma := &MatchedArch{
-		Arch:        arch,
+		Arch:        a,
 		CompOffsets: []uintptr{32, 64},
 		CompSizes:   []uintptr{8, 16},
 	}
 
-	// Testing compIdx 1: offset 64, size 16, slot 2 => 64 + (2 * 16) = 96
+	// compIdx 1: offset 64, size 16, slot 2 => 64 + (2 * 16) = 96
 	ptr := ma.GetPointer(0, 2, 1)
 	expectedPtr := unsafe.Add(page.Ptr, 96)
 
@@ -31,7 +34,7 @@ func TestMatchedArch_GetPointer(t *testing.T) {
 
 func TestMatchedArch_ColumnStarts(t *testing.T) {
 	data := make([]byte, 1024)
-	page := Page{Ptr: unsafe.Pointer(&data[0])}
+	page := mem.Page{Ptr: unsafe.Pointer(&data[0])}
 
 	ma := &MatchedArch{
 		EntityPageOffset: 16,
