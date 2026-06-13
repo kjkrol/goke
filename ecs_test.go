@@ -24,59 +24,59 @@ type Processed struct{}
 func TestECS_UseCase(t *testing.T) {
 	ecs := goke.New()
 
-	orderDesc := goke.RegisterComponent[Order](ecs)
-	_ = goke.RegisterComponent[Discount](ecs)
-	processedDesc := goke.RegisterComponent[Processed](ecs)
+	orderDesc := goke.RegCompType[Order](ecs)
+	_ = goke.RegCompType[Discount](ecs)
+	processedDesc := goke.RegCompType[Processed](ecs)
 
 	blueprint1 := goke.NewBlueprint2[Order, Discount](ecs)
 
-	var eA, eB goke.Entity
-	for page := range blueprint1.Create(1) {
-		eA = page.Entity[0]
-		page.Comp1[0] = Order{ID: "ORD-001", Total: 100.0}
-		page.Comp2[0] = Discount{Percentage: 10.0}
+	var eA, eB goke.EntityID
+	for chunk := range blueprint1.Create(1) {
+		eA = chunk.Entity[0]
+		chunk.Comp1[0] = Order{ID: "ORD-001", Total: 100.0}
+		chunk.Comp2[0] = Discount{Percentage: 10.0}
 	}
 
 	blueprint2 := goke.NewBlueprint1[Order](ecs)
-	for page := range blueprint2.Create(1) {
-		eB = page.Entity[0]
-		page.Comp1[0] = Order{ID: "ORD-002", Total: 50.0}
+	for chunk := range blueprint2.Create(1) {
+		eB = chunk.Entity[0]
+		chunk.Comp1[0] = Order{ID: "ORD-002", Total: 50.0}
 	}
 
 	query1 := goke.NewView2[Order, Discount](ecs)
 	processedCount := 0
 
-	billingSystem := goke.RegisterSystemFunc(ecs, func(cb *goke.Schedule, d time.Duration) {
-		for page := range query1.All() {
-			for i, entity := range page.Entity {
+	billingSystem := goke.RegSysFn(ecs, func(cb *goke.CmdBuf, d time.Duration) {
+		for chunk := range query1.All() {
+			for i, entityID := range chunk.Entity {
 				processedCount++
-				page.Comp1[i].Total *= (1 - page.Comp2[i].Percentage/100)
-				goke.ScheduleAddComponent(cb, entity, processedDesc, Processed{})
+				chunk.Comp1[i].Total *= (1 - chunk.Comp2[i].Percentage/100)
+				goke.CmdBufAddComp(cb, entityID, processedDesc, Processed{})
 			}
 		}
 	})
 	query2 := goke.NewView0(ecs, goke.Include[Processed](), goke.Include[Order](), goke.Include[Discount]())
-	cleanerSystem := goke.RegisterSystemFunc(ecs, func(schedule *goke.Schedule, d time.Duration) {
-		for page := range query2.All() {
-			for _, entity := range page.Entity {
-				goke.ScheduleRemoveEntity(schedule, entity)
+	cleanerSystem := goke.RegSysFn(ecs, func(schedule *goke.CmdBuf, d time.Duration) {
+		for chunk := range query2.All() {
+			for _, entityID := range chunk.Entity {
+				schedule.RemoveEntity(entityID)
 			}
 		}
 	})
 
-	goke.Plan(ecs, func(ctx goke.ExecutionContext, d time.Duration) {
+	goke.SetPlan(ecs, func(ctx goke.RunCtx, d time.Duration) {
 		ctx.Run(billingSystem, d)
 
 		// test this stage
-		order, _ := goke.SafeGetComponent[Order](ecs, eA, orderDesc)
+		order, _ := goke.SafeGetComp[Order](ecs, eA, orderDesc)
 		if order.Total != 90.0 {
 			t.Errorf("Discount has not been applied, Total: %v", order.Total)
 		}
 
 		ctx.Sync()
-		for page := range query2.All() {
-			for _, entity := range page.Entity {
-				_ = entity
+		for chunk := range query2.All() {
+			for _, entityID := range chunk.Entity {
+				_ = entityID
 			}
 		}
 		ctx.Run(cleanerSystem, d)
@@ -90,33 +90,33 @@ func TestECS_UseCase(t *testing.T) {
 	}
 
 	// Entity A should be removed from Registry
-	_, err := goke.SafeGetComponent[Order](ecs, eA, orderDesc)
+	_, err := goke.SafeGetComp[Order](ecs, eA, orderDesc)
 	if err == nil {
 		t.Error("Entity eA should have been removed from the registry")
 	}
 
 	// Entity B should still exist
-	_, errB := goke.SafeGetComponent[Order](ecs, eB, orderDesc)
+	_, errB := goke.SafeGetComp[Order](ecs, eB, orderDesc)
 	if errB != nil {
 		t.Error("Entity eB should not have been removed")
 	}
 }
 
-func TestECS_GetComponent_TypeSafety(t *testing.T) {
+func TestECS_SafeGetComp_TypeSafety(t *testing.T) {
 	ecs := goke.New()
 
-	posDesc := goke.RegisterComponent[Position](ecs)
-	_ = goke.RegisterComponent[Velocity](ecs)
+	posDesc := goke.RegCompType[Position](ecs)
+	_ = goke.RegCompType[Velocity](ecs)
 
-	var entity goke.Entity
+	var entityID goke.EntityID
 	blueprint := goke.NewBlueprint1[Position](ecs)
-	for page := range blueprint.Create(1) {
-		entity = page.Entity[0]
-		page.Comp1[0] = Position{X: 10, Y: 20}
+	for chunk := range blueprint.Create(1) {
+		entityID = chunk.Entity[0]
+		chunk.Comp1[0] = Position{X: 10, Y: 20}
 	}
 
 	t.Run("Should fail when requesting wrong type for valid ID", func(t *testing.T) {
-		_, err := goke.SafeGetComponent[Velocity](ecs, entity, posDesc)
+		_, err := goke.SafeGetComp[Velocity](ecs, entityID, posDesc)
 
 		if err == nil {
 			t.Fatal("Expected error due to type mismatch, but got nil")
@@ -129,7 +129,7 @@ func TestECS_GetComponent_TypeSafety(t *testing.T) {
 	})
 
 	t.Run("Should succeed when type matches descriptor", func(t *testing.T) {
-		p, err := goke.SafeGetComponent[Position](ecs, entity, posDesc)
+		p, err := goke.SafeGetComp[Position](ecs, entityID, posDesc)
 
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
@@ -140,18 +140,18 @@ func TestECS_GetComponent_TypeSafety(t *testing.T) {
 	})
 }
 
-func TestECS_GetComponent(t *testing.T) {
+func TestECS_GetComp(t *testing.T) {
 	ecs := goke.New()
-	posDesc := goke.RegisterComponent[Position](ecs)
+	posDesc := goke.RegCompType[Position](ecs)
 
-	var entity goke.Entity
+	var entityID goke.EntityID
 	blueprint := goke.NewBlueprint1[Position](ecs)
-	for page := range blueprint.Create(1) {
-		entity = page.Entity[0]
-		page.Comp1[0] = Position{X: 10, Y: 20}
+	for chunk := range blueprint.Create(1) {
+		entityID = chunk.Entity[0]
+		chunk.Comp1[0] = Position{X: 10, Y: 20}
 	}
 
-	ptr := goke.GetComponent[Position](ecs, entity, posDesc)
+	ptr := goke.GetComp[Position](ecs, entityID, posDesc)
 	if ptr == nil {
 		t.Fatalf("expected component")
 	}
@@ -159,29 +159,29 @@ func TestECS_GetComponent(t *testing.T) {
 		t.Errorf("wrong value")
 	}
 
-	fakeEntity := goke.Entity(999)
-	ptrFake := goke.GetComponent[Position](ecs, fakeEntity, posDesc)
+	fakeEntity := goke.EntityID(999)
+	ptrFake := goke.GetComp[Position](ecs, fakeEntity, posDesc)
 	if ptrFake != nil {
 		t.Errorf("expected nil")
 	}
 }
 
-func TestECS_RemoveComponent(t *testing.T) {
+func TestECS_RemoveComp(t *testing.T) {
 	ecs := goke.New()
-	posDesc := goke.RegisterComponent[Position](ecs)
+	posDesc := goke.RegCompType[Position](ecs)
 
-	var entity goke.Entity
+	var entityID goke.EntityID
 	blueprint := goke.NewBlueprint1[Position](ecs)
-	for page := range blueprint.Create(1) {
-		entity = page.Entity[0]
+	for chunk := range blueprint.Create(1) {
+		entityID = chunk.Entity[0]
 	}
 
-	err := goke.RemoveComponent(ecs, entity, posDesc)
+	err := goke.RemoveComp(ecs, entityID, posDesc)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	ptr := goke.GetComponent[Position](ecs, entity, posDesc)
+	ptr := goke.GetComp[Position](ecs, entityID, posDesc)
 	if ptr != nil {
 		t.Errorf("expected component to be removed")
 	}
@@ -189,95 +189,95 @@ func TestECS_RemoveComponent(t *testing.T) {
 
 func TestECS_RemoveEntity(t *testing.T) {
 	ecs := goke.New()
-	posDesc := goke.RegisterComponent[Position](ecs)
+	posDesc := goke.RegCompType[Position](ecs)
 	_ = posDesc // to avoid unused variable error if any
 
-	var entity goke.Entity
+	var entityID goke.EntityID
 	blueprint := goke.NewBlueprint1[Position](ecs)
-	for page := range blueprint.Create(1) {
-		entity = page.Entity[0]
+	for chunk := range blueprint.Create(1) {
+		entityID = chunk.Entity[0]
 	}
 
-	ok := goke.RemoveEntity(ecs, entity)
+	ok := goke.RemoveEntity(ecs, entityID)
 	if !ok {
 		t.Errorf("expected entity to be removed")
 	}
 
-	ok = goke.RemoveEntity(ecs, entity)
+	ok = goke.RemoveEntity(ecs, entityID)
 	if ok {
 		t.Errorf("expected false for already removed entity")
 	}
 }
 
-func TestECS_EnsureComponent(t *testing.T) {
+func TestECS_UpsertComp(t *testing.T) {
 	ecs := goke.New()
-	posDesc := goke.RegisterComponent[Position](ecs)
-	_ = goke.RegisterComponent[Velocity](ecs)
+	posDesc := goke.RegCompType[Position](ecs)
+	_ = goke.RegCompType[Velocity](ecs)
 
-	var entity goke.Entity
+	var entityID goke.EntityID
 	blueprint := goke.NewBlueprint1[Position](ecs)
-	for page := range blueprint.Create(1) {
-		entity = page.Entity[0]
+	for chunk := range blueprint.Create(1) {
+		entityID = chunk.Entity[0]
 	}
 
-	_, err := goke.SafeEnsureComponent[Velocity](ecs, entity, posDesc)
+	_, err := goke.SafeUpsertComp[Velocity](ecs, entityID, posDesc)
 	if err == nil {
 		t.Errorf("expected type mismatch error")
 	}
 
-	ptr := goke.EnsureComponent[Position](ecs, entity, posDesc)
+	ptr := goke.UpsertComp[Position](ecs, entityID, posDesc)
 	if ptr == nil {
 		t.Fatalf("expected valid pointer")
 	}
 	ptr.X = 55
 
-	val := goke.GetComponent[Position](ecs, entity, posDesc)
+	val := goke.GetComp[Position](ecs, entityID, posDesc)
 	if val.X != 55 {
 		t.Errorf("expected 55, got %v", val.X)
 	}
 
-	fakeEntity := goke.Entity(999)
-	_, err = goke.SafeEnsureComponent[Position](ecs, fakeEntity, posDesc)
+	fakeEntity := goke.EntityID(999)
+	_, err = goke.SafeUpsertComp[Position](ecs, fakeEntity, posDesc)
 	if err == nil {
 		t.Errorf("expected invalid entity error")
 	}
 }
 
-func TestECS_EnsureComponent_Panic(t *testing.T) {
+func TestECS_UpsertComp_Panic(t *testing.T) {
 	ecs := goke.New()
-	posDesc := goke.RegisterComponent[Position](ecs)
+	posDesc := goke.RegCompType[Position](ecs)
 
-	fakeEntity := goke.Entity(999)
+	fakeEntity := goke.EntityID(999)
 
 	defer func() {
 		if r := recover(); r == nil {
-			t.Errorf("expected EnsureComponent to panic on invalid entity")
+			t.Errorf("expected UpsertComp to panic on invalid entity")
 		}
 	}()
 
-	goke.EnsureComponent[Position](ecs, fakeEntity, posDesc)
+	goke.UpsertComp[Position](ecs, fakeEntity, posDesc)
 }
 
 func TestECS_Reset(t *testing.T) {
 	ecs := goke.New()
-	posDesc := goke.RegisterComponent[Position](ecs)
+	posDesc := goke.RegCompType[Position](ecs)
 
-	var entity goke.Entity
+	var entityID goke.EntityID
 	blueprint := goke.NewBlueprint1[Position](ecs)
-	for page := range blueprint.Create(1) {
-		entity = page.Entity[0]
+	for chunk := range blueprint.Create(1) {
+		entityID = chunk.Entity[0]
 	}
 
 	goke.Reset(ecs)
 
-	ptr := goke.GetComponent[Position](ecs, entity, posDesc)
+	ptr := goke.GetComp[Position](ecs, entityID, posDesc)
 	if ptr != nil {
 		t.Errorf("expected entity to be reset/removed")
 	}
 }
 
 func TestECS_NewWithOptions(t *testing.T) {
-	ecs := goke.New(func(c *goke.ECSConfig) {
+	ecs := goke.New(func(c *goke.Config) {
 		c.FreeIndicesCap = 500
 	})
 	if ecs == nil {

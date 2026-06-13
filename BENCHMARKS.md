@@ -41,7 +41,7 @@ Every operation below results in **0 heap allocations** on the hot path.
 | **9 comp** | 13.02 | 4 | 22.45 | 5 |
 | **10 comp** | 14.24 | 4 | 20.42 | 5 |
 
-The additional allocation at 2²⁰ entities comes from page growth during large batch construction. Despite the 1024× increase in entity count, creation remains O(n) with a per-entity cost in the low tens of nanoseconds.
+The additional allocation at 2²⁰ entities comes from chunk growth during large batch construction. Despite the 1024× increase in entity count, creation remains O(n) with a per-entity cost in the low tens of nanoseconds.
 
 ### View.All (full archetype scan, SoA pages)
 

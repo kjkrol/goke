@@ -21,7 +21,7 @@ func NewInputSystem(resources *Resources) goke.System {
 
 func (s *InputSystem) Init(ecs *goke.ECS) {}
 
-func (s *InputSystem) Update(lookup goke.Lookup, sched *goke.Schedule, d time.Duration) {
+func (s *InputSystem) Update(lookup goke.Lookup, sched *goke.CmdBuf, d time.Duration) {
 	events := s.GetInputEvents()
 
 	for _, keyEvent := range events.KeyEvents {

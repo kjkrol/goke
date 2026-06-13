@@ -25,11 +25,11 @@ func (s *MovementSystem) Init(ecs *goke.ECS) {
 	s.moveView = goke.NewView2[Position, Velocity](ecs)
 }
 
-func (s *MovementSystem) Update(_ goke.Lookup, _ *goke.Schedule, d time.Duration) {
+func (s *MovementSystem) Update(_ goke.Lookup, _ *goke.CmdBuf, d time.Duration) {
 	dt := d.Seconds()
-	for page := range s.moveView.All() {
-		for i, entity := range page.Entity {
-			pos, vel := &page.Comp1[i], &page.Comp2[i]
+	for chunk := range s.moveView.All() {
+		for i, entityID := range chunk.Entity {
+			pos, vel := &chunk.Comp1[i], &chunk.Comp2[i]
 			pos.accX += float64(vel.X) * dt
 			pos.accY += float64(vel.Y) * dt
 
@@ -45,7 +45,7 @@ func (s *MovementSystem) Update(_ goke.Lookup, _ *goke.Schedule, d time.Duration
 
 			if dx != 0 || dy != 0 {
 				delta := geom.NewVec(uint32(dx), uint32(dy))
-				s.space.Translate(uint64(entity), &pos.AABB, delta)
+				s.space.Translate(uint64(entityID), &pos.AABB, delta)
 			}
 		}
 	}

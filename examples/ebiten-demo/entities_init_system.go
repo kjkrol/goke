@@ -36,26 +36,26 @@ func (s *EntitiesInitSystem) Init(ecs *goke.ECS) {
 	cellHeight := s.space.Height / cols
 
 	index := 0
-	for page := range s.blueprint.Create(spawnEntitiesNumber) {
-		for j, entity := range page.Entity {
-			position, velocity, collision, appearance := &page.Comp1[j], &page.Comp2[j], &page.Comp3[j], &page.Comp4[j]
+	for chunk := range s.blueprint.Create(spawnEntitiesNumber) {
+		for j, entityID := range chunk.Entity {
+			position, velocity, collision, appearance := &chunk.Comp1[j], &chunk.Comp2[j], &chunk.Comp3[j], &chunk.Comp4[j]
 			row := uint32(index) / cols
 			col := uint32(index) % cols
 
-			spawnEntity(entity, position, velocity, collision, appearance,
+			spawnEntity(entityID, position, velocity, collision, appearance,
 				cellWidth, cellHeight, row, col)
 
-			s.space.Insert(uint64(entity), position.AABB)
+			s.space.Insert(uint64(entityID), position.AABB)
 			index++
 		}
 	}
 	s.space.Flush(nil)
 }
 
-func (s *EntitiesInitSystem) Update(goke.Lookup, *goke.Schedule, time.Duration) {}
+func (s *EntitiesInitSystem) Update(goke.Lookup, *goke.CmdBuf, time.Duration) {}
 
 func spawnEntity(
-	entity goke.Entity,
+	entityID goke.EntityID,
 	position *Position,
 	velocity *Velocity,
 	collistion *Collision,

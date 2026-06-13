@@ -8,9 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.3.0] - 2026-06-07
 
 ### Breaking Changes ⚠️
-* **`View.All()` returns SoA pages directly.** Replaced the previous `Values()` / `Head` / `Tail` pattern with a single `iter.Seq[struct{Entity []Entity, Comp1 []T1, ...}]` that yields page-shaped slices over native memory. The inner loop is now on the caller side, exposing full SoA layout for SIMD-friendly access patterns and aggressive compiler inlining.
+* **`View.All()` returns SoA pages directly.** Replaced the previous `Values()` / `Head` / `Tail` pattern with a single `iter.Seq[struct{Entity []Entity, Comp1 []T1, ...}]` that yields chunk-shaped slices over native memory. The inner loop is now on the caller side, exposing full SoA layout for SIMD-friendly access patterns and aggressive compiler inlining.
 * **`View.Filter(selected)` redesigned**: now returns `iter.Seq2[int, struct{Entity, Comp1, ...}]`. The index is the position in the input `selected` slice — callers can identify which entities were skipped (not matching the view, or already removed) and correlate results with parallel side-tables without maintaining a manual counter.
-* **`Blueprint.Create(n)` is now batch-based**: returns `iter.Seq[page]` where each yielded page exposes typed slices (`Entity[]`, `Comp1[]`, ...) for direct in-place initialization. Replaces the previous single-entity `Create()` returning a struct of pointers.
+* **`Blueprint.Create(n)` is now batch-based**: returns `iter.Seq[chunk]` where each yielded chunk exposes typed slices (`Entity[]`, `Comp1[]`, ...) for direct in-place initialization. Replaces the previous single-entity `Create()` returning a struct of pointers.
 * **`GetComponent[T]` returns `*T` directly** (without error). Use `SafeGetComponent[T]` for the error-returning variant with reflection-based type validation.
 
 ### Added ✨
