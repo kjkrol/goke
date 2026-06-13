@@ -24,7 +24,7 @@ func NewStatsRendererSystem(resources *Resources) gokebiten.RenderSystem {
 
 func (s *StatsRendererSystem) Init(ecs *goke.ECS) {}
 
-func (s *StatsRendererSystem) Update(_ goke.Lookup, _ *goke.Schedule, d time.Duration) {}
+func (s *StatsRendererSystem) Update(_ goke.Lookup, _ *goke.CmdBuf, d time.Duration) {}
 
 func (s *StatsRendererSystem) Draw(screen *ebiten.Image) {
 	avgCollisionsPerTick := float64(0)

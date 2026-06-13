@@ -2,66 +2,46 @@
 package goke
 
 import (
-	"fmt"
 	"iter"
-	"reflect"
 	"unsafe"
 
-    "github.com/kjkrol/goke/internal/core"
+    "github.com/kjkrol/goke/internal/arch"
+    "github.com/kjkrol/goke/internal/comp"
+	"github.com/kjkrol/goke/internal/entity"
+	"github.com/kjkrol/goke/internal/soa"
 )
 
 {{ range $n := .Range }}
 {{- /* File: blueprint.go.tmpl */ -}}
 
-// Blueprint{{ $n }} defines a static template (recipe) for the mass construction
-// of entities with a predefined set of {{ $n }} stateful components. It allows
-// for precise memory layout planning before allocation, which is essential
-// for high-performance data access patterns.
-//
-// For example, a Blueprint{{ $n }} could be used to define complex actors that
-// require exactly {{ $n }} distinct data structures to be stored contiguously,
-// ensuring optimal data locality and cache efficiency.
+// Blueprint{{ $n }} is a reusable template for bulk-creating entities with {{ $n }} stateful component(s).
+// Archetype metadata is registered once at construction, enabling fast repeated spawning.
 type Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $n }}, {{ end }}{{ end }}] struct {
-    itemFactory *core.ItemFactory
+    arch *arch.Archetype
+    em   *entity.Manager
+    {{- range $i := (seq 1 $n) }}
+    compMeta{{ $i }} comp.Meta
+    {{- end }}
 }
 
-// NewBlueprint{{ $n }} initializes a new template for a specific combination of {{ $n }} components.
-// It accepts optional BlueprintOptions (e.g., Include[Tag]()) to extend the
-// template with any number of stateless components (Tags). Tags do not occupy
-// space in the data columns but allow for precise population filtering within Views.
-//
-// By using a static definition, archetype metadata is registered once,
-// enabling rapid entity spawning with minimal memory management overhead.
-//
-// This constructor panics if component registration fails or if there are
-// configuration conflicts, ensuring a fail-fast behavior during system initialization.
+// NewBlueprint{{ $n }} registers the component types and optional tags/exclusions, then
+// returns a ready-to-use blueprint. Panics on configuration conflicts.
 func NewBlueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $n }}, {{ end }}{{ end }}](
     ecs *ECS,
-    opts ...BlueprintOption,
+    opts ...BlueprintOpt,
 ) *Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}] {
-    registry := ecs.registry
-    blueprint := core.NewBlueprint(registry)
+    cc := &ecs.registry.CompCatalog
+    em := &ecs.registry.EntityManager
+    var s comp.Spec{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]
+    s.Init(cc, opts...)
 
-    // mustAdd ensures that component registration and blueprint assignment
-    // are successful. Panics immediately on failure to support fail-fast startup.
-    mustAdd := func(info core.ComponentInfo) {
-        if err := blueprint.WithComp(info); err != nil {
-            panic(fmt.Sprintf("goke: blueprint{{ $n }} init failed: %v", err))
-        }
-    }
-
-    {{ range $i := (seq 1 $n) -}}
-    mustAdd(registry.ComponentsRegistry.GetOrRegister(reflect.TypeFor[T{{ $i }}]()))
-    {{ end }}
-    // Apply dynamic options (Tags, Exclusions) and panic on any configuration error.
-    for _, opt := range opts {
-        if err := opt(blueprint); err != nil {
-            panic(fmt.Sprintf("goke: blueprint{{ $n }} option failed: %v", err))
-        }
-    }
-
+    archID := em.ArchCatalog.Upsert(cc.Compose(&s.Blueprint))
     return &Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]{
-        itemFactory: core.NewItemFactory(blueprint),
+        arch: &em.ArchCatalog.Archetypes[archID],
+        em:   em,
+        {{- range $i := (seq 1 $n) }}
+        compMeta{{ $i }}: s.Meta{{ $i }},
+        {{- end }}
     }
 }
 
@@ -70,94 +50,91 @@ func NewBlueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $
 //
 // Example:
 //
-//	for page := range blueprint.Create(100) {
-//		for i := range page.Entity {
+//	for chunk := range blueprint.Create(100) {
+//		for i := range chunk.Entity {
 {{- range $i := (seq 1 $n) }}
-//			page.Comp{{ $i }}[i] = ...
+//			chunk.Comp{{ $i }}[i] = ...
 {{- end }}
 //		}
 //	}
 func (b *Blueprint{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) Create(count int) iter.Seq[struct {
-	Entity []Entity
+	Entity []EntityID
 	{{- range $i := (seq 1 $n) }}
 	Comp{{ $i }} []T{{ $i }}
 	{{- end }}
 }] {
-	reg := b.itemFactory.Reg
-	archReg := reg.ArchetypeRegistry
-	arch := &archReg.Archetypes[b.itemFactory.ArchId]
-	memo := &arch.Memory
-	entityCol := &arch.Columns[core.EntityColumnIndex]
+	cs := &b.arch.Table
+	entityCol := cs.GetEntityColumn()
 	{{- range $i := (seq 1 $n) }}
-	col{{ $i }} := arch.GetColumn(b.itemFactory.CompInfos[{{ sub $i 1 }}].ID)
+	col{{ $i }} := cs.GetColumn(b.compMeta{{ $i }}.ID)
 	{{- end }}
 	remaining := count
 
 	return func(yield func(struct {
-		Entity []Entity
+		Entity []EntityID
 		{{- range $i := (seq 1 $n) }}
 		Comp{{ $i }} []T{{ $i }}
 		{{- end }}
 	}) bool) {
-		pageIdx := core.PageIdx(len(memo.Pages) - 1)
-		page := &memo.Pages[pageIdx]
-		available := int(memo.Layout.PageCap) - int(page.Len)
+		chunkIdx := soa.ChunkIdx(len(cs.Chunks) - 1)
+		chunk := &cs.Chunks[chunkIdx]
+		available := int(cs.Layout.ChunkCap) - int(chunk.Len)
 
 		if available == 0 {
-			pagesNeeded := (remaining + int(memo.Layout.PageCap) - 1) / int(memo.Layout.PageCap)
-			memo.AddPages(pagesNeeded)
-			pageIdx++
-			page = &memo.Pages[pageIdx]
-			available = int(memo.Layout.PageCap)
+			chunksNeeded := (remaining + int(cs.Layout.ChunkCap) - 1) / int(cs.Layout.ChunkCap)
+			cs.AddChunks(chunksNeeded)
+			chunkIdx++
+			chunk = &cs.Chunks[chunkIdx]
+			available = int(cs.Layout.ChunkCap)
 		} else {
-			pagesNeeded := (remaining - available + int(memo.Layout.PageCap) - 1) / int(memo.Layout.PageCap)
-			if pagesNeeded > 0 {
-				memo.AddPages(pagesNeeded)
-				page = &memo.Pages[pageIdx]
+			chunksNeeded := (remaining - available + int(cs.Layout.ChunkCap) - 1) / int(cs.Layout.ChunkCap)
+			if chunksNeeded > 0 {
+				cs.AddChunks(chunksNeeded)
+				chunk = &cs.Chunks[chunkIdx]
 			}
 		}
 
-		memo.Reserved = core.PageIdx(len(memo.Pages) - 1)
+		cs.Reserved = soa.ChunkIdx(len(cs.Chunks) - 1)
 
 		for remaining > 0 {
 			allocatedSlots := min(remaining, available)
-			startSlot := page.Len
-			page.Len += core.PageSlot(allocatedSlots)
-			memo.Len += uint32(allocatedSlots)
+			startSlot := chunk.Len
+			chunk.Len += soa.ChunkSlot(allocatedSlots)
+			cs.Len += uint32(allocatedSlots)
 
 			for i := range allocatedSlots {
-				entity := Entity(reg.EntityPool.Next())
-				pageSlot := startSlot + core.PageSlot(i)
-				destPtr := entityCol.GetPointer(page, pageSlot)
-				*(*Entity)(destPtr) = entity
-				archReg.EntityLinkStore.Update(entity, b.itemFactory.ArchId, pageIdx, pageSlot)
+				entityID := EntityID(b.em.NextID())
+				chunkSlot := startSlot + soa.ChunkSlot(i)
+				destPtr := entityCol.At(chunk, chunkSlot)
+				*(*EntityID)(destPtr) = entityID
+				b.em.UpdateLocation(entityID, b.arch.Id, soa.BlockPos{ChunkIdx: chunkIdx, ChunkSlot: chunkSlot})
 			}
 
 			if !yield(
 				struct {
-					Entity []Entity
+					Entity []EntityID
 					{{- range $i := (seq 1 $n) }}
 					Comp{{ $i }} []T{{ $i }}
 					{{- end }}
 				}{
-					Entity: unsafe.Slice((*Entity)(entityCol.GetPointer(page, startSlot)), allocatedSlots),
+					Entity: unsafe.Slice((*EntityID)(entityCol.At(chunk, startSlot)), allocatedSlots),
 					{{- range $i := (seq 1 $n) }}
-					Comp{{ $i }}: unsafe.Slice((*T{{ $i }})(col{{ $i }}.GetPointer(page, startSlot)), allocatedSlots),
+					Comp{{ $i }}: unsafe.Slice((*T{{ $i }})(col{{ $i }}.At(chunk, startSlot)), allocatedSlots),
 					{{- end }}
 				}) {
-				memo.Reserved = 0
+				cs.Reserved = 0
 				return
 			}
 
 			remaining -= allocatedSlots
 			if remaining > 0 {
-				pageIdx++
-				page = &memo.Pages[pageIdx]
-				available = int(memo.Layout.PageCap)
+				chunkIdx++
+				chunk = &cs.Chunks[chunkIdx]
+				available = int(cs.Layout.ChunkCap)
 			}
 		}
 
-		memo.Reserved = 0
+		cs.Reserved = 0
 	}
 }
 {{ end }}

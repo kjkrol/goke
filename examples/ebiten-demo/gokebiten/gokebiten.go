@@ -55,13 +55,13 @@ func NewGame[T Resources](resources T, inputAdapter InputAdapter) *Game[T] {
 	return game
 }
 
-func RegisterComponent[T Resources, C any](game *Game[T]) goke.ComponentDesc {
-	return goke.RegisterComponent[C](game.ecs)
+func RegCompType[T Resources, C any](game *Game[T]) goke.CompMeta {
+	return goke.RegCompType[C](game.ecs)
 }
 
 func (g *Game[T]) RegisterScheduledSystem(factory func(T) goke.System) goke.System {
 	system := factory(g.resources)
-	goke.RegisterSystem(g.ecs, system)
+	goke.RegSys(g.ecs, system)
 	return system
 }
 
@@ -71,14 +71,14 @@ func (g *Game[T]) registerRenderSystem(factory func(T) RenderSystem) RenderSyste
 	return system
 }
 
-func (g *Game[T]) RegisterSystem(factory func(T) goke.System) goke.System {
+func (g *Game[T]) RegSys(factory func(T) goke.System) goke.System {
 	system := factory(g.resources)
 	system.Init(g.ecs)
 	return system
 }
 
-func (g *Game[T]) LogicPlan(plan func(ctx goke.ExecutionContext, d time.Duration)) {
-	goke.Plan(g.ecs, plan)
+func (g *Game[T]) LogicPlan(plan func(ctx goke.RunCtx, d time.Duration)) {
+	goke.SetPlan(g.ecs, plan)
 }
 
 func (g *Game[T]) RenderSequence(sysFactories ...func(T) RenderSystem) {

@@ -41,7 +41,7 @@ func (s *EntitiesRendererSystem) Init(ecs *goke.ECS) {
 	s.renderView = goke.NewView3[Position, Collision, Appearance](ecs)
 }
 
-func (s *EntitiesRendererSystem) Update(_ goke.Lookup, _ *goke.Schedule, _ time.Duration) {}
+func (s *EntitiesRendererSystem) Update(_ goke.Lookup, _ *goke.CmdBuf, _ time.Duration) {}
 
 const (
 	FRAG_SCREEN_LEFT     = plane.FRAG_RIGHT
@@ -56,9 +56,9 @@ func (s *EntitiesRendererSystem) Draw(screen *ebiten.Image) {
 	s.vertices = s.vertices[:0]
 	s.indices = s.indices[:0]
 
-	for page := range s.renderView.All() {
-		for i := range page.Entity {
-			pos, col, app := page.Comp1[i], page.Comp2[i], page.Comp3[i]
+	for chunk := range s.renderView.All() {
+		for i := range chunk.Entity {
+			pos, col, app := chunk.Comp1[i], chunk.Comp2[i], chunk.Comp3[i]
 			sx0, sy0, sx1, sy1 := spriteUV(app.SpriteID)
 			r, g, b, a := s.resolveColor(app, col, now)
 
