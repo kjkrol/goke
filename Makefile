@@ -8,7 +8,7 @@ RESULT_FILE := bench_results/bench_$(COMMIT_DATE)_$(COMMIT_HASH)$(DIRTY).txt
 
 BENCH_COUNT ?= 4
 
-.PHONY: setup generate
+.PHONY: setup generate bench bench-save bench-p95 test
 setup:
 	go run internal/cmd/scripts/setup/setup_work.go
 
@@ -23,7 +23,7 @@ bench:
 	go test -bench=. -benchmem ./...
 bench-save:
 	@mkdir -p bench_results
-	go test -bench=. -benchmem -cpu=1 -count=7 ./internal/bench/... > $(RESULT_FILE)
+	go test -bench=. -benchmem -cpu=1 -count=7 ./bench/... > $(RESULT_FILE)
 	@echo "Results saved into: $(RESULT_FILE)"
 
 ## bench-stats: Runs benchmarks multiple times and calculates P95/P99 latencies

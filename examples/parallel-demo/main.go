@@ -20,32 +20,32 @@ type Winner struct{}
 var gameFinished = false
 var turnCounter = 0
 
-var winnerDesc, diceDesc, playerDesc goke.ComponentDesc
+var winnerDesc, diceDesc, playerDesc goke.CompMeta
 
 func main() {
 	// 1. Initialize the ecs
 	ecs := goke.New()
 
 	// Register component types
-	winnerDesc = goke.RegisterComponent[Winner](ecs)
-	diceDesc = goke.RegisterComponent[Dice](ecs)
-	playerDesc = goke.RegisterComponent[Player](ecs)
+	winnerDesc = goke.RegCompType[Winner](ecs)
+	diceDesc = goke.RegCompType[Dice](ecs)
+	playerDesc = goke.RegCompType[Player](ecs)
 
 	// 2. Setup Entities & Components
 	diceBlueprint := goke.NewBlueprint1[Dice](ecs)
 
-	var diceEnt goke.Entity
-	for page := range diceBlueprint.Create(1) {
-		diceEnt = page.Entity[0]
-		page.Comp1[0] = Dice{Value: 0}
+	var diceEnt goke.EntityID
+	for chunk := range diceBlueprint.Create(1) {
+		diceEnt = chunk.Entity[0]
+		chunk.Comp1[0] = Dice{Value: 0}
 	}
 
 	// Setup player entities
 	playerBlueprint := goke.NewBlueprint1[Player](ecs)
 
-	for page := range playerBlueprint.Create(2) {
-		for i, _ := range page.Entity {
-			page.Comp1[i] = Player{Bet: 0}
+	for chunk := range playerBlueprint.Create(2) {
+		for i, _ := range chunk.Entity {
+			chunk.Comp1[i] = Player{Bet: 0}
 		}
 	}
 
@@ -57,55 +57,55 @@ func main() {
 	// 4. Register Systems
 
 	// System A: Roll the dice
-	rollSys := goke.RegisterSystemFunc(ecs, func(cb *goke.Schedule, d time.Duration) {
-		for page := range vDice.All() {
-			for i, _ := range page.Entity {
-				page.Comp1[i].Value = rand.Intn(6) + 1
+	rollSys := goke.RegSysFn(ecs, func(cb *goke.CmdBuf, d time.Duration) {
+		for chunk := range vDice.All() {
+			for i, _ := range chunk.Entity {
+				chunk.Comp1[i].Value = rand.Intn(6) + 1
 			}
 		}
 	})
 
 	// System B: Players place their bets
-	betSys := goke.RegisterSystemFunc(ecs, func(cb *goke.Schedule, d time.Duration) {
-		for page := range vPlayers.All() {
-			for i, _ := range page.Entity {
-				page.Comp1[i].Bet = rand.Intn(6) + 1
+	betSys := goke.RegSysFn(ecs, func(cb *goke.CmdBuf, d time.Duration) {
+		for chunk := range vPlayers.All() {
+			for i, _ := range chunk.Entity {
+				chunk.Comp1[i].Bet = rand.Intn(6) + 1
 			}
 		}
 	})
 
 	// System C: Judge the results
-	judgeSys := goke.RegisterSystemFunc(ecs, func(schedule *goke.Schedule, d time.Duration) {
+	judgeSys := goke.RegSysFn(ecs, func(schedule *goke.CmdBuf, d time.Duration) {
 		if gameFinished {
 			return
 		}
 		turnCounter++
 
-		dice, _ := goke.SafeGetComponent[Dice](ecs, diceEnt, diceDesc)
+		dice, _ := goke.SafeGetComp[Dice](ecs, diceEnt, diceDesc)
 		fmt.Printf("🎲 Turn %d | Dice Result: %d\n", turnCounter, dice.Value)
 
-		for page := range vPlayers.All() {
-			for i, entity := range page.Entity {
-				bet := page.Comp1[i].Bet
-				fmt.Printf("   Player %d bet: %d\n", entity, bet)
+		for chunk := range vPlayers.All() {
+			for i, entityID := range chunk.Entity {
+				bet := chunk.Comp1[i].Bet
+				fmt.Printf("   Player %d bet: %d\n", entityID, bet)
 				if bet == dice.Value {
 					gameFinished = true
 					// Defer the assignment of the Winner tag to the next Sync point
-					goke.ScheduleAddComponent(schedule, entity, winnerDesc, Winner{})
+					goke.CmdBufAddComp(schedule, entityID, winnerDesc, Winner{})
 				}
 			}
 		}
 	})
 
 	// System D: Display winners (Reactive System)
-	displayWinnerSys := goke.RegisterSystemFunc(ecs, func(cb *goke.Schedule, d time.Duration) {
+	displayWinnerSys := goke.RegSysFn(ecs, func(cb *goke.CmdBuf, d time.Duration) {
 		for res := range vWinners.All() {
 			fmt.Printf("🏆 VICTORY! Entity %d is marked as a Winner!\n", res.Entity)
 		}
 	})
 
 	// 5. Define Execution Plan
-	goke.Plan(ecs, func(ctx goke.ExecutionContext, d time.Duration) {
+	goke.SetPlan(ecs, func(ctx goke.RunCtx, d time.Duration) {
 		// Run data updates in parallel
 		ctx.RunParallel(d, rollSys, betSys)
 		ctx.Sync()

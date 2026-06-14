@@ -4,66 +4,57 @@ import (
 	"iter"
 	"unsafe"
 
-	"github.com/kjkrol/goke/internal/core"
-	"github.com/kjkrol/uid"
+	"github.com/kjkrol/goke/internal/arch"
+	"github.com/kjkrol/goke/internal/comp"
+	"github.com/kjkrol/goke/internal/query"
 )
 
-// View0 provides a high-performance iterator for entities that match
-// a specific architectural mask but does not require access to any
-// specific component data columns.
+// View0 iterates entities matching a filter without reading any component data.
+// Useful for tag-only queries (e.g. "all enemies").
 type View0 struct {
-	*core.View
+	*query.View
 }
 
-// NewView0 initializes a query for entities matching the provided options,
-// without fetching any component data.
+// NewView0 creates a View that matches entities according to the provided BlueprintOptions,
+// without fetching any component columns.
 //
 // Example:
 //
-//	// Find all entities with "EnemyTag"
-//	view := goke.NewView0(ecs, goke.WithTag(EnemyTag))
+//	view := goke.NewView0(ecs, goke.Include[EnemyTag]())
 func NewView0(ecs *ECS, opts ...BlueprintOption) *View0 {
-	blueprint := core.NewBlueprint(ecs.registry)
+	blueprint := comp.NewBlueprint()
 	for _, opt := range opts {
-		opt(blueprint)
+		opt(blueprint, &ecs.registry)
 	}
 	// Empty component slice because View0 doesn't read component data
-	view := core.NewView(blueprint, []core.ComponentInfo{}, ecs.registry)
-	return &View0{View: view}
+	v := query.NewView(blueprint, []comp.Meta{}, &ecs.registry.ArchCatalog, &ecs.registry.ViewRegistry)
+	return &View0{View: v}
 }
 
-// All returns an iterator (iter.Seq) that yields physical memory pages as batches of slices.
-// Each yielded struct represents a contiguous block of memory for the matched entities
-// and their corresponding components, mapped directly to Go slices (Zero Heap Allocation) to
-// preserves the Structure of Arrays (SoA) layout.
-// By shifting the inner loop to the caller side, it guarantees optimal CPU cache coherence
-// and allows the Go compiler to easily apply advanced optimizations such as loop unrolling,
-// bounds-check elimination, and SIMD vectorization.
+// All returns an iterator over matched entities, yielded in contiguous chunks.
 //
-// The iteration is performed archetype by archetype, and yields page by page.
+// Example:
 //
-// Example usage:
-//
-//	for page := range view0.All() {
-//		for i, entity := range page.Entity {
-//			// Apply domain logic here...
+//	for chunk := range view0.All() {
+//		for _, entity := range chunk.Entity {
+//			// process entity
 //		}
 //	}
-func (v *View0) All() iter.Seq[struct{ Entity []Entity }] {
-	return func(yield func(struct{ Entity []Entity }) bool) {
-		for _, ma := range v.Baked {
-			for i := range ma.Arch.Memory.Pages {
-				page := &ma.Arch.Memory.Pages[i]
-				count := page.Len
+func (v *View0) All() iter.Seq[struct{ Entity []EntityID }] {
+	return func(yield func(struct{ Entity []EntityID }) bool) {
+		for _, ma := range v.MatchedArchs {
+			for i := range ma.Table.Chunks {
+				chunk := &ma.Table.Chunks[i]
+				count := chunk.Len
 				if count == 0 {
 					continue
 				}
-				base := page.Ptr
+				base := chunk.Ptr
 				if !yield(
 					struct {
-						Entity []Entity
+						Entity []EntityID
 					}{
-						Entity: unsafe.Slice((*Entity)(unsafe.Add(base, ma.EntityPageOffset)), count),
+						Entity: unsafe.Slice((*EntityID)(unsafe.Add(base, ma.EntityPageOffset)), count),
 					}) {
 					return
 				}
@@ -72,14 +63,13 @@ func (v *View0) All() iter.Seq[struct{ Entity []Entity }] {
 	}
 }
 
-// Filter iterates `selected` entities and yields one entity at a time
-// for those that match the View's archetype constraints.
-func (v *View0) Filter(selected []uid.UID64) iter.Seq2[int, struct{ Entity uid.UID64 }] {
-	return func(yield func(int, struct{ Entity uid.UID64 }) bool) {
-		store := &v.Reg.ArchetypeRegistry.EntityLinkStore
+// Filter yields the subset of selected entities that match the View's filter.
+func (v *View0) Filter(selected []EntityID) iter.Seq2[int, struct{ Entity EntityID }] {
+	return func(yield func(int, struct{ Entity EntityID }) bool) {
+		store := &v.ArchReg.EntityIndex
 
-		var lastArchID core.ArchetypeId = core.NullArchetypeId
-		var ma *core.MatchedArch
+		var lastArchID arch.ID = arch.NullID
+		var ma *query.MatchedArch
 		for i, e := range selected {
 			link, ok := store.Get(e)
 			if !ok {
@@ -92,7 +82,7 @@ func (v *View0) Filter(selected []uid.UID64) iter.Seq2[int, struct{ Entity uid.U
 			if ma == nil {
 				continue
 			}
-			if !yield(i, struct{ Entity uid.UID64 }{Entity: e}) {
+			if !yield(i, struct{ Entity EntityID }{Entity: e}) {
 				return
 			}
 		}

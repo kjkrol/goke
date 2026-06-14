@@ -15,7 +15,7 @@ type CollisionSystem struct {
 	*Resources
 	collisionView    *goke.View3[Position, Velocity, Collision]
 	contactsBuffer   []Contact
-	contactsEntities []goke.Entity
+	contactsEntities []goke.EntityID
 	// seenPairs        map[uint64]struct{} // dedup Contactów per (EntityA.Index, EntityB.Index) - klucz: idxA<<32 | idxB
 
 }
@@ -31,7 +31,7 @@ func (s *CollisionSystem) Init(ecs *goke.ECS) {
 	// s.seenPairs = make(map[uint64]struct{}, 256)
 }
 
-func (s *CollisionSystem) Update(lookup goke.Lookup, sched *goke.Schedule, d time.Duration) {
+func (s *CollisionSystem) Update(lookup goke.Lookup, sched *goke.CmdBuf, d time.Duration) {
 	const solverIterations = 16
 	const probeExpandMaring = 32
 	s.contactsBuffer = s.contactsBuffer[:0]
@@ -44,13 +44,13 @@ func (s *CollisionSystem) Update(lookup goke.Lookup, sched *goke.Schedule, d tim
 }
 
 func (s *CollisionSystem) broadPhase(probeExpandMargin uint32) {
-	for page := range s.collisionView.All() {
-		for i, entityA := range page.Entity {
-			pos, vel, col := &page.Comp1[i], &page.Comp2[i], &page.Comp3[i]
+	for chunk := range s.collisionView.All() {
+		for i, entityA := range chunk.Entity {
+			pos, vel, col := &chunk.Comp1[i], &chunk.Comp2[i], &chunk.Comp3[i]
 
 			checkFunc := func(boxA geom.AABB[uint32], fragA plane.FragPosition) {
 				s.space.Query(boxA, func(idB uint64, fragB plane.FragPosition) {
-					entityB := goke.Entity(idB)
+					entityB := goke.EntityID(idB)
 
 					if entityA.Index() >= entityB.Index() {
 						return
@@ -127,8 +127,8 @@ func (s *CollisionSystem) narrowPhase(solverIterations int) {
 // ----- CONTACT -----
 
 type Contact struct {
-	EntityA goke.Entity
-	EntityB goke.Entity
+	EntityA goke.EntityID
+	EntityB goke.EntityID
 	PosA    *Position
 	PosB    *Position
 	VelA    *Velocity

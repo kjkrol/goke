@@ -5,111 +5,81 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/kjkrol/goke/internal/core"
-	"github.com/kjkrol/uid"
+	"github.com/kjkrol/goke/internal/orch"
+	"github.com/kjkrol/goke/internal/reg"
 )
 
-type (
-	// Entity represents a 64-bit unique identifier for an object in the ECS world.
-	Entity = uid.UID64
-	// ComponentID is a unique integer identifier for a specific component type.
-	ComponentID = core.ComponentID
-	// ComponentDesc is a component descriptor; it contains metadata about a component type, such as its ID and memory size.
-	ComponentDesc = core.ComponentInfo
-
-	ECSConfig = core.RegistryConfig
-	// ExecutionContext provides methods to run systems (parallel or sync) within a plan.
-	ExecutionContext = core.ExecutionContext
-	// ExecutionPlan defines the order and concurrency of system updates.
-	ExecutionPlan = core.ExecutionPlan
+var (
+	_ orch.Lookup  = (*reg.Registry)(nil)
+	_ orch.Mutator = (*reg.Registry)(nil)
 )
 
-// ECS is the main entry point for the ECS. It acts as the coordinator
-// that ties together data (entities and components) and logic (systems).
-//
-// Use the ECS to manage the lifecycle of entities, register component
-// types, and define the execution flow of your application.
+// ECS is the central coordinator of the entity-component-system world.
+// It manages entity lifecycles, component storage, and system execution.
 type ECS struct {
-	registry  *core.Registry
-	scheduler core.Scheduler
+	registry  reg.Registry
+	scheduler orch.Scheduler
 }
 
-// New creates and initializes a new ECS instance.
-// It accepts optional ECSOption functions to override the default ECSConfig,
-// allowing for fine-tuned memory pre-allocation and performance optimization
-// (e.g., adjusting archetype chunk sizes to minimize GC pressure).
+// New creates a new ECS instance. Use ECSOption functions to tune memory
+// pre-allocation for your expected entity count and component variety.
 func New(opts ...ECSOption) *ECS {
-	config := ECSConfig{
-		InitialEntityCap: 1024,
-		FreeIndicesCap:   1024,
-	}
+	config := reg.DefaultConfig()
 
 	for _, opt := range opts {
 		opt(&config)
 	}
 
-	ecs := ECS{
-		registry: core.NewRegistry(config),
-	}
-	ecs.scheduler = core.NewScheduler(ecs.registry)
-	return &ecs
+	ecs := &ECS{}
+	ecs.registry.Init(config)
+	ecs.scheduler = orch.NewScheduler(&ecs.registry, &ecs.registry)
+	return ecs
 }
 
 // ---- [E]CS Entity ----
 
-// RemoveEntity destroys an entity and recycles its ID. All associated
-// components are removed and memory is reclaimed. Returns true if the entity existed.
-func RemoveEntity(ecs *ECS, entity Entity) bool {
+// RemoveEntity destroys an entity and recycles its ID.
+// All associated components are removed. Returns true if the entity existed.
+func RemoveEntity(ecs *ECS, entity EntityID) bool {
 	return ecs.registry.RemoveEntity(entity)
 }
 
-// EnsureComponent returns a direct pointer to the entity's component data,
-// providing the most efficient way to perform in-place upserts.
-//
-// Note: This function panics if the operation fails (e.g., if the entity is invalid).
-// Use SafeEnsureComponent if you need to handle these errors gracefully.
-func EnsureComponent[T any](ecs *ECS, entity Entity, compDesc ComponentDesc) *T {
-	ptr, err := SafeEnsureComponent[T](ecs, entity, compDesc)
+// ---- E[C]S Component ----
+
+// UpsertComp returns a pointer to the entity's component, allocating it if absent.
+// Panics if the entity is invalid or T does not match the registered type.
+// Use SafeUpsertComp to handle errors explicitly.
+func UpsertComp[T any](ecs *ECS, entity EntityID, compMeta CompMeta) *T {
+	ptr, err := SafeUpsertComp[T](ecs, entity, compMeta)
 	if err != nil {
-		panic(fmt.Sprintf("goke: failed to ensure component: %v", err))
+		panic(fmt.Sprintf("goke: failed to upsert component: %v", err))
 	}
 	return ptr
 }
 
-// SafeEnsureComponent attempts to return a direct pointer to the entity's component data.
-// It functions as a zero-copy upsert: if the component exists, it returns a pointer
-// to the existing data; otherwise, it allocates new memory.
-// Returns an error if the entity does not exist or the allocation fails.
-func SafeEnsureComponent[T any](ecs *ECS, entity Entity, compDesc ComponentDesc) (*T, error) {
+// SafeUpsertComp returns a pointer to the entity's component, allocating it if absent.
+// Returns ErrTypeMismatch if T does not match the registered type, or an error if the
+// entity is invalid.
+func SafeUpsertComp[T any](ecs *ECS, entity EntityID, compMeta CompMeta) (*T, error) {
 	requestedType := reflect.TypeFor[T]()
-	if requestedType != compDesc.Type {
-		return nil, fmt.Errorf("type mismatch: component ID %d is registered as %v, but requested as %v",
-			compDesc.ID, compDesc.Type, requestedType)
+	if requestedType != compMeta.Type {
+		return nil, errTypeMismatch(compMeta.ID, compMeta.Type, requestedType)
 	}
-	ptr, err := ecs.registry.AllocateByID(entity, compDesc)
+	ptr, err := ecs.registry.UpsertComp(entity, compMeta)
 	if err != nil {
 		return nil, err
 	}
 	return (*T)(ptr), nil
 }
 
-// SafeGetComponent retrieves a typed pointer to an entity's component with strict runtime type checking.
-//
-// It verifies that:
-//  1. The entity exists and possesses the component defined by compDesc.ID.
-//  2. The requested generic type T matches the type registered in compDesc.Type (using reflection).
-//
-// If the types do not match or the component is missing, an error is returned.
-//
-// Use Use Case:
-// Recommended for debugging, development, or logic outside the main loop where performance is less critical
-// than type safety.
-func SafeGetComponent[T any](ecs *ECS, entity Entity, compDesc ComponentDesc) (*T, error) {
-	data, err := ecs.registry.ComponentGet(entity, compDesc.ID)
+// SafeGetComp retrieves a typed pointer to an entity's component.
+// Returns ErrTypeMismatch if T does not match the registered type, or an error if the
+// entity or component is not found. Prefer for debugging or low-frequency access paths.
+func SafeGetComp[T any](ecs *ECS, entity EntityID, compMeta CompMeta) (*T, error) {
+	data, err := ecs.registry.GetComp(entity, compMeta.ID)
 	requestedType := reflect.TypeFor[T]()
-	if requestedType != compDesc.Type {
-		return nil, fmt.Errorf("type mismatch: component ID %d is registered as %v, but requested as %v",
-			compDesc.ID, compDesc.Type, requestedType)
+	if requestedType != compMeta.Type {
+		return nil, errTypeMismatch(compMeta.ID, compMeta.Type, requestedType)
 	}
 	if err != nil {
 		return nil, err
@@ -117,69 +87,59 @@ func SafeGetComponent[T any](ecs *ECS, entity Entity, compDesc ComponentDesc) (*
 	return (*T)(data), nil
 }
 
-// GetComponent retrieves a typed pointer to an entity's component, optimized for performance.
-//
-// It returns nil if the component does not exist for the given entity.
-//
-// Performance:
-// This method bypasses reflection-based type checking, making it significantly faster
-// than SafeGetComponent. It is designed for use in "hot paths" (e.g., system update loops).
-//
-// Warning:
-// This method performs an unsafe pointer cast to *T. The caller is strictly responsible
-// for ensuring that T matches the actual component type associated with compDesc.
-func GetComponent[T any](ecs *ECS, entity Entity, compDesc ComponentDesc) *T {
-	data, err := ecs.registry.ComponentGet(entity, compDesc.ID)
+// GetComp retrieves a typed pointer to an entity's component. Returns nil if the
+// component is not found. Skips reflection checks — use only when T is known correct.
+func GetComp[T any](ecs *ECS, entity EntityID, compMeta CompMeta) *T {
+	data, err := ecs.registry.GetComp(entity, compMeta.ID)
 	if err != nil {
 		return nil
 	}
 	return (*T)(data)
 }
 
-// RemoveComponent removes a component from an entity using its ComponentInfo.
-func RemoveComponent(ecs *ECS, entity Entity, compDesc ComponentDesc) error {
-	return ecs.registry.UnassignByID(entity, compDesc)
+// RemoveComp removes a component from an entity. Returns an error if the entity is invalid.
+func RemoveComp(ecs *ECS, entity EntityID, compMeta CompMeta) error {
+	return ecs.registry.RemoveComp(entity, compMeta)
 }
 
-// ---- E[C]S Component ----
-
-// RegisterComponent ensures a component of type T is registered in the ECS
-// and returns its metadata.
-func RegisterComponent[T any](ecs *ECS) ComponentDesc {
+// RegCompType registers the component type T with the ECS and returns its metadata.
+// Call once at startup; subsequent calls for the same type return the cached metadata.
+func RegCompType[T any](ecs *ECS) CompMeta {
 	componentType := reflect.TypeFor[T]()
-	return ecs.registry.RegisterComponentType(componentType)
+	return ecs.registry.RegCompType(componentType)
 }
 
 // ---- EC[S] System ----
 
-// RegisterSystem adds a stateful system to the ECS. The system's Init method
-// will be called immediately.
-func RegisterSystem(ecs *ECS, system System) {
+// RegSys registers a stateful system. The system's Init method is called immediately.
+func RegSys(ecs *ECS, system System) {
 	system.Init(ecs)
-	ecs.scheduler.RegisterSystem(system)
+	ecs.scheduler.Register(system)
 }
 
-// RegisterSystemFunc adds a stateless, function-based system to the ECS.
-func RegisterSystemFunc(ecs *ECS, fn SystemFunc) System {
+// RegSysFn registers a stateless function as a system and returns the created System.
+func RegSysFn(ecs *ECS, fn SystemFn) System {
 	wrapper := &functionalSystem{updateFn: fn}
 	wrapper.Init(ecs)
-	ecs.scheduler.RegisterSystem(wrapper)
+	ecs.scheduler.Register(wrapper)
 	return wrapper
 }
 
 // ---- ECS ----
 
-// Plan defines the logic for each ECS tick (how systems are orchestrated).
-func Plan(ecs *ECS, plan ExecutionPlan) {
-	ecs.scheduler.SetExecutionPlan(plan)
+// SetPlan sets the execution plan that controls how systems run each tick.
+// Call before the first Tick; replaces any previously set plan.
+func SetPlan(ecs *ECS, plan Plan) {
+	ecs.scheduler.SetPlan(plan)
 }
 
-// Tick updates the ecs state by executing a single simulation step
-// with the given delta time.
+// Tick advances the simulation by one step with the given delta time.
 func Tick(ecs *ECS, duration time.Duration) {
 	ecs.scheduler.Tick(duration)
 }
 
+// Reset clears all entities, components, and system state, returning the ECS
+// to its initial (post-New) condition. Registered component types are preserved.
 func Reset(ecs *ECS) {
 	ecs.scheduler.Reset()
 	ecs.registry.Reset()

@@ -1,11 +1,11 @@
 /*
 This test suite validates the "Deferred Command Pattern" and "System Synchronization".
 
-It focuses on the lifecycle of component modifications within an ExecutionPlan:
+It focuses on the lifecycle of component modifications within an Plan:
  1. Snapshot Integrity: Ensures systems operate on a consistent state during their Update cycle.
  2. Modification Deferral: Verifies that changes made via SystemCommandBuffer are buffered
     and isolated from other systems in the same synchronization stage.
- 3. Sync Point Enforcement: Confirms that ExecutionContext.Sync() correctly flushes the buffer,
+ 3. Sync Point Enforcement: Confirms that RunCtx.Sync() correctly flushes the buffer,
     making all changes globally visible for subsequent stages.
 
 This is critical for preventing race conditions and ensuring deterministic system execution.
@@ -24,39 +24,39 @@ import (
 type Task struct{ Completed bool }
 type Log struct{ Msg string }
 
-var taskDesc goke.ComponentDesc
-var logDesc goke.ComponentDesc
+var taskDesc goke.CompMeta
+var logDesc goke.CompMeta
 
 // --- Systems ---
 
 type WorkerSystem struct {
-	view *goke.View1[Task]
+	query *goke.View1[Task]
 }
 
 func (s *WorkerSystem) Init(eng *goke.ECS) {
-	s.view = goke.NewView1[Task](eng)
+	s.query = goke.NewView1[Task](eng)
 }
 
-func (s *WorkerSystem) Update(lookup goke.Lookup, schedule *goke.Schedule, duration time.Duration) {
-	for page := range s.view.All() {
-		for _, entity := range page.Entity {
+func (s *WorkerSystem) Update(lookup goke.Lookup, schedule *goke.CmdBuf, duration time.Duration) {
+	for chunk := range s.query.All() {
+		for _, entityID := range chunk.Entity {
 			msg := Log{Msg: "Done"}
-			goke.ScheduleAddComponent(schedule, entity, logDesc, msg)
+			goke.CmdBufAddComp(schedule, entityID, logDesc, msg)
 		}
 	}
 }
 
 type LoggerSystem struct {
-	view  *goke.View1[Log]
+	query *goke.View1[Log]
 	Found bool
 }
 
 func (s *LoggerSystem) Init(eng *goke.ECS) {
-	s.view = goke.NewView1[Log](eng)
+	s.query = goke.NewView1[Log](eng)
 }
 
-func (s *LoggerSystem) Update(lookup goke.Lookup, schedule *goke.Schedule, duration time.Duration) {
-	for range s.view.All() {
+func (s *LoggerSystem) Update(lookup goke.Lookup, schedule *goke.CmdBuf, duration time.Duration) {
+	for range s.query.All() {
 		s.Found = true
 	}
 }
@@ -69,8 +69,8 @@ func (s *LoggerSystem) Update(lookup goke.Lookup, schedule *goke.Schedule, durat
 func TestECS_SystemInteractions(t *testing.T) {
 
 	setupComponents := func(e *goke.ECS) {
-		taskDesc = goke.RegisterComponent[Task](e)
-		logDesc = goke.RegisterComponent[Log](e)
+		taskDesc = goke.RegCompType[Task](e)
+		logDesc = goke.RegCompType[Log](e)
 	}
 
 	t.Run("Isolation: Logger should not see changes from Worker without Sync between them", func(t *testing.T) {
@@ -78,17 +78,17 @@ func TestECS_SystemInteractions(t *testing.T) {
 		setupComponents(ecs)
 
 		blueprint := goke.NewBlueprint1[Task](ecs)
-		for page := range blueprint.Create(1) {
-			page.Comp1[0] = Task{Completed: false}
+		for chunk := range blueprint.Create(1) {
+			chunk.Comp1[0] = Task{Completed: false}
 		}
 
 		worker := &WorkerSystem{}
 		logger := &LoggerSystem{}
 
-		goke.RegisterSystem(ecs, worker)
-		goke.RegisterSystem(ecs, logger)
+		goke.RegSys(ecs, worker)
+		goke.RegSys(ecs, logger)
 
-		goke.Plan(ecs, func(s goke.ExecutionContext, d time.Duration) {
+		goke.SetPlan(ecs, func(s goke.RunCtx, d time.Duration) {
 			s.Run(worker, d)
 			s.Run(logger, d)
 			s.Sync()
@@ -106,17 +106,17 @@ func TestECS_SystemInteractions(t *testing.T) {
 		setupComponents(ecs)
 
 		blueprint := goke.NewBlueprint1[Task](ecs)
-		for page := range blueprint.Create(1) {
-			page.Comp1[0] = Task{Completed: false}
+		for chunk := range blueprint.Create(1) {
+			chunk.Comp1[0] = Task{Completed: false}
 		}
 
 		worker := &WorkerSystem{}
 		logger := &LoggerSystem{}
 
-		goke.RegisterSystem(ecs, worker)
-		goke.RegisterSystem(ecs, logger)
+		goke.RegSys(ecs, worker)
+		goke.RegSys(ecs, logger)
 
-		goke.Plan(ecs, func(s goke.ExecutionContext, d time.Duration) {
+		goke.SetPlan(ecs, func(s goke.RunCtx, d time.Duration) {
 			s.Run(worker, d)
 			s.Sync() // Force synchronization between systems
 			s.Run(logger, d)
@@ -126,7 +126,7 @@ func TestECS_SystemInteractions(t *testing.T) {
 		goke.Tick(ecs, time.Millisecond)
 
 		if !logger.Found {
-			t.Error("LoggerSystem should have found Log due to explicit Sync call in the ExecutionPlan")
+			t.Error("LoggerSystem should have found Log due to explicit Sync call in the Plan")
 		}
 	})
 }

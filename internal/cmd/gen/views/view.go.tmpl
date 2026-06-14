@@ -6,82 +6,95 @@ import (
 	"reflect"
 	"unsafe"
 
-    "github.com/kjkrol/goke/internal/core"
+    "github.com/kjkrol/goke/internal/arch"
+	"github.com/kjkrol/goke/internal/comp"
+	"github.com/kjkrol/goke/internal/query"
 )
 
 {{ range $n := .Range }}
 // --------------- View{{ $n }} ---------------
 
+// View{{ $n }} iterates entities that have components {{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}, yielding typed slices per chunk.
 type View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $n }}, {{ end }}{{ end }}] struct {
-    *core.View
+    *query.View
 }
 
+// NewView{{ $n }} creates a View for entities that have {{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}, filtered by opts.
 func NewView{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }} any{{ if lt $i $n }}, {{ end }}{{ end }}](
     ecs *ECS,
     opts ...BlueprintOption,
 ) *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}] {
-    registry := ecs.registry
-    blueprint := core.NewBlueprint(registry)
-    componentsRegistry := &registry.ComponentsRegistry
+    registry := &ecs.registry
+    blueprint := comp.NewBlueprint()
+    mi := &registry.CompCatalog
 
-    mustAdd := func(info core.ComponentInfo) {
-        if err := blueprint.WithComp(info); err != nil {
+    mustAdd := func(compMeta comp.Meta) {
+        if err := blueprint.Comp(compMeta); err != nil {
             panic(fmt.Sprintf("goke: view{{ $n }} init failed: %v", err))
         }
     }
 
     {{- range $i := (seq 1 $n) }}
-    info{{ $i }} := componentsRegistry.GetOrRegister(reflect.TypeFor[T{{ $i }}]())
+    compMeta{{ $i }} := mi.Register(reflect.TypeFor[T{{ $i }}]())
     {{- end }}
 
     {{- range $i := (seq 1 $n) }}
-    mustAdd(info{{ $i }})
+    mustAdd(compMeta{{ $i }})
     {{- end }}
 
     for _, opt := range opts {
-        if err := opt(blueprint); err != nil {
+        if err := opt(blueprint, registry); err != nil {
             panic(fmt.Sprintf("goke: view{{ $n }} option failed: %v", err))
         }
     }
 
-    layout := []core.ComponentInfo{
-        {{ range $i := (seq 1 $n) }}info{{ $i }}, {{end}}
+    layout := []comp.Meta{
+        {{ range $i := (seq 1 $n) }}compMeta{{ $i }}, {{end}}
     }
 
-    view := core.NewView(blueprint, layout, registry)
-    return &View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]{View: view}
+    v := query.NewView(blueprint, layout, &registry.ArchCatalog, &registry.ViewRegistry)
+    return &View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]{View: v}
 }
 
+// All returns an iterator over matched entities, yielded in contiguous chunks.
+//
+// Example:
+//
+//	for chunk := range view.All() {
+//		for i := range chunk.Entity {
+//			_ = chunk.Comp1[i]
+//		}
+//	}
 func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) All() iter.Seq[struct {
-	Entity []Entity
+	Entity []EntityID
 	{{- range $i := (seq 1 $n) }}
 	Comp{{ $i }} []T{{ $i }}
 	{{- end }}
 }] {
 	return func(yield func(
 		struct {
-			Entity []Entity
+			Entity []EntityID
 			{{- range $i := (seq 1 $n) }}
 			Comp{{ $i }} []T{{ $i }}
 			{{- end }}
 		},
 	) bool) {
-		for _, ma := range v.Baked {
-			for i := range ma.Arch.Memory.Pages {
-				page := &ma.Arch.Memory.Pages[i]
-				count := page.Len
+		for _, ma := range v.MatchedArchs {
+			for i := range ma.Table.Chunks {
+				chunk := &ma.Table.Chunks[i]
+				count := chunk.Len
 				if count == 0 {
 					continue
 				}
-				base := page.Ptr
+				base := chunk.Ptr
 				if !yield(
 					struct {
-						Entity []Entity
+						Entity []EntityID
 						{{- range $i := (seq 1 $n) }}
 						Comp{{ $i }} []T{{ $i }}
 						{{- end }}
 					}{
-						Entity: unsafe.Slice((*Entity)(unsafe.Add(base, ma.EntityPageOffset)), count),
+						Entity: unsafe.Slice((*EntityID)(unsafe.Add(base, ma.EntityPageOffset)), count),
 						{{- range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
 						Comp{{ $i }}: unsafe.Slice((*T{{ $i }})(unsafe.Add(base, ma.CompOffsets[{{ $idx }}])), count),
 						{{- end }}
@@ -93,22 +106,23 @@ func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{
 	}
 }
 
-func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) Filter(selected []Entity) iter.Seq2[int, struct {
-	Entity Entity
+// Filter yields the subset of selected entities that match the View's filter.
+func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{ end }}{{ end }}]) Filter(selected []EntityID) iter.Seq2[int, struct {
+	Entity EntityID
 	{{- range $i := (seq 1 $n) }}
 	Comp{{ $i }}  *T{{ $i }}
 	{{- end }}
 }] {
 	return func(yield func(int, struct {
-		Entity Entity
+		Entity EntityID
 		{{- range $i := (seq 1 $n) }}
 		Comp{{ $i }}  *T{{ $i }}
 		{{- end }}
 	}) bool) {
-		store := &v.Reg.ArchetypeRegistry.EntityLinkStore
+		store := &v.ArchReg.EntityIndex
 
-		var lastArchID core.ArchetypeId = core.NullArchetypeId
-		var ma *core.MatchedArch
+		var lastArchID arch.ID = arch.NullID
+		var ma *query.MatchedArch
 		for i, e := range selected {
 			link, ok := store.Get(e)
 			if !ok {
@@ -121,13 +135,13 @@ func (v *View{{ $n }}[{{ range $i := (seq 1 $n) }}T{{ $i }}{{ if lt $i $n }}, {{
 			if ma == nil {
 				continue
 			}
-			physPage := &ma.Arch.Memory.Pages[link.PageIdx]
-			slot := uintptr(link.PageSlot)
+			physPage := &ma.Table.Chunks[link.Pos.ChunkIdx]
+			slot := uintptr(link.Pos.ChunkSlot)
 			{{- range $i := (seq 1 $n) }}{{ $idx := sub $i 1 }}
 			c{{ $idx }}Ptr := unsafe.Add(physPage.Ptr, ma.CompOffsets[{{ $idx }}]+(slot*ma.CompSizes[{{ $idx }}]))
 			{{- end }}
 			if !yield(i, struct {
-				Entity Entity
+				Entity EntityID
 				{{- range $i := (seq 1 $n) }}
 				Comp{{ $i }}  *T{{ $i }}
 				{{- end }}
