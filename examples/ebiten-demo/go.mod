@@ -6,7 +6,7 @@ require (
 	github.com/hajimehoshi/ebiten/v2 v2.9.8
 	github.com/kjkrol/goke v0.0.0-00010101000000-000000000000
 	github.com/kjkrol/gokg v1.2.12
-	github.com/kjkrol/uid v0.1.1
+	github.com/kjkrol/uid v0.2.0
 )
 
 require (

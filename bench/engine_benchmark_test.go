@@ -134,13 +134,15 @@ func BenchmarkEngine_Structural(b *testing.B) {
 			chunk.Comp1[0] = Vel{X: 1, Y: 2}
 		}
 
-		query := goke.NewView1[Vel](ecs)
+		var vel goke.Col[Vel]
+		query := goke.NewView(ecs, vel.Track())
 		arr := []uid.UID64{e}
 
 		measurePerEntity(b, 1, func() {
 			for i := 0; i < b.N; i++ {
-				for _, item := range query.Filter(arr) {
-					item.Comp1.X += 1.0
+				fit := query.Filter(arr)
+				for fit.Next() {
+					vel.At(fit).X += 1.0
 				}
 			}
 		})

@@ -146,3 +146,12 @@ func Reset(ecs *ECS) {
 	ecs.scheduler.Reset()
 	ecs.registry.Reset()
 }
+
+// ---- EC[S] View ----
+
+// NewView creates a View filtered by opts. Use Track[T]() to declare component
+// data columns (accessible via Slice/At); Include[T]() for filter-only
+// requirements; Exclude[T]() for exclusions.
+func NewView(ecs *ECS, opts ...BlueprintOpt) *View {
+	return ecs.registry.NewView(opts...)
+}

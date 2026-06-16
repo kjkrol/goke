@@ -41,14 +41,15 @@ func TestView_IncludeExclude(t *testing.T) {
 	t.Run("Inclusion and Exclusion Logic", func(t *testing.T) {
 		// Goal: Find entities that have 'position', but are NOT 'velocity' (not moving)
 		// Expected: eA and eC
-		query := goke.NewView0(ecs,
+		query := goke.NewView(ecs,
 			goke.Include[position](),
 			goke.Exclude[velocity](),
 		)
 
 		found := make(map[uid.UID64]bool)
-		for chunk := range query.All() {
-			for _, entityID := range chunk.Entity {
+		query.All()
+		for query.Next() {
+			for _, entityID := range query.EntSlice {
 				found[entityID] = true
 			}
 		}
@@ -63,14 +64,15 @@ func TestView_IncludeExclude(t *testing.T) {
 	t.Run("Tag as Requirement", func(t *testing.T) {
 		// Goal: Find entities with 'position' AND 'complexComponent'
 		// Expected: eC only
-		query := goke.NewView0(ecs,
+		query := goke.NewView(ecs,
 			goke.Include[position](),
 			goke.Include[complexComponent](),
 		)
 
 		count := 0
-		for chunk := range query.All() {
-			for _, entityID := range chunk.Entity {
+		query.All()
+		for query.Next() {
+			for _, entityID := range query.EntSlice {
 				assert.Equal(t, eC, entityID, "Only Entity C has both position and complexComponent")
 				count++
 			}
@@ -81,12 +83,13 @@ func TestView_IncludeExclude(t *testing.T) {
 	// 4. Test: Filter method on a manual slice
 	t.Run("Manual Slice Filtering", func(t *testing.T) {
 		// Goal: From a list of entities, filter out those that are 'complexComponent'
-		query := goke.NewView0(ecs, goke.Exclude[complexComponent]())
+		query := goke.NewView(ecs, goke.Exclude[complexComponent]())
 
 		input := []uid.UID64{eA, eB, eC}
 		var result []uid.UID64
-		for _, head := range query.Filter(input) {
-			result = append(result, head.Entity)
+		query.Filter(input)
+		for query.Next() {
+			result = append(result, query.Entity)
 		}
 
 		assert.Len(t, result, 2, "Should skip Entity C")

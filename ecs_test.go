@@ -44,22 +44,28 @@ func TestECS_UseCase(t *testing.T) {
 		chunk.Comp1[0] = Order{ID: "ORD-002", Total: 50.0}
 	}
 
-	query1 := goke.NewView2[Order, Discount](ecs)
+	var colOrder goke.Col[Order]
+	var colDiscount goke.Col[Discount]
+	query1 := goke.NewView(ecs, colOrder.Track(), colDiscount.Track())
 	processedCount := 0
 
 	billingSystem := goke.RegSysFn(ecs, func(cb *goke.CmdBuf, d time.Duration) {
-		for chunk := range query1.All() {
-			for i, entityID := range chunk.Entity {
+		query1.All()
+		for query1.Next() {
+			orders := colOrder.Slice(query1)
+			discounts := colDiscount.Slice(query1)
+			for i, entityID := range query1.EntSlice {
 				processedCount++
-				chunk.Comp1[i].Total *= (1 - chunk.Comp2[i].Percentage/100)
+				orders[i].Total *= (1 - discounts[i].Percentage/100)
 				goke.CmdBufAddComp(cb, entityID, processedDesc, Processed{})
 			}
 		}
 	})
-	query2 := goke.NewView0(ecs, goke.Include[Processed](), goke.Include[Order](), goke.Include[Discount]())
+	query2 := goke.NewView(ecs, goke.Include[Processed](), goke.Include[Order](), goke.Include[Discount]())
 	cleanerSystem := goke.RegSysFn(ecs, func(schedule *goke.CmdBuf, d time.Duration) {
-		for chunk := range query2.All() {
-			for _, entityID := range chunk.Entity {
+		query2.All()
+		for query2.Next() {
+			for _, entityID := range query2.EntSlice {
 				schedule.RemoveEntity(entityID)
 			}
 		}
@@ -75,8 +81,9 @@ func TestECS_UseCase(t *testing.T) {
 		}
 
 		ctx.Sync()
-		for chunk := range query2.All() {
-			for _, entityID := range chunk.Entity {
+		query2.All()
+		for query2.Next() {
+			for _, entityID := range query2.EntSlice {
 				_ = entityID
 			}
 		}

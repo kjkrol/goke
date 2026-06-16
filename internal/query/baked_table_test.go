@@ -8,9 +8,11 @@ import (
 	"github.com/kjkrol/goke/internal/soa"
 )
 
-func getPointer(bt *BakedTable, pos soa.BlockPos, compIdx int) unsafe.Pointer {
+// getPointer mirrors At: the row stride is supplied by the caller (in real code
+// it is unsafe.Sizeof(T), a compile-time constant), not read from the BakedTable.
+func getPointer(bt *BakedTable, pos soa.BlockPos, compIdx int, size uintptr) unsafe.Pointer {
 	physPage := &bt.Table.Chunks[pos.ChunkIdx]
-	return unsafe.Add(physPage.Ptr, bt.CompOffsets[compIdx]+(uintptr(pos.ChunkSlot)*bt.CompSizes[compIdx]))
+	return unsafe.Add(physPage.Ptr, bt.CompOffsets[compIdx]+(uintptr(pos.ChunkSlot)*size))
 }
 
 func getColumnStart(bt *BakedTable, chunk *soa.Chunk, compIdx int) unsafe.Pointer {
@@ -30,11 +32,10 @@ func TestBakedTable_GetPointer(t *testing.T) {
 	bt := &BakedTable{
 		Table:       &a.Table,
 		CompOffsets: []uintptr{32, 64},
-		CompSizes:   []uintptr{8, 16},
 	}
 
 	// compIdx 1: offset 64, size 16, slot 2 => 64 + (2 * 16) = 96
-	ptr := getPointer(bt, soa.BlockPos{ChunkIdx: 0, ChunkSlot: 2}, 1)
+	ptr := getPointer(bt, soa.BlockPos{ChunkIdx: 0, ChunkSlot: 2}, 1, 16)
 	expectedPtr := unsafe.Add(chunk.Ptr, 96)
 
 	if ptr != expectedPtr {

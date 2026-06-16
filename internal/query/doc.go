@@ -16,19 +16,20 @@
 // # View Baking
 //
 // When a new archetype matches a view's masks, [View.Bake] is called.
-// It reads each [colstore.Column]'s Offset and CompSize fields and caches:
+// It reads each [colstore.Column]'s Offset field and caches:
 //   - CompOffsets[i]    — byte offset of each requested component column
-//   - CompSizes[i]      — item size of each requested component
 //
 // These values are used directly at iteration time, so the hot path is a
-// series of pointer additions with no column lookup.
+// series of pointer additions with no column lookup. The per-row stride comes
+// from unsafe.Sizeof(T) at each typed access site (a compile-time constant),
+// so no runtime item-size table is needed.
 //
 // # BakedTable
 //
 // [BakedTable] carries a pointer to the matched [colstore.Table] and the
-// precomputed offsets and sizes for the view's layout. At iteration time the
-// hot path reads Table.Chunks directly and applies CompOffsets/CompSizes via
-// pointer arithmetic — no column lookup, no hash map.
+// precomputed column offsets for the view's layout. At iteration time the hot
+// path reads Table.Chunks directly and applies CompOffsets via pointer
+// arithmetic — no column lookup, no hash map.
 //
 // # BakedTablesCatalog
 //

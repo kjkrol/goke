@@ -14,7 +14,10 @@ var _ goke.System = (*CollisionSystem)(nil)
 
 type CollisionSystem struct {
 	*Resources
-	collisionView    *goke.View3[Position, Velocity, Collision]
+	collisionView    *goke.View
+	pos              goke.Col[Position]
+	vel              goke.Col[Velocity]
+	coll             goke.Col[Collision]
 	contactsBuffer   []Contact
 	contactsEntities []uid.UID64
 	// seenPairs        map[uint64]struct{} // dedup Contactów per (EntityA.Index, EntityB.Index) - klucz: idxA<<32 | idxB
@@ -28,7 +31,7 @@ func NewCollisionSystem(resouces *Resources) goke.System {
 }
 
 func (s *CollisionSystem) Init(ecs *goke.ECS) {
-	s.collisionView = goke.NewView3[Position, Velocity, Collision](ecs)
+	s.collisionView = goke.NewView(ecs, s.pos.Track(), s.vel.Track(), s.coll.Track())
 	// s.seenPairs = make(map[uint64]struct{}, 256)
 }
 
@@ -45,9 +48,13 @@ func (s *CollisionSystem) Update(lookup goke.Lookup, sched *goke.CmdBuf, d time.
 }
 
 func (s *CollisionSystem) broadPhase(probeExpandMargin uint32) {
-	for chunk := range s.collisionView.All() {
-		for i, entityA := range chunk.Entity {
-			pos, vel, col := &chunk.Comp1[i], &chunk.Comp2[i], &chunk.Comp3[i]
+	s.collisionView.All()
+	for s.collisionView.Next() {
+		posSlice := s.pos.Slice(s.collisionView)
+		velSlice := s.vel.Slice(s.collisionView)
+		collSlice := s.coll.Slice(s.collisionView)
+		for i, entityA := range s.collisionView.EntSlice {
+			p, v, c := &posSlice[i], &velSlice[i], &collSlice[i]
 
 			checkFunc := func(boxA geom.AABB[uint32], fragA plane.FragPosition) {
 				s.space.Query(boxA, func(idB uint64, fragB plane.FragPosition) {
@@ -56,29 +63,19 @@ func (s *CollisionSystem) broadPhase(probeExpandMargin uint32) {
 					if entityA.Index() >= entityB.Index() {
 						return
 					}
-					// Dedup: dla pary (A, B) z fragmentami Query może trafiać kilka kombinacji
-					// (np. A.MAIN-B.MAIN, A.MAIN-B.FRAG_RIGHT, A.FRAG_RIGHT-B.MAIN, ...).
-					// Bez tej deduplikacji powstaje kilka Contactów dla jednej pary entities,
-					// co prowadzi do wielokrotnego swap velocity = parzysta liczba swapów = no change.
-					// key := uint64(entityA.Index())<<32 | uint64(entityB.Index())
-					// if _, exists := s.seenPairs[key]; exists {
-					// 	return
-					// }
-					// s.seenPairs[key] = struct{}{}
-
 					s.contactsEntities = append(s.contactsEntities, entityB)
 					s.contactsBuffer = append(s.contactsBuffer, Contact{
 						EntityA: entityA, EntityB: entityB,
-						PosA:  pos,
-						VelA:  vel,
-						ColA:  col,
+						PosA:  p,
+						VelA:  v,
+						ColA:  c,
 						FragA: fragA,
 						FragB: fragB,
 					})
 				})
 			}
 
-			probeBoxA := pos.AABB
+			probeBoxA := p.AABB
 			s.space.ExpandOnly(&probeBoxA, probeExpandMargin)
 			checkFunc(probeBoxA.AABB, plane.FRAG_MAIN)
 			probeBoxA.VisitFragments(func(fragA plane.FragPosition, boxA geom.AABB[uint32]) bool {
@@ -92,10 +89,11 @@ func (s *CollisionSystem) broadPhase(probeExpandMargin uint32) {
 func (s *CollisionSystem) narrowPhase(solverIterations int) {
 	now := time.Now()
 
-	for i, item := range s.collisionView.Filter(s.contactsEntities) {
-		s.contactsBuffer[i].PosB = item.Comp1
-		s.contactsBuffer[i].VelB = item.Comp2
-		s.contactsBuffer[i].ColB = item.Comp3
+	s.collisionView.Filter(s.contactsEntities)
+	for s.collisionView.Next() {
+		s.contactsBuffer[s.collisionView.Idx].PosB = s.pos.At(s.collisionView)
+		s.contactsBuffer[s.collisionView.Idx].VelB = s.vel.At(s.collisionView)
+		s.contactsBuffer[s.collisionView.Idx].ColB = s.coll.At(s.collisionView)
 	}
 
 	for range solverIterations {

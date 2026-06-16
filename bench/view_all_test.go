@@ -6,17 +6,61 @@ import (
 	"github.com/kjkrol/goke"
 )
 
+// Benchmark_View_All measures full chunk iteration via View.All()/Next(),
+// reading 0..10 component columns per entity.
+//
+// Two rules keep these numbers meaningful — do not "simplify" them away:
+//
+//  1. Write in place: `pos[i].X += pos[i].Y`, never `p := pos[i]; p.X += p.Y`.
+//     A copy-then-mutate touches only a local that is never read again, so the
+//     compiler deletes the write (dead-store elimination) and the benchmark
+//     measures iteration over nothing — artificially ~2x too fast at low
+//     component counts. In-place indexing forces a real store to chunk memory.
+//
+//  2. Hoist the component slice once per chunk: `pos := col.Slice(v)`
+//     outside the inner loop, then index `pos[i]`. Because len(pos) == len(v.EntSlice)
+//     (both derive from the chunk length), ranging v.EntSlice lets the compiler
+//     prove `i < len(pos)` and eliminate the bounds check on pos[i]. Re-deriving
+//     the slice inside the loop, or indexing through a struct field per use,
+//     loses that bounds-check elimination and inflates the cost (~2.5x at 3 comps).
+//
+// Views are created once outside b.Run: with -count=N each b.Run callback is
+// called N times, so creating a NewView inside would accumulate N views per
+// sub-benchmark on the same ECS and eventually exceed MaxViews.
 func Benchmark_View_All(b *testing.B) {
-
 	ecs := setupECS()
 	populate(ecs, entitiesNumber)
+
+	var pos goke.Col[Pos]
+	var vel goke.Col[Vel]
+	var acc goke.Col[Acc]
+	var t04 goke.Col[T04]
+	var t05 goke.Col[T05]
+	var t06 goke.Col[T06]
+	var t07 goke.Col[T07]
+	var t08 goke.Col[T08]
+	var t09 goke.Col[T09]
+	var t10 goke.Col[T10]
+
+	view0 := goke.NewView(ecs)
+	view1 := goke.NewView(ecs, pos.Track())
+	view2 := goke.NewView(ecs, pos.Track(), vel.Track())
+	view3 := goke.NewView(ecs, pos.Track(), vel.Track(), acc.Track(), goke.Include[T04]())
+	view4 := goke.NewView(ecs, pos.Track(), vel.Track(), acc.Track(), t04.Track())
+	view5 := goke.NewView(ecs, pos.Track(), vel.Track(), acc.Track(), t04.Track(), t05.Track())
+	view6 := goke.NewView(ecs, pos.Track(), vel.Track(), acc.Track(), t04.Track(), t05.Track(), t06.Track())
+	view7 := goke.NewView(ecs, pos.Track(), vel.Track(), acc.Track(), t04.Track(), t05.Track(), t06.Track(), t07.Track())
+	view8 := goke.NewView(ecs, pos.Track(), vel.Track(), acc.Track(), t04.Track(), t05.Track(), t06.Track(), t07.Track(), t08.Track())
+	view9 := goke.NewView(ecs, pos.Track(), vel.Track(), acc.Track(), t04.Track(), t05.Track(), t06.Track(), t07.Track(), t08.Track(), t09.Track())
+	view10 := goke.NewView(ecs, pos.Track(), vel.Track(), acc.Track(), t04.Track(), t05.Track(), t06.Track(), t07.Track(), t08.Track(), t09.Track(), t10.Track())
+
 	var GlobalCount int
 	b.Run("0 comp", func(b *testing.B) {
-		view0 := goke.NewView0(ecs)
 		fn := func() {
 			count := 0
-			for chunk := range view0.All() {
-				for _, entityID := range chunk.Entity {
+			view0.All()
+			for view0.Next() {
+				for _, entityID := range view0.EntSlice {
 					_ = entityID
 					count++
 				}
@@ -35,14 +79,14 @@ func Benchmark_View_All(b *testing.B) {
 	})
 
 	b.Run("1 comp", func(b *testing.B) {
-		view1 := goke.NewView1[Pos](ecs)
 		fn := func() {
 			count := 0
-			for chunk := range view1.All() {
-				for i, entityID := range chunk.Entity {
+			view1.All()
+			for view1.Next() {
+				posSlice := pos.Slice(view1)
+				for i, entityID := range view1.EntSlice {
 					_ = entityID
-					pos := chunk.Comp1[i]
-					pos.X += pos.Y
+					posSlice[i].X += posSlice[i].Y
 					count++
 				}
 			}
@@ -60,14 +104,15 @@ func Benchmark_View_All(b *testing.B) {
 	})
 
 	b.Run("2 comp", func(b *testing.B) {
-		view2 := goke.NewView2[Pos, Vel](ecs)
 		fn := func() {
-			for chunk := range view2.All() {
-				for i, entityID := range chunk.Entity {
+			view2.All()
+			for view2.Next() {
+				posSlice := pos.Slice(view2)
+				velSlice := vel.Slice(view2)
+				for i, entityID := range view2.EntSlice {
 					_ = entityID
-					pos, vel := chunk.Comp1[i], chunk.Comp2[i]
-					vel.X += vel.Y
-					pos.X += vel.X
+					velSlice[i].X += velSlice[i].Y
+					posSlice[i].X += velSlice[i].X
 				}
 			}
 		}
@@ -80,15 +125,17 @@ func Benchmark_View_All(b *testing.B) {
 	})
 
 	b.Run("3 comp", func(b *testing.B) {
-		view3 := goke.NewView3[Pos, Vel, Acc](ecs, goke.Include[T04]())
 		fn := func() {
-			for chunk := range view3.All() {
-				for i, entityID := range chunk.Entity {
+			view3.All()
+			for view3.Next() {
+				posSlice := pos.Slice(view3)
+				velSlice := vel.Slice(view3)
+				accSlice := acc.Slice(view3)
+				for i, entityID := range view3.EntSlice {
 					_ = entityID
-					pos, vel, acc := chunk.Comp1[i], chunk.Comp2[i], chunk.Comp3[i]
-					acc.X += 0.1
-					vel.X += acc.X
-					pos.X += vel.X
+					accSlice[i].X += 0.1
+					velSlice[i].X += accSlice[i].X
+					posSlice[i].X += velSlice[i].X
 				}
 			}
 		}
@@ -101,16 +148,19 @@ func Benchmark_View_All(b *testing.B) {
 	})
 
 	b.Run("4 comp", func(b *testing.B) {
-		view4 := goke.NewView4[Pos, Vel, Acc, T04](ecs)
 		fn := func() {
-			for chunk := range view4.All() {
-				for i, entityID := range chunk.Entity {
+			view4.All()
+			for view4.Next() {
+				posSlice := pos.Slice(view4)
+				velSlice := vel.Slice(view4)
+				accSlice := acc.Slice(view4)
+				t04Slice := t04.Slice(view4)
+				for i, entityID := range view4.EntSlice {
 					_ = entityID
-					pos, vel, acc := chunk.Comp1[i], chunk.Comp2[i], chunk.Comp3[i]
-					acc.X += 0.1
-					vel.X += acc.X
-					pos.X += vel.X
-					chunk.Comp4[i].V = 1
+					accSlice[i].X += 0.1
+					velSlice[i].X += accSlice[i].X
+					posSlice[i].X += velSlice[i].X
+					t04Slice[i].V = 1
 				}
 			}
 		}
@@ -123,17 +173,21 @@ func Benchmark_View_All(b *testing.B) {
 	})
 
 	b.Run("5 comp", func(b *testing.B) {
-		view5 := goke.NewView5[Pos, Vel, Acc, T04, T05](ecs)
 		fn := func() {
-			for chunk := range view5.All() {
-				for i, entityID := range chunk.Entity {
+			view5.All()
+			for view5.Next() {
+				posSlice := pos.Slice(view5)
+				velSlice := vel.Slice(view5)
+				accSlice := acc.Slice(view5)
+				t04Slice := t04.Slice(view5)
+				t05Slice := t05.Slice(view5)
+				for i, entityID := range view5.EntSlice {
 					_ = entityID
-					pos, vel, acc := chunk.Comp1[i], chunk.Comp2[i], chunk.Comp3[i]
-					acc.X += 0.1
-					vel.X += acc.X
-					pos.X += vel.X
-					chunk.Comp4[i].V = 1
-					chunk.Comp5[i].V = 1
+					accSlice[i].X += 0.1
+					velSlice[i].X += accSlice[i].X
+					posSlice[i].X += velSlice[i].X
+					t04Slice[i].V = 1
+					t05Slice[i].V = 1
 				}
 			}
 		}
@@ -146,18 +200,23 @@ func Benchmark_View_All(b *testing.B) {
 	})
 
 	b.Run("6 comp", func(b *testing.B) {
-		view6 := goke.NewView6[Pos, Vel, Acc, T04, T05, T06](ecs)
 		fn := func() {
-			for chunk := range view6.All() {
-				for i, entityID := range chunk.Entity {
+			view6.All()
+			for view6.Next() {
+				posSlice := pos.Slice(view6)
+				velSlice := vel.Slice(view6)
+				accSlice := acc.Slice(view6)
+				t04Slice := t04.Slice(view6)
+				t05Slice := t05.Slice(view6)
+				t06Slice := t06.Slice(view6)
+				for i, entityID := range view6.EntSlice {
 					_ = entityID
-					pos, vel, acc := chunk.Comp1[i], chunk.Comp2[i], chunk.Comp3[i]
-					acc.X += 0.1
-					vel.X += acc.X
-					pos.X += vel.X
-					chunk.Comp4[i].V = 1
-					chunk.Comp5[i].V = 1
-					chunk.Comp6[i].V = 1
+					accSlice[i].X += 0.1
+					velSlice[i].X += accSlice[i].X
+					posSlice[i].X += velSlice[i].X
+					t04Slice[i].V = 1
+					t05Slice[i].V = 1
+					t06Slice[i].V = 1
 				}
 			}
 		}
@@ -170,19 +229,25 @@ func Benchmark_View_All(b *testing.B) {
 	})
 
 	b.Run("7 comp", func(b *testing.B) {
-		view7 := goke.NewView7[Pos, Vel, Acc, T04, T05, T06, T07](ecs)
 		fn := func() {
-			for chunk := range view7.All() {
-				for i, entityID := range chunk.Entity {
+			view7.All()
+			for view7.Next() {
+				posSlice := pos.Slice(view7)
+				velSlice := vel.Slice(view7)
+				accSlice := acc.Slice(view7)
+				t04Slice := t04.Slice(view7)
+				t05Slice := t05.Slice(view7)
+				t06Slice := t06.Slice(view7)
+				t07Slice := t07.Slice(view7)
+				for i, entityID := range view7.EntSlice {
 					_ = entityID
-					pos, vel, acc := chunk.Comp1[i], chunk.Comp2[i], chunk.Comp3[i]
-					acc.X += 0.1
-					vel.X += acc.X
-					pos.X += vel.X
-					chunk.Comp4[i].V = 1
-					chunk.Comp5[i].V = 1
-					chunk.Comp6[i].V = 1
-					chunk.Comp7[i].V = 1
+					accSlice[i].X += 0.1
+					velSlice[i].X += accSlice[i].X
+					posSlice[i].X += velSlice[i].X
+					t04Slice[i].V = 1
+					t05Slice[i].V = 1
+					t06Slice[i].V = 1
+					t07Slice[i].V = 1
 				}
 			}
 		}
@@ -195,20 +260,27 @@ func Benchmark_View_All(b *testing.B) {
 	})
 
 	b.Run("8 comp", func(b *testing.B) {
-		view8 := goke.NewView8[Pos, Vel, Acc, T04, T05, T06, T07, T08](ecs)
 		fn := func() {
-			for chunk := range view8.All() {
-				for i, entityID := range chunk.Entity {
+			view8.All()
+			for view8.Next() {
+				posSlice := pos.Slice(view8)
+				velSlice := vel.Slice(view8)
+				accSlice := acc.Slice(view8)
+				t04Slice := t04.Slice(view8)
+				t05Slice := t05.Slice(view8)
+				t06Slice := t06.Slice(view8)
+				t07Slice := t07.Slice(view8)
+				t08Slice := t08.Slice(view8)
+				for i, entityID := range view8.EntSlice {
 					_ = entityID
-					pos, vel, acc := chunk.Comp1[i], chunk.Comp2[i], chunk.Comp3[i]
-					acc.X += 0.1
-					vel.X += acc.X
-					pos.X += vel.X
-					chunk.Comp4[i].V = 1
-					chunk.Comp5[i].V = 1
-					chunk.Comp6[i].V = 1
-					chunk.Comp7[i].V = 1
-					chunk.Comp8[i].V = 1
+					accSlice[i].X += 0.1
+					velSlice[i].X += accSlice[i].X
+					posSlice[i].X += velSlice[i].X
+					t04Slice[i].V = 1
+					t05Slice[i].V = 1
+					t06Slice[i].V = 1
+					t07Slice[i].V = 1
+					t08Slice[i].V = 1
 				}
 			}
 		}
@@ -221,21 +293,29 @@ func Benchmark_View_All(b *testing.B) {
 	})
 
 	b.Run("9 comp", func(b *testing.B) {
-		view9 := goke.NewView9[Pos, Vel, Acc, T04, T05, T06, T07, T08, T09](ecs)
 		fn := func() {
-			for chunk := range view9.All() {
-				for i, entityID := range chunk.Entity {
+			view9.All()
+			for view9.Next() {
+				posSlice := pos.Slice(view9)
+				velSlice := vel.Slice(view9)
+				accSlice := acc.Slice(view9)
+				t04Slice := t04.Slice(view9)
+				t05Slice := t05.Slice(view9)
+				t06Slice := t06.Slice(view9)
+				t07Slice := t07.Slice(view9)
+				t08Slice := t08.Slice(view9)
+				t09Slice := t09.Slice(view9)
+				for i, entityID := range view9.EntSlice {
 					_ = entityID
-					pos, vel, acc := chunk.Comp1[i], chunk.Comp2[i], chunk.Comp3[i]
-					acc.X += 0.1
-					vel.X += acc.X
-					pos.X += vel.X
-					chunk.Comp4[i].V = 1
-					chunk.Comp5[i].V = 1
-					chunk.Comp6[i].V = 1
-					chunk.Comp7[i].V = 1
-					chunk.Comp8[i].V = 1
-					chunk.Comp9[i].V = 1
+					accSlice[i].X += 0.1
+					velSlice[i].X += accSlice[i].X
+					posSlice[i].X += velSlice[i].X
+					t04Slice[i].V = 1
+					t05Slice[i].V = 1
+					t06Slice[i].V = 1
+					t07Slice[i].V = 1
+					t08Slice[i].V = 1
+					t09Slice[i].V = 1
 				}
 			}
 		}
@@ -248,22 +328,31 @@ func Benchmark_View_All(b *testing.B) {
 	})
 
 	b.Run("10 comp", func(b *testing.B) {
-		view10 := goke.NewView10[Pos, Vel, Acc, T04, T05, T06, T07, T08, T09, T10](ecs)
 		fn := func() {
-			for chunk := range view10.All() {
-				for i, entityID := range chunk.Entity {
+			view10.All()
+			for view10.Next() {
+				posSlice := pos.Slice(view10)
+				velSlice := vel.Slice(view10)
+				accSlice := acc.Slice(view10)
+				t04Slice := t04.Slice(view10)
+				t05Slice := t05.Slice(view10)
+				t06Slice := t06.Slice(view10)
+				t07Slice := t07.Slice(view10)
+				t08Slice := t08.Slice(view10)
+				t09Slice := t09.Slice(view10)
+				t10Slice := t10.Slice(view10)
+				for i, entityID := range view10.EntSlice {
 					_ = entityID
-					pos, vel, acc := chunk.Comp1[i], chunk.Comp2[i], chunk.Comp3[i]
-					acc.X += 0.1
-					vel.X += acc.X
-					pos.X += vel.X
-					chunk.Comp4[i].V = 1
-					chunk.Comp5[i].V = 1
-					chunk.Comp6[i].V = 1
-					chunk.Comp7[i].V = 1
-					chunk.Comp8[i].V = 1
-					chunk.Comp9[i].V = 1
-					chunk.Comp10[i].V = 1
+					accSlice[i].X += 0.1
+					velSlice[i].X += accSlice[i].X
+					posSlice[i].X += velSlice[i].X
+					t04Slice[i].V = 1
+					t05Slice[i].V = 1
+					t06Slice[i].V = 1
+					t07Slice[i].V = 1
+					t08Slice[i].V = 1
+					t09Slice[i].V = 1
+					t10Slice[i].V = 1
 				}
 			}
 		}

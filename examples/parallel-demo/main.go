@@ -51,26 +51,32 @@ func main() {
 	}
 
 	// 3. Define Views (for system filtering)
-	vDice := goke.NewView1[Dice](ecs)
-	vPlayers := goke.NewView1[Player](ecs)
-	vWinners := goke.NewView0(ecs, goke.Include[Winner]())
+	var colDice goke.Col[Dice]
+	var colPlayer goke.Col[Player]
+	vDice := goke.NewView(ecs, colDice.Track())
+	vPlayers := goke.NewView(ecs, colPlayer.Track())
+	vWinners := goke.NewView(ecs, goke.Include[Winner]())
 
 	// 4. Register Systems
 
 	// System A: Roll the dice
 	rollSys := goke.RegSysFn(ecs, func(cb *goke.CmdBuf, d time.Duration) {
-		for chunk := range vDice.All() {
-			for i, _ := range chunk.Entity {
-				chunk.Comp1[i].Value = rand.Intn(6) + 1
+		vDice.All()
+		for vDice.Next() {
+			dice := colDice.Slice(vDice)
+			for i := range vDice.EntSlice {
+				dice[i].Value = rand.Intn(6) + 1
 			}
 		}
 	})
 
 	// System B: Players place their bets
 	betSys := goke.RegSysFn(ecs, func(cb *goke.CmdBuf, d time.Duration) {
-		for chunk := range vPlayers.All() {
-			for i, _ := range chunk.Entity {
-				chunk.Comp1[i].Bet = rand.Intn(6) + 1
+		vPlayers.All()
+		for vPlayers.Next() {
+			players := colPlayer.Slice(vPlayers)
+			for i := range vPlayers.EntSlice {
+				players[i].Bet = rand.Intn(6) + 1
 			}
 		}
 	})
@@ -85,9 +91,11 @@ func main() {
 		dice, _ := goke.SafeGetComp[Dice](ecs, diceEnt, diceDesc)
 		fmt.Printf("🎲 Turn %d | Dice Result: %d\n", turnCounter, dice.Value)
 
-		for chunk := range vPlayers.All() {
-			for i, entityID := range chunk.Entity {
-				bet := chunk.Comp1[i].Bet
+		vPlayers.All()
+		for vPlayers.Next() {
+			players := colPlayer.Slice(vPlayers)
+			for i, entityID := range vPlayers.EntSlice {
+				bet := players[i].Bet
 				fmt.Printf("   Player %d bet: %d\n", entityID, bet)
 				if bet == dice.Value {
 					gameFinished = true
@@ -100,8 +108,11 @@ func main() {
 
 	// System D: Display winners (Reactive System)
 	displayWinnerSys := goke.RegSysFn(ecs, func(cb *goke.CmdBuf, d time.Duration) {
-		for res := range vWinners.All() {
-			fmt.Printf("🏆 VICTORY! Entity %d is marked as a Winner!\n", res.Entity)
+		vWinners.All()
+		for vWinners.Next() {
+			for _, e := range vWinners.EntSlice {
+				fmt.Printf("🏆 VICTORY! Entity %d is marked as a Winner!\n", e)
+			}
 		}
 	})
 

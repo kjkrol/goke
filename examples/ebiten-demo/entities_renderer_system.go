@@ -20,7 +20,10 @@ const (
 
 type EntitiesRendererSystem struct {
 	*Resources
-	renderView *goke.View3[Position, Collision, Appearance]
+	renderView *goke.View
+	pos        goke.Col[Position]
+	coll       goke.Col[Collision]
+	appearance goke.Col[Appearance]
 	atlas      *ebiten.Image
 	vertices   []ebiten.Vertex
 	indices    []uint16
@@ -38,7 +41,7 @@ func NewEntitiesRendererSystem(resources *Resources) gokebiten.RenderSystem {
 }
 
 func (s *EntitiesRendererSystem) Init(ecs *goke.ECS) {
-	s.renderView = goke.NewView3[Position, Collision, Appearance](ecs)
+	s.renderView = goke.NewView(ecs, s.pos.Track(), s.coll.Track(), s.appearance.Track())
 }
 
 func (s *EntitiesRendererSystem) Update(_ goke.Lookup, _ *goke.CmdBuf, _ time.Duration) {}
@@ -56,9 +59,13 @@ func (s *EntitiesRendererSystem) Draw(screen *ebiten.Image) {
 	s.vertices = s.vertices[:0]
 	s.indices = s.indices[:0]
 
-	for chunk := range s.renderView.All() {
-		for i := range chunk.Entity {
-			pos, col, app := chunk.Comp1[i], chunk.Comp2[i], chunk.Comp3[i]
+	s.renderView.All()
+	for s.renderView.Next() {
+		positions := s.pos.Slice(s.renderView)
+		collisions := s.coll.Slice(s.renderView)
+		appearances := s.appearance.Slice(s.renderView)
+		for i := range s.renderView.EntSlice {
+			pos, col, app := positions[i], collisions[i], appearances[i]
 			sx0, sy0, sx1, sy1 := spriteUV(app.SpriteID)
 			r, g, b, a := s.resolveColor(app, col, now)
 

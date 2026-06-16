@@ -10,7 +10,9 @@ import (
 )
 
 func newPool() uid.UID64Pool {
-	return uid.NewUID64Pool(16, 16)
+	pool := uid.UID64Pool{}
+	pool.Init(16, 16)
+	return pool
 }
 
 func newIndex(cap int) Index {
@@ -99,7 +101,8 @@ func TestIndex_ClearIgnoresStaleGeneration(t *testing.T) {
 
 func TestIndex_GrowsOnDemand(t *testing.T) {
 	s := newIndex(2)
-	pool := uid.NewUID64Pool(64, 16)
+	var pool uid.UID64Pool
+	pool.Init(64, 16)
 	var e uid.UID64
 	for range 11 {
 		e = pool.Next()

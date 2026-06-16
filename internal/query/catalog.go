@@ -28,6 +28,15 @@ func (c *Catalog) Add() *View {
 	return &c.views[len(c.views)-1]
 }
 
+// NewView creates a View using Track/Include/Exclude opts.
+// Track[T]() opts register component data columns (accessible via Slice/At);
+// Include[T]() opts add filter-only requirements; Exclude[T]() opts add exclusions.
+func NewView(c *Catalog, opts ...comp.BlueprintOpt) *View {
+	var s comp.Spec0
+	s.Init(c.cc, opts...)
+	return c.AddView(&s.Blueprint)
+}
+
 func (c *Catalog) AddView(blueprint *comp.Blueprint) *View {
 	view := c.Add()
 	view.Init(&c.em.Index, blueprint)

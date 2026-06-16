@@ -13,6 +13,15 @@ func Include[T any]() BlueprintOpt {
 	}
 }
 
+// Track adds component type T as a tracked data column and requires it for matching.
+// The column index corresponds to the order of Track calls on the same View.
+func Track[T any]() BlueprintOpt {
+	return func(b *Blueprint, c *Catalog) error {
+		meta := c.Intern(reflect.TypeFor[T]())
+		return b.Comp(meta)
+	}
+}
+
 // Exclude adds an exclusion for component type T to the Blueprint's filter.
 func Exclude[T any]() BlueprintOpt {
 	return func(b *Blueprint, c *Catalog) error {

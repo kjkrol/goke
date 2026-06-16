@@ -35,19 +35,23 @@ func main() {
 	}
 
 	// Initialize view for Pos, Vel, and Acc components
-	query := goke.NewView3[Pos, Vel, Acc](ecs)
+	var pos goke.Col[Pos]
+	var vel goke.Col[Vel]
+	var acc goke.Col[Acc]
+	query := goke.NewView(ecs, pos.Track(), vel.Track(), acc.Track())
 
 	// Define the movement system using the functional registration pattern
 	movementSystem := goke.RegSysFn(ecs, func(schedule *goke.CmdBuf, d time.Duration) {
-		// SoA (Structure of Arrays) layout ensures CPU Cache friendliness.
-		for chunk := range query.All() {
-			for i, _ := range chunk.Entity {
-				pos, vel, acc := &chunk.Comp1[i], &chunk.Comp2[i], &chunk.Comp3[i]
-
-				vel.X += acc.X
-				vel.Y += acc.Y
-				pos.X += vel.X
-				pos.Y += vel.Y
+		query.All()
+		for query.Next() {
+			posSlice := pos.Slice(query)
+			velSlice := vel.Slice(query)
+			accSlice := acc.Slice(query)
+			for i := range query.EntSlice {
+				velSlice[i].X += accSlice[i].X
+				velSlice[i].Y += accSlice[i].Y
+				posSlice[i].X += velSlice[i].X
+				posSlice[i].Y += velSlice[i].Y
 			}
 		}
 	})

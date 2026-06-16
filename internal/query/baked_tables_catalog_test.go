@@ -60,9 +60,6 @@ func TestBakedTablesCatalog_AddAndGet(t *testing.T) {
 	if len(bt.CompOffsets) != 1 {
 		t.Errorf("expected 1 CompOffset, got %d", len(bt.CompOffsets))
 	}
-	if len(bt.CompSizes) != 1 {
-		t.Errorf("expected 1 CompSize, got %d", len(bt.CompSizes))
-	}
 }
 
 func TestBakedTablesCatalog_GetOutOfRange(t *testing.T) {

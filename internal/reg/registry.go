@@ -53,6 +53,12 @@ func (r *Registry) AddView(blueprint *comp.Blueprint) *query.View {
 	return r.ViewCatalog.AddView(blueprint)
 }
 
+func (r *Registry) NewView(opts ...comp.BlueprintOpt) *query.View {
+	var s comp.Spec0
+	s.Init(&r.CompCatalog, opts...)
+	return r.AddView(&s.Blueprint)
+}
+
 func (r *Registry) Reset() {
 	r.EntityManager.Reset()
 	r.CompCatalog.Reset()

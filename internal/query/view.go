@@ -1,16 +1,48 @@
 package query
 
 import (
+	"unsafe"
+
+	"github.com/kjkrol/uid"
+
 	"github.com/kjkrol/goke/internal/arch"
 	"github.com/kjkrol/goke/internal/comp"
 	"github.com/kjkrol/goke/internal/ent"
 )
+
+type iterMode uint8
+
+const (
+	modeNone iterMode = iota
+	modeAll
+	modeFilter
+)
+
+type allIter struct {
+	tableIdx int
+	chunkIdx int
+	EntSlice []uid.UID64
+}
+
+type filterIter struct {
+	selected   []uid.UID64
+	pos        int
+	lastArchID arch.ID
+	bt         *BakedTable
+	ptr        unsafe.Pointer
+	slot       uintptr
+	Entity     uid.UID64
+	Idx        int
+}
 
 type View struct {
 	BakedTablesCatalog
 	EntityIndex *ent.Index
 	composition comp.Composition
 	excludeMask comp.Mask
+	mode        iterMode
+	allIter
+	filterIter
 }
 
 func (v *View) Init(entityIndex *ent.Index, blueprint *comp.Blueprint) {
@@ -51,4 +83,36 @@ func (v *View) Bake(archetype *arch.Archetype) {
 
 func (v *View) Matches(archMask comp.Mask) bool {
 	return archMask.Matches(v.composition.Mask, v.excludeMask)
+}
+
+// All prepares the View for full chunk iteration and returns v.
+// Call Next() to advance through matched entity chunks; read component slices
+// with Slice[T]. The View holds iteration state directly — do not call All
+// concurrently on the same View.
+func (v *View) All() *View {
+	v.mode = modeAll
+	v.allIter = allIter{chunkIdx: -1}
+	return v
+}
+
+// Filter prepares the View to iterate over selected entities and returns v.
+// Call Next() to advance; read component pointers with At[T].
+// The View holds iteration state directly — do not call Filter concurrently
+// on the same View.
+func (v *View) Filter(selected []uid.UID64) *View {
+	v.mode = modeFilter
+	v.filterIter = filterIter{selected: selected, lastArchID: arch.NullID}
+	return v
+}
+
+// Next advances the iterator one step. Returns false when exhausted.
+// The current mode (set by All or Filter) determines which iteration path runs.
+func (v *View) Next() bool {
+	switch v.mode {
+	case modeAll:
+		return v.nextAll()
+	case modeFilter:
+		return v.nextFilter()
+	}
+	return false
 }

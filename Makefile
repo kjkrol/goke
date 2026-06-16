@@ -15,8 +15,7 @@ setup:
 generate:
 	go run internal/cmd/gen/specs/main.go
 	go run internal/cmd/gen/blueprints/main.go
-	go run internal/cmd/gen/views/main.go
-	gofmt -w internal/comp/spec_gen.go internal/ent/factories_gen.go internal/query/views_gen.go aliases_factories_gen.go aliases_views_gen.go
+	gofmt -w internal/comp/spec_gen.go internal/ent/factories_gen.go aliases_factories_gen.go
 
 test:
 	go test ./...

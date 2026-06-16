@@ -35,13 +35,16 @@ func main() {
 	}
 
 	// Define the Billing System to calculate discounted totals for unprocessed orders
-	query := goke.NewView2[Order, Discount](ecs, goke.Exclude[Processed]())
+	var order goke.Col[Order]
+	var discount goke.Col[Discount]
+	query := goke.NewView(ecs, order.Track(), discount.Track(), goke.Exclude[Processed]())
 	billing := goke.RegSysFn(ecs, func(schedule *goke.CmdBuf, d time.Duration) {
-		for chunk := range query.All() {
-			for i, entityID := range chunk.Entity {
-				ord, disc := &chunk.Comp1[i], &chunk.Comp2[i]
-				ord.Total = ord.Total * (1 - disc.Percentage/100)
-
+		query.All()
+		for query.Next() {
+			orders := order.Slice(query)
+			discounts := discount.Slice(query)
+			for i, entityID := range query.EntSlice {
+				orders[i].Total = orders[i].Total * (1 - discounts[i].Percentage/100)
 				// Defer the assignment of the Processed tag to the next synchronization point
 				goke.CmdBufAddComp(schedule, entityID, processedDesc, Processed{})
 			}
@@ -50,12 +53,11 @@ func main() {
 
 	// Define the Teardown System to monitor simulation exit conditions
 	close := false
-	query2 := goke.NewView0(ecs, goke.Include[Processed]())
+	query2 := goke.NewView(ecs, goke.Include[Processed]())
 	teardownSystem := goke.RegSysFn(ecs, func(cb *goke.CmdBuf, d time.Duration) {
-		for _, e := range query2.Filter([]uid.UID64{entityID}) {
-			_ = e
+		query2.Filter([]uid.UID64{entityID})
+		if query2.Next() {
 			close = true
-			break
 		}
 	})
 

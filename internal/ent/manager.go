@@ -20,7 +20,7 @@ type Manager struct {
 }
 
 func (m *Manager) Init(cfg Config, onArchetypeCreated func(*arch.Archetype)) {
-	m.pool = uid.NewUID64Pool(cfg.Cap, cfg.FreeCap)
+	m.pool.Init(cfg.Cap, cfg.FreeCap)
 	m.Index.Init(cfg.Cap)
 	m.ArchCatalog.Init(onArchetypeCreated)
 }

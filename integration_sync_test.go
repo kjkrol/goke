@@ -30,16 +30,17 @@ var logDesc goke.CompMeta
 // --- Systems ---
 
 type WorkerSystem struct {
-	query *goke.View1[Task]
+	query *goke.View
 }
 
 func (s *WorkerSystem) Init(eng *goke.ECS) {
-	s.query = goke.NewView1[Task](eng)
+	s.query = goke.NewView(eng, goke.Include[Task]())
 }
 
 func (s *WorkerSystem) Update(lookup goke.Lookup, schedule *goke.CmdBuf, duration time.Duration) {
-	for chunk := range s.query.All() {
-		for _, entityID := range chunk.Entity {
+	s.query.All()
+	for s.query.Next() {
+		for _, entityID := range s.query.EntSlice {
 			msg := Log{Msg: "Done"}
 			goke.CmdBufAddComp(schedule, entityID, logDesc, msg)
 		}
@@ -47,16 +48,17 @@ func (s *WorkerSystem) Update(lookup goke.Lookup, schedule *goke.CmdBuf, duratio
 }
 
 type LoggerSystem struct {
-	query *goke.View1[Log]
+	query *goke.View
 	Found bool
 }
 
 func (s *LoggerSystem) Init(eng *goke.ECS) {
-	s.query = goke.NewView1[Log](eng)
+	s.query = goke.NewView(eng, goke.Include[Log]())
 }
 
 func (s *LoggerSystem) Update(lookup goke.Lookup, schedule *goke.CmdBuf, duration time.Duration) {
-	for range s.query.All() {
+	s.query.All()
+	for s.query.Next() {
 		s.Found = true
 	}
 }

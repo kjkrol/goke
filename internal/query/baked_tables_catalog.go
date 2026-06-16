@@ -14,20 +14,17 @@ type BakedTablesCatalog struct {
 // metas defines which component columns are precomputed for iteration.
 func (c *BakedTablesCatalog) Add(archetype *arch.Archetype, metas []comp.Meta) {
 	offsets := make([]uintptr, len(metas))
-	sizes := make([]uintptr, len(metas))
 	for idx, meta := range metas {
 		col := archetype.Table.GetColumn(meta.ID)
 		if col == nil {
 			continue
 		}
 		offsets[idx] = col.Offset
-		sizes[idx] = col.CompSize
 	}
 
 	c.BakedTables = append(c.BakedTables, BakedTable{
 		Table:       &archetype.Table,
 		CompOffsets: offsets,
-		CompSizes:   sizes,
 	})
 
 	if int(archetype.Id) >= len(c.archTableIndex) {
@@ -38,14 +35,14 @@ func (c *BakedTablesCatalog) Add(archetype *arch.Archetype, metas []comp.Meta) {
 
 // Get returns the BakedTable for the given archetype ID, or nil if not matched.
 func (c *BakedTablesCatalog) Get(archID arch.ID) *BakedTable {
-	if int(archID) >= len(c.archTableIndex) {
-		return nil
+	// Unsigned compare enables bounds-check elimination on the index access;
+	// the single trailing return nil covers both out-of-range and unmatched (-1).
+	if uint(archID) < uint(len(c.archTableIndex)) {
+		if idx := c.archTableIndex[archID]; idx >= 0 {
+			return &c.BakedTables[idx]
+		}
 	}
-	idx := c.archTableIndex[archID]
-	if idx == -1 {
-		return nil
-	}
-	return &c.BakedTables[idx]
+	return nil
 }
 
 func (c *BakedTablesCatalog) Clear() {
