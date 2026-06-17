@@ -39,5 +39,5 @@ func (a *Archetype) Init(archId ID, set comp.Composition) {
 }
 
 func (a *Archetype) Len() int {
-	return int(a.Table.Len)
+	return int(a.Table.Len())
 }

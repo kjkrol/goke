@@ -1,4 +1,4 @@
-package soa
+package mem
 
 import (
 	"unsafe"
@@ -15,7 +15,8 @@ type ChunkLayout struct {
 }
 
 func (l *ChunkLayout) Init(compMetas []comp.Meta) {
-	totalStride := unsafe.Sizeof(uid.UID64(0))
+	entityStride := unsafe.Sizeof(uid.UID64(0))
+	totalStride := entityStride
 	for _, compMeta := range compMetas {
 		totalStride += compMeta.Size
 	}
@@ -32,7 +33,7 @@ func (l *ChunkLayout) Init(compMetas []comp.Meta) {
 		entityAlign := unsafe.Alignof(uid.UID64(0))
 		currentOffset = alignUp(currentOffset, entityAlign)
 		offsets[0] = currentOffset
-		currentOffset += unsafe.Sizeof(uid.UID64(0)) * capacity
+		currentOffset += entityStride * capacity
 
 		for i, compMeta := range compMetas {
 			currentOffset = alignUp(currentOffset, compMeta.Align)
@@ -40,7 +41,7 @@ func (l *ChunkLayout) Init(compMetas []comp.Meta) {
 			currentOffset += compMeta.Size * capacity
 		}
 
-		if capacity == 1 || currentOffset <= L1DataCacheSize {
+		if capacity == 1 || (currentOffset <= L1DataCacheSize && !hasCacheSetConflict(offsets)) {
 			l.ChunkCap = uint32(capacity)
 			l.ChunkBytes = currentOffset
 			l.Offsets = offsets
@@ -51,4 +52,8 @@ func (l *ChunkLayout) Init(compMetas []comp.Meta) {
 	}
 
 	panic("unreachable")
+}
+
+func alignUp(ptr, align uintptr) uintptr {
+	return (ptr + align - 1) & ^(align - 1)
 }

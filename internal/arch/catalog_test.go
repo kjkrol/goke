@@ -8,7 +8,7 @@ import (
 	"github.com/kjkrol/uid"
 
 	"github.com/kjkrol/goke/internal/comp"
-	"github.com/kjkrol/goke/internal/soa"
+	"github.com/kjkrol/goke/internal/mem"
 )
 
 type position struct {
@@ -19,8 +19,8 @@ type velocity struct {
 	vx, vy float64
 }
 
-func newCatalog() comp.Catalog {
-	var c comp.Catalog
+func newCatalog() comp.MetaIndex {
+	var c comp.MetaIndex
 	c.Init()
 	return c
 }
@@ -32,12 +32,12 @@ func testMetas() (pos, vel comp.Meta) {
 	return
 }
 
-// testEntityEntry is a test-local entity location record. It mirrors entity.EntityLocation
+// testEntityEntry is a test-local entity location record. It mirrors entity.Link
 // without importing the entity package, which imports arch and would create a cycle
 // in this package's test binary.
 type testEntityEntry struct {
 	ArchId ID
-	Pos    soa.BlockPos
+	Pos    mem.BlockPos
 	gen    uint32
 }
 
@@ -62,7 +62,7 @@ func (t *testEntityIndex) Get(entityID uid.UID64) (testEntityEntry, bool) {
 	return e, true
 }
 
-func (t *testEntityIndex) Upsert(entityID uid.UID64, archID ID, pos soa.BlockPos) {
+func (t *testEntityIndex) Upsert(entityID uid.UID64, archID ID, pos mem.BlockPos) {
 	idx, gen := entityID.Unpack()
 	for int(idx) >= len(t.entries) {
 		t.entries = append(t.entries, testEntityEntry{})
@@ -96,7 +96,7 @@ func newTestEnv() *testEnv {
 }
 
 func (env *testEnv) addEntity(entityID uid.UID64, archID ID) {
-	pos := env.catalog.AddEntityToTable(archID, entityID)
+	pos := env.catalog.Archetypes[archID].Table.AddEntity(entityID)
 	env.entityIndex.Upsert(entityID, archID, pos)
 }
 
@@ -125,8 +125,8 @@ func (env *testEnv) upsertComp(entityID uid.UID64, compMeta comp.Meta) (unsafe.P
 
 	targetArch := &env.catalog.Archetypes[targetArchID]
 	col := targetArch.Table.GetColumn(compMeta.ID)
-	chunk := targetArch.Table.GetChunk(targetPos.ChunkIdx)
-	return col.At(chunk, targetPos.ChunkSlot), true
+	chunkPtr := targetArch.Table.ChunkPtr(targetPos.ChunkIdx)
+	return col.At(chunkPtr, targetPos.ChunkSlot), true
 }
 
 func (env *testEnv) removeComp(entityID uid.UID64, compMeta comp.Meta) {
@@ -296,9 +296,9 @@ func TestRegistry_OverwriteIdempotency(t *testing.T) {
 	}
 
 	linkAfterArch := &env.catalog.Archetypes[linkAfter.ArchId]
-	targetPage := linkAfterArch.Table.GetChunk(linkAfter.Pos.ChunkIdx)
+	targetPagePtr := linkAfterArch.Table.ChunkPtr(linkAfter.Pos.ChunkIdx)
 	col := linkAfterArch.Table.GetColumn(posTypeInfo.ID)
-	gotData := *(*position)(col.At(targetPage, linkAfter.Pos.ChunkSlot))
+	gotData := *(*position)(col.At(targetPagePtr, linkAfter.Pos.ChunkSlot))
 	if gotData != (position{2, 2}) {
 		t.Errorf("data update failed: got %+v, want {2 2}", gotData)
 	}

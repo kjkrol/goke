@@ -16,11 +16,13 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		entities := make([]uid.UID64, b.N)
 
 		posDesc := goke.RegCompType[Pos](ecs)
-		blueprintA := goke.NewFactory1[Vel](ecs)
+		fcVelOpt := goke.Track(new(goke.Col[Vel]))
+		blueprintA := goke.CreateEntFactory(ecs, fcVelOpt)
 
 		index := 0
-		for chunk := range blueprintA.Create(b.N) {
-			for _, e := range chunk.Entity {
+		blueprintA.Create(b.N)
+		for blueprintA.Next() {
+			for _, e := range blueprintA.IDs {
 				entities[index] = e
 				index++
 			}
@@ -38,11 +40,13 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		entities := make([]uid.UID64, b.N)
 
 		tagDesc := goke.RegCompType[Tag](ecs)
-		blueprintA := goke.NewFactory1[Vel](ecs)
+		fcVelOpt := goke.Track(new(goke.Col[Vel]))
+		blueprintA := goke.CreateEntFactory(ecs, fcVelOpt)
 
 		offset := 0
-		for chunk := range blueprintA.Create(b.N) {
-			n := copy(entities[offset:], chunk.Entity)
+		blueprintA.Create(b.N)
+		for blueprintA.Next() {
+			n := copy(entities[offset:], blueprintA.IDs)
 			offset += n
 		}
 		measurePerEntity(b, 1, func() {
@@ -58,11 +62,13 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		entities := make([]uid.UID64, b.N)
 
 		posDesc := goke.RegCompType[Pos](ecs)
-		blueprintA := goke.NewFactory1[Vel](ecs)
+		fcVelOpt := goke.Track(new(goke.Col[Vel]))
+		blueprintA := goke.CreateEntFactory(ecs, fcVelOpt)
 
 		offset := 0
-		for chunk := range blueprintA.Create(b.N) {
-			n := copy(entities[offset:], chunk.Entity)
+		blueprintA.Create(b.N)
+		for blueprintA.Next() {
+			n := copy(entities[offset:], blueprintA.IDs)
 			offset += n
 		}
 		measurePerEntity(b, 1, func() {
@@ -74,19 +80,17 @@ func BenchmarkEngine_Structural(b *testing.B) {
 
 	// --- 5. COMPONENT ACCESS (GET) ---
 
-	// Benchmark for GetComp: Uses reflection to find Meta.
-	// This is the "Convenience Path" - slower but easier to use.
 	b.Run("Get Component", func(b *testing.B) {
 		goke.Reset(ecs)
 
 		velDesc := goke.RegCompType[Vel](ecs)
-		blueprintA := goke.NewFactory1[Vel](ecs)
+		var vel goke.Col[Vel]
+		blueprintA := goke.CreateEntFactory(ecs, goke.Track(&vel))
 
-		var e uid.UID64
-		for chunk := range blueprintA.Create(1) {
-			e = chunk.Entity[0]
-			chunk.Comp1[0] = Vel{X: 1, Y: 2}
-		}
+		blueprintA.Create(1)
+		blueprintA.Next()
+		e := blueprintA.IDs[0]
+		vel.Slice(&blueprintA.Cursor)[0] = Vel{X: 1, Y: 2}
 
 		measurePerEntity(b, 1, func() {
 			for i := 0; i < b.N; i++ {
@@ -96,53 +100,47 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		})
 	})
 
-	// Benchmark for GetComp: Uses reflection to find Meta.
-	// This is the "Convenience Path" - slower but easier to use.
 	b.Run("Get Component (Safe)", func(b *testing.B) {
 		goke.Reset(ecs)
 
 		velDesc := goke.RegCompType[Vel](ecs)
-		blueprintA := goke.NewFactory1[Vel](ecs)
+		var vel goke.Col[Vel]
+		blueprintA := goke.CreateEntFactory(ecs, goke.Track(&vel))
 
-		var e uid.UID64
-		for chunk := range blueprintA.Create(1) {
-			e = chunk.Entity[0]
-			chunk.Comp1[0] = Vel{X: 1, Y: 2}
-		}
+		blueprintA.Create(1)
+		blueprintA.Next()
+		e := blueprintA.IDs[0]
+		vel.Slice(&blueprintA.Cursor)[0] = Vel{X: 1, Y: 2}
 
 		measurePerEntity(b, 1, func() {
 			for i := 0; i < b.N; i++ {
-				pos, err := goke.SafeGetComp[Vel](ecs, e, velDesc)
-				if err == nil {
+				if pos := goke.GetComp[Vel](ecs, e, velDesc); pos != nil {
 					pos.X += 1.0
 				}
 			}
 		})
 	})
 
-	// Benchmark for GetComp: Uses reflection to find Meta.
-	// This is the "Convenience Path" - slower but easier to use.
 	b.Run("Get Component via View.Filter", func(b *testing.B) {
 		goke.Reset(ecs)
 
 		_ = goke.RegCompType[Vel](ecs)
-		blueprintA := goke.NewFactory1[Vel](ecs)
-
-		var e uid.UID64
-		for chunk := range blueprintA.Create(1) {
-			e = chunk.Entity[0]
-			chunk.Comp1[0] = Vel{X: 1, Y: 2}
-		}
-
 		var vel goke.Col[Vel]
-		query := goke.NewView(ecs, vel.Track())
+		blueprintA := goke.CreateEntFactory(ecs, goke.Track(&vel))
+
+		blueprintA.Create(1)
+		blueprintA.Next()
+		e := blueprintA.IDs[0]
+		vel.Slice(&blueprintA.Cursor)[0] = Vel{X: 1, Y: 2}
+
+		query := goke.CreateView(ecs, goke.Track(&vel))
 		arr := []uid.UID64{e}
 
 		measurePerEntity(b, 1, func() {
 			for i := 0; i < b.N; i++ {
 				fit := query.Filter(arr)
 				for fit.Next() {
-					vel.At(fit).X += 1.0
+					vel.At(&fit.Cursor).X += 1.0
 				}
 			}
 		})
@@ -151,41 +149,37 @@ func BenchmarkEngine_Structural(b *testing.B) {
 
 func BenchmarkEngine_RemoveEntity_Clean(b *testing.B) {
 	count := 100000
-	// Initialize the ecs with "Turbo" settings to pre-allocate memory buffers
 	ecs := goke.New(
 		goke.WithEntityCap(count),
 		goke.WithEntityFreeCap(count),
 	)
 	_ = goke.RegCompType[Pos](ecs)
 
-	// --- SETUP PHASE ---
-	// Pre-create entities outside the timed loop to isolate the cost of removal
-	blueprint := goke.NewFactory1[Pos](ecs)
+	fcPosOpt := goke.Track(new(goke.Col[Pos]))
+	blueprint := goke.CreateEntFactory(ecs, fcPosOpt)
 	entities := make([]uid.UID64, count)
-	offset := 0
-	for chunk := range blueprint.Create(b.N) {
-		n := copy(entities[offset:], chunk.Entity)
-		offset += n
+
+	refill := func() {
+		offset := 0
+		blueprint.Create(b.N)
+		for blueprint.Next() {
+			n := copy(entities[offset:], blueprint.IDs)
+			offset += n
+		}
 	}
+	refill()
 
 	measurePerEntity(b, 1, func() {
 		for i := 0; b.Loop(); i++ {
 			idx := i % count
 
-			// If b.N > count, we need to re-create the entity to ensure
-			// we are benchmarking a real 'Remove' operation rather than
-			// an early-exit check for a non-existent entity.
 			if i >= count && i%count == 0 {
 				b.StopTimer()
-				offset := 0
-				for chunk := range blueprint.Create(b.N) {
-					n := copy(entities[offset:], chunk.Entity)
-					offset += n
-				}
+				refill()
 				b.StartTimer()
 			}
 
-			goke.RemoveEntity(ecs, entities[idx])
+			goke.RemoveEnt(ecs, entities[idx])
 		}
 	})
 }
@@ -193,19 +187,20 @@ func BenchmarkEngine_RemoveEntity_Clean(b *testing.B) {
 func BenchmarkEngine_AddRemove_Stability(b *testing.B) {
 	ecs := goke.New(goke.WithEntityCap(1024))
 	_ = goke.RegCompType[Pos](ecs)
-	blueprint := goke.NewFactory1[Pos](ecs)
+	var pos goke.Col[Pos]
+	blueprint := goke.CreateEntFactory(ecs, goke.Track(&pos))
+	fc := &blueprint.Cursor
 
 	var e uid.UID64
 	measurePerEntity(b, 1, func() {
 		for i := 0; b.Loop(); i++ {
-			for chunk := range blueprint.Create(1) {
-				e = chunk.Entity[0]
-				chunk.Comp1[0] = Pos{X: 1}
-			}
+			blueprint.Create(1)
+			blueprint.Next()
+			e = blueprint.IDs[0]
+			pos.Slice(fc)[0] = Pos{X: 1}
 
-			// Usuwamy co drugą, żeby wymusić swapowanie w archetypie
 			if i%2 == 0 {
-				goke.RemoveEntity(ecs, e)
+				goke.RemoveEnt(ecs, e)
 			}
 		}
 	})

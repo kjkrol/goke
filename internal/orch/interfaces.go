@@ -16,7 +16,7 @@ type Lookup interface {
 type Mutator interface {
 	UpsertComp(uid.UID64, comp.Meta) (unsafe.Pointer, error)
 	RemoveComp(uid.UID64, comp.Meta) error
-	RemoveEntity(uid.UID64) bool
+	Remove(uid.UID64) bool
 }
 
 type Runnable interface {

@@ -2,9 +2,11 @@ package goke
 
 import (
 	"github.com/kjkrol/goke/internal/comp"
+	"github.com/kjkrol/goke/internal/ent"
 	"github.com/kjkrol/goke/internal/orch"
 	"github.com/kjkrol/goke/internal/query"
 	"github.com/kjkrol/goke/internal/reg"
+	"github.com/kjkrol/goke/iter"
 )
 
 type (
@@ -13,9 +15,13 @@ type (
 	View = query.View
 
 	// Col is a typed column handle for a tracked component.
-	// Declare one per tracked component in each system struct, pass col.Track() to NewView,
-	// then use col.Slice(v) in All-mode and col.At(v) in Filter-mode.
-	Col[T any] = query.Col[T]
+	// Obtain one via Track[T](); use col.Slice(cursor) in All/Factory-mode
+	// and col.At(cursor) in Filter-mode.
+	Col[T any] = iter.Col[T]
+
+	// Cursor holds the per-chunk or per-entity state populated by View.Next() and Factory.Next().
+	// Pass view.Cursor or factory.Cursor to Col[T].Slice and Col[T].At.
+	Cursor = iter.Cursor
 
 	// CompID is the unique integer identifier for a registered component type.
 	CompID = comp.ID
@@ -37,7 +43,16 @@ type (
 
 	// BlueprintOpt configures a View's entity filter by including or excluding component types.
 	BlueprintOpt = comp.BlueprintOpt
+
+	// Factory bulk-spawns entities for a single archetype using a chunk-based iterator.
+	// Call Create to set the count, then loop with Next; access entities via Entity and
+	// components via col.Slice(&factory.Cursor).
+	Factory = ent.Factory
 )
+
+// Track returns a BlueprintOpt that registers T as a tracked data column and
+// sets col.Idx when applied. Pass the opt to NewView or NewFactory.
+func Track[T any](col *Col[T]) BlueprintOpt { return comp.Track[T](col) }
 
 // Include adds a required component type T to the View's filter.
 // Only entities that possess this component will be matched.

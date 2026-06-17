@@ -1,10 +1,10 @@
 package query
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/kjkrol/goke/internal/comp"
+	"github.com/kjkrol/goke/iter"
 	"github.com/kjkrol/uid"
 )
 
@@ -22,27 +22,31 @@ func TestAllIter_EmptyView(t *testing.T) {
 	if v.Next() {
 		t.Error("Next() on empty view should return false")
 	}
-	if v.EntSlice != nil {
+	if v.Cursor.EntSlice != nil {
 		t.Error("Chunk should be nil after exhaustion")
 	}
 }
 
 func TestAllIter_SingleEntity(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
-	posMeta := cc.Intern(reflect.TypeFor[iterPos]())
 
-	e := em.Create()
-	ptr, _ := em.UpsertComp(e, posMeta)
-	*(*iterPos)(ptr) = iterPos{X: 1, Y: 2}
+	var pos iter.Col[iterPos]
+	posOpt := comp.Track(&pos)
+	var b comp.Blueprint
+	b.Init(cc, posOpt)
+	f := em.CreateFactory(b)
+	f.Create(1)
+	f.Next()
+	e := f.IDs[0]
+	*pos.At(&f.Cursor) = iterPos{X: 1, Y: 2}
 
-	var pos Col[iterPos]
-	v := NewView(cat, pos.Track())
+	v := NewView(cat, posOpt)
 
 	var visited []uid.UID64
 	v.All()
 	for v.Next() {
-		posSlice := pos.Slice(v)
-		for i, entity := range v.EntSlice {
+		posSlice := pos.Slice(&v.Cursor)
+		for i, entity := range v.Cursor.EntSlice {
 			_ = posSlice[i]
 			visited = append(visited, entity)
 		}
@@ -55,24 +59,30 @@ func TestAllIter_SingleEntity(t *testing.T) {
 
 func TestAllIter_SliceValues(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
-	posMeta := cc.Intern(reflect.TypeFor[iterPos]())
 
-	e1 := em.Create()
-	ptr1, _ := em.UpsertComp(e1, posMeta)
-	*(*iterPos)(ptr1) = iterPos{X: 10, Y: 20}
+	var pos iter.Col[iterPos]
+	posOpt := comp.Track(&pos)
+	var b comp.Blueprint
+	b.Init(cc, posOpt)
+	f := em.CreateFactory(b)
 
-	e2 := em.Create()
-	ptr2, _ := em.UpsertComp(e2, posMeta)
-	*(*iterPos)(ptr2) = iterPos{X: 30, Y: 40}
+	f.Create(1)
+	f.Next()
+	e1 := f.IDs[0]
+	*pos.At(&f.Cursor) = iterPos{X: 10, Y: 20}
 
-	var pos Col[iterPos]
-	v := NewView(cat, pos.Track())
+	f.Create(1)
+	f.Next()
+	e2 := f.IDs[0]
+	*pos.At(&f.Cursor) = iterPos{X: 30, Y: 40}
+
+	v := NewView(cat, posOpt)
 
 	got := map[uid.UID64]iterPos{}
 	v.All()
 	for v.Next() {
-		posSlice := pos.Slice(v)
-		for i, entity := range v.EntSlice {
+		posSlice := pos.Slice(&v.Cursor)
+		for i, entity := range v.Cursor.EntSlice {
 			got[entity] = posSlice[i]
 		}
 	}
@@ -87,19 +97,21 @@ func TestAllIter_SliceValues(t *testing.T) {
 
 func TestAllIter_SliceInPlaceMutation(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
-	posMeta := cc.Intern(reflect.TypeFor[iterPos]())
 
-	e := em.Create()
-	ptr, _ := em.UpsertComp(e, posMeta)
-	*(*iterPos)(ptr) = iterPos{X: 5, Y: 3}
+	var pos iter.Col[iterPos]
+	var b comp.Blueprint
+	b.Init(cc, comp.Track(&pos))
+	f := em.CreateFactory(b)
+	f.Create(1)
+	f.Next()
+	*pos.At(&f.Cursor) = iterPos{X: 5, Y: 3}
 
-	var pos Col[iterPos]
-	v := NewView(cat, pos.Track())
+	v := NewView(cat, comp.Track(&pos))
 
 	v.All()
 	for v.Next() {
-		posSlice := pos.Slice(v)
-		for i := range v.EntSlice {
+		posSlice := pos.Slice(&v.Cursor)
+		for i := range v.Cursor.EntSlice {
 			posSlice[i].X += posSlice[i].Y
 		}
 	}
@@ -107,8 +119,8 @@ func TestAllIter_SliceInPlaceMutation(t *testing.T) {
 	// re-read from live memory via a second pass
 	v.All()
 	for v.Next() {
-		posSlice := pos.Slice(v)
-		for range v.EntSlice {
+		posSlice := pos.Slice(&v.Cursor)
+		for range v.Cursor.EntSlice {
 			if posSlice[0].X != 8 {
 				t.Errorf("expected X=8 after mutation, got %v", posSlice[0].X)
 			}
@@ -118,26 +130,34 @@ func TestAllIter_SliceInPlaceMutation(t *testing.T) {
 
 func TestAllIter_MultipleArchetypes(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
-	posMeta := cc.Intern(reflect.TypeFor[iterPos]())
-	velMeta := cc.Intern(reflect.TypeFor[iterVel]())
 
 	// archetype A: pos only
-	eA := em.Create()
-	pA, _ := em.UpsertComp(eA, posMeta)
-	*(*iterPos)(pA) = iterPos{X: 1}
+	var posA iter.Col[iterPos]
+	var bA comp.Blueprint
+	bA.Init(cc, comp.Track(&posA))
+	fA := em.CreateFactory(bA)
+	fA.Create(1)
+	fA.Next()
+	eA := fA.IDs[0]
+	*posA.At(&fA.Cursor) = iterPos{X: 1}
 
 	// archetype B: pos + vel
-	eB := em.Create()
-	pB, _ := em.UpsertComp(eB, posMeta)
-	*(*iterPos)(pB) = iterPos{X: 2}
-	_, _ = em.UpsertComp(eB, velMeta)
+	var posB iter.Col[iterPos]
+	var bB comp.Blueprint
+	bB.Init(cc, comp.Track(&posB), comp.Track(new(iter.Col[iterVel])))
+	fB := em.CreateFactory(bB)
+	fB.Create(1)
+	fB.Next()
+	eB := fB.IDs[0]
+	*posB.At(&fB.Cursor) = iterPos{X: 2}
 
-	v := NewView(cat, comp.Track[iterPos]())
+	_trackOpt0 := comp.Track(new(iter.Col[iterPos]))
+	v := NewView(cat, _trackOpt0)
 
 	visited := map[uid.UID64]bool{}
 	v.All()
 	for v.Next() {
-		for _, e := range v.EntSlice {
+		for _, e := range v.Cursor.EntSlice {
 			visited[e] = true
 		}
 	}
@@ -149,18 +169,20 @@ func TestAllIter_MultipleArchetypes(t *testing.T) {
 
 func TestAllIter_ResetOnSecondCall(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
-	posMeta := cc.Intern(reflect.TypeFor[iterPos]())
 
-	e := em.Create()
-	_, _ = em.UpsertComp(e, posMeta)
+	var b comp.Blueprint
+	b.Init(cc, comp.Track(new(iter.Col[iterPos])))
+	f := em.CreateFactory(b)
+	f.Create(1)
+	f.Next()
 
-	v := NewView(cat, comp.Track[iterPos]())
+	v := NewView(cat, comp.Track(new(iter.Col[iterPos])))
 
 	count := func() int {
 		n := 0
 		v.All()
 		for v.Next() {
-			n += len(v.EntSlice)
+			n += len(v.Cursor.EntSlice)
 		}
 		return n
 	}

@@ -34,13 +34,13 @@ type WorkerSystem struct {
 }
 
 func (s *WorkerSystem) Init(eng *goke.ECS) {
-	s.query = goke.NewView(eng, goke.Include[Task]())
+	s.query = goke.CreateView(eng, goke.Include[Task]())
 }
 
 func (s *WorkerSystem) Update(lookup goke.Lookup, schedule *goke.CmdBuf, duration time.Duration) {
 	s.query.All()
 	for s.query.Next() {
-		for _, entityID := range s.query.EntSlice {
+		for _, entityID := range s.query.Cursor.EntSlice {
 			msg := Log{Msg: "Done"}
 			goke.CmdBufAddComp(schedule, entityID, logDesc, msg)
 		}
@@ -53,7 +53,7 @@ type LoggerSystem struct {
 }
 
 func (s *LoggerSystem) Init(eng *goke.ECS) {
-	s.query = goke.NewView(eng, goke.Include[Log]())
+	s.query = goke.CreateView(eng, goke.Include[Log]())
 }
 
 func (s *LoggerSystem) Update(lookup goke.Lookup, schedule *goke.CmdBuf, duration time.Duration) {
@@ -79,10 +79,11 @@ func TestECS_SystemInteractions(t *testing.T) {
 		ecs := goke.New()
 		setupComponents(ecs)
 
-		blueprint := goke.NewFactory1[Task](ecs)
-		for chunk := range blueprint.Create(1) {
-			chunk.Comp1[0] = Task{Completed: false}
-		}
+		var task goke.Col[Task]
+		blueprint := goke.CreateEntFactory(ecs, goke.Track(&task))
+		blueprint.Create(1)
+		blueprint.Next()
+		task.Slice(&blueprint.Cursor)[0] = Task{Completed: false}
 
 		worker := &WorkerSystem{}
 		logger := &LoggerSystem{}
@@ -107,10 +108,11 @@ func TestECS_SystemInteractions(t *testing.T) {
 		ecs := goke.New()
 		setupComponents(ecs)
 
-		blueprint := goke.NewFactory1[Task](ecs)
-		for chunk := range blueprint.Create(1) {
-			chunk.Comp1[0] = Task{Completed: false}
-		}
+		var task goke.Col[Task]
+		blueprint := goke.CreateEntFactory(ecs, goke.Track(&task))
+		blueprint.Create(1)
+		blueprint.Next()
+		task.Slice(&blueprint.Cursor)[0] = Task{Completed: false}
 
 		worker := &WorkerSystem{}
 		logger := &LoggerSystem{}

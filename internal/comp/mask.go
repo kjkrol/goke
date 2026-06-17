@@ -9,20 +9,12 @@ import (
 // Supports up to MaxComponents component types.
 type Mask [MaskSize]uint64
 
-func (Mask) Build(b *Blueprint) Mask {
+func NewMask(b *Blueprint) Mask {
 	var mask Mask
 	for _, info := range b.CompInfos {
 		mask = mask.Set(info.ID)
 	}
 	for _, id := range b.TagIDs {
-		mask = mask.Set(id)
-	}
-	return mask
-}
-
-func NewMask(componentIDs ...ID) Mask {
-	var mask Mask
-	for _, id := range componentIDs {
 		mask = mask.Set(id)
 	}
 	return mask

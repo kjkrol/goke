@@ -1,13 +1,12 @@
 package query
 
 import (
-	"unsafe"
-
 	"github.com/kjkrol/uid"
 
+	"github.com/kjkrol/goke/internal/addr"
 	"github.com/kjkrol/goke/internal/arch"
 	"github.com/kjkrol/goke/internal/comp"
-	"github.com/kjkrol/goke/internal/ent"
+	"github.com/kjkrol/goke/iter"
 )
 
 type iterMode uint8
@@ -21,7 +20,6 @@ const (
 type allIter struct {
 	tableIdx int
 	chunkIdx int
-	EntSlice []uid.UID64
 }
 
 type filterIter struct {
@@ -29,24 +27,23 @@ type filterIter struct {
 	pos        int
 	lastArchID arch.ID
 	bt         *BakedTable
-	ptr        unsafe.Pointer
-	slot       uintptr
 	Entity     uid.UID64
 	Idx        int
 }
 
 type View struct {
 	BakedTablesCatalog
-	EntityIndex *ent.Index
+	EntityIndex *addr.Index
 	composition comp.Composition
 	excludeMask comp.Mask
 	mode        iterMode
+	Cursor      iter.Cursor
 	allIter
 	filterIter
 }
 
-func (v *View) Init(entityIndex *ent.Index, blueprint *comp.Blueprint) {
-	includeMask := comp.Mask{}.Build(blueprint)
+func (v *View) Init(entityIndex *addr.Index, blueprint *comp.Blueprint) {
+	includeMask := comp.NewMask(blueprint)
 
 	var excludeMask comp.Mask
 	for _, id := range blueprint.ExCompIDs {
@@ -69,20 +66,9 @@ func (v *View) Clear() {
 }
 
 func (v *View) BakeIfMatch(archetype *arch.Archetype) {
-	if archetype.Table.NumColumns() > 0 && v.Matches(archetype.Mask()) {
-		v.Bake(archetype)
+	if archetype.Table.NumColumns() > 0 && archetype.Mask().Matches(v.composition.Mask, v.excludeMask) {
+		v.BakedTablesCatalog.Add(archetype, v.composition.Metas)
 	}
-}
-
-func (v *View) Bake(archetype *arch.Archetype) {
-	if archetype.Table.NumColumns() == 0 {
-		return
-	}
-	v.BakedTablesCatalog.Add(archetype, v.composition.Metas)
-}
-
-func (v *View) Matches(archMask comp.Mask) bool {
-	return archMask.Matches(v.composition.Mask, v.excludeMask)
 }
 
 // All prepares the View for full chunk iteration and returns v.

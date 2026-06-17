@@ -1,4 +1,4 @@
-package ent
+package addr
 
 import (
 	"testing"
@@ -6,7 +6,7 @@ import (
 	"github.com/kjkrol/uid"
 
 	"github.com/kjkrol/goke/internal/arch"
-	"github.com/kjkrol/goke/internal/soa"
+	"github.com/kjkrol/goke/internal/mem"
 )
 
 func newPool() uid.UID64Pool {
@@ -26,20 +26,20 @@ func TestIndex_UpsertAndGet(t *testing.T) {
 	pool := newPool()
 	e := pool.Next()
 
-	s.Upsert(e, arch.ID(2), soa.BlockPos{ChunkIdx: 0, ChunkSlot: 3})
+	s.Upsert(e, arch.ID(2), mem.BlockPos{ChunkIdx: 0, ChunkSlot: 3})
 
-	link, ok := s.Get(e)
+	entry, ok := s.Get(e)
 	if !ok {
-		t.Fatal("expected link to be found")
+		t.Fatal("expected entry to be found")
 	}
-	if link.ArchId != arch.ID(2) {
-		t.Errorf("expected ArchId 2, got %d", link.ArchId)
+	if entry.ArchId != arch.ID(2) {
+		t.Errorf("expected ArchId 2, got %d", entry.ArchId)
 	}
-	if link.Pos.ChunkIdx != soa.ChunkIdx(0) {
-		t.Errorf("expected ChunkIdx 0, got %d", link.Pos.ChunkIdx)
+	if entry.Pos.ChunkIdx != mem.ChunkIdx(0) {
+		t.Errorf("expected ChunkIdx 0, got %d", entry.Pos.ChunkIdx)
 	}
-	if link.Pos.ChunkSlot != soa.ChunkSlot(3) {
-		t.Errorf("expected ChunkSlot 3, got %d", link.Pos.ChunkSlot)
+	if entry.Pos.ChunkSlot != mem.ChunkSlot(3) {
+		t.Errorf("expected ChunkSlot 3, got %d", entry.Pos.ChunkSlot)
 	}
 }
 
@@ -50,7 +50,7 @@ func TestIndex_GetMissingEntity(t *testing.T) {
 
 	_, ok := s.Get(e)
 	if ok {
-		t.Error("expected no link for entity that was never stored")
+		t.Error("expected no entry for entity that was never stored")
 	}
 }
 
@@ -61,7 +61,7 @@ func TestIndex_GetStaleGeneration(t *testing.T) {
 	pool.Release(old)
 	current := pool.Next()
 
-	s.Upsert(old, arch.ID(2), soa.BlockPos{})
+	s.Upsert(old, arch.ID(2), mem.BlockPos{})
 
 	_, ok := s.Get(current)
 	if ok {
@@ -74,12 +74,12 @@ func TestIndex_Clear(t *testing.T) {
 	pool := newPool()
 	e := pool.Next()
 
-	s.Upsert(e, arch.ID(3), soa.BlockPos{})
+	s.Upsert(e, arch.ID(3), mem.BlockPos{})
 	s.Clear(e)
 
 	_, ok := s.Get(e)
 	if ok {
-		t.Error("expected link to be gone after Clear")
+		t.Error("expected entry to be gone after Clear")
 	}
 }
 
@@ -90,12 +90,12 @@ func TestIndex_ClearIgnoresStaleGeneration(t *testing.T) {
 	pool.Release(old)
 	current := pool.Next()
 
-	s.Upsert(current, arch.ID(3), soa.BlockPos{})
+	s.Upsert(current, arch.ID(3), mem.BlockPos{})
 	s.Clear(old)
 
 	_, ok := s.Get(current)
 	if !ok {
-		t.Error("Clear with stale generation should not remove current link")
+		t.Error("Clear with stale generation should not remove current entry")
 	}
 }
 
@@ -108,14 +108,14 @@ func TestIndex_GrowsOnDemand(t *testing.T) {
 		e = pool.Next()
 	}
 
-	s.Upsert(e, arch.ID(1), soa.BlockPos{})
+	s.Upsert(e, arch.ID(1), mem.BlockPos{})
 
-	link, ok := s.Get(e)
+	entry, ok := s.Get(e)
 	if !ok {
-		t.Fatal("expected link after grow")
+		t.Fatal("expected entry after grow")
 	}
-	if link.ArchId != arch.ID(1) {
-		t.Errorf("expected ArchId 1, got %d", link.ArchId)
+	if entry.ArchId != arch.ID(1) {
+		t.Errorf("expected ArchId 1, got %d", entry.ArchId)
 	}
 }
 
@@ -124,12 +124,12 @@ func TestIndex_Reset(t *testing.T) {
 	pool := newPool()
 	e := pool.Next()
 
-	s.Upsert(e, arch.ID(2), soa.BlockPos{})
+	s.Upsert(e, arch.ID(2), mem.BlockPos{})
 	s.Reset()
 
 	_, ok := s.Get(e)
 	if ok {
-		t.Error("expected no link after Reset")
+		t.Error("expected no entry after Reset")
 	}
 }
 
@@ -138,14 +138,14 @@ func TestIndex_Upsert_Overwrite(t *testing.T) {
 	pool := newPool()
 	e := pool.Next()
 
-	s.Upsert(e, arch.ID(1), soa.BlockPos{ChunkIdx: 0, ChunkSlot: 0})
-	s.Upsert(e, arch.ID(2), soa.BlockPos{ChunkIdx: 1, ChunkSlot: 5})
+	s.Upsert(e, arch.ID(1), mem.BlockPos{ChunkIdx: 0, ChunkSlot: 0})
+	s.Upsert(e, arch.ID(2), mem.BlockPos{ChunkIdx: 1, ChunkSlot: 5})
 
-	link, ok := s.Get(e)
+	entry, ok := s.Get(e)
 	if !ok {
-		t.Fatal("expected link after overwrite")
+		t.Fatal("expected entry after overwrite")
 	}
-	if link.ArchId != arch.ID(2) || link.Pos.ChunkIdx != soa.ChunkIdx(1) || link.Pos.ChunkSlot != soa.ChunkSlot(5) {
-		t.Errorf("expected overwritten link, got %+v", link)
+	if entry.ArchId != arch.ID(2) || entry.Pos.ChunkIdx != mem.ChunkIdx(1) || entry.Pos.ChunkSlot != mem.ChunkSlot(5) {
+		t.Errorf("expected overwritten entry, got %+v", entry)
 	}
 }

@@ -17,7 +17,7 @@ func TestMask_BasicOperations(t *testing.T) {
 
 	t.Run("Bit Deactivation", func(t *testing.T) {
 		id := ID(20)
-		mask := NewMask(id)
+		mask := Mask{}.Set(id)
 		mask = mask.Clear(id)
 		if mask.IsSet(id) {
 			t.Errorf("expected bit %d to be cleared", id)
@@ -70,9 +70,9 @@ func TestMask_GroupLogic(t *testing.T) {
 	})
 
 	t.Run("Equals", func(t *testing.T) {
-		m1 := NewMask(10, 20)
-		m2 := NewMask(20, 10)
-		m3 := NewMask(10, 30)
+		m1 := Mask{}.Set(10).Set(20)
+		m2 := Mask{}.Set(20).Set(10)
+		m3 := Mask{}.Set(10).Set(30)
 
 		if !m1.Equals(m2) {
 			t.Error("masks with same bits should be equal regardless of insertion order")
@@ -83,8 +83,8 @@ func TestMask_GroupLogic(t *testing.T) {
 	})
 
 	t.Run("Contains", func(t *testing.T) {
-		main := NewMask(1, 10, 100)
-		sub := NewMask(1, 10)
+		main := Mask{}.Set(1).Set(10).Set(100)
+		sub := Mask{}.Set(1).Set(10)
 		empty := Mask{}
 
 		if !main.Contains(main) {
@@ -116,7 +116,10 @@ func TestMask_Iteration(t *testing.T) {
 
 	t.Run("Scattered Bits", func(t *testing.T) {
 		input := []ID{5, 70, 100}
-		mask := NewMask(input...)
+		mask := Mask{}
+		for _, id := range input {
+			mask = mask.Set(id)
+		}
 		var output []ID
 
 		for id := range mask.AllSet() {

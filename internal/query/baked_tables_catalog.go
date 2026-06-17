@@ -13,18 +13,9 @@ type BakedTablesCatalog struct {
 // Add bakes the archetype into a BakedTable and registers it in the catalog.
 // metas defines which component columns are precomputed for iteration.
 func (c *BakedTablesCatalog) Add(archetype *arch.Archetype, metas []comp.Meta) {
-	offsets := make([]uintptr, len(metas))
-	for idx, meta := range metas {
-		col := archetype.Table.GetColumn(meta.ID)
-		if col == nil {
-			continue
-		}
-		offsets[idx] = col.Offset
-	}
-
 	c.BakedTables = append(c.BakedTables, BakedTable{
 		Table:       &archetype.Table,
-		CompOffsets: offsets,
+		CompOffsets: archetype.Table.BakeOffsets(metas),
 	})
 
 	if int(archetype.Id) >= len(c.archTableIndex) {

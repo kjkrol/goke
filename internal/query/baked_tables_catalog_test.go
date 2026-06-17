@@ -13,8 +13,8 @@ type (
 	testVel struct{ VX, VY float32 }
 )
 
-func newCatalog() comp.Catalog {
-	var c comp.Catalog
+func newCatalog() comp.MetaIndex {
+	var c comp.MetaIndex
 	c.Init()
 	return c
 }

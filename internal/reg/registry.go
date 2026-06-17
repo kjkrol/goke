@@ -14,54 +14,52 @@ import (
 
 type Registry struct {
 	EntityManager ent.Manager
-	CompCatalog   comp.Catalog
+	CompMetaIndex comp.MetaIndex
 	ViewCatalog   query.Catalog
 }
 
 func (r *Registry) Init(cfg Config) {
 	validateConst()
-	r.CompCatalog.Init()
-	r.ViewCatalog.Init(&r.CompCatalog, &r.EntityManager, cfg.View)
+	r.CompMetaIndex.Init()
+	r.ViewCatalog.Init(&r.CompMetaIndex, &r.EntityManager.AddressBook.Index, &r.EntityManager.ArchCatalog, cfg.View)
 	r.EntityManager.Init(cfg.Entity, r.ViewCatalog.OnArchetypeCreated)
 }
 
-func (r *Registry) RegCompType(componentType reflect.Type) comp.Meta {
-	return r.CompCatalog.Intern(componentType)
+func (r *Registry) RegCompType(compType reflect.Type) comp.Meta {
+	return r.CompMetaIndex.Intern(compType)
 }
 
-func (r *Registry) CreateEntity() uid.UID64 {
-	return r.EntityManager.Create()
+func (r *Registry) CreateFactory(opts ...comp.BlueprintOpt) *ent.Factory {
+	var b comp.Blueprint
+	b.Init(&r.CompMetaIndex, opts...)
+	return r.EntityManager.CreateFactory(b)
 }
 
-func (r *Registry) RemoveEntity(entityID uid.UID64) bool {
-	return r.EntityManager.Remove(entityID)
+func (r *Registry) Remove(entID uid.UID64) bool {
+	return r.EntityManager.Remove(entID)
 }
 
-func (r *Registry) GetComp(entityID uid.UID64, compID comp.ID) (unsafe.Pointer, error) {
-	return r.EntityManager.GetComp(entityID, compID)
+func (r *Registry) GetComp(entID uid.UID64, compID comp.ID) (unsafe.Pointer, error) {
+	return r.EntityManager.GetComp(entID, compID)
 }
 
-func (r *Registry) UpsertComp(entityID uid.UID64, compMeta comp.Meta) (unsafe.Pointer, error) {
-	return r.EntityManager.UpsertComp(entityID, compMeta)
+func (r *Registry) UpsertComp(entID uid.UID64, compMeta comp.Meta) (unsafe.Pointer, error) {
+	return r.EntityManager.UpsertComp(entID, compMeta)
 }
 
-func (r *Registry) RemoveComp(entityID uid.UID64, compMeta comp.Meta) error {
-	return r.EntityManager.RemoveComp(entityID, compMeta)
+func (r *Registry) RemoveComp(entID uid.UID64, compMeta comp.Meta) error {
+	return r.EntityManager.RemoveComp(entID, compMeta)
 }
 
-func (r *Registry) AddView(blueprint *comp.Blueprint) *query.View {
-	return r.ViewCatalog.AddView(blueprint)
-}
-
-func (r *Registry) NewView(opts ...comp.BlueprintOpt) *query.View {
-	var s comp.Spec0
-	s.Init(&r.CompCatalog, opts...)
-	return r.AddView(&s.Blueprint)
+func (r *Registry) AddView(opts ...comp.BlueprintOpt) *query.View {
+	var b comp.Blueprint
+	b.Init(&r.CompMetaIndex, opts...)
+	return r.ViewCatalog.AddView(&b)
 }
 
 func (r *Registry) Reset() {
 	r.EntityManager.Reset()
-	r.CompCatalog.Reset()
+	r.CompMetaIndex.Reset()
 	r.ViewCatalog.Reset()
 }
 

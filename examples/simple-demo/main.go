@@ -26,24 +26,26 @@ func main() {
 	discountDesc = goke.RegCompType[Discount](ecs)
 
 	// Initialize an entity with Order and Discount component data
-	factory := goke.NewFactory2[Order, Discount](ecs)
-	var entityID uid.UID64
-	for chunk := range factory.Create(1) {
-		entityID = chunk.Entity[0]
-		chunk.Comp1[0] = Order{ID: "ORD-99", Total: 100.0}
-		chunk.Comp2[0] = Discount{Percentage: 20.0}
-	}
-
-	// Define the Billing System to calculate discounted totals for unprocessed orders
 	var order goke.Col[Order]
 	var discount goke.Col[Discount]
-	query := goke.NewView(ecs, order.Track(), discount.Track(), goke.Exclude[Processed]())
+	factory := goke.CreateEntFactory(ecs, goke.Track(&order), goke.Track(&discount))
+	var entityID uid.UID64
+	factory.Create(1)
+	factory.Next()
+	entityID = factory.IDs[0]
+	fc := &factory.Cursor
+	order.Slice(fc)[0] = Order{ID: "ORD-99", Total: 100.0}
+	discount.Slice(fc)[0] = Discount{Percentage: 20.0}
+
+	// Define the Billing System to calculate discounted totals for unprocessed orders
+	query := goke.CreateView(ecs, goke.Track(&order), goke.Track(&discount), goke.Exclude[Processed]())
+	cursor := &query.Cursor
 	billing := goke.RegSysFn(ecs, func(schedule *goke.CmdBuf, d time.Duration) {
 		query.All()
 		for query.Next() {
-			orders := order.Slice(query)
-			discounts := discount.Slice(query)
-			for i, entityID := range query.EntSlice {
+			orders := order.Slice(cursor)
+			discounts := discount.Slice(cursor)
+			for i, entityID := range query.Cursor.EntSlice {
 				orders[i].Total = orders[i].Total * (1 - discounts[i].Percentage/100)
 				// Defer the assignment of the Processed tag to the next synchronization point
 				goke.CmdBufAddComp(schedule, entityID, processedDesc, Processed{})
@@ -53,7 +55,7 @@ func main() {
 
 	// Define the Teardown System to monitor simulation exit conditions
 	close := false
-	query2 := goke.NewView(ecs, goke.Include[Processed]())
+	query2 := goke.CreateView(ecs, goke.Include[Processed]())
 	teardownSystem := goke.RegSysFn(ecs, func(cb *goke.CmdBuf, d time.Duration) {
 		query2.Filter([]uid.UID64{entityID})
 		if query2.Next() {
@@ -70,13 +72,13 @@ func main() {
 	})
 
 	// Log the initial state before simulation begins
-	orderResult, _ := goke.SafeGetComp[Order](ecs, entityID, orderDesc)
+	orderResult := goke.GetComp[Order](ecs, entityID, orderDesc)
 	fmt.Printf("Order id: %v value: %v\n", orderResult.ID, orderResult.Total)
 
 	// Run the main simulation loop until the exit signal is received
 	for !close {
 		goke.Tick(ecs, time.Second)
-		orderResult, _ := goke.SafeGetComp[Order](ecs, entityID, orderDesc)
+		orderResult := goke.GetComp[Order](ecs, entityID, orderDesc)
 		fmt.Printf("Order id: %v value with discount: %v\n", orderResult.ID, orderResult.Total)
 	}
 }

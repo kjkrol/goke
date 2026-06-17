@@ -34,14 +34,15 @@ type PhysicsSystem struct {
 }
 
 func (s *PhysicsSystem) Init(ecs *goke.ECS) {
-	s.query = goke.NewView(ecs, s.pos.Track(), s.vel.Track())
+	s.query = goke.CreateView(ecs, goke.Track(&s.pos), goke.Track(&s.vel))
 }
 func (s *PhysicsSystem) Update(lookup goke.Lookup, schedule *goke.CmdBuf, d time.Duration) {
+	cursor := &s.query.Cursor
 	s.query.All()
 	for s.query.Next() {
-		pos := s.pos.Slice(s.query)
-		vel := s.vel.Slice(s.query)
-		for i := range s.query.EntSlice {
+		pos := s.pos.Slice(cursor)
+		vel := s.vel.Slice(cursor)
+		for i := range s.query.Cursor.EntSlice {
 			pos[i].X += vel[i].VX * float32(d.Seconds())
 			pos[i].Y += vel[i].VY * float32(d.Seconds())
 		}
@@ -55,13 +56,13 @@ type HealthSystem struct {
 }
 
 func (s *HealthSystem) Init(eng *goke.ECS) {
-	s.query = goke.NewView(eng, s.health.Track())
+	s.query = goke.CreateView(eng, goke.Track(&s.health))
 }
 func (s *HealthSystem) Update(lookup goke.Lookup, schedule *goke.CmdBuf, d time.Duration) {
 	s.query.All()
 	for s.query.Next() {
-		health := s.health.Slice(s.query)
-		for i := range s.query.EntSlice {
+		health := s.health.Slice(&s.query.Cursor)
+		for i := range s.query.Cursor.EntSlice {
 			if health[i].Current < health[i].Max {
 				health[i].Current += 1.0
 			}
@@ -88,12 +89,20 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	goke.RegSys(ecs, heal)
 
 	// Create entities with ALL components
-	blueprint := goke.NewFactory3[Position, Velocity, Health](ecs)
-	for chunk := range blueprint.Create(1000) {
-		for i := range chunk.Entity {
-			chunk.Comp1[i] = Position{0, 0}
-			chunk.Comp2[i] = Velocity{10, 10}
-			chunk.Comp3[i] = Health{50, 100}
+	var pos goke.Col[Position]
+	var vel goke.Col[Velocity]
+	var health goke.Col[Health]
+	blueprint := goke.CreateEntFactory(ecs, goke.Track(&pos), goke.Track(&vel), goke.Track(&health))
+	fc := &blueprint.Cursor
+	blueprint.Create(1000)
+	for blueprint.Next() {
+		positions := pos.Slice(fc)
+		velocities := vel.Slice(fc)
+		healths := health.Slice(fc)
+		for i := range blueprint.IDs {
+			positions[i] = Position{0, 0}
+			velocities[i] = Velocity{10, 10}
+			healths[i] = Health{50, 100}
 		}
 	}
 
@@ -107,21 +116,20 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	goke.Tick(ecs, time.Second) // Simulate 1 second
 
 	// 4. Verification
-	var vpos goke.Col[Position]
-	var vhp goke.Col[Health]
-	query := goke.NewView(ecs, vpos.Track(), vhp.Track())
+	query := goke.CreateView(ecs, goke.Track(&pos), goke.Track(&health))
+	cursor := &query.Cursor
 	count := 0
 	query.All()
 	for query.Next() {
-		pos := vpos.Slice(query)
-		hp := vhp.Slice(query)
-		for i := range query.EntSlice {
+		positions := pos.Slice(cursor)
+		healths := health.Slice(cursor)
+		for i := range query.Cursor.EntSlice {
 			count++
-			if pos[i].X != 10 {
-				t.Errorf("Physics failed: expected X=10, got %f", pos[i].X)
+			if positions[i].X != 10 {
+				t.Errorf("Physics failed: expected X=10, got %f", positions[i].X)
 			}
-			if hp[i].Current != 51 {
-				t.Errorf("Health failed: expected HP=51, got %f", hp[i].Current)
+			if healths[i].Current != 51 {
+				t.Errorf("Health failed: expected HP=51, got %f", healths[i].Current)
 			}
 		}
 	}

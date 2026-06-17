@@ -30,10 +30,10 @@ func TestInitArchetype(t *testing.T) {
 	if a.Table.GetEntityColumn().CompID != comp.EntityID {
 		t.Error("first column is not set correctly")
 	}
-	if len(a.Table.Chunks) != 1 {
+	if a.Table.NumChunks() != 1 {
 		t.Error("archetype memory pages is no initialized correctly")
 	}
-	if a.Table.Len != 0 {
+	if a.Table.Len() != 0 {
 		t.Error("archetype memory is not initialized correctly")
 	}
 }

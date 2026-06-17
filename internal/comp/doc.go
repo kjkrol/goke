@@ -7,7 +7,7 @@
 // [Meta] carries the ID, memory size, alignment, and reflect.Type
 // used during layout calculation.
 //
-// [Catalog] maps Go types to [Meta] at initialization time.
+// [MetaIndex] maps Go types to [Meta] at initialization time.
 // Component registration is sequential and deterministic — the first registered
 // type gets ID 0, the next gets ID 1, and so on.
 //
@@ -15,18 +15,25 @@
 //
 // [Mask] is a bitset of component IDs, used to identify archetype composition.
 //
+// # BlueprintOpt
+//
+// [BlueprintOpt] is a functional option that configures a [Blueprint]:
+//   - [Track][T] — registers T as a data column; sets Col[T].Idx to its position
+//   - [Include][T] — adds T as a filter-only requirement (no data column)
+//   - [Exclude][T] — adds T as an exclusion constraint
+//
 // # Blueprint
 //
 // [Blueprint] is a pure value object describing a set of component requirements:
 // which component types to include ([Blueprint.Comp], [Blueprint.Tag]) and which
-// to exclude ([Blueprint.Exclude]). It carries no registry reference and is
-// consumed by [Catalog.Compose] and query.View constructors.
+// to exclude ([Blueprint.Exclude]). Initialise one from opts via [Blueprint.Init].
+// Call [Blueprint.Compose] to derive a [Composition] without a registry reference.
 //
 // # Composition
 //
 // [Composition] describes a fully resolved component composition: a [Mask] plus
-// the [Meta] slice for all non-tag components. Built from a [Blueprint] via
-// [Catalog.Compose].
+// the [Meta] slice for all non-tag components. Derived from a [Blueprint] via
+// [Blueprint.Compose].
 //
 // # Constants
 //

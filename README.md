@@ -58,12 +58,13 @@ The project is built around a few core principles:
 - Predictable performance with no hidden costs
 - Cache-friendly data layouts
 - Zero-allocation hot paths
+- Inlining-friendly hot paths
 - Type-safe APIs without reflection
 - Native Go development without CGO dependencies
 
 While native C and Rust ECS frameworks may achieve higher peak throughput,
 GOKe is designed to maximize performance within the Go ecosystem. For many
-projects, avoiding CGO boundaries, external dependencies, and cross-language
+projects, **avoiding CGO boundaries**, external dependencies, and cross-language
 integration costs can outweigh the gains of a faster foreign implementation.
 
 <a id="installation"></a>
@@ -83,6 +84,7 @@ go get github.com/kjkrol/goke
 |:---|:---|
 | **Zero-allocation hot paths** | Chunk-based SoA layout with direct pointer arithmetic — no GC pressure during iteration or component access |
 | **Predictable iteration speed** | Linear SoA memory access — cache-friendly, branch-free inner loops; sub-nanosecond per entity at scale |
+| **Predictable iteration cost** | Per-entity overhead stays constant regardless of how much logic runs in the loop body |
 | **O(1) component lookup** | Entity-to-storage is a direct array index, not a hash map — constant time at any world size |
 | **Safe entity recycling** | 64-bit generational IDs detect stale references after deletion, preventing ABA bugs |
 | **Cache-friendly storage** | Contiguous SoA chunks; growth appends new chunks, removal uses swap-and-pop — no fragmentation |
@@ -163,6 +165,7 @@ import (
 	"time"
 
 	"github.com/kjkrol/goke"
+	"github.com/kjkrol/uid"
 )
 
 type Pos struct{ X, Y float32 }
@@ -171,60 +174,63 @@ type Acc struct{ X, Y float32 }
 
 func main() {
 	// Initialize the ECS world.
-	// The ECS instance acts as the central coordinator for entities and systems.
 	ecs := goke.New()
 
-	// Define component metadata.
-	// This binds Go types to internal descriptors, allowing the engine to
-	// pre-calculate memory layouts and manage data in contiguous arrays.
-	posMeta := goke.RegCompType[Pos](ecs)
+	// Register component types — binds Go types to internal descriptors.
+	posDesc := goke.RegCompType[Pos](ecs)
 	_ = goke.RegCompType[Vel](ecs)
 	_ = goke.RegCompType[Acc](ecs)
 
-	// --- Type-Safe Entity Template (Blueprint) ---
-	// Blueprints place entities into the correct archetype immediately and
-	// reserve memory for all components in a single batch operation.
-	// Each yielded chunk exposes typed slices for direct, in-place initialization.
-	blueprint := goke.NewBlueprint3[Pos, Vel, Acc](ecs)
+	// Col[T] handles typed access to a component column.
+	// The same Col[T] can be reused across factory and view.
+	var pos goke.Col[Pos]
+	var vel goke.Col[Vel]
+	var acc goke.Col[Acc]
 
-	var entityID goke.EntityID
-	for chunk := range blueprint.Create(1) {
-		entityID = chunk.Entity[0]
-		chunk.Comp1[0] = Pos{X: 0, Y: 0}
-		chunk.Comp2[0] = Vel{X: 1, Y: 1}
-		chunk.Comp3[0] = Acc{X: 0.1, Y: 0.1}
-	}
+	// Create a factory for bulk entity spawning.
+	factory := goke.CreateEntFactory(ecs, goke.Track(&pos), goke.Track(&vel), goke.Track(&acc))
 
-	// Initialize view for Pos, Vel, and Acc components
-	view := goke.NewView3[Pos, Vel, Acc](ecs)
+	var entityID uid.UID64
+	factory.Create(1)
+	factory.Next()
+	entityID = factory.IDs[0]
+	fc := &factory.Cursor
+	pos.Slice(fc)[0] = Pos{X: 0, Y: 0}
+	vel.Slice(fc)[0] = Vel{X: 1, Y: 1}
+	acc.Slice(fc)[0] = Acc{X: 0.1, Y: 0.1}
 
-	// Define the movement system using the functional registration pattern
+	// Create a view — declares which components to iterate.
+	query := goke.CreateView(ecs, goke.Track(&pos), goke.Track(&vel), goke.Track(&acc))
+
+	// Register a system using the functional pattern.
+	cursor := &query.Cursor
 	movementSystem := goke.RegSysFn(ecs, func(cb *goke.CmdBuf, d time.Duration) {
-		// SoA (Structure of Arrays) layout ensures CPU cache friendliness.
-		// View.All yields chunk-shaped slices over native memory — the inner
-		// loop is on the caller side for aggressive compiler inlining.
-		for chunk := range view.All() {
-			for i := range chunk.Entity {
-				pos, vel, acc := &chunk.Comp1[i], &chunk.Comp2[i], &chunk.Comp3[i]
-
-				vel.X += acc.X
-				vel.Y += acc.Y
-				pos.X += vel.X
-				pos.Y += vel.Y
+		// SoA layout: View.All advances chunk by chunk — the inner loop
+		// iterates over contiguous memory for cache-friendly access.
+		query.All()
+		for query.Next() {
+			posSlice := pos.Slice(cursor)
+			velSlice := vel.Slice(cursor)
+			accSlice := acc.Slice(cursor)
+			for i := range cursor.EntSlice {
+				velSlice[i].X += accSlice[i].X
+				velSlice[i].Y += accSlice[i].Y
+				posSlice[i].X += velSlice[i].X
+				posSlice[i].Y += velSlice[i].Y
 			}
 		}
 	})
 
-	// Configure the ECS's execution workflow and synchronization points
+	// Configure the execution plan and synchronization points.
 	goke.SetPlan(ecs, func(ctx goke.RunCtx, d time.Duration) {
 		ctx.Run(movementSystem, d)
-		ctx.Sync() // Ensure all component updates are flushed and views are consistent
+		ctx.Sync()
 	})
 
-	// Execute a single simulation step (standard 120 TPS)
+	// Execute a single simulation step (120 TPS).
 	goke.Tick(ecs, time.Second/120)
 
-	p := goke.GetComp[Pos](ecs, entityID, posMeta)
+	p := goke.GetComp[Pos](ecs, entityID, posDesc)
 	fmt.Printf("Final Position: {X: %.2f, Y: %.2f}\n", p.X, p.Y)
 }
 ```
@@ -240,10 +246,11 @@ GOKe is an archetype-based ECS built around data-oriented design principles. The
 |:---|:---|
 | [`github.com/kjkrol/uid`](https://pkg.go.dev/github.com/kjkrol/uid) | 64-bit generational entity identifiers — safe index recycling, ABA prevention |
 | [`internal/comp`](internal/comp/doc.go) | Shared component primitives used across all internal packages — type registration, metadata, and blueprint definitions |
-| [`internal/soa`](internal/soa/doc.go) | Low-level Structure-of-Arrays memory layout — L1-cache-sized fixed slabs, column offset calculation, position tracking within a growing slab collection |
-| [`internal/colstore`](internal/colstore/doc.go) | Column-oriented storage for a single archetype — manages component columns over SoA slabs, resolves component IDs to memory locations in O(1) |
+| [`internal/mem`](internal/mem/doc.go) | Cache-aligned chunked memory layout — L1-cache-sized fixed slabs, field offset calculation, slot tracking within a growing slab collection |
+| [`internal/colstore`](internal/colstore/doc.go) | Column-oriented storage for a single archetype — manages component columns over `mem.Block` chunks, resolves component IDs to memory locations in O(1) |
 | [`internal/arch`](internal/arch/doc.go) | Archetype identity, archetype graph, and SoA table storage — creates archetypes on demand and caches structural transitions as graph edges |
-| [`internal/entity`](internal/entity/doc.go) | Entity-to-storage mapping: `Index` maps each entity ID to its current archetype and position (`EntityLocation`) in O(1) |
+| [`internal/addr`](internal/addr/doc.go) | Entity address book — manages entity ID lifecycle (uid pool) and maps each ID to its current storage address (`Entry`) via a flat index in O(1); generation check guards against stale references |
+| [`internal/ent`](internal/ent/doc.go) | Entity lifecycle — delegates ID allocation and address tracking to `addr.Book`, manages component migration (add/remove moves entity to a new archetype), and batch entity creation via `Factory` |
 | [`internal/query`](internal/query/doc.go) | Query layer: bakes component masks into precomputed per-archetype offsets, enabling zero-allocation iteration and O(1) per-entity lookup |
 | [`internal/orch`](internal/orch/doc.go) | Plan-based task orchestrator: sequential/parallel execution, deferred mutations via command buffers |
 | [`internal/reg`](internal/reg/doc.go) | Top-level world registry — wires together all subsystems and exposes the unified API for entity and component management |
@@ -278,4 +285,4 @@ GOKe is licensed under the MIT License. See the LICENSE [file](./LICENSE) for mo
 # 📖 Documentation
 * **API Reference**: Detailed documentation and examples are available on [**pkg.go.dev**](https://pkg.go.dev/github.com/kjkrol/goke).
 * **Wiki & Guides**: For a step-by-step deep dive into building your first simulation, check the [**Getting Started with GOKe**](https://github.com/kjkrol/goke/wiki/Getting-Started-with-GOKe) guide.
-* **Internal Mechanics**: For a technical breakdown of the engine's core, check the `doc.go` files within the `ecs` packages.
+* **Internal Mechanics**: For a technical breakdown of the engine's core, check the `doc.go` files within the `internal` packages.

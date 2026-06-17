@@ -41,7 +41,7 @@ func NewEntitiesRendererSystem(resources *Resources) gokebiten.RenderSystem {
 }
 
 func (s *EntitiesRendererSystem) Init(ecs *goke.ECS) {
-	s.renderView = goke.NewView(ecs, s.pos.Track(), s.coll.Track(), s.appearance.Track())
+	s.renderView = goke.CreateView(ecs, goke.Track(&s.pos), goke.Track(&s.coll), goke.Track(&s.appearance))
 }
 
 func (s *EntitiesRendererSystem) Update(_ goke.Lookup, _ *goke.CmdBuf, _ time.Duration) {}
@@ -61,10 +61,10 @@ func (s *EntitiesRendererSystem) Draw(screen *ebiten.Image) {
 
 	s.renderView.All()
 	for s.renderView.Next() {
-		positions := s.pos.Slice(s.renderView)
-		collisions := s.coll.Slice(s.renderView)
-		appearances := s.appearance.Slice(s.renderView)
-		for i := range s.renderView.EntSlice {
+		positions := s.pos.Slice(&s.renderView.Cursor)
+		collisions := s.coll.Slice(&s.renderView.Cursor)
+		appearances := s.appearance.Slice(&s.renderView.Cursor)
+		for i := range s.renderView.Cursor.EntSlice {
 			pos, col, app := positions[i], collisions[i], appearances[i]
 			sx0, sy0, sx1, sy1 := spriteUV(app.SpriteID)
 			r, g, b, a := s.resolveColor(app, col, now)

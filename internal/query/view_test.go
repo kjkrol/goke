@@ -1,21 +1,24 @@
 package query
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/kjkrol/goke/internal/comp"
 	"github.com/kjkrol/goke/internal/ent"
+	"github.com/kjkrol/goke/iter"
 )
 
 func TestView_Clear(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
-	posMeta := cc.Intern(reflect.TypeFor[iterPos]())
 
-	e := em.Create()
-	_, _ = em.UpsertComp(e, posMeta)
+	var b comp.Blueprint
+	b.Init(cc, comp.Track(new(iter.Col[iterPos])))
+	f := em.CreateFactory(b)
+	f.Create(1)
+	f.Next()
 
-	v := NewView(cat, comp.Track[iterPos]())
+	_trackOpt0 := comp.Track(new(iter.Col[iterPos]))
+	v := NewView(cat, _trackOpt0)
 	if len(v.BakedTables) == 0 {
 		t.Fatal("view should have baked tables before Clear")
 	}
@@ -32,12 +35,15 @@ func TestView_Clear(t *testing.T) {
 
 func TestView_AllAfterClear(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
-	posMeta := cc.Intern(reflect.TypeFor[iterPos]())
 
-	e := em.Create()
-	_, _ = em.UpsertComp(e, posMeta)
+	var b comp.Blueprint
+	b.Init(cc, comp.Track(new(iter.Col[iterPos])))
+	f := em.CreateFactory(b)
+	f.Create(1)
+	f.Next()
 
-	v := NewView(cat, comp.Track[iterPos]())
+	_trackOpt0 := comp.Track(new(iter.Col[iterPos]))
+	v := NewView(cat, _trackOpt0)
 	v.Clear()
 
 	it := v.All()
@@ -60,12 +66,15 @@ func TestView_InitPanicsOnConflict(t *testing.T) {
 
 func TestCatalog_NewView(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
-	posMeta := cc.Intern(reflect.TypeFor[iterPos]())
 
-	e := em.Create()
-	_, _ = em.UpsertComp(e, posMeta)
+	var b comp.Blueprint
+	b.Init(cc, comp.Track(new(iter.Col[iterPos])))
+	f := em.CreateFactory(b)
+	f.Create(1)
+	f.Next()
 
-	v := NewView(cat, comp.Track[iterPos]())
+	_trackOpt0 := comp.Track(new(iter.Col[iterPos]))
+	v := NewView(cat, _trackOpt0)
 
 	if len(v.BakedTables) != 1 {
 		t.Errorf("expected 1 BakedTable, got %d", len(v.BakedTables))
@@ -74,12 +83,14 @@ func TestCatalog_NewView(t *testing.T) {
 
 func TestCatalog_Reset(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
-	posMeta := cc.Intern(reflect.TypeFor[iterPos]())
 
-	e := em.Create()
-	_, _ = em.UpsertComp(e, posMeta)
+	var b comp.Blueprint
+	b.Init(cc, comp.Track(new(iter.Col[iterPos])))
+	f := em.CreateFactory(b)
+	f.Create(1)
+	f.Next()
 
-	v := NewView(cat, comp.Track[iterPos]())
+	v := NewView(cat, comp.Track(new(iter.Col[iterPos])))
 	if len(v.BakedTables) == 0 {
 		t.Fatal("view should have baked tables before Reset")
 	}
@@ -92,11 +103,11 @@ func TestCatalog_Reset(t *testing.T) {
 }
 
 func TestCatalog_AddPanicsWhenFull(t *testing.T) {
-	var cc comp.Catalog
+	var cc comp.MetaIndex
 	cc.Init()
 	var em ent.Manager
 	cat := new(Catalog)
-	cat.Init(&cc, &em, Config{Cap: 2})
+	cat.Init(&cc, &em.AddressBook.Index, &em.ArchCatalog, Config{Cap: 2})
 	em.Init(ent.DefaultConfig(), cat.OnArchetypeCreated)
 
 	cat.Add()

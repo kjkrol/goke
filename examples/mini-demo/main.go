@@ -24,30 +24,32 @@ func main() {
 	_ = goke.RegCompType[Vel](ecs)
 	_ = goke.RegCompType[Acc](ecs)
 
-	factory := goke.NewFactory3[Pos, Vel, Acc](ecs)
-
-	var entityID uid.UID64
-	for chunk := range factory.Create(1) {
-		entityID = chunk.Entity[0]
-		chunk.Comp1[0] = Pos{X: 0, Y: 0}
-		chunk.Comp2[0] = Vel{X: 1, Y: 1}
-		chunk.Comp3[0] = Acc{X: 0.1, Y: 0.1}
-	}
-
-	// Initialize view for Pos, Vel, and Acc components
 	var pos goke.Col[Pos]
 	var vel goke.Col[Vel]
 	var acc goke.Col[Acc]
-	query := goke.NewView(ecs, pos.Track(), vel.Track(), acc.Track())
+	factory := goke.CreateEntFactory(ecs, goke.Track(&pos), goke.Track(&vel), goke.Track(&acc))
+
+	var entityID uid.UID64
+	factory.Create(1)
+	factory.Next()
+	entityID = factory.IDs[0]
+	fc := &factory.Cursor
+	pos.Slice(fc)[0] = Pos{X: 0, Y: 0}
+	vel.Slice(fc)[0] = Vel{X: 1, Y: 1}
+	acc.Slice(fc)[0] = Acc{X: 0.1, Y: 0.1}
+
+	// Initialize view for Pos, Vel, and Acc components
+	query := goke.CreateView(ecs, goke.Track(&pos), goke.Track(&vel), goke.Track(&acc))
 
 	// Define the movement system using the functional registration pattern
+	cursor := &query.Cursor
 	movementSystem := goke.RegSysFn(ecs, func(schedule *goke.CmdBuf, d time.Duration) {
 		query.All()
 		for query.Next() {
-			posSlice := pos.Slice(query)
-			velSlice := vel.Slice(query)
-			accSlice := acc.Slice(query)
-			for i := range query.EntSlice {
+			posSlice := pos.Slice(cursor)
+			velSlice := vel.Slice(cursor)
+			accSlice := acc.Slice(cursor)
+			for i := range query.Cursor.EntSlice {
 				velSlice[i].X += accSlice[i].X
 				velSlice[i].Y += accSlice[i].Y
 				posSlice[i].X += velSlice[i].X
@@ -65,6 +67,6 @@ func main() {
 	// Execute a single simulation step (standard 120 TPS)
 	goke.Tick(ecs, time.Second/120)
 
-	p, _ := goke.SafeGetComp[Pos](ecs, entityID, posDesc)
+	p := goke.GetComp[Pos](ecs, entityID, posDesc)
 	fmt.Printf("Final Position: {X: %.2f, Y: %.2f}\n", p.X, p.Y)
 }

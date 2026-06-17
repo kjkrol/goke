@@ -14,7 +14,11 @@ import (
 
 type EntitiesInitSystem struct {
 	*Resources
-	factory *goke.Factory4[Position, Velocity, Collision, Appearance]
+	factory *goke.Factory
+	fPos    goke.Col[Position]
+	fVel    goke.Col[Velocity]
+	fColl   goke.Col[Collision]
+	fAppear goke.Col[Appearance]
 }
 
 var _ goke.System = (*EntitiesInitSystem)(nil)
@@ -27,7 +31,7 @@ func NewEntitiesInitSystem(reources *Resources) goke.System {
 
 func (s *EntitiesInitSystem) Init(ecs *goke.ECS) {
 	spawnEntitiesNumber := s.entityCounter
-	s.factory = goke.NewFactory4[Position, Velocity, Collision, Appearance](ecs)
+	s.factory = goke.CreateEntFactory(ecs, goke.Track(&s.fPos), goke.Track(&s.fVel), goke.Track(&s.fColl), goke.Track(&s.fAppear))
 
 	gridSize := math.Ceil(math.Sqrt(float64(spawnEntitiesNumber)))
 	cols := uint32(gridSize)
@@ -37,16 +41,20 @@ func (s *EntitiesInitSystem) Init(ecs *goke.ECS) {
 	cellHeight := s.space.Height / cols
 
 	index := 0
-	for chunk := range s.factory.Create(spawnEntitiesNumber) {
-		for j, entityID := range chunk.Entity {
-			position, velocity, collision, appearance := &chunk.Comp1[j], &chunk.Comp2[j], &chunk.Comp3[j], &chunk.Comp4[j]
+	s.factory.Create(spawnEntitiesNumber)
+	for s.factory.Next() {
+		positions := s.fPos.Slice(&s.factory.Cursor)
+		velocities := s.fVel.Slice(&s.factory.Cursor)
+		collisions := s.fColl.Slice(&s.factory.Cursor)
+		appearances := s.fAppear.Slice(&s.factory.Cursor)
+		for j, entityID := range s.factory.IDs {
 			row := uint32(index) / cols
 			col := uint32(index) % cols
 
-			spawnEntity(entityID, position, velocity, collision, appearance,
+			spawnEntity(entityID, &positions[j], &velocities[j], &collisions[j], &appearances[j],
 				cellWidth, cellHeight, row, col)
 
-			s.space.Insert(uint64(entityID), position.AABB)
+			s.space.Insert(uint64(entityID), positions[j].AABB)
 			index++
 		}
 	}

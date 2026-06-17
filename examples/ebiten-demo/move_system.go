@@ -24,16 +24,16 @@ func NewMoveSystem(resources *Resources) goke.System {
 }
 
 func (s *MovementSystem) Init(ecs *goke.ECS) {
-	s.moveView = goke.NewView(ecs, s.pos.Track(), s.vel.Track())
+	s.moveView = goke.CreateView(ecs, goke.Track(&s.pos), goke.Track(&s.vel))
 }
 
 func (s *MovementSystem) Update(_ goke.Lookup, _ *goke.CmdBuf, d time.Duration) {
 	dt := d.Seconds()
 	s.moveView.All()
 	for s.moveView.Next() {
-		pos := s.pos.Slice(s.moveView)
-		vel := s.vel.Slice(s.moveView)
-		for i, entityID := range s.moveView.EntSlice {
+		pos := s.pos.Slice(&s.moveView.Cursor)
+		vel := s.vel.Slice(&s.moveView.Cursor)
+		for i, entityID := range s.moveView.Cursor.EntSlice {
 			pos[i].accX += float64(vel[i].X) * dt
 			pos[i].accY += float64(vel[i].Y) * dt
 

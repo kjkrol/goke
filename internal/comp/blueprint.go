@@ -11,12 +11,19 @@ type Blueprint struct {
 	ExCompIDs []ID
 }
 
-func NewBlueprint() *Blueprint {
-	return &Blueprint{
-		CompInfos: make([]Meta, 0, 8),
-		TagIDs:    make([]ID, 0, 8),
-		ExCompIDs: make([]ID, 0, 8),
+// Init applies opts against mi, populating b in place.
+// Panics if any opt returns an error.
+func (b *Blueprint) Init(mi *MetaIndex, opts ...BlueprintOpt) {
+	for _, opt := range opts {
+		if err := opt(b, mi); err != nil {
+			panic(fmt.Sprintf("comp: blueprint option: %v", err))
+		}
 	}
+}
+
+// Compose derives a Composition from the Blueprint without requiring a MetaIndex.
+func (b *Blueprint) Compose() Composition {
+	return Composition{Mask: NewMask(b), Metas: b.CompInfos}
 }
 
 func (b *Blueprint) Comp(meta Meta) error {

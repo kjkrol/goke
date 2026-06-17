@@ -44,12 +44,12 @@
 //     the CmdBuf and applied during explicit synchronization points (Sync).
 //
 //  6. Type-Safe Views & Cache-Optimized Queries:
-//     Data retrieval is handled through generated View structures. These views
-//     provide type safety without reflection overhead during the main loop.
-//     By accessing contiguous archetype columns directly, views leverage
-//     maximal hardware prefetching. Bulk iteration via View.All yields
-//     SoA chunks (Go slices over native memory), while subset queries via
-//     View.Filter yield per-entity records with index correlation.
+//     Data retrieval is handled through [View] obtained via [CreateView].
+//     Component columns are declared with [Col][T] and accessed via
+//     [Col.Slice] (bulk) or [Col.At] (per-entity). Bulk iteration via
+//     View.All yields SoA chunks (Go slices over native memory), while
+//     subset queries via View.Filter yield per-entity component pointers
+//     resolved via the entity-to-storage index. All access is zero-allocation and reflection-free.
 //
 // # Hardware Constraints & Limits
 //
@@ -67,35 +67,34 @@
 //   - Entity Indexing: Entities are 64-bit identifiers, allowing for a virtually
 //     unlimited number of entities, constrained only by the available system RAM.
 //
-//   - View Complexity: Queries support up to 10 simultaneous component types
-//     (View1..View10). For more complex filtering, an unlimited number of
-//     additional types can be filtered using Include/Exclude constraints (Tags).
-//
-// # Maintenance & Code Generation
-//
-// Much of the high-arity query logic is generated to ensure type safety
-// across different component counts. The generated files (views_gen.go,
-// blueprints_gen.go) must not be edited manually — run go generate ./... to
-// regenerate them after modifying the templates in internal/cmd/gen/.
+//   - View Complexity: A single [View] can track any number of component columns
+//     declared via [Col][T]. Additional types can be used as filter-only
+//     constraints via Include/Exclude opts without occupying tracked columns.
 //
 // # Internal Package Dependencies
 //
 // The internal packages form a strict acyclic dependency graph. Each layer
 // may only import packages from layers below it:
 //
-//	Layer 0   comp     — shared primitives: ID, Meta, Mask, Blueprint, Catalog
-//	Layer 1   soa      — chunk-based SoA layout                  (→ comp)
-//	Layer 1   orch     — scheduler, plans, command buffers        (→ comp)
-//	Layer 2   colstore — column-oriented storage                  (→ comp, soa)
-//	Layer 3   arch     — archetype ID, Mask, graph, entity links  (→ comp, soa, colstore)
-//	Layer 4   query    — query layer, view baking                 (→ arch, comp, soa)
-//	Layer 5   reg      — top-level Registry                       (→ arch, comp, query)
+//	Layer 0   iter     — column-access primitives: Cursor, Col[T]
+//	Layer 1   comp     — shared primitives: ID, Meta, Mask, Blueprint, MetaIndex  (→ iter)
+//	Layer 2   mem      — cache-aligned chunked memory layout     (→ comp)
+//	Layer 2   orch     — scheduler, plans, command buffers       (→ comp)
+//	Layer 3   colstore — column-oriented storage                 (→ comp, mem)
+//	Layer 4   arch     — archetype ID, Mask, graph               (→ comp, mem, colstore)
+//	Layer 5   addr     — entity address book: Entry, Index, Book (→ arch, mem)
+//	Layer 6   ent      — entity lifecycle, Manager, Factory      (→ addr, arch, colstore, comp, mem, iter)
+//	Layer 7   query    — query layer, view baking                (→ addr, arch, colstore, comp, iter)
+//	Layer 8   reg      — top-level Registry                      (→ ent, arch, comp, query)
 //
-// Expressed as a directed graph (arrow = "depends on"):
+// Expressed as a directed graph (arrow = "is imported by"):
 //
-//	comp ──► soa ──► colstore ──► arch ──► query ──► reg
-//	  │
-//	  └──► orch
+//	iter ──► comp ──► mem ──► colstore ──► arch ──► addr ──► ent ──► reg
+//	           └──► orch                              │               ▲
+//	                                                  └──► query ─────┘
+//
+// [github.com/kjkrol/uid] is an external module used across layers (mem, orch, colstore,
+// arch, addr, ent, query, reg) for 64-bit generational entity identifiers.
 //
 // orch and reg are fully independent of each other. The top-level goke
 // package is the only place that wires them together, passing a pointer to

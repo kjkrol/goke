@@ -1,21 +1,25 @@
 package query
 
 import (
+	"fmt"
+
+	"github.com/kjkrol/goke/internal/addr"
 	"github.com/kjkrol/goke/internal/arch"
 	"github.com/kjkrol/goke/internal/comp"
-	"github.com/kjkrol/goke/internal/ent"
 )
 
 type Catalog struct {
-	views []View
-	cc    *comp.Catalog
-	em    *ent.Manager
+	views       []View
+	cc          *comp.MetaIndex
+	entityIndex *addr.Index
+	archCatalog *arch.Catalog
 }
 
-func (c *Catalog) Init(cc *comp.Catalog, em *ent.Manager, cfg Config) {
+func (c *Catalog) Init(cc *comp.MetaIndex, entityIndex *addr.Index, archCatalog *arch.Catalog, cfg Config) {
 	c.views = make([]View, 0, cfg.Cap)
 	c.cc = cc
-	c.em = em
+	c.entityIndex = entityIndex
+	c.archCatalog = archCatalog
 }
 
 // Add allocates the next free View slot and returns a stable pointer to it.
@@ -32,16 +36,20 @@ func (c *Catalog) Add() *View {
 // Track[T]() opts register component data columns (accessible via Slice/At);
 // Include[T]() opts add filter-only requirements; Exclude[T]() opts add exclusions.
 func NewView(c *Catalog, opts ...comp.BlueprintOpt) *View {
-	var s comp.Spec0
-	s.Init(c.cc, opts...)
-	return c.AddView(&s.Blueprint)
+	var b comp.Blueprint
+	for _, opt := range opts {
+		if err := opt(&b, c.cc); err != nil {
+			panic(fmt.Sprintf("query: NewView option: %v", err))
+		}
+	}
+	return c.AddView(&b)
 }
 
 func (c *Catalog) AddView(blueprint *comp.Blueprint) *View {
 	view := c.Add()
-	view.Init(&c.em.Index, blueprint)
-	for archID := arch.RootID; archID < c.em.ArchCatalog.Len(); archID++ {
-		view.BakeIfMatch(&c.em.ArchCatalog.Archetypes[archID])
+	view.Init(c.entityIndex, blueprint)
+	for archID := arch.RootID; archID < c.archCatalog.Len(); archID++ {
+		view.BakeIfMatch(&c.archCatalog.Archetypes[archID])
 	}
 	return view
 }

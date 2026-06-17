@@ -9,7 +9,7 @@ import (
 func TestMaskIndex_UpsertAndGet(t *testing.T) {
 	t.Run("stored value is retrievable", func(t *testing.T) {
 		var m MaskIndex
-		mask := comp.NewMask(1, 2, 3)
+		mask := comp.Mask{}.Set(1).Set(2).Set(3)
 		m.Upsert(mask, ID(1))
 
 		id, ok := m.Get(mask)
@@ -23,7 +23,7 @@ func TestMaskIndex_UpsertAndGet(t *testing.T) {
 
 	t.Run("missing mask returns false", func(t *testing.T) {
 		var m MaskIndex
-		mask := comp.NewMask(10, 20)
+		mask := comp.Mask{}.Set(10).Set(20)
 
 		_, ok := m.Get(mask)
 		if ok {
@@ -33,8 +33,8 @@ func TestMaskIndex_UpsertAndGet(t *testing.T) {
 
 	t.Run("distinct masks get distinct ids", func(t *testing.T) {
 		var m MaskIndex
-		m1 := comp.NewMask(1)
-		m2 := comp.NewMask(2)
+		m1 := comp.Mask{}.Set(1)
+		m2 := comp.Mask{}.Set(2)
 
 		m.Upsert(m1, ID(1))
 		m.Upsert(m2, ID(2))
@@ -51,7 +51,7 @@ func TestMaskIndex_UpsertAndGet(t *testing.T) {
 func TestMaskIndex_Idempotency(t *testing.T) {
 	t.Run("Upsert with same mask updates id", func(t *testing.T) {
 		var m MaskIndex
-		mask := comp.NewMask(5, 10)
+		mask := comp.Mask{}.Set(5).Set(10)
 
 		m.Upsert(mask, ID(1))
 		m.Upsert(mask, ID(42))
@@ -73,7 +73,7 @@ func TestMaskIndex_CollisionResolution(t *testing.T) {
 		const n = 20
 		masks := make([]comp.Mask, n)
 		for i := range n {
-			masks[i] = comp.NewMask(comp.ID(i))
+			masks[i] = comp.Mask{}.Set(comp.ID(i))
 			m.Upsert(masks[i], ID(i+1))
 		}
 
@@ -93,7 +93,7 @@ func TestMaskIndex_CollisionResolution(t *testing.T) {
 func TestMaskIndex_Reset(t *testing.T) {
 	t.Run("Reset clears all entries", func(t *testing.T) {
 		var m MaskIndex
-		mask := comp.NewMask(1, 2, 3)
+		mask := comp.Mask{}.Set(1).Set(2).Set(3)
 		m.Upsert(mask, ID(7))
 
 		m.Reset()
@@ -114,6 +114,6 @@ func TestMaskIndex_UpsertNullPanics(t *testing.T) {
 		}()
 
 		var m MaskIndex
-		m.Upsert(comp.NewMask(1), NullID)
+		m.Upsert(comp.Mask{}.Set(1), NullID)
 	})
 }

@@ -111,7 +111,7 @@ func (s *Scheduler) applyBufferCmds(cb *CmdBuf) error {
 		case cmdRemoveComp:
 			s.mutator.RemoveComp(target, cmd.compMeta)
 		case cmdRemoveEntity:
-			s.mutator.RemoveEntity(target)
+			s.mutator.Remove(target)
 		}
 	}
 	cb.reset()

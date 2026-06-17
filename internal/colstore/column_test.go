@@ -4,19 +4,37 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/kjkrol/goke/internal/soa"
+	"github.com/kjkrol/goke/internal/mem"
 )
 
 func TestColumn_Base(t *testing.T) {
 	data := make([]byte, 1024)
-	chunk := soa.Chunk{Ptr: unsafe.Pointer(&data[0])}
+	chunkPtr := unsafe.Pointer(&data[0])
 
 	col := Column{
 		Offset: 128,
 	}
 
-	ptr := col.Base(&chunk)
-	expectedPtr := unsafe.Add(chunk.Ptr, 128)
+	ptr := col.Base(chunkPtr)
+	expectedPtr := unsafe.Add(chunkPtr, 128)
+
+	if ptr != expectedPtr {
+		t.Errorf("Expected pointer %p, got %p", expectedPtr, ptr)
+	}
+}
+
+func TestColumn_At(t *testing.T) {
+	data := make([]byte, 1024)
+	chunkPtr := unsafe.Pointer(&data[0])
+
+	col := Column{
+		Offset:   64,
+		CompSize: 8,
+	}
+
+	// slot 3: 64 + 3*8 = 88
+	ptr := col.At(chunkPtr, mem.ChunkSlot(3))
+	expectedPtr := unsafe.Add(chunkPtr, 88)
 
 	if ptr != expectedPtr {
 		t.Errorf("Expected pointer %p, got %p", expectedPtr, ptr)

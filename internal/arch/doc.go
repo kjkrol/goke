@@ -6,7 +6,7 @@
 //
 // Entities are grouped into archetypes according to their component composition.
 // Each archetype is identified by a [comp.Mask] and owns a [colstore.Table]
-// — a [soa.Block] of [soa.Chunk]s with one column per component type.
+// — a [mem.Block] of fixed-size Chunks with one column per component type.
 //
 // Adding or removing a component moves an entity to a different archetype.
 // The archetype graph caches these transitions so that repeated structural
@@ -29,9 +29,8 @@
 // When an entity is removed from an archetype table, its slot is filled by
 // moving the last entity in the same chunk into the freed position. This
 // swap-and-pop strategy avoids holes in memory, maintains dense storage,
-// and eliminates background defragmentation. The caller (reg.Registry) is
-// responsible for updating the entity's location in the entity.Index
-// after a swap.
+// and eliminates background defragmentation. The caller is responsible for
+// updating the entity's location in the entity index after a swap.
 //
 // # Archetype Creation Callback
 //

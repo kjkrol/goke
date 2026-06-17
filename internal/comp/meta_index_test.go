@@ -7,14 +7,14 @@ import (
 	"github.com/kjkrol/goke/internal/comp"
 )
 
-func newCatalog() comp.Catalog {
-	var c comp.Catalog
+func newMetaIndex() comp.MetaIndex {
+	var c comp.MetaIndex
 	c.Init()
 	return c
 }
 
-func TestCatalog_RegistrationAndMapping(t *testing.T) {
-	c := newCatalog()
+func TestMetaIndex_RegistrationAndMapping(t *testing.T) {
+	c := newMetaIndex()
 
 	t.Run("First registration", func(t *testing.T) {
 		posType := reflect.TypeFor[position]()
@@ -42,7 +42,7 @@ func TestCatalog_RegistrationAndMapping(t *testing.T) {
 	})
 
 	t.Run("Multiple types", func(t *testing.T) {
-		fresh := newCatalog()
+		fresh := newMetaIndex()
 
 		id0 := fresh.Intern(reflect.TypeFor[position]()).ID
 		id1 := fresh.Intern(reflect.TypeFor[velocity]()).ID
@@ -54,8 +54,8 @@ func TestCatalog_RegistrationAndMapping(t *testing.T) {
 	})
 }
 
-func TestCatalog_Lookup(t *testing.T) {
-	c := newCatalog()
+func TestMetaIndex_Lookup(t *testing.T) {
+	c := newMetaIndex()
 	posType := reflect.TypeFor[position]()
 	info := c.Intern(posType)
 
@@ -88,8 +88,8 @@ func TestCatalog_Lookup(t *testing.T) {
 	})
 }
 
-func TestCatalog_GenericHelper(t *testing.T) {
-	c := newCatalog()
+func TestMetaIndex_GenericHelper(t *testing.T) {
+	c := newMetaIndex()
 
 	t.Run("Register via reflect.TypeFor matches manual reflection", func(t *testing.T) {
 		genericInfo := c.Intern(reflect.TypeFor[position]())
@@ -102,8 +102,8 @@ func TestCatalog_GenericHelper(t *testing.T) {
 	})
 }
 
-func TestCatalog_MetadataConsistency(t *testing.T) {
-	c := newCatalog()
+func TestMetaIndex_MetadataConsistency(t *testing.T) {
+	c := newMetaIndex()
 
 	t.Run("Size correctness", func(t *testing.T) {
 		type complexStruct struct {
@@ -132,8 +132,8 @@ func TestCatalog_MetadataConsistency(t *testing.T) {
 	})
 }
 
-func TestCatalog_EdgeCases(t *testing.T) {
-	c := newCatalog()
+func TestMetaIndex_EdgeCases(t *testing.T) {
+	c := newMetaIndex()
 
 	t.Run("Empty structures", func(t *testing.T) {
 		type empty struct{}

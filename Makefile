@@ -12,11 +12,6 @@ BENCH_COUNT ?= 4
 setup:
 	go run internal/cmd/scripts/setup/setup_work.go
 
-generate:
-	go run internal/cmd/gen/specs/main.go
-	go run internal/cmd/gen/blueprints/main.go
-	gofmt -w internal/comp/spec_gen.go internal/ent/factories_gen.go aliases_factories_gen.go
-
 test:
 	go test ./...
 bench:

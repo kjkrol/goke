@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kjkrol/goke/internal/comp"
+	"github.com/kjkrol/goke/internal/mem"
 )
 
 func TestTable_LenTracking(t *testing.T) {
@@ -14,25 +15,25 @@ func TestTable_LenTracking(t *testing.T) {
 	var cs Table
 	cs.Init(compMetas)
 
-	if cs.Len != 0 {
-		t.Errorf("Expected initial Table.Len to be 0, got %d", cs.Len)
+	if cs.Len() != 0 {
+		t.Errorf("Expected initial Table.Len to be 0, got %d", cs.Len())
 	}
 
 	cs.AllocSlot()
 	cs.AllocSlot()
 	cs.AllocSlot()
 
-	if cs.Len != 3 {
-		t.Errorf("Expected Table.Len to be 3 after 3 allocations, got %d", cs.Len)
+	if cs.Len() != 3 {
+		t.Errorf("Expected Table.Len to be 3 after 3 allocations, got %d", cs.Len())
 	}
 
-	if cs.Chunks[0].Len != 3 {
-		t.Errorf("Expected chunk.Len to be 3, got %d", cs.Chunks[0].Len)
+	if cs.ChunkLen(0) != 3 {
+		t.Errorf("Expected chunk.Len to be 3, got %d", cs.ChunkLen(0))
 	}
 
 	cs.Clear()
-	if cs.Len != 0 {
-		t.Errorf("Expected Table.Len to be 0 after Clear, got %d", cs.Len)
+	if cs.Len() != 0 {
+		t.Errorf("Expected Table.Len to be 0 after Clear, got %d", cs.Len())
 	}
 }
 
@@ -46,8 +47,8 @@ func TestTable_ResolveTail_Reserved(t *testing.T) {
 
 	cs.AddChunks(4)
 
-	if len(cs.Chunks) != 5 {
-		t.Fatalf("Expected 5 pages initially, got %d", len(cs.Chunks))
+	if cs.NumChunks() != 5 {
+		t.Fatalf("Expected 5 pages initially, got %d", cs.NumChunks())
 	}
 
 	cs.Reserved = 0
@@ -55,8 +56,8 @@ func TestTable_ResolveTail_Reserved(t *testing.T) {
 	if tailIdx != 0 {
 		t.Errorf("Expected tailIdx 0, got %d", tailIdx)
 	}
-	if len(cs.Chunks) != 1 {
-		t.Errorf("Expected pages to be truncated to 1, got %d", len(cs.Chunks))
+	if cs.NumChunks() != 1 {
+		t.Errorf("Expected pages to be truncated to 1, got %d", cs.NumChunks())
 	}
 
 	cs.AddChunks(4)
@@ -67,12 +68,12 @@ func TestTable_ResolveTail_Reserved(t *testing.T) {
 	if tailIdx != 0 {
 		t.Errorf("Expected tailIdx 0 since no data exists, got %d", tailIdx)
 	}
-	if len(cs.Chunks) != 3 {
-		t.Errorf("Expected pages slice to be truncated to 3 (protecting reserved index 2), got %d", len(cs.Chunks))
+	if cs.NumChunks() != 3 {
+		t.Errorf("Expected pages slice to be truncated to 3 (protecting reserved index 2), got %d", cs.NumChunks())
 	}
 
 	cs.AddChunks(2)
-	cs.Chunks[4].Len = 1
+	cs.AllocSlots(mem.ChunkIdx(4), 1)
 	cs.Reserved = 2
 
 	tailIdx, _ = cs.ResolveTail()
@@ -80,7 +81,7 @@ func TestTable_ResolveTail_Reserved(t *testing.T) {
 	if tailIdx != 4 {
 		t.Errorf("Expected tailIdx 4, got %d", tailIdx)
 	}
-	if len(cs.Chunks) != 5 {
-		t.Errorf("Expected pages to remain 5, got %d", len(cs.Chunks))
+	if cs.NumChunks() != 5 {
+		t.Errorf("Expected pages to remain 5, got %d", cs.NumChunks())
 	}
 }

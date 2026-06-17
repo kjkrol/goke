@@ -4,7 +4,7 @@ import (
 	"unsafe"
 
 	"github.com/kjkrol/goke/internal/comp"
-	"github.com/kjkrol/goke/internal/soa"
+	"github.com/kjkrol/goke/internal/mem"
 )
 
 type Column struct {
@@ -13,10 +13,10 @@ type Column struct {
 	Offset   uintptr // byte position of this column relative to the start of a Chunk
 }
 
-func (c *Column) At(chunk *soa.Chunk, pageSlot soa.ChunkSlot) unsafe.Pointer {
-	return unsafe.Add(chunk.Ptr, c.Offset+uintptr(pageSlot)*c.CompSize)
+func (c *Column) At(chunkPtr unsafe.Pointer, slot mem.ChunkSlot) unsafe.Pointer {
+	return unsafe.Add(chunkPtr, c.Offset+uintptr(slot)*c.CompSize)
 }
 
-func (c *Column) Base(chunk *soa.Chunk) unsafe.Pointer {
-	return unsafe.Add(chunk.Ptr, c.Offset)
+func (c *Column) Base(chunkPtr unsafe.Pointer) unsafe.Pointer {
+	return unsafe.Add(chunkPtr, c.Offset)
 }

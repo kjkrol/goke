@@ -3,7 +3,7 @@ module github.com/kjkrol/goke
 go 1.26.4
 
 require (
-	github.com/kjkrol/uid v0.2.0
+	github.com/kjkrol/uid v0.2.1
 	github.com/stretchr/testify v1.11.1
 )
 

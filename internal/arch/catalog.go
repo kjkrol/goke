@@ -6,7 +6,7 @@ import (
 	"github.com/kjkrol/uid"
 
 	"github.com/kjkrol/goke/internal/comp"
-	"github.com/kjkrol/goke/internal/soa"
+	"github.com/kjkrol/goke/internal/mem"
 )
 
 type Catalog struct {
@@ -46,30 +46,23 @@ func (r *Catalog) Upsert(set comp.Composition) ID {
 	return archID
 }
 
-// AddEntityToTable adds entityID to the archetype's table and returns its storage position.
-func (r *Catalog) AddEntityToTable(archID ID, entityID uid.UID64) soa.BlockPos {
-	return r.Archetypes[archID].Table.AddEntity(entityID)
-}
-
 // RemoveEntityFromTable swap-removes the entity at (archID, pos) from its archetype's table.
 // Returns the entity displaced by the swap and whether a swap occurred.
 // The displaced entity moves to pos — the caller must update entity.Index accordingly.
-func (r *Catalog) RemoveEntityFromTable(archID ID, pos soa.BlockPos) (uid.UID64, bool) {
+func (r *Catalog) RemoveEntityFromTable(archID ID, pos mem.BlockPos) (uid.UID64, bool) {
 	return r.Archetypes[archID].Table.SwapRemoveEntity(pos)
 }
 
 // MigrateEntity moves entityID from (srcArchID, srcPos) to dstArchID.
 // Returns the new storage position, the entity displaced by swap-remove in the source table,
 // and whether a swap occurred. The displaced entity moves to srcPos.
-func (r *Catalog) MigrateEntity(entityID uid.UID64, srcArchID ID, srcPos soa.BlockPos, dstArchID ID) (soa.BlockPos, uid.UID64, bool) {
+func (r *Catalog) MigrateEntity(entityID uid.UID64, srcArchID ID, srcPos mem.BlockPos, dstArchID ID) (mem.BlockPos, uid.UID64, bool) {
 	srcArch := &r.Archetypes[srcArchID]
 	dstArch := &r.Archetypes[dstArchID]
 
 	newPos := dstArch.Table.AddEntity(entityID)
 
-	srcChunk := srcArch.Table.GetChunk(srcPos.ChunkIdx)
-	dstChunk := dstArch.Table.GetChunk(newPos.ChunkIdx)
-	dstArch.Table.CopyColumnsFrom(&srcArch.Table, srcChunk, srcPos.ChunkSlot, dstChunk, newPos.ChunkSlot)
+	dstArch.Table.CopyColumnsFrom(&srcArch.Table, srcPos, newPos)
 
 	swappedEntity, swapped := srcArch.Table.SwapRemoveEntity(srcPos)
 	return newPos, swappedEntity, swapped

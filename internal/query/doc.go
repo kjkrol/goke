@@ -5,17 +5,17 @@
 // # View
 //
 // A [View] holds the component mask it requires (includeMask), the mask it
-// rejects (excludeMask), and a Layout — the ordered list of component types
-// the caller wants to read. It produces BakedTables — a slice of [BakedTable]
-// structs, one per matching archetype.
+// rejects (excludeMask), and a [comp.Composition] — the ordered list of
+// component types the caller wants to read. It produces BakedTables — a slice
+// of [BakedTable] structs, one per matching archetype.
 //
 // Views are built once at initialization and kept up to date by
-// [Catalog.OnArchetypeCreated], which is passed as a callback to arch.Catalog
-// and called whenever a new archetype is registered.
+// [Catalog.OnArchetypeCreated], registered as a callback on the archetype
+// catalog and called whenever a new archetype is created.
 //
 // # View Baking
 //
-// When a new archetype matches a view's masks, [View.Bake] is called.
+// When a new archetype matches a view's masks, [View.BakeIfMatch] is called.
 // It reads each [colstore.Column]'s Offset field and caches:
 //   - CompOffsets[i]    — byte offset of each requested component column
 //
@@ -27,8 +27,8 @@
 // # BakedTable
 //
 // [BakedTable] carries a pointer to the matched [colstore.Table] and the
-// precomputed column offsets for the view's layout. At iteration time the hot
-// path reads Table.Chunks directly and applies CompOffsets via pointer
+// precomputed column offsets for the view's composition. At iteration time the
+// hot path advances chunk by chunk and applies CompOffsets via pointer
 // arithmetic — no column lookup, no hash map.
 //
 // # BakedTablesCatalog

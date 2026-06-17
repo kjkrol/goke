@@ -5,16 +5,19 @@ import (
 	"reflect"
 )
 
-type metaIndex struct {
+// MetaIndex maps Go types to stable [Meta] descriptors.
+// Component registration is sequential and deterministic — the first registered
+// type gets ID 0, the next gets ID 1, and so on.
+type MetaIndex struct {
 	typeIndex map[reflect.Type]Meta
 	idIndex   [MaxComponents]Meta
 }
 
-func (r *metaIndex) Init() {
+func (r *MetaIndex) Init() {
 	r.typeIndex = make(map[reflect.Type]Meta)
 }
 
-func (r *metaIndex) reset() {
+func (r *MetaIndex) Reset() {
 	if r.typeIndex == nil {
 		r.typeIndex = make(map[reflect.Type]Meta)
 	} else {
@@ -23,18 +26,9 @@ func (r *metaIndex) reset() {
 	r.idIndex = [MaxComponents]Meta{}
 }
 
-func (r *metaIndex) byType(t reflect.Type) (Meta, bool) {
-	if info, ok := r.typeIndex[t]; ok {
-		return info, true
-	}
-	return Meta{}, false
-}
-
-func (r *metaIndex) byID(id ID) Meta {
-	return r.idIndex[id]
-}
-
-func (r *metaIndex) intern(t reflect.Type) Meta {
+// Intern interns a Go type as a component and returns its Meta.
+// Calling Intern twice for the same type returns the same Meta.
+func (r *MetaIndex) Intern(t reflect.Type) Meta {
 	if info, ok := r.typeIndex[t]; ok {
 		return info
 	}
@@ -54,4 +48,17 @@ func (r *metaIndex) intern(t reflect.Type) Meta {
 	r.typeIndex[t] = info
 	r.idIndex[id] = info
 	return info
+}
+
+// ByType looks up a registered component by its Go type.
+func (r *MetaIndex) ByType(t reflect.Type) (Meta, bool) {
+	if info, ok := r.typeIndex[t]; ok {
+		return info, true
+	}
+	return Meta{}, false
+}
+
+// ByID looks up a registered component by its ID.
+func (r *MetaIndex) ByID(id ID) Meta {
+	return r.idIndex[id]
 }

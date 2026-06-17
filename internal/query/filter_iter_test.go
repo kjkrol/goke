@@ -1,10 +1,10 @@
 package query
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/kjkrol/goke/internal/comp"
+	"github.com/kjkrol/goke/iter"
 	"github.com/kjkrol/uid"
 )
 
@@ -20,13 +20,16 @@ func TestFilterIter_EmptySelected(t *testing.T) {
 
 func TestFilterIter_EntityInView(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
-	posMeta := cc.Intern(reflect.TypeFor[iterPos]())
 
-	e := em.Create()
-	ptr, _ := em.UpsertComp(e, posMeta)
-	*(*iterPos)(ptr) = iterPos{X: 5, Y: 7}
+	_trackOpt0 := comp.Track(new(iter.Col[iterPos]))
+	var b comp.Blueprint
+	b.Init(cc, _trackOpt0)
+	f := em.CreateFactory(b)
+	f.Create(1)
+	f.Next()
+	e := f.IDs[0]
 
-	v := NewView(cat, comp.Track[iterPos]())
+	v := NewView(cat, _trackOpt0)
 
 	v.Filter([]uid.UID64{e})
 	if !v.Next() {
@@ -45,14 +48,17 @@ func TestFilterIter_EntityInView(t *testing.T) {
 
 func TestFilterIter_EntityNotInView(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
-	_ = cc.Intern(reflect.TypeFor[iterPos]())
-	velMeta := cc.Intern(reflect.TypeFor[iterVel]())
 
 	// entity has vel only — view requires pos
-	e := em.Create()
-	_, _ = em.UpsertComp(e, velMeta)
+	var b comp.Blueprint
+	b.Init(cc, comp.Track(new(iter.Col[iterVel])))
+	f := em.CreateFactory(b)
+	f.Create(1)
+	f.Next()
+	e := f.IDs[0]
 
-	v := NewView(cat, comp.Track[iterPos]())
+	_trackOpt0 := comp.Track(new(iter.Col[iterPos]))
+	v := NewView(cat, _trackOpt0)
 
 	v.Filter([]uid.UID64{e})
 	if v.Next() {
@@ -62,12 +68,16 @@ func TestFilterIter_EntityNotInView(t *testing.T) {
 
 func TestFilterIter_SkipsDeletedEntity(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
-	posMeta := cc.Intern(reflect.TypeFor[iterPos]())
 
-	e := em.Create()
-	_, _ = em.UpsertComp(e, posMeta)
+	_trackOpt0 := comp.Track(new(iter.Col[iterPos]))
+	var b comp.Blueprint
+	b.Init(cc, _trackOpt0)
+	f := em.CreateFactory(b)
+	f.Create(1)
+	f.Next()
+	e := f.IDs[0]
 
-	v := NewView(cat, comp.Track[iterPos]())
+	v := NewView(cat, _trackOpt0)
 
 	em.Remove(e)
 
@@ -79,21 +89,25 @@ func TestFilterIter_SkipsDeletedEntity(t *testing.T) {
 
 func TestFilterIter_At(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
-	posMeta := cc.Intern(reflect.TypeFor[iterPos]())
 
-	e := em.Create()
-	ptr, _ := em.UpsertComp(e, posMeta)
-	*(*iterPos)(ptr) = iterPos{X: 5, Y: 7}
+	var pos iter.Col[iterPos]
+	posOpt := comp.Track(&pos)
+	var b comp.Blueprint
+	b.Init(cc, posOpt)
+	f := em.CreateFactory(b)
+	f.Create(1)
+	f.Next()
+	e := f.IDs[0]
+	*pos.At(&f.Cursor) = iterPos{X: 5, Y: 7}
 
-	var pos Col[iterPos]
-	v := NewView(cat, pos.Track())
+	v := NewView(cat, posOpt)
 
 	v.Filter([]uid.UID64{e})
 	if !v.Next() {
 		t.Fatal("expected Next() true")
 	}
 
-	p := pos.At(v)
+	p := pos.At(&v.Cursor)
 	if p == nil {
 		t.Fatal("At returned nil")
 	}
@@ -104,42 +118,53 @@ func TestFilterIter_At(t *testing.T) {
 
 func TestFilterIter_AtMutation(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
-	posMeta := cc.Intern(reflect.TypeFor[iterPos]())
 
-	e := em.Create()
-	ptr, _ := em.UpsertComp(e, posMeta)
-	*(*iterPos)(ptr) = iterPos{X: 1}
+	var pos iter.Col[iterPos]
+	posOpt := comp.Track(&pos)
+	var b comp.Blueprint
+	b.Init(cc, posOpt)
+	f := em.CreateFactory(b)
+	f.Create(1)
+	f.Next()
+	e := f.IDs[0]
+	*pos.At(&f.Cursor) = iterPos{X: 1}
 
-	var pos Col[iterPos]
-	v := NewView(cat, pos.Track())
+	v := NewView(cat, posOpt)
 
 	// mutate via At pointer
 	v.Filter([]uid.UID64{e})
 	if !v.Next() {
 		t.Fatal("expected Next() true")
 	}
-	pos.At(v).X = 99
+	pos.At(&v.Cursor).X = 99
 
 	// read back in a second pass
 	v.Filter([]uid.UID64{e})
 	if !v.Next() {
 		t.Fatal("expected Next() true on second pass")
 	}
-	if pos.At(v).X != 99 {
+	if pos.At(&v.Cursor).X != 99 {
 		t.Error("mutation via At pointer was not persisted")
 	}
 }
 
 func TestFilterIter_IdxTracksPosition(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
-	posMeta := cc.Intern(reflect.TypeFor[iterPos]())
 
-	e0 := em.Create()
-	_, _ = em.UpsertComp(e0, posMeta)
-	e1 := em.Create()
-	_, _ = em.UpsertComp(e1, posMeta)
+	_trackOpt0 := comp.Track(new(iter.Col[iterPos]))
+	var b comp.Blueprint
+	b.Init(cc, _trackOpt0)
+	f := em.CreateFactory(b)
 
-	v := NewView(cat, comp.Track[iterPos]())
+	f.Create(1)
+	f.Next()
+	e0 := f.IDs[0]
+
+	f.Create(1)
+	f.Next()
+	e1 := f.IDs[0]
+
+	v := NewView(cat, _trackOpt0)
 
 	// position 0 = e0 (valid), position 1 = ghost (invalid), position 2 = e1 (valid)
 	ghost := uid.UID64(0xDEADBEEF)
@@ -166,40 +191,44 @@ func TestFilterIter_IdxTracksPosition(t *testing.T) {
 
 func TestFilterIter_MultipleComps(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
-	posMeta := cc.Intern(reflect.TypeFor[iterPos]())
-	velMeta := cc.Intern(reflect.TypeFor[iterVel]())
 
-	e := em.Create()
-	pp, _ := em.UpsertComp(e, posMeta)
-	*(*iterPos)(pp) = iterPos{X: 3, Y: 4}
-	vp, _ := em.UpsertComp(e, velMeta)
-	*(*iterVel)(vp) = iterVel{VX: 1, VY: 2}
+	var pos iter.Col[iterPos]
+	var vel iter.Col[iterVel]
+	var b comp.Blueprint
+	b.Init(cc, comp.Track(&pos), comp.Track(&vel))
+	f := em.CreateFactory(b)
+	f.Create(1)
+	f.Next()
+	e := f.IDs[0]
+	*pos.At(&f.Cursor) = iterPos{X: 3, Y: 4}
+	*vel.At(&f.Cursor) = iterVel{VX: 1, VY: 2}
 
-	var pos Col[iterPos]
-	var vel Col[iterVel]
-	v := NewView(cat, pos.Track(), vel.Track())
+	v := NewView(cat, comp.Track(&pos), comp.Track(&vel))
 
 	v.Filter([]uid.UID64{e})
 	if !v.Next() {
 		t.Fatal("expected Next() true")
 	}
 
-	if *pos.At(v) != (iterPos{X: 3, Y: 4}) {
-		t.Errorf("pos: want {3,4} got %v", *pos.At(v))
+	if *pos.At(&v.Cursor) != (iterPos{X: 3, Y: 4}) {
+		t.Errorf("pos: want {3,4} got %v", *pos.At(&v.Cursor))
 	}
-	if *vel.At(v) != (iterVel{VX: 1, VY: 2}) {
-		t.Errorf("vel: want {1,2} got %v", *vel.At(v))
+	if *vel.At(&v.Cursor) != (iterVel{VX: 1, VY: 2}) {
+		t.Errorf("vel: want {1,2} got %v", *vel.At(&v.Cursor))
 	}
 }
 
 func TestFilterIter_ResetOnSecondCall(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
-	posMeta := cc.Intern(reflect.TypeFor[iterPos]())
 
-	e := em.Create()
-	_, _ = em.UpsertComp(e, posMeta)
+	var b comp.Blueprint
+	b.Init(cc, comp.Track(new(iter.Col[iterPos])))
+	f := em.CreateFactory(b)
+	f.Create(1)
+	f.Next()
+	e := f.IDs[0]
 
-	v := NewView(cat, comp.Track[iterPos]())
+	v := NewView(cat, comp.Track(new(iter.Col[iterPos])))
 	selected := []uid.UID64{e}
 
 	count := func() int {

@@ -31,7 +31,7 @@ func NewCollisionSystem(resouces *Resources) goke.System {
 }
 
 func (s *CollisionSystem) Init(ecs *goke.ECS) {
-	s.collisionView = goke.NewView(ecs, s.pos.Track(), s.vel.Track(), s.coll.Track())
+	s.collisionView = goke.CreateView(ecs, goke.Track(&s.pos), goke.Track(&s.vel), goke.Track(&s.coll))
 	// s.seenPairs = make(map[uint64]struct{}, 256)
 }
 
@@ -50,10 +50,10 @@ func (s *CollisionSystem) Update(lookup goke.Lookup, sched *goke.CmdBuf, d time.
 func (s *CollisionSystem) broadPhase(probeExpandMargin uint32) {
 	s.collisionView.All()
 	for s.collisionView.Next() {
-		posSlice := s.pos.Slice(s.collisionView)
-		velSlice := s.vel.Slice(s.collisionView)
-		collSlice := s.coll.Slice(s.collisionView)
-		for i, entityA := range s.collisionView.EntSlice {
+		posSlice := s.pos.Slice(&s.collisionView.Cursor)
+		velSlice := s.vel.Slice(&s.collisionView.Cursor)
+		collSlice := s.coll.Slice(&s.collisionView.Cursor)
+		for i, entityA := range s.collisionView.Cursor.EntSlice {
 			p, v, c := &posSlice[i], &velSlice[i], &collSlice[i]
 
 			checkFunc := func(boxA geom.AABB[uint32], fragA plane.FragPosition) {
@@ -91,9 +91,9 @@ func (s *CollisionSystem) narrowPhase(solverIterations int) {
 
 	s.collisionView.Filter(s.contactsEntities)
 	for s.collisionView.Next() {
-		s.contactsBuffer[s.collisionView.Idx].PosB = s.pos.At(s.collisionView)
-		s.contactsBuffer[s.collisionView.Idx].VelB = s.vel.At(s.collisionView)
-		s.contactsBuffer[s.collisionView.Idx].ColB = s.coll.At(s.collisionView)
+		s.contactsBuffer[s.collisionView.Idx].PosB = s.pos.At(&s.collisionView.Cursor)
+		s.contactsBuffer[s.collisionView.Idx].VelB = s.vel.At(&s.collisionView.Cursor)
+		s.contactsBuffer[s.collisionView.Idx].ColB = s.coll.At(&s.collisionView.Cursor)
 	}
 
 	for range solverIterations {

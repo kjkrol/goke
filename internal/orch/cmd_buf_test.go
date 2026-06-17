@@ -9,6 +9,7 @@ import (
 	"github.com/kjkrol/goke/internal/ent"
 	"github.com/kjkrol/goke/internal/query"
 	"github.com/kjkrol/goke/internal/reg"
+	"github.com/kjkrol/goke/iter"
 	"github.com/kjkrol/uid"
 )
 
@@ -43,10 +44,12 @@ func TestCmdBuf_ComponentCmds(t *testing.T) {
 
 	sched := NewScheduler(&registry, &registry)
 
-	e := registry.CreateEntity()
-	ptrA, _ := registry.UpsertComp(e, compA)
-	*(*mockCompA)(ptrA) = mockCompA{Val: 100}
-	registry.UpsertComp(e, compB)
+	var colA iter.Col[mockCompA]
+	f := registry.CreateFactory(comp.Track(&colA), comp.Track(new(iter.Col[mockCompB])))
+	f.Create(1)
+	f.Next()
+	e := f.IDs[0]
+	*colA.At(&f.Cursor) = mockCompA{Val: 100}
 
 	sys := &modifyTestSystem{
 		compA:  compA,

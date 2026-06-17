@@ -1,4 +1,4 @@
-package soa
+package mem
 
 import "unsafe"
 
