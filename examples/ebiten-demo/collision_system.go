@@ -53,7 +53,7 @@ func (s *CollisionSystem) broadPhase(probeExpandMargin uint32) {
 		posSlice := s.pos.Slice(&s.collisionView.Cursor)
 		velSlice := s.vel.Slice(&s.collisionView.Cursor)
 		collSlice := s.coll.Slice(&s.collisionView.Cursor)
-		for i, entityA := range s.collisionView.Cursor.EntSlice {
+		for i, entityA := range s.collisionView.Cursor.IDs {
 			p, v, c := &posSlice[i], &velSlice[i], &collSlice[i]
 
 			checkFunc := func(boxA geom.AABB[uint32], fragA plane.FragPosition) {

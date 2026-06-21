@@ -22,7 +22,7 @@ func TestAllIter_EmptyView(t *testing.T) {
 	if v.Next() {
 		t.Error("Next() on empty view should return false")
 	}
-	if v.Cursor.EntSlice != nil {
+	if v.Cursor.IDs != nil {
 		t.Error("Chunk should be nil after exhaustion")
 	}
 }
@@ -46,7 +46,7 @@ func TestAllIter_SingleEntity(t *testing.T) {
 	v.All()
 	for v.Next() {
 		posSlice := pos.Slice(&v.Cursor)
-		for i, entity := range v.Cursor.EntSlice {
+		for i, entity := range v.Cursor.IDs {
 			_ = posSlice[i]
 			visited = append(visited, entity)
 		}
@@ -82,7 +82,7 @@ func TestAllIter_SliceValues(t *testing.T) {
 	v.All()
 	for v.Next() {
 		posSlice := pos.Slice(&v.Cursor)
-		for i, entity := range v.Cursor.EntSlice {
+		for i, entity := range v.Cursor.IDs {
 			got[entity] = posSlice[i]
 		}
 	}
@@ -111,7 +111,7 @@ func TestAllIter_SliceInPlaceMutation(t *testing.T) {
 	v.All()
 	for v.Next() {
 		posSlice := pos.Slice(&v.Cursor)
-		for i := range v.Cursor.EntSlice {
+		for i := range v.Cursor.IDs {
 			posSlice[i].X += posSlice[i].Y
 		}
 	}
@@ -120,7 +120,7 @@ func TestAllIter_SliceInPlaceMutation(t *testing.T) {
 	v.All()
 	for v.Next() {
 		posSlice := pos.Slice(&v.Cursor)
-		for range v.Cursor.EntSlice {
+		for range v.Cursor.IDs {
 			if posSlice[0].X != 8 {
 				t.Errorf("expected X=8 after mutation, got %v", posSlice[0].X)
 			}
@@ -157,7 +157,7 @@ func TestAllIter_MultipleArchetypes(t *testing.T) {
 	visited := map[uid.UID64]bool{}
 	v.All()
 	for v.Next() {
-		for _, e := range v.Cursor.EntSlice {
+		for _, e := range v.Cursor.IDs {
 			visited[e] = true
 		}
 	}
@@ -182,7 +182,7 @@ func TestAllIter_ResetOnSecondCall(t *testing.T) {
 		n := 0
 		v.All()
 		for v.Next() {
-			n += len(v.Cursor.EntSlice)
+			n += len(v.Cursor.IDs)
 		}
 		return n
 	}

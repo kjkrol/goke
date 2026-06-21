@@ -18,7 +18,7 @@ import (
 //     component counts. In-place indexing forces a real store to chunk memory.
 //
 //  2. Hoist the component slice once per chunk: `pos := col.Slice(&v.Cursor)`
-//     outside the inner loop, then index `pos[i]`. Range cursor.EntSlice so the
+//     outside the inner loop, then index `pos[i]`. Range cursor.IDs so the
 //     compiler sees the same field driving both len(pos) and the loop bound; this
 //     lets it prove `i < len(pos)` and eliminate bounds checks for any number of
 //     tracked columns. Re-deriving the slice inside the loop, or indexing through
@@ -61,7 +61,7 @@ func Benchmark_View_All(b *testing.B) {
 			count := 0
 			view0.All()
 			for view0.Next() {
-				for _, entityID := range view0.Cursor.EntSlice {
+				for _, entityID := range view0.Cursor.IDs {
 					_ = entityID
 					count++
 				}
@@ -86,7 +86,7 @@ func Benchmark_View_All(b *testing.B) {
 			view1.All()
 			for view1.Next() {
 				posSlice := pos.Slice(cursor)
-				for i, entityID := range cursor.EntSlice {
+				for i, entityID := range cursor.IDs {
 					_ = entityID
 					posSlice[i].X += posSlice[i].Y
 					count++
@@ -112,7 +112,7 @@ func Benchmark_View_All(b *testing.B) {
 			for view2.Next() {
 				posSlice := pos.Slice(cursor)
 				velSlice := vel.Slice(cursor)
-				for i, entityID := range cursor.EntSlice {
+				for i, entityID := range cursor.IDs {
 					_ = entityID
 					velSlice[i].X += velSlice[i].Y
 					posSlice[i].X += velSlice[i].X
@@ -135,7 +135,7 @@ func Benchmark_View_All(b *testing.B) {
 				posSlice := pos.Slice(cursor)
 				velSlice := vel.Slice(cursor)
 				accSlice := acc.Slice(cursor)
-				for i, entityID := range cursor.EntSlice {
+				for i, entityID := range cursor.IDs {
 					_ = entityID
 					accSlice[i].X += 0.1
 					velSlice[i].X += accSlice[i].X
@@ -160,7 +160,7 @@ func Benchmark_View_All(b *testing.B) {
 				velSlice := vel.Slice(cursor)
 				accSlice := acc.Slice(cursor)
 				t04Slice := t04.Slice(cursor)
-				for i, entityID := range cursor.EntSlice {
+				for i, entityID := range cursor.IDs {
 					_ = entityID
 					accSlice[i].X += 0.1
 					velSlice[i].X += accSlice[i].X
@@ -187,7 +187,7 @@ func Benchmark_View_All(b *testing.B) {
 				accSlice := acc.Slice(cursor)
 				t04Slice := t04.Slice(cursor)
 				t05Slice := t05.Slice(cursor)
-				for i, entityID := range cursor.EntSlice {
+				for i, entityID := range cursor.IDs {
 					_ = entityID
 					accSlice[i].X += 0.1
 					velSlice[i].X += accSlice[i].X
@@ -216,7 +216,7 @@ func Benchmark_View_All(b *testing.B) {
 				t04Slice := t04.Slice(cursor)
 				t05Slice := t05.Slice(cursor)
 				t06Slice := t06.Slice(cursor)
-				for i, entityID := range cursor.EntSlice {
+				for i, entityID := range cursor.IDs {
 					_ = entityID
 					accSlice[i].X += 0.1
 					velSlice[i].X += accSlice[i].X
@@ -247,7 +247,7 @@ func Benchmark_View_All(b *testing.B) {
 				t05Slice := t05.Slice(cursor)
 				t06Slice := t06.Slice(cursor)
 				t07Slice := t07.Slice(cursor)
-				for i, entityID := range cursor.EntSlice {
+				for i, entityID := range cursor.IDs {
 					_ = entityID
 					accSlice[i].X += 0.1
 					velSlice[i].X += accSlice[i].X
@@ -280,7 +280,7 @@ func Benchmark_View_All(b *testing.B) {
 				t06Slice := t06.Slice(cursor)
 				t07Slice := t07.Slice(cursor)
 				t08Slice := t08.Slice(cursor)
-				for i, entityID := range cursor.EntSlice {
+				for i, entityID := range cursor.IDs {
 					_ = entityID
 					accSlice[i].X += 0.1
 					velSlice[i].X += accSlice[i].X
@@ -315,7 +315,7 @@ func Benchmark_View_All(b *testing.B) {
 				t07Slice := t07.Slice(cursor)
 				t08Slice := t08.Slice(cursor)
 				t09Slice := t09.Slice(cursor)
-				for i, entityID := range cursor.EntSlice {
+				for i, entityID := range cursor.IDs {
 					_ = entityID
 					accSlice[i].X += 0.1
 					velSlice[i].X += accSlice[i].X
@@ -352,7 +352,7 @@ func Benchmark_View_All(b *testing.B) {
 				t08Slice := t08.Slice(cursor)
 				t09Slice := t09.Slice(cursor)
 				t10Slice := t10.Slice(cursor)
-				for i, entityID := range cursor.EntSlice {
+				for i, entityID := range cursor.IDs {
 					_ = entityID
 					accSlice[i].X += 0.1
 					velSlice[i].X += accSlice[i].X

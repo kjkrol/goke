@@ -17,7 +17,7 @@ type (
 	Processed struct{}
 )
 
-var processedDesc, orderDesc, discountDesc goke.CompMeta
+var processedDesc, orderDesc, discountDesc goke.CompDef
 
 func main() {
 	ecs := goke.New()
@@ -45,7 +45,7 @@ func main() {
 		for query.Next() {
 			orders := order.Slice(cursor)
 			discounts := discount.Slice(cursor)
-			for i, entityID := range query.Cursor.EntSlice {
+			for i, entityID := range query.Cursor.IDs {
 				orders[i].Total = orders[i].Total * (1 - discounts[i].Percentage/100)
 				// Defer the assignment of the Processed tag to the next synchronization point
 				goke.CmdBufAddComp(schedule, entityID, processedDesc, Processed{})

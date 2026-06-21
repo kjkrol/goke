@@ -35,7 +35,7 @@ func (a *Archetype) Init(archId ID, set comp.Composition) {
 	a.Id = archId
 	a.set = set
 	a.graph = &Graph{}
-	a.Table.Init(set.Metas)
+	a.Table.Init(set.Defs)
 }
 
 func (a *Archetype) Len() int {

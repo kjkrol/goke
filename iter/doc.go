@@ -7,10 +7,10 @@
 //   - Base      — raw pointer to the start of a Chunk's data allocation
 //   - Offsets   — per-component byte offsets from Base, one entry per tracked component
 //   - Slot      — index of the current entity within the Chunk (filter-mode only)
-//   - EntSlice  — entity ID slice for the current chunk or batch (all-mode and factory-mode)
+//   - IDs  — entity ID slice for the current chunk or batch (all-mode and factory-mode)
 //
-// Cursor carries no type information. Both Offsets and EntSlice are slice fields;
-// Offsets is allocated once at construction time, EntSlice is set on each Next() call.
+// Cursor carries no type information. Both Offsets and IDs are slice fields;
+// Offsets is allocated once at construction time, IDs is set on each Next() call.
 //
 // # Col[T]
 //

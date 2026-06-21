@@ -6,7 +6,6 @@ import (
 	"github.com/kjkrol/goke/internal/arch"
 	"github.com/kjkrol/goke/internal/colstore"
 	"github.com/kjkrol/goke/internal/comp"
-	"github.com/kjkrol/goke/internal/mem"
 	"github.com/kjkrol/goke/iter"
 )
 
@@ -17,9 +16,10 @@ type Factory struct {
 	IDs       []uid.UID64
 	Cursor    iter.Cursor
 	arch      *arch.Archetype
-	cols      []*colstore.Column
+	colBakes  []colstore.ColBake
+	chunkCap  int
 	remaining int
-	pos       mem.BlockPos
+	pos       colstore.Pos
 	available int
 }
 
@@ -28,17 +28,14 @@ type Factory struct {
 func (f *Factory) Init(em *Manager, b comp.Blueprint) {
 	archID := em.ArchCatalog.Upsert(b.Compose())
 	f.arch = &em.ArchCatalog.Archetypes[archID]
-	f.cols = make([]*colstore.Column, len(b.CompInfos))
-	for i, meta := range b.CompInfos {
-		f.cols[i] = f.arch.Table.GetColumn(meta.ID)
-	}
+	f.colBakes = f.arch.Table.BakeColumns(b.CompInfos)
 	f.Cursor = iter.Cursor{Offsets: make([]uintptr, len(b.CompInfos))}
 }
 
 // Create pre-allocates chunks for count entities and resets the iterator.
 // Call Next in a loop to advance through each allocated batch.
 func (f *Factory) Create(count int) {
-	f.pos.ChunkIdx, f.available = f.arch.Table.PrepareSlots(count)
+	f.pos.Idx, f.available, f.chunkCap = f.arch.Table.ReserveSlots(count)
 	f.remaining = count
 }
 
@@ -46,23 +43,18 @@ func (f *Factory) Create(count int) {
 // Returns false when all requested entities have been created.
 func (f *Factory) Next() bool {
 	if f.remaining < 1 {
-		f.arch.Table.Reserved = 0
+		f.arch.Table.ReleaseSlots()
 		f.IDs = nil
 		return false
 	}
 
 	allocatedSlots := min(f.remaining, f.available)
-	f.Cursor.Base, f.pos.ChunkSlot, f.IDs = f.arch.Table.SpawnEntitySlice(f.pos.ChunkIdx, allocatedSlots)
-
-	for i, col := range f.cols {
-		f.Cursor.Offsets[i] = col.Offset + uintptr(f.pos.ChunkSlot)*col.CompSize
-	}
-	f.Cursor.EntSlice = f.IDs
+	f.IDs, f.pos = f.arch.Table.SpawnCursor(&f.Cursor, f.pos.Idx, allocatedSlots, f.colBakes)
 
 	f.remaining -= allocatedSlots
 	if f.remaining > 0 {
-		f.pos.ChunkIdx++
-		f.available = int(f.arch.Table.Layout.ChunkCap)
+		f.pos.Idx++
+		f.available = f.chunkCap
 	}
 
 	return true

@@ -12,7 +12,7 @@ const (
 	EntityID      ID = ^ID(0) // sentinel — max uint8, outside the valid component ID range (0..MaxComponents-1)
 )
 
-type Meta struct {
+type Def struct {
 	ID    ID
 	Size  uintptr
 	Align uintptr

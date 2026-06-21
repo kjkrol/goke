@@ -10,12 +10,12 @@ import (
 
 type Catalog struct {
 	views       []View
-	cc          *comp.MetaIndex
+	cc          *comp.DefIndex
 	entityIndex *addr.Index
 	archCatalog *arch.Catalog
 }
 
-func (c *Catalog) Init(cc *comp.MetaIndex, entityIndex *addr.Index, archCatalog *arch.Catalog, cfg Config) {
+func (c *Catalog) Init(cc *comp.DefIndex, entityIndex *addr.Index, archCatalog *arch.Catalog, cfg Config) {
 	c.views = make([]View, 0, cfg.Cap)
 	c.cc = cc
 	c.entityIndex = entityIndex

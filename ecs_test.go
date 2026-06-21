@@ -55,7 +55,7 @@ func TestECS_UseCase(t *testing.T) {
 		for query1.Next() {
 			orders := order.Slice(cursor1)
 			discounts := discount.Slice(cursor1)
-			for i, entityID := range query1.Cursor.EntSlice {
+			for i, entityID := range query1.Cursor.IDs {
 				processedCount++
 				orders[i].Total *= (1 - discounts[i].Percentage/100)
 				goke.CmdBufAddComp(cb, entityID, processedDesc, Processed{})
@@ -66,7 +66,7 @@ func TestECS_UseCase(t *testing.T) {
 	cleanerSystem := goke.RegSysFn(ecs, func(schedule *goke.CmdBuf, d time.Duration) {
 		query2.All()
 		for query2.Next() {
-			for _, entityID := range query2.Cursor.EntSlice {
+			for _, entityID := range query2.Cursor.IDs {
 				schedule.RemoveEntity(entityID)
 			}
 		}
@@ -84,7 +84,7 @@ func TestECS_UseCase(t *testing.T) {
 		ctx.Sync()
 		query2.All()
 		for query2.Next() {
-			for _, entityID := range query2.Cursor.EntSlice {
+			for _, entityID := range query2.Cursor.IDs {
 				_ = entityID
 			}
 		}

@@ -25,8 +25,8 @@ type (
 
 	// CompID is the unique integer identifier for a registered component type.
 	CompID = comp.ID
-	// CompMeta holds type metadata for a registered component (ID, size, alignment, reflect.Type).
-	CompMeta = comp.Meta
+	// CompDef holds type metadata for a registered component (ID, size, alignment, reflect.Type).
+	CompDef = comp.Def
 
 	// Config holds initialization parameters for the ECS.
 	Config = reg.Config
@@ -41,8 +41,8 @@ type (
 	// Changes are applied at the next synchronization point, keeping iterators valid.
 	CmdBuf = orch.CmdBuf
 
-	// BlueprintOpt configures a View's entity filter by including or excluding component types.
-	BlueprintOpt = comp.BlueprintOpt
+	// Opt configures a View or Factory: tracks a data column, includes or excludes a component type.
+	Opt = comp.BlueprintOpt
 
 	// Factory bulk-spawns entities for a single archetype using a chunk-based iterator.
 	// Call Create to set the count, then loop with Next; access entities via Entity and
@@ -50,14 +50,14 @@ type (
 	Factory = ent.Factory
 )
 
-// Track returns a BlueprintOpt that registers T as a tracked data column and
-// sets col.Idx when applied. Pass the opt to NewView or NewFactory.
-func Track[T any](col *Col[T]) BlueprintOpt { return comp.Track[T](col) }
+// Track returns an Opt that registers T as a tracked data column and
+// sets col.Idx when applied. Pass it to NewView or NewFactory.
+func Track[T any](col *Col[T]) Opt { return comp.Track[T](col) }
 
 // Include adds a required component type T to the View's filter.
 // Only entities that possess this component will be matched.
-func Include[T any]() BlueprintOpt { return comp.Include[T]() }
+func Include[T any]() Opt { return comp.Include[T]() }
 
 // Exclude adds an exclusion for component type T to the View's filter.
 // Entities that possess this component will not be matched.
-func Exclude[T any]() BlueprintOpt { return comp.Exclude[T]() }
+func Exclude[T any]() Opt { return comp.Exclude[T]() }

@@ -1,4 +1,4 @@
-package mem
+package chunk
 
 import (
 	"unsafe"
@@ -8,17 +8,17 @@ import (
 	"github.com/kjkrol/goke/internal/comp"
 )
 
-type ChunkLayout struct {
+type Layout struct {
 	ChunkCap   uint32
 	ChunkBytes uintptr
 	Offsets    []uintptr
 }
 
-func (l *ChunkLayout) Init(compMetas []comp.Meta) {
+func (l *Layout) Init(compDefs []comp.Def) {
 	entityStride := unsafe.Sizeof(uid.UID64(0))
 	totalStride := entityStride
-	for _, compMeta := range compMetas {
-		totalStride += compMeta.Size
+	for _, compDef := range compDefs {
+		totalStride += compDef.Size
 	}
 
 	capacity := uintptr(L1DataCacheSize) / totalStride
@@ -27,7 +27,7 @@ func (l *ChunkLayout) Init(compMetas []comp.Meta) {
 	}
 
 	for capacity >= 1 {
-		offsets := make([]uintptr, len(compMetas)+1)
+		offsets := make([]uintptr, len(compDefs)+1)
 		currentOffset := uintptr(0)
 
 		entityAlign := unsafe.Alignof(uid.UID64(0))
@@ -35,10 +35,10 @@ func (l *ChunkLayout) Init(compMetas []comp.Meta) {
 		offsets[0] = currentOffset
 		currentOffset += entityStride * capacity
 
-		for i, compMeta := range compMetas {
-			currentOffset = alignUp(currentOffset, compMeta.Align)
+		for i, compDef := range compDefs {
+			currentOffset = alignUp(currentOffset, compDef.Align)
 			offsets[i+1] = currentOffset
-			currentOffset += compMeta.Size * capacity
+			currentOffset += compDef.Size * capacity
 		}
 
 		if capacity == 1 || (currentOffset <= L1DataCacheSize && !hasCacheSetConflict(offsets)) {

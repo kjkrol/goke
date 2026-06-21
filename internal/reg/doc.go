@@ -4,7 +4,7 @@
 //
 //   - [ent.Manager]    — entity lifecycle: address book ([addr.Book]) and
 //     archetype graph management
-//   - [comp.MetaIndex] — maps Go types to stable [comp.Meta] descriptors
+//   - [comp.DefIndex] — maps Go types to stable [comp.Def] descriptors
 //   - [query.Catalog]  — maintains active views as new archetypes are created
 //
 // All mutation methods on [Registry] are thin delegates to the subsystem that

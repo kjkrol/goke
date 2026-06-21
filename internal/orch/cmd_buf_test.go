@@ -22,8 +22,8 @@ type mockCompB struct {
 }
 
 type modifyTestSystem struct {
-	compA  comp.Meta
-	compB  comp.Meta
+	compA  comp.Def
+	compB  comp.Def
 	target uid.UID64
 }
 

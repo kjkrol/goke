@@ -54,7 +54,7 @@ func (v *View) Init(entityIndex *addr.Index, blueprint *comp.Blueprint) {
 	}
 
 	v.EntityIndex = entityIndex
-	v.composition = comp.Composition{Mask: includeMask, Metas: blueprint.CompInfos}
+	v.composition = comp.Composition{Mask: includeMask, Defs: blueprint.CompInfos}
 	v.excludeMask = excludeMask
 }
 
@@ -66,8 +66,8 @@ func (v *View) Clear() {
 }
 
 func (v *View) BakeIfMatch(archetype *arch.Archetype) {
-	if archetype.Table.NumColumns() > 0 && archetype.Mask().Matches(v.composition.Mask, v.excludeMask) {
-		v.BakedTablesCatalog.Add(archetype, v.composition.Metas)
+	if !archetype.Mask().IsEmpty() && archetype.Mask().Matches(v.composition.Mask, v.excludeMask) {
+		v.BakedTablesCatalog.Add(archetype, v.composition.Defs)
 	}
 }
 

@@ -101,15 +101,15 @@ func (s *Scheduler) applyBufferCmds(cb *CmdBuf) error {
 		switch cmd.cType {
 		case cmdAssignComp:
 			// TODD: need to be tested !!!
-			ptr, err := s.mutator.UpsertComp(target, cmd.compMeta)
+			ptr, err := s.mutator.UpsertComp(target, cmd.compDef)
 			if err != nil {
 				return fmt.Errorf("failed to allocate ID for target %d: %w", target, err)
 			}
 			if ptr != nil {
-				copyMemory(ptr, cmd.dataPtr, cmd.compMeta.Size)
+				copyMemory(ptr, cmd.dataPtr, cmd.compDef.Size)
 			}
 		case cmdRemoveComp:
-			s.mutator.RemoveComp(target, cmd.compMeta)
+			s.mutator.RemoveComp(target, cmd.compDef)
 		case cmdRemoveEntity:
 			s.mutator.Remove(target)
 		}

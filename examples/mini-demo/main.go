@@ -49,7 +49,7 @@ func main() {
 			posSlice := pos.Slice(cursor)
 			velSlice := vel.Slice(cursor)
 			accSlice := acc.Slice(cursor)
-			for i := range query.Cursor.EntSlice {
+			for i := range query.Cursor.IDs {
 				velSlice[i].X += accSlice[i].X
 				velSlice[i].Y += accSlice[i].Y
 				posSlice[i].X += velSlice[i].X

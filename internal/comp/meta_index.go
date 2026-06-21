@@ -5,30 +5,30 @@ import (
 	"reflect"
 )
 
-// MetaIndex maps Go types to stable [Meta] descriptors.
+// DefIndex maps Go types to stable [Def] descriptors.
 // Component registration is sequential and deterministic — the first registered
 // type gets ID 0, the next gets ID 1, and so on.
-type MetaIndex struct {
-	typeIndex map[reflect.Type]Meta
-	idIndex   [MaxComponents]Meta
+type DefIndex struct {
+	typeIndex map[reflect.Type]Def
+	idIndex   [MaxComponents]Def
 }
 
-func (r *MetaIndex) Init() {
-	r.typeIndex = make(map[reflect.Type]Meta)
+func (r *DefIndex) Init() {
+	r.typeIndex = make(map[reflect.Type]Def)
 }
 
-func (r *MetaIndex) Reset() {
+func (r *DefIndex) Reset() {
 	if r.typeIndex == nil {
-		r.typeIndex = make(map[reflect.Type]Meta)
+		r.typeIndex = make(map[reflect.Type]Def)
 	} else {
 		clear(r.typeIndex)
 	}
-	r.idIndex = [MaxComponents]Meta{}
+	r.idIndex = [MaxComponents]Def{}
 }
 
-// Intern interns a Go type as a component and returns its Meta.
-// Calling Intern twice for the same type returns the same Meta.
-func (r *MetaIndex) Intern(t reflect.Type) Meta {
+// Intern interns a Go type as a component and returns its Def.
+// Calling Intern twice for the same type returns the same Def.
+func (r *DefIndex) Intern(t reflect.Type) Def {
 	if info, ok := r.typeIndex[t]; ok {
 		return info
 	}
@@ -38,7 +38,7 @@ func (r *MetaIndex) Intern(t reflect.Type) Meta {
 	}
 
 	id := ID(len(r.typeIndex))
-	info := Meta{
+	info := Def{
 		ID:    id,
 		Size:  t.Size(),
 		Align: uintptr(t.Align()),
@@ -51,14 +51,14 @@ func (r *MetaIndex) Intern(t reflect.Type) Meta {
 }
 
 // ByType looks up a registered component by its Go type.
-func (r *MetaIndex) ByType(t reflect.Type) (Meta, bool) {
+func (r *DefIndex) ByType(t reflect.Type) (Def, bool) {
 	if info, ok := r.typeIndex[t]; ok {
 		return info, true
 	}
-	return Meta{}, false
+	return Def{}, false
 }
 
 // ByID looks up a registered component by its ID.
-func (r *MetaIndex) ByID(id ID) Meta {
+func (r *DefIndex) ByID(id ID) Def {
 	return r.idIndex[id]
 }

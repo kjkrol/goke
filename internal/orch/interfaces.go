@@ -14,8 +14,8 @@ type Lookup interface {
 }
 
 type Mutator interface {
-	UpsertComp(uid.UID64, comp.Meta) (unsafe.Pointer, error)
-	RemoveComp(uid.UID64, comp.Meta) error
+	UpsertComp(uid.UID64, comp.Def) (unsafe.Pointer, error)
+	RemoveComp(uid.UID64, comp.Def) error
 	Remove(uid.UID64) bool
 }
 

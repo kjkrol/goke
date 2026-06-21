@@ -103,7 +103,7 @@ func TestCatalog_Reset(t *testing.T) {
 }
 
 func TestCatalog_AddPanicsWhenFull(t *testing.T) {
-	var cc comp.MetaIndex
+	var cc comp.DefIndex
 	cc.Init()
 	var em ent.Manager
 	cat := new(Catalog)

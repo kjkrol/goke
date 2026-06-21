@@ -8,8 +8,8 @@ import (
 	"github.com/kjkrol/goke/internal/ent"
 )
 
-func newQueryCatalog() (*Catalog, *comp.MetaIndex, *ent.Manager) {
-	var cc comp.MetaIndex
+func newQueryCatalog() (*Catalog, *comp.DefIndex, *ent.Manager) {
+	var cc comp.DefIndex
 	cc.Init()
 	cat := new(Catalog)
 	var em ent.Manager

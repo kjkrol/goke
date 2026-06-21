@@ -42,7 +42,7 @@ func (s *PhysicsSystem) Update(lookup goke.Lookup, schedule *goke.CmdBuf, d time
 	for s.query.Next() {
 		pos := s.pos.Slice(cursor)
 		vel := s.vel.Slice(cursor)
-		for i := range s.query.Cursor.EntSlice {
+		for i := range s.query.Cursor.IDs {
 			pos[i].X += vel[i].VX * float32(d.Seconds())
 			pos[i].Y += vel[i].VY * float32(d.Seconds())
 		}
@@ -62,7 +62,7 @@ func (s *HealthSystem) Update(lookup goke.Lookup, schedule *goke.CmdBuf, d time.
 	s.query.All()
 	for s.query.Next() {
 		health := s.health.Slice(&s.query.Cursor)
-		for i := range s.query.Cursor.EntSlice {
+		for i := range s.query.Cursor.IDs {
 			if health[i].Current < health[i].Max {
 				health[i].Current += 1.0
 			}
@@ -123,7 +123,7 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	for query.Next() {
 		positions := pos.Slice(cursor)
 		healths := health.Slice(cursor)
-		for i := range query.Cursor.EntSlice {
+		for i := range query.Cursor.IDs {
 			count++
 			if positions[i].X != 10 {
 				t.Errorf("Physics failed: expected X=10, got %f", positions[i].X)

@@ -55,7 +55,7 @@ func NewGame[T Resources](resources T, inputAdapter InputAdapter) *Game[T] {
 	return game
 }
 
-func RegCompType[T Resources, C any](game *Game[T]) goke.CompMeta {
+func RegCompType[T Resources, C any](game *Game[T]) goke.CompDef {
 	return goke.RegCompType[C](game.ecs)
 }
 

@@ -1,4 +1,4 @@
-package mem
+package chunk
 
 import (
 	"fmt"
@@ -11,21 +11,21 @@ import (
 	"github.com/kjkrol/goke/internal/comp"
 )
 
-// TestChunkLayout_CacheSetConflictsDuringIteration simulates the iteration
+// TestLayout_CacheSetConflictsDuringIteration simulates the iteration
 // access pattern for the 10-component archetype used in bench/view_all_test.go
 // and reports every entity index at which two or more columns land in the same
 // L1D cache set.
 //
 // This test checks the full per-entity access pattern to expose any stride-based
-// cache set conflicts that remain after ChunkLayout.Init (which only eliminates
+// cache set conflicts that remain after Layout.Init (which only eliminates
 // start-offset conflicts). Use it to understand the residual thrashing profile
 // of a given archetype layout.
-func TestChunkLayout_CacheSetConflictsDuringIteration(t *testing.T) {
+func TestLayout_CacheSetConflictsDuringIteration(t *testing.T) {
 	// Mirror of bench/shared_test.go component types:
 	//   Pos, Vel, Acc  — {X, Y float32}  8 bytes, align 4
 	//   T04, T05, T06  — {V float32}     4 bytes, align 4
 	//   T07..T10       — {V float64}     8 bytes, align 8
-	compMetas := []comp.Meta{
+	compDefs := []comp.Def{
 		{ID: 1, Size: 8, Align: 4},  // Pos
 		{ID: 2, Size: 8, Align: 4},  // Vel
 		{ID: 3, Size: 8, Align: 4},  // Acc
@@ -39,14 +39,14 @@ func TestChunkLayout_CacheSetConflictsDuringIteration(t *testing.T) {
 	}
 	names := []string{"uid", "Pos", "Vel", "Acc", "T04", "T05", "T06", "T07", "T08", "T09", "T10"}
 
-	var layout ChunkLayout
-	layout.Init(compMetas)
+	var layout Layout
+	layout.Init(compDefs)
 
 	// strides: entity column first, then component columns
-	strides := make([]uintptr, len(compMetas)+1)
+	strides := make([]uintptr, len(compDefs)+1)
 	strides[0] = unsafe.Sizeof(uid.UID64(0))
-	for i, m := range compMetas {
-		strides[i+1] = m.Size
+	for i, def := range compDefs {
+		strides[i+1] = def.Size
 	}
 
 	t.Logf("ChunkCap=%d  ChunkBytes=%d  L1DataCacheSize=%d  L1DataCacheSets=%d",

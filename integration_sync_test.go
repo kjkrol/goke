@@ -24,8 +24,8 @@ import (
 type Task struct{ Completed bool }
 type Log struct{ Msg string }
 
-var taskDesc goke.CompMeta
-var logDesc goke.CompMeta
+var taskDesc goke.CompDef
+var logDesc goke.CompDef
 
 // --- Systems ---
 
@@ -40,7 +40,7 @@ func (s *WorkerSystem) Init(eng *goke.ECS) {
 func (s *WorkerSystem) Update(lookup goke.Lookup, schedule *goke.CmdBuf, duration time.Duration) {
 	s.query.All()
 	for s.query.Next() {
-		for _, entityID := range s.query.Cursor.EntSlice {
+		for _, entityID := range s.query.Cursor.IDs {
 			msg := Log{Msg: "Done"}
 			goke.CmdBufAddComp(schedule, entityID, logDesc, msg)
 		}

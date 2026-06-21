@@ -20,8 +20,8 @@ type SystemFn func(*CmdBuf, time.Duration)
 
 // CmdBufAddComp queues the addition of a component value to an entity.
 // If the entity already has this component, its data is overwritten on flush.
-func CmdBufAddComp[T any](cb *CmdBuf, e uid.UID64, compMeta CompMeta, value T) {
-	orch.AddComp(cb, e, compMeta, value)
+func CmdBufAddComp[T any](cb *CmdBuf, e uid.UID64, compDef CompDef, value T) {
+	orch.AddComp(cb, e, compDef, value)
 }
 
 type functionalSystem struct {

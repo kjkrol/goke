@@ -21,7 +21,7 @@ type Winner struct{}
 var gameFinished = false
 var turnCounter = 0
 
-var winnerDesc, diceDesc, playerDesc goke.CompMeta
+var winnerDesc, diceDesc, playerDesc goke.CompDef
 
 func main() {
 	// 1. Initialize the ecs
@@ -70,7 +70,7 @@ func main() {
 		vDice.All()
 		for vDice.Next() {
 			diceSlice := dice.Slice(diceCursor)
-			for i := range vDice.Cursor.EntSlice {
+			for i := range vDice.Cursor.IDs {
 				diceSlice[i].Value = rand.Intn(6) + 1
 			}
 		}
@@ -81,7 +81,7 @@ func main() {
 		vPlayers.All()
 		for vPlayers.Next() {
 			players := player.Slice(playerCursor)
-			for i := range vPlayers.Cursor.EntSlice {
+			for i := range vPlayers.Cursor.IDs {
 				players[i].Bet = rand.Intn(6) + 1
 			}
 		}
@@ -100,7 +100,7 @@ func main() {
 		vPlayers.All()
 		for vPlayers.Next() {
 			players := player.Slice(playerCursor)
-			for i, entityID := range vPlayers.Cursor.EntSlice {
+			for i, entityID := range vPlayers.Cursor.IDs {
 				bet := players[i].Bet
 				fmt.Printf("   Player %d bet: %d\n", entityID, bet)
 				if bet == diceComp.Value {
@@ -116,7 +116,7 @@ func main() {
 	displayWinnerSys := goke.RegSysFn(ecs, func(cb *goke.CmdBuf, d time.Duration) {
 		vWinners.All()
 		for vWinners.Next() {
-			for _, e := range vWinners.Cursor.EntSlice {
+			for _, e := range vWinners.Cursor.IDs {
 				fmt.Printf("🏆 VICTORY! Entity %d is marked as a Winner!\n", e)
 			}
 		}

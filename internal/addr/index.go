@@ -4,7 +4,7 @@ import (
 	"github.com/kjkrol/uid"
 
 	"github.com/kjkrol/goke/internal/arch"
-	"github.com/kjkrol/goke/internal/mem"
+	"github.com/kjkrol/goke/internal/colstore"
 )
 
 // Index is a flat slice keyed by the numeric index extracted from a [uid.UID64].
@@ -29,18 +29,18 @@ func (s *Index) Get(entityID uid.UID64) (Entry, bool) {
 		return Entry{}, false
 	}
 	e := s.entries[index]
-	if e.ArchId == arch.NullID || e.Generation != gen {
+	if e.ArchId == arch.NullID || e.Gen != gen {
 		return Entry{}, false
 	}
 	return e, true
 }
 
-func (s *Index) Upsert(entityID uid.UID64, archId arch.ID, pos mem.BlockPos) {
+func (s *Index) Upsert(entityID uid.UID64, archId arch.ID, pos colstore.Pos) {
 	index, gen := entityID.Unpack()
 	if index >= uint32(cap(s.entries)) {
 		s.grow(index + 1)
 	}
-	s.entries[index] = Entry{ArchId: archId, Pos: pos, Generation: gen}
+	s.entries[index] = Entry{ArchId: archId, Pos: pos, Gen: gen}
 }
 
 func (s *Index) Clear(entityID uid.UID64) {
@@ -48,7 +48,7 @@ func (s *Index) Clear(entityID uid.UID64) {
 	if index >= uint32(cap(s.entries)) {
 		return
 	}
-	if s.entries[index].Generation == gen {
+	if s.entries[index].Gen == gen {
 		s.entries[index] = Entry{ArchId: arch.NullID}
 	}
 }
@@ -59,9 +59,9 @@ func (s *Index) EnsureCap(minLen uint32) {
 	}
 }
 
-func (s *Index) UpsertUnchecked(entityID uid.UID64, archId arch.ID, pos mem.BlockPos) {
+func (s *Index) UpsertUnchecked(entityID uid.UID64, archId arch.ID, pos colstore.Pos) {
 	index, gen := entityID.Unpack()
-	s.entries[index] = Entry{ArchId: archId, Pos: pos, Generation: gen}
+	s.entries[index] = Entry{ArchId: archId, Pos: pos, Gen: gen}
 }
 
 func (s *Index) grow(minLen uint32) {

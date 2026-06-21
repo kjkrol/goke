@@ -1,4 +1,4 @@
-package mem
+package chunk
 
 // hasCacheSetConflict reports whether any two column start offsets map to the
 // same L1D cache set. Conflicting columns thrash each other even when total

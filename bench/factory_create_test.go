@@ -19,7 +19,7 @@ func Benchmark_Blueprint_Create(b *testing.B) {
 			blueprint.Create(entitiesNumber)
 			for blueprint.Next() {
 				comp1 := c1.Slice(fc)
-				for j := range fc.EntSlice {
+				for j := range fc.IDs {
 					comp1[j].X = 1
 				}
 			}
@@ -43,7 +43,7 @@ func Benchmark_Blueprint_Create(b *testing.B) {
 			for blueprint.Next() {
 				comp1 := c1.Slice(fc)
 				comp2 := c2.Slice(fc)
-				for j := range fc.EntSlice {
+				for j := range fc.IDs {
 					comp1[j].X = 1
 					comp2[j].X = 2
 				}
@@ -71,7 +71,7 @@ func Benchmark_Blueprint_Create(b *testing.B) {
 				comp1 := c1.Slice(fc)
 				comp2 := c2.Slice(fc)
 				comp3 := c3.Slice(fc)
-				for j := range fc.EntSlice {
+				for j := range fc.IDs {
 					comp1[j].X = 1
 					comp2[j].X = 2
 					comp3[j].X = 3
@@ -102,7 +102,7 @@ func Benchmark_Blueprint_Create(b *testing.B) {
 				comp2 := c2.Slice(fc)
 				comp3 := c3.Slice(fc)
 				comp4 := c4.Slice(fc)
-				for j := range fc.EntSlice {
+				for j := range fc.IDs {
 					comp1[j].X = 1
 					comp2[j].X = 2
 					comp3[j].X = 3
@@ -137,7 +137,7 @@ func Benchmark_Blueprint_Create(b *testing.B) {
 				comp3 := c3.Slice(fc)
 				comp4 := c4.Slice(fc)
 				comp5 := c5.Slice(fc)
-				for j := range fc.EntSlice {
+				for j := range fc.IDs {
 					comp1[j].X = 1
 					comp2[j].X = 2
 					comp3[j].X = 3
@@ -175,7 +175,7 @@ func Benchmark_Blueprint_Create(b *testing.B) {
 				comp4 := c4.Slice(fc)
 				comp5 := c5.Slice(fc)
 				comp6 := c6.Slice(fc)
-				for j := range fc.EntSlice {
+				for j := range fc.IDs {
 					comp1[j].X = 1
 					comp2[j].X = 2
 					comp3[j].X = 3
@@ -217,7 +217,7 @@ func Benchmark_Blueprint_Create(b *testing.B) {
 				comp5 := c5.Slice(fc)
 				comp6 := c6.Slice(fc)
 				comp7 := c7.Slice(fc)
-				for j := range fc.EntSlice {
+				for j := range fc.IDs {
 					comp1[j].X = 1
 					comp2[j].X = 2
 					comp3[j].X = 3
@@ -262,7 +262,7 @@ func Benchmark_Blueprint_Create(b *testing.B) {
 				comp6 := c6.Slice(fc)
 				comp7 := c7.Slice(fc)
 				comp8 := c8.Slice(fc)
-				for j := range fc.EntSlice {
+				for j := range fc.IDs {
 					comp1[j].X = 1
 					comp2[j].X = 2
 					comp3[j].X = 3
@@ -311,7 +311,7 @@ func Benchmark_Blueprint_Create(b *testing.B) {
 				comp7 := c7.Slice(fc)
 				comp8 := c8.Slice(fc)
 				comp9 := c9.Slice(fc)
-				for j := range fc.EntSlice {
+				for j := range fc.IDs {
 					comp1[j].X = 1
 					comp2[j].X = 2
 					comp3[j].X = 3
@@ -363,7 +363,7 @@ func Benchmark_Blueprint_Create(b *testing.B) {
 				comp8 := c8.Slice(fc)
 				comp9 := c9.Slice(fc)
 				comp10 := c10.Slice(fc)
-				for j := range fc.EntSlice {
+				for j := range fc.IDs {
 					comp1[j].X = 1
 					comp2[j].X = 2
 					comp3[j].X = 3

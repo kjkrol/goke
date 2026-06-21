@@ -5,8 +5,8 @@ import (
 
 	"github.com/kjkrol/uid"
 
+	"github.com/kjkrol/goke/internal/colstore"
 	"github.com/kjkrol/goke/internal/comp"
-	"github.com/kjkrol/goke/internal/mem"
 )
 
 type Catalog struct {
@@ -22,17 +22,6 @@ func (r *Catalog) Init(onArchetypeCreated func(*Archetype)) {
 	r.addArchetype(comp.Composition{})
 }
 
-func (r *Catalog) addArchetype(set comp.Composition) ID {
-	if r.lastArchetypeId >= MaxID {
-		panic(fmt.Sprintf("Max archetype number exceeded: %d", MaxID))
-	}
-	archID := r.lastArchetypeId
-	r.Archetypes[archID].Init(archID, set)
-	r.maskIndex.Upsert(set.Mask, archID)
-	r.lastArchetypeId++
-	return archID
-}
-
 func (r *Catalog) Len() ID {
 	return r.lastArchetypeId
 }
@@ -46,47 +35,39 @@ func (r *Catalog) Upsert(set comp.Composition) ID {
 	return archID
 }
 
-// RemoveEntityFromTable swap-removes the entity at (archID, pos) from its archetype's table.
+// RemoveEntity swap-removes the entity at (archID, pos) from its archetype's table.
 // Returns the entity displaced by the swap and whether a swap occurred.
-// The displaced entity moves to pos — the caller must update entity.Index accordingly.
-func (r *Catalog) RemoveEntityFromTable(archID ID, pos mem.BlockPos) (uid.UID64, bool) {
-	return r.Archetypes[archID].Table.SwapRemoveEntity(pos)
+// The displaced entity moves to pos — the caller must update the entity index accordingly.
+func (r *Catalog) RemoveEntity(archID ID, pos colstore.Pos) (uid.UID64, bool) {
+	return r.Archetypes[archID].Table.RemoveAt(pos)
 }
 
 // MigrateEntity moves entityID from (srcArchID, srcPos) to dstArchID.
 // Returns the new storage position, the entity displaced by swap-remove in the source table,
 // and whether a swap occurred. The displaced entity moves to srcPos.
-func (r *Catalog) MigrateEntity(entityID uid.UID64, srcArchID ID, srcPos mem.BlockPos, dstArchID ID) (mem.BlockPos, uid.UID64, bool) {
-	srcArch := &r.Archetypes[srcArchID]
-	dstArch := &r.Archetypes[dstArchID]
-
-	newPos := dstArch.Table.AddEntity(entityID)
-
-	dstArch.Table.CopyColumnsFrom(&srcArch.Table, srcPos, newPos)
-
-	swappedEntity, swapped := srcArch.Table.SwapRemoveEntity(srcPos)
-	return newPos, swappedEntity, swapped
+func (r *Catalog) MigrateEntity(entityID uid.UID64, srcArchID ID, srcPos colstore.Pos, dstArchID ID) (colstore.Pos, uid.UID64, bool) {
+	return r.Archetypes[dstArchID].Table.MoveEntityFrom(&r.Archetypes[srcArchID].Table, entityID, srcPos)
 }
 
-// EnsureEdgeNext returns the archetype ID reached by adding compMeta to archID.
+// EnsureEdgeNext returns the archetype ID reached by adding compDef to archID.
 // Creates the archetype and caches the graph edge if not already present.
-func (r *Catalog) EnsureEdgeNext(compMeta comp.Meta, archID ID) ID {
+func (r *Catalog) EnsureEdgeNext(compDef comp.Def, archID ID) ID {
 	archetype := &r.Archetypes[archID]
-	if nextEdgeID := archetype.graph.edgesNext[compMeta.ID]; nextEdgeID != NullID {
+	if nextEdgeID := archetype.graph.edgesNext[compDef.ID]; nextEdgeID != NullID {
 		return nextEdgeID
 	}
-	nextArchID := r.Upsert(archetype.set.With(compMeta))
+	nextArchID := r.Upsert(archetype.set.With(compDef))
 	nextArch := &r.Archetypes[nextArchID]
-	archetype.graph.linkNext(nextArch.graph, archetype.Id, nextArch.Id, compMeta.ID)
+	archetype.graph.linkNext(nextArch.graph, archetype.Id, nextArch.Id, compDef.ID)
 	return nextArchID
 }
 
-// EnsureEdgePrev returns the archetype ID reached by removing compMeta from archID.
+// EnsureEdgePrev returns the archetype ID reached by removing compDef from archID.
 // shouldUnlink is true when the resulting composition has an empty mask — the caller
 // should remove the entity entirely rather than migrate it.
-func (r *Catalog) EnsureEdgePrev(compMeta comp.Meta, archID ID) (targetID ID, shouldUnlink bool) {
+func (r *Catalog) EnsureEdgePrev(compDef comp.Def, archID ID) (targetID ID, shouldUnlink bool) {
 	archetype := &r.Archetypes[archID]
-	compID := compMeta.ID
+	compID := compDef.ID
 
 	if prevArchID := archetype.graph.edgesPrev[compID]; prevArchID != NullID {
 		return prevArchID, r.Archetypes[prevArchID].set.Mask.IsEmpty()
@@ -111,4 +92,15 @@ func (r *Catalog) Reset() {
 	r.maskIndex.Reset()
 	r.lastArchetypeId = RootID
 	r.addArchetype(comp.Composition{})
+}
+
+func (r *Catalog) addArchetype(set comp.Composition) ID {
+	if r.lastArchetypeId >= MaxID {
+		panic(fmt.Sprintf("Max archetype number exceeded: %d", MaxID))
+	}
+	archID := r.lastArchetypeId
+	r.Archetypes[archID].Init(archID, set)
+	r.maskIndex.Upsert(set.Mask, archID)
+	r.lastArchetypeId++
+	return archID
 }

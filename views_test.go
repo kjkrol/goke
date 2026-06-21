@@ -49,7 +49,7 @@ func TestView_IncludeExclude(t *testing.T) {
 		found := make(map[uid.UID64]bool)
 		query.All()
 		for query.Next() {
-			for _, entityID := range query.Cursor.EntSlice {
+			for _, entityID := range query.Cursor.IDs {
 				found[entityID] = true
 			}
 		}
@@ -72,7 +72,7 @@ func TestView_IncludeExclude(t *testing.T) {
 		count := 0
 		query.All()
 		for query.Next() {
-			for _, entityID := range query.Cursor.EntSlice {
+			for _, entityID := range query.Cursor.IDs {
 				assert.Equal(t, eC, entityID, "Only Entity C has both position and complexComponent")
 				count++
 			}

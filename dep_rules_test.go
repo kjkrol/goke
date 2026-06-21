@@ -13,11 +13,11 @@ import (
 //
 // Layer 0   iter          (→ uid)
 // Layer 1   comp          (→ iter)
-// Layer 2   mem, orch     (→ comp)
-// Layer 3   colstore      (→ comp, mem)
-// Layer 4   arch          (→ comp, mem, colstore)
-// Layer 5   addr          (→ arch, mem)
-// Layer 6   ent           (→ addr, arch, colstore, comp, mem, iter)
+// Layer 2   chunk, orch   (→ comp)
+// Layer 3   colstore      (→ comp, chunk, iter)
+// Layer 4   arch          (→ comp, colstore)
+// Layer 5   addr          (→ arch, colstore)
+// Layer 6   ent           (→ addr, arch, colstore, comp, iter)
 // Layer 7   query         (→ addr, arch, colstore, comp, iter)
 // Layer 8   reg           (→ ent, arch, comp, query)
 //
@@ -33,7 +33,7 @@ var depRules = map[string][]string{
 	"internal/comp": {
 		module + "/iter",
 	},
-	"internal/mem": {
+	"internal/chunk": {
 		module + "/internal/comp",
 		uidPkg,
 	},
@@ -43,18 +43,18 @@ var depRules = map[string][]string{
 	},
 	"internal/colstore": {
 		module + "/internal/comp",
-		module + "/internal/mem",
+		module + "/internal/chunk",
+		module + "/iter",
 		uidPkg,
 	},
 	"internal/arch": {
 		module + "/internal/comp",
-		module + "/internal/mem",
 		module + "/internal/colstore",
 		uidPkg,
 	},
 	"internal/addr": {
 		module + "/internal/arch",
-		module + "/internal/mem",
+		module + "/internal/colstore",
 		uidPkg,
 	},
 	"internal/ent": {
@@ -62,7 +62,6 @@ var depRules = map[string][]string{
 		module + "/internal/arch",
 		module + "/internal/colstore",
 		module + "/internal/comp",
-		module + "/internal/mem",
 		module + "/iter",
 		uidPkg,
 	},

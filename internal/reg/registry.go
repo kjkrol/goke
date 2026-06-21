@@ -14,7 +14,7 @@ import (
 
 type Registry struct {
 	EntityManager ent.Manager
-	CompMetaIndex comp.MetaIndex
+	CompMetaIndex comp.DefIndex
 	ViewCatalog   query.Catalog
 }
 
@@ -25,7 +25,7 @@ func (r *Registry) Init(cfg Config) {
 	r.EntityManager.Init(cfg.Entity, r.ViewCatalog.OnArchetypeCreated)
 }
 
-func (r *Registry) RegCompType(compType reflect.Type) comp.Meta {
+func (r *Registry) RegCompType(compType reflect.Type) comp.Def {
 	return r.CompMetaIndex.Intern(compType)
 }
 
@@ -43,12 +43,12 @@ func (r *Registry) GetComp(entID uid.UID64, compID comp.ID) (unsafe.Pointer, err
 	return r.EntityManager.GetComp(entID, compID)
 }
 
-func (r *Registry) UpsertComp(entID uid.UID64, compMeta comp.Meta) (unsafe.Pointer, error) {
-	return r.EntityManager.UpsertComp(entID, compMeta)
+func (r *Registry) UpsertComp(entID uid.UID64, compDef comp.Def) (unsafe.Pointer, error) {
+	return r.EntityManager.UpsertComp(entID, compDef)
 }
 
-func (r *Registry) RemoveComp(entID uid.UID64, compMeta comp.Meta) error {
-	return r.EntityManager.RemoveComp(entID, compMeta)
+func (r *Registry) RemoveComp(entID uid.UID64, compDef comp.Def) error {
+	return r.EntityManager.RemoveComp(entID, compDef)
 }
 
 func (r *Registry) AddView(opts ...comp.BlueprintOpt) *query.View {

@@ -212,7 +212,7 @@ func main() {
 			posSlice := pos.Slice(cursor)
 			velSlice := vel.Slice(cursor)
 			accSlice := acc.Slice(cursor)
-			for i := range cursor.EntSlice {
+			for i := range cursor.IDs {
 				velSlice[i].X += accSlice[i].X
 				velSlice[i].Y += accSlice[i].Y
 				posSlice[i].X += velSlice[i].X
@@ -246,8 +246,8 @@ GOKe is an archetype-based ECS built around data-oriented design principles. The
 |:---|:---|
 | [`github.com/kjkrol/uid`](https://pkg.go.dev/github.com/kjkrol/uid) | 64-bit generational entity identifiers — safe index recycling, ABA prevention |
 | [`internal/comp`](internal/comp/doc.go) | Shared component primitives used across all internal packages — type registration, metadata, and blueprint definitions |
-| [`internal/mem`](internal/mem/doc.go) | Cache-aligned chunked memory layout — L1-cache-sized fixed slabs, field offset calculation, slot tracking within a growing slab collection |
-| [`internal/colstore`](internal/colstore/doc.go) | Column-oriented storage for a single archetype — manages component columns over `mem.Block` chunks, resolves component IDs to memory locations in O(1) |
+| [`internal/chunk`](internal/chunk/doc.go) | Cache-aligned chunked memory layout — L1-cache-sized fixed slabs, field offset calculation, slot tracking within a growing slab collection |
+| [`internal/colstore`](internal/colstore/doc.go) | Column-oriented storage for a single archetype — manages component columns over `chunk.Pack` chunks, resolves component IDs to memory locations in O(1) |
 | [`internal/arch`](internal/arch/doc.go) | Archetype identity, archetype graph, and SoA table storage — creates archetypes on demand and caches structural transitions as graph edges |
 | [`internal/addr`](internal/addr/doc.go) | Entity address book — manages entity ID lifecycle (uid pool) and maps each ID to its current storage address (`Entry`) via a flat index in O(1); generation check guards against stale references |
 | [`internal/ent`](internal/ent/doc.go) | Entity lifecycle — delegates ID allocation and address tracking to `addr.Book`, manages component migration (add/remove moves entity to a new archetype), and batch entity creation via `Factory` |

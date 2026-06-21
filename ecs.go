@@ -40,28 +40,28 @@ func New(opts ...ECSOption) *ECS {
 
 // RegCompType registers the component type T with the ECS and returns its metadata.
 // Call once at startup; subsequent calls for the same type return the cached metadata.
-func RegCompType[T any](ecs *ECS) CompMeta {
+func RegCompType[T any](ecs *ECS) CompDef {
 	compType := reflect.TypeFor[T]()
 	return ecs.registry.RegCompType(compType)
 }
 
 // CreateEntFactory resolves or creates the archetype from Track opts and returns
 // a reusable Factory ready for repeated Create/Next cycles.
-func CreateEntFactory(ecs *ECS, opts ...BlueprintOpt) *Factory {
+func CreateEntFactory(ecs *ECS, opts ...Opt) *Factory {
 	return ecs.registry.CreateFactory(opts...)
 }
 
 // CreateView creates a View filtered by opts. Use Track[T]() to declare component
 // data columns (accessible via Slice/At); Include[T]() for filter-only
 // requirements; Exclude[T]() for exclusions.
-func CreateView(ecs *ECS, opts ...BlueprintOpt) *View {
+func CreateView(ecs *ECS, opts ...Opt) *View {
 	return ecs.registry.AddView(opts...)
 }
 
 // UpsertComp returns a pointer to the entity's component, allocating it if absent.
 // Panics if the entity is invalid.
-func UpsertComp[T any](ecs *ECS, uid uid.UID64, compMeta CompMeta) *T {
-	ptr, err := ecs.registry.UpsertComp(uid, compMeta)
+func UpsertComp[T any](ecs *ECS, uid uid.UID64, compDef CompDef) *T {
+	ptr, err := ecs.registry.UpsertComp(uid, compDef)
 	if err != nil {
 		panic(fmt.Sprintf("goke: failed to upsert component: %v", err))
 	}
@@ -70,8 +70,8 @@ func UpsertComp[T any](ecs *ECS, uid uid.UID64, compMeta CompMeta) *T {
 
 // GetComp retrieves a typed pointer to an entity's component. Returns nil if the
 // entity or component is not found.
-func GetComp[T any](ecs *ECS, uid uid.UID64, compMeta CompMeta) *T {
-	data, err := ecs.registry.GetComp(uid, compMeta.ID)
+func GetComp[T any](ecs *ECS, uid uid.UID64, compDef CompDef) *T {
+	data, err := ecs.registry.GetComp(uid, compDef.ID)
 	if err != nil {
 		return nil
 	}
@@ -85,8 +85,8 @@ func RemoveEnt(ecs *ECS, uid uid.UID64) bool {
 }
 
 // RemoveComp removes a component from an entity id. Returns an error if the entity is invalid.
-func RemoveComp(ecs *ECS, uid uid.UID64, compMeta CompMeta) error {
-	return ecs.registry.RemoveComp(uid, compMeta)
+func RemoveComp(ecs *ECS, uid uid.UID64, compDef CompDef) error {
+	return ecs.registry.RemoveComp(uid, compDef)
 }
 
 // RegSys registers a stateful system. The system's Init method is called immediately.

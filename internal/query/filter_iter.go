@@ -19,9 +19,7 @@ func (v *View) nextFilter() bool {
 			continue
 		}
 		v.Entity = e
-		v.Cursor.Base = v.bt.Table.ChunkPtr(link.Pos.ChunkIdx)
-		v.Cursor.Offsets = v.bt.CompOffsets
-		v.Cursor.Slot = uintptr(link.Pos.ChunkSlot)
+		v.bt.FillCursorAt(&v.Cursor, link.Pos)
 		return true
 	}
 	return false

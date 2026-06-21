@@ -4,7 +4,7 @@ import (
 	"github.com/kjkrol/uid"
 
 	"github.com/kjkrol/goke/internal/arch"
-	"github.com/kjkrol/goke/internal/mem"
+	"github.com/kjkrol/goke/internal/colstore"
 )
 
 // Book is the address book: it combines entity ID lifecycle (uid pool) with
@@ -29,11 +29,11 @@ func (b *Book) Reset() {
 
 // Seed allocates len(dst) entity IDs from the pool and registers their initial
 // addresses in the Index. Intended for use as a colstore IDSeeder callback.
-func (b *Book) Seed(dst []uid.UID64, archID arch.ID, chunkIdx mem.ChunkIdx, startSlot mem.ChunkSlot) {
+func (b *Book) Seed(dst []uid.UID64, archID arch.ID, pos colstore.Pos) {
 	b.pool.NextN(dst)
 	b.Index.EnsureCap(b.pool.PeekNextIndex())
 	for i, id := range dst {
-		b.Index.UpsertUnchecked(id, archID, mem.BlockPos{ChunkIdx: chunkIdx, ChunkSlot: startSlot + mem.ChunkSlot(i)})
+		b.Index.UpsertUnchecked(id, archID, colstore.Pos{Idx: pos.Idx, Slot: pos.Slot + colstore.Slot(i)})
 	}
 }
 
@@ -45,7 +45,7 @@ func (b *Book) Get(id uid.UID64) (Entry, bool) {
 
 // Move updates the stored address for the given entity ID.
 // Called after archetype migration to record the entity's new position.
-func (b *Book) Move(id uid.UID64, archID arch.ID, pos mem.BlockPos) {
+func (b *Book) Move(id uid.UID64, archID arch.ID, pos colstore.Pos) {
 	b.Index.Upsert(id, archID, pos)
 }
 

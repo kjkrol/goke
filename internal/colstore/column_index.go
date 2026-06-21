@@ -11,7 +11,7 @@ const (
 )
 
 // columnIndex is a fixed-size array mapping each comp.ID to a columnPos —
-// the local index of that component's Column within Table.columns.
+// the local index of that component's ColDef within Table.columns.
 // Lookups are a single array read: O(1) with no hashing or scanning.
 type columnIndex [comp.MaxComponents]columnPos
 

@@ -77,7 +77,7 @@
 // may only import packages from layers below it:
 //
 //	Layer 0   iter     — column-access primitives: Cursor, Col[T]
-//	Layer 1   comp     — shared primitives: ID, Meta, Mask, Blueprint, MetaIndex  (→ iter)
+//	Layer 1   comp     — shared primitives: ID, Def, Mask, Blueprint, DefIndex  (→ iter)
 //	Layer 2   mem      — cache-aligned chunked memory layout     (→ comp)
 //	Layer 2   orch     — scheduler, plans, command buffers       (→ comp)
 //	Layer 3   colstore — column-oriented storage                 (→ comp, mem)

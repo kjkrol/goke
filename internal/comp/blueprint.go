@@ -6,14 +6,14 @@ import (
 )
 
 type Blueprint struct {
-	CompInfos []Meta
+	CompInfos []Def
 	TagIDs    []ID
 	ExCompIDs []ID
 }
 
 // Init applies opts against mi, populating b in place.
 // Panics if any opt returns an error.
-func (b *Blueprint) Init(mi *MetaIndex, opts ...BlueprintOpt) {
+func (b *Blueprint) Init(mi *DefIndex, opts ...BlueprintOpt) {
 	for _, opt := range opts {
 		if err := opt(b, mi); err != nil {
 			panic(fmt.Sprintf("comp: blueprint option: %v", err))
@@ -21,21 +21,21 @@ func (b *Blueprint) Init(mi *MetaIndex, opts ...BlueprintOpt) {
 	}
 }
 
-// Compose derives a Composition from the Blueprint without requiring a MetaIndex.
+// Compose derives a Composition from the Blueprint without requiring a DefIndex.
 func (b *Blueprint) Compose() Composition {
-	return Composition{Mask: NewMask(b), Metas: b.CompInfos}
+	return Composition{Mask: NewMask(b), Defs: b.CompInfos}
 }
 
-func (b *Blueprint) Comp(meta Meta) error {
+func (b *Blueprint) Comp(def Def) error {
 	for _, existing := range b.CompInfos {
-		if existing.ID == meta.ID {
-			return fmt.Errorf("component %s (ID: %d) is already defined in this blueprint", meta.Type.String(), meta.ID)
+		if existing.ID == def.ID {
+			return fmt.Errorf("component %s (ID: %d) is already defined in this blueprint", def.Type.String(), def.ID)
 		}
 	}
-	if meta.Size == 0 {
-		return fmt.Errorf("cannot add %s: tags are not allowed in data-driven blueprints", meta.Type.String())
+	if def.Size == 0 {
+		return fmt.Errorf("cannot add %s: tags are not allowed in data-driven blueprints", def.Type.String())
 	}
-	b.CompInfos = append(b.CompInfos, meta)
+	b.CompInfos = append(b.CompInfos, def)
 	return nil
 }
 

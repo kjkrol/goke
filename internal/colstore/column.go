@@ -3,20 +3,20 @@ package colstore
 import (
 	"unsafe"
 
+	"github.com/kjkrol/goke/internal/chunk"
 	"github.com/kjkrol/goke/internal/comp"
-	"github.com/kjkrol/goke/internal/mem"
 )
 
-type Column struct {
+type ColDef struct {
 	CompID   comp.ID
 	CompSize uintptr
-	Offset   uintptr // byte position of this column relative to the start of a Chunk
+	Offset   uintptr // byte position of this column relative to the start of a chunk
 }
 
-func (c *Column) At(chunkPtr unsafe.Pointer, slot mem.ChunkSlot) unsafe.Pointer {
+func (c *ColDef) At(chunkPtr unsafe.Pointer, slot chunk.Slot) unsafe.Pointer {
 	return unsafe.Add(chunkPtr, c.Offset+uintptr(slot)*c.CompSize)
 }
 
-func (c *Column) Base(chunkPtr unsafe.Pointer) unsafe.Pointer {
+func (c *ColDef) Base(chunkPtr unsafe.Pointer) unsafe.Pointer {
 	return unsafe.Add(chunkPtr, c.Offset)
 }

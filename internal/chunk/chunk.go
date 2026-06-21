@@ -1,11 +1,11 @@
-package mem
+package chunk
 
 import "unsafe"
 
 type chunk struct {
 	data []byte
 	Ptr  unsafe.Pointer
-	Len  ChunkSlot
+	Len  Slot
 }
 
 func (c *chunk) init(data []byte) {

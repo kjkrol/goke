@@ -6,7 +6,7 @@
 //
 // Entities are grouped into archetypes according to their component composition.
 // Each archetype is identified by a [comp.Mask] and owns a [colstore.Table]
-// — a [mem.Block] of fixed-size Chunks with one column per component type.
+// — a column-oriented store of fixed-size Chunks with one column per component type.
 //
 // Adding or removing a component moves an entity to a different archetype.
 // The archetype graph caches these transitions so that repeated structural
@@ -36,7 +36,6 @@
 //
 // [Catalog.Init] accepts a func(*Archetype) callback invoked each time a new
 // archetype is registered. The caller wires in whatever notification logic it
-// needs — typically query.Catalog.OnArchetypeCreated — without creating a
-// circular import. This call is on the cold path and carries no performance
-// cost during normal iteration.
+// needs without creating a circular import. This call is on the cold path and
+// carries no performance cost during normal iteration.
 package arch

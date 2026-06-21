@@ -7,8 +7,9 @@ import (
 
 	"github.com/kjkrol/uid"
 
+	"github.com/kjkrol/goke/internal/chunk"
 	"github.com/kjkrol/goke/internal/comp"
-	"github.com/kjkrol/goke/internal/mem"
+	"github.com/kjkrol/goke/iter"
 )
 
 type position struct {
@@ -19,13 +20,13 @@ type velocity struct {
 	vx, vy float64
 }
 
-func newCatalog() comp.MetaIndex {
-	var c comp.MetaIndex
+func newCatalog() comp.DefIndex {
+	var c comp.DefIndex
 	c.Init()
 	return c
 }
 
-func testMetas() (pos, vel comp.Meta) {
+func testMetas() (pos, vel comp.Def) {
 	mi := newCatalog()
 	pos = mi.Intern(reflect.TypeFor[position]())
 	vel = mi.Intern(reflect.TypeFor[velocity]())
@@ -37,7 +38,7 @@ func testMetas() (pos, vel comp.Meta) {
 // in this package's test binary.
 type testEntityEntry struct {
 	ArchId ID
-	Pos    mem.BlockPos
+	Pos    chunk.Pos
 	gen    uint32
 }
 
@@ -62,7 +63,7 @@ func (t *testEntityIndex) Get(entityID uid.UID64) (testEntityEntry, bool) {
 	return e, true
 }
 
-func (t *testEntityIndex) Upsert(entityID uid.UID64, archID ID, pos mem.BlockPos) {
+func (t *testEntityIndex) Upsert(entityID uid.UID64, archID ID, pos chunk.Pos) {
 	idx, gen := entityID.Unpack()
 	for int(idx) >= len(t.entries) {
 		t.entries = append(t.entries, testEntityEntry{})
@@ -96,11 +97,16 @@ func newTestEnv() *testEnv {
 }
 
 func (env *testEnv) addEntity(entityID uid.UID64, archID ID) {
-	pos := env.catalog.Archetypes[archID].Table.AddEntity(entityID)
+	table := &env.catalog.Archetypes[archID].Table
+	table.SetIDSeeder(func(dst []uid.UID64, _ chunk.Pos) { dst[0] = entityID })
+	idx, _, _ := table.ReserveSlots(1)
+	var cur iter.Cursor
+	_, pos := table.SpawnCursor(&cur, idx, 1, nil)
+	table.ReleaseSlots()
 	env.entityIndex.Upsert(entityID, archID, pos)
 }
 
-func (env *testEnv) upsertComp(entityID uid.UID64, compMeta comp.Meta) (unsafe.Pointer, bool) {
+func (env *testEnv) upsertComp(entityID uid.UID64, compDef comp.Def) (unsafe.Pointer, bool) {
 	link, ok := env.entityIndex.Get(entityID)
 	if !ok {
 		panic("upsertComp: entity not in EntityIndex")
@@ -109,8 +115,8 @@ func (env *testEnv) upsertComp(entityID uid.UID64, compMeta comp.Meta) (unsafe.P
 	targetArchID := link.ArchId
 	targetPos := link.Pos
 
-	if !env.catalog.Archetypes[link.ArchId].Mask().IsSet(compMeta.ID) {
-		targetArchID = env.catalog.EnsureEdgeNext(compMeta, link.ArchId)
+	if !env.catalog.Archetypes[link.ArchId].Mask().IsSet(compDef.ID) {
+		targetArchID = env.catalog.EnsureEdgeNext(compDef, link.ArchId)
 		newPos, swappedEntity, swapped := env.catalog.MigrateEntity(entityID, link.ArchId, link.Pos, targetArchID)
 		if swapped {
 			env.entityIndex.Upsert(swappedEntity, link.ArchId, link.Pos)
@@ -119,28 +125,25 @@ func (env *testEnv) upsertComp(entityID uid.UID64, compMeta comp.Meta) (unsafe.P
 		targetPos = newPos
 	}
 
-	if compMeta.Size == 0 {
+	if compDef.Size == 0 {
 		return nil, true
 	}
 
-	targetArch := &env.catalog.Archetypes[targetArchID]
-	col := targetArch.Table.GetColumn(compMeta.ID)
-	chunkPtr := targetArch.Table.ChunkPtr(targetPos.ChunkIdx)
-	return col.At(chunkPtr, targetPos.ChunkSlot), true
+	return env.catalog.Archetypes[targetArchID].Table.ComponentAt(targetPos, compDef.ID), true
 }
 
-func (env *testEnv) removeComp(entityID uid.UID64, compMeta comp.Meta) {
+func (env *testEnv) removeComp(entityID uid.UID64, compDef comp.Def) {
 	link, ok := env.entityIndex.Get(entityID)
 	if !ok {
 		return
 	}
-	if !env.catalog.Archetypes[link.ArchId].Mask().IsSet(compMeta.ID) {
+	if !env.catalog.Archetypes[link.ArchId].Mask().IsSet(compDef.ID) {
 		return
 	}
 
-	targetArchID, shouldUnlink := env.catalog.EnsureEdgePrev(compMeta, link.ArchId)
+	targetArchID, shouldUnlink := env.catalog.EnsureEdgePrev(compDef, link.ArchId)
 	if shouldUnlink {
-		swappedEntity, swapped := env.catalog.RemoveEntityFromTable(link.ArchId, link.Pos)
+		swappedEntity, swapped := env.catalog.RemoveEntity(link.ArchId, link.Pos)
 		if swapped {
 			env.entityIndex.Upsert(swappedEntity, link.ArchId, link.Pos)
 		}
@@ -160,7 +163,7 @@ func (env *testEnv) unlinkEntity(entityID uid.UID64) {
 	if !ok {
 		return
 	}
-	swappedEntity, swapped := env.catalog.RemoveEntityFromTable(link.ArchId, link.Pos)
+	swappedEntity, swapped := env.catalog.RemoveEntity(link.ArchId, link.Pos)
 	if swapped {
 		env.entityIndex.Upsert(swappedEntity, link.ArchId, link.Pos)
 	}
@@ -291,14 +294,11 @@ func TestRegistry_OverwriteIdempotency(t *testing.T) {
 
 	linkAfter, _ := env.entityIndex.Get(e)
 
-	if linkBefore.ArchId != linkAfter.ArchId || linkBefore.Pos.ChunkSlot != linkAfter.Pos.ChunkSlot {
+	if linkBefore.ArchId != linkAfter.ArchId || linkBefore.Pos.Slot != linkAfter.Pos.Slot {
 		t.Error("re-assigning same component should not move entity in graph")
 	}
 
-	linkAfterArch := &env.catalog.Archetypes[linkAfter.ArchId]
-	targetPagePtr := linkAfterArch.Table.ChunkPtr(linkAfter.Pos.ChunkIdx)
-	col := linkAfterArch.Table.GetColumn(posTypeInfo.ID)
-	gotData := *(*position)(col.At(targetPagePtr, linkAfter.Pos.ChunkSlot))
+	gotData := *(*position)(env.catalog.Archetypes[linkAfter.ArchId].Table.ComponentAt(linkAfter.Pos, posTypeInfo.ID))
 	if gotData != (position{2, 2}) {
 		t.Errorf("data update failed: got %+v, want {2 2}", gotData)
 	}
@@ -327,8 +327,8 @@ func TestRegistry_SwapPopIntegrity(t *testing.T) {
 	setPos(e2, position{x: 2, y: 2})
 
 	link2Pre, _ := env.entityIndex.Get(e2)
-	if link2Pre.Pos.ChunkSlot != 2 {
-		t.Fatalf("setup error: e2 should be at slot 2, got %d", link2Pre.Pos.ChunkSlot)
+	if link2Pre.Pos.Slot != 2 {
+		t.Fatalf("setup error: e2 should be at slot 2, got %d", link2Pre.Pos.Slot)
 	}
 
 	env.unlinkEntity(e1)
@@ -337,8 +337,8 @@ func TestRegistry_SwapPopIntegrity(t *testing.T) {
 	if !ok {
 		t.Fatal("entity e2 lost from EntityIndex")
 	}
-	if link2Post.Pos.ChunkSlot != 1 {
-		t.Errorf("swap-pop failed: e2 should move to slot 1, got %d", link2Post.Pos.ChunkSlot)
+	if link2Post.Pos.Slot != 1 {
+		t.Errorf("swap-pop failed: e2 should move to slot 1, got %d", link2Post.Pos.Slot)
 	}
 
 	ptr, ok := env.upsertComp(e2, posTypeInfo)

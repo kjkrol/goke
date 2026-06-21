@@ -64,7 +64,7 @@ func (s *EntitiesRendererSystem) Draw(screen *ebiten.Image) {
 		positions := s.pos.Slice(&s.renderView.Cursor)
 		collisions := s.coll.Slice(&s.renderView.Cursor)
 		appearances := s.appearance.Slice(&s.renderView.Cursor)
-		for i := range s.renderView.Cursor.EntSlice {
+		for i := range s.renderView.Cursor.IDs {
 			pos, col, app := positions[i], collisions[i], appearances[i]
 			sx0, sy0, sx1, sy1 := spriteUV(app.SpriteID)
 			r, g, b, a := s.resolveColor(app, col, now)

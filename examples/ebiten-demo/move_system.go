@@ -33,7 +33,7 @@ func (s *MovementSystem) Update(_ goke.Lookup, _ *goke.CmdBuf, d time.Duration) 
 	for s.moveView.Next() {
 		pos := s.pos.Slice(&s.moveView.Cursor)
 		vel := s.vel.Slice(&s.moveView.Cursor)
-		for i, entityID := range s.moveView.Cursor.EntSlice {
+		for i, entityID := range s.moveView.Cursor.IDs {
 			pos[i].accX += float64(vel[i].X) * dt
 			pos[i].accY += float64(vel[i].Y) * dt
 

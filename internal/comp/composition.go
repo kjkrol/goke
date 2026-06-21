@@ -4,21 +4,21 @@ package comp
 // a Mask (bitset of IDs) and the metadata for each non-tag component.
 // Immutable after construction — use With and Without to derive new instances.
 type Composition struct {
-	Mask  Mask
-	Metas []Meta
+	Mask Mask
+	Defs []Def
 }
 
-// With returns a new Composition with compMeta added.
-// Tags (Size == 0) update only the mask, not Metas.
-func (s Composition) With(compMeta Meta) Composition {
-	newMask := s.Mask.Set(compMeta.ID)
-	if compMeta.Size == 0 {
-		return Composition{Mask: newMask, Metas: s.Metas}
+// With returns a new Composition with compDef added.
+// Tags (Size == 0) update only the mask, not Defs.
+func (s Composition) With(compDef Def) Composition {
+	newMask := s.Mask.Set(compDef.ID)
+	if compDef.Size == 0 {
+		return Composition{Mask: newMask, Defs: s.Defs}
 	}
-	newMetas := make([]Meta, len(s.Metas)+1)
-	copy(newMetas, s.Metas)
-	newMetas[len(s.Metas)] = compMeta
-	return Composition{Mask: newMask, Metas: newMetas}
+	newDefs := make([]Def, len(s.Defs)+1)
+	copy(newDefs, s.Defs)
+	newDefs[len(s.Defs)] = compDef
+	return Composition{Mask: newMask, Defs: newDefs}
 }
 
 // Without returns a new Composition with compID removed.
@@ -28,11 +28,11 @@ func (s Composition) Without(compID ID) Composition {
 		return s
 	}
 	newMask := s.Mask.Clear(compID)
-	newMetas := make([]Meta, 0, len(s.Metas)-1)
-	for _, m := range s.Metas {
+	newMetas := make([]Def, 0, len(s.Defs)-1)
+	for _, m := range s.Defs {
 		if m.ID != compID {
 			newMetas = append(newMetas, m)
 		}
 	}
-	return Composition{Mask: newMask, Metas: newMetas}
+	return Composition{Mask: newMask, Defs: newMetas}
 }

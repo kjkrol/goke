@@ -5,7 +5,7 @@
 // [Entry] is the full storage address of an entity:
 //
 //   - ArchId      — the archetype the entity belongs to
-//   - Pos         — the [mem.BlockPos] (ChunkIdx + ChunkSlot) within that archetype's table
+//   - Pos         — the [colstore.Pos] (ChunkIdx + ChunkSlot) within that archetype's table
 //   - Generation  — guards against stale access after an ID is recycled
 //
 // # Index
@@ -15,7 +15,7 @@
 //
 //	uid.UID64 → Unpack() → (index, generation)
 //	                            │
-//	                   Index.entries[index]
+//	                       Index[index]
 //	                            │
 //	                   Entry { ArchId, Pos, Generation }
 //
@@ -33,6 +33,6 @@
 //   - [Book.Move]   — updates the stored address after archetype migration
 //   - [Book.Delete] — clears the address entry and recycles the ID
 //
-// [Book.Index] is exported so that the query layer can hold a [*Index] for
+// [Book.Index] is exported so that higher layers can hold a [*Index] for
 // read-only lookups without access to the pool.
 package addr

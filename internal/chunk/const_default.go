@@ -1,6 +1,6 @@
 //go:build !arm64
 
-package mem
+package chunk
 
 // L1DataCacheSize: 32 KB for typical x86-64 (Intel/AMD desktop/laptop).
 const L1DataCacheSize = 32 * 1024

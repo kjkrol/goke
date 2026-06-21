@@ -7,8 +7,8 @@ import (
 	"github.com/kjkrol/goke/internal/comp"
 )
 
-func newMetaIndex() comp.MetaIndex {
-	var c comp.MetaIndex
+func newMetaIndex() comp.DefIndex {
+	var c comp.DefIndex
 	c.Init()
 	return c
 }
