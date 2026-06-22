@@ -9,7 +9,7 @@ import (
 )
 
 // ErrTypeMismatch is returned when the requested generic type T does not match
-// the type registered in CompDef for a given component ID.
+// the type registered for a given component ID.
 var ErrTypeMismatch = errors.New("component type mismatch")
 
 func errTypeMismatch(compID comp.ID, registered, requested reflect.Type) error {

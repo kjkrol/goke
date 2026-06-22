@@ -15,9 +15,9 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		goke.Reset(ecs)
 		entities := make([]uid.UID64, b.N)
 
-		posDesc := goke.RegCompType[Pos](ecs)
+		posID := goke.RegComp[Pos](ecs)
 		fcVelOpt := goke.Track(new(goke.Col[Vel]))
-		blueprintA := goke.CreateEntFactory(ecs, fcVelOpt)
+		blueprintA := goke.CreateFactory(ecs, fcVelOpt)
 
 		index := 0
 		blueprintA.Create(b.N)
@@ -29,7 +29,7 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		}
 		measurePerEntity(b, 1, func() {
 			for i := 0; i < b.N; i++ {
-				*goke.UpsertComp[Pos](ecs, entities[i], posDesc) = Pos{X: 10, Y: 10}
+				*goke.UpsertComp[Pos](ecs, entities[i], posID) = Pos{X: 10, Y: 10}
 			}
 		})
 	})
@@ -39,9 +39,9 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		goke.Reset(ecs)
 		entities := make([]uid.UID64, b.N)
 
-		tagDesc := goke.RegCompType[Tag](ecs)
+		tagID := goke.RegComp[Tag](ecs)
 		fcVelOpt := goke.Track(new(goke.Col[Vel]))
-		blueprintA := goke.CreateEntFactory(ecs, fcVelOpt)
+		blueprintA := goke.CreateFactory(ecs, fcVelOpt)
 
 		offset := 0
 		blueprintA.Create(b.N)
@@ -51,7 +51,7 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		}
 		measurePerEntity(b, 1, func() {
 			for i := 0; i < b.N; i++ {
-				goke.UpsertComp[Tag](ecs, entities[i], tagDesc)
+				goke.UpsertComp[Tag](ecs, entities[i], tagID)
 			}
 		})
 	})
@@ -61,9 +61,9 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		goke.Reset(ecs)
 		entities := make([]uid.UID64, b.N)
 
-		posDesc := goke.RegCompType[Pos](ecs)
+		posID := goke.RegComp[Pos](ecs)
 		fcVelOpt := goke.Track(new(goke.Col[Vel]))
-		blueprintA := goke.CreateEntFactory(ecs, fcVelOpt)
+		blueprintA := goke.CreateFactory(ecs, fcVelOpt)
 
 		offset := 0
 		blueprintA.Create(b.N)
@@ -73,75 +73,7 @@ func BenchmarkEngine_Structural(b *testing.B) {
 		}
 		measurePerEntity(b, 1, func() {
 			for i := 0; i < b.N; i++ {
-				goke.RemoveComp(ecs, entities[i], posDesc)
-			}
-		})
-	})
-
-	// --- 5. COMPONENT ACCESS (GET) ---
-
-	b.Run("Get Component", func(b *testing.B) {
-		goke.Reset(ecs)
-
-		velDesc := goke.RegCompType[Vel](ecs)
-		var vel goke.Col[Vel]
-		blueprintA := goke.CreateEntFactory(ecs, goke.Track(&vel))
-
-		blueprintA.Create(1)
-		blueprintA.Next()
-		e := blueprintA.IDs[0]
-		vel.Slice(&blueprintA.Cursor)[0] = Vel{X: 1, Y: 2}
-
-		measurePerEntity(b, 1, func() {
-			for i := 0; i < b.N; i++ {
-				pos := goke.GetComp[Vel](ecs, e, velDesc)
-				pos.X += 1.0
-			}
-		})
-	})
-
-	b.Run("Get Component (Safe)", func(b *testing.B) {
-		goke.Reset(ecs)
-
-		velDesc := goke.RegCompType[Vel](ecs)
-		var vel goke.Col[Vel]
-		blueprintA := goke.CreateEntFactory(ecs, goke.Track(&vel))
-
-		blueprintA.Create(1)
-		blueprintA.Next()
-		e := blueprintA.IDs[0]
-		vel.Slice(&blueprintA.Cursor)[0] = Vel{X: 1, Y: 2}
-
-		measurePerEntity(b, 1, func() {
-			for i := 0; i < b.N; i++ {
-				if pos := goke.GetComp[Vel](ecs, e, velDesc); pos != nil {
-					pos.X += 1.0
-				}
-			}
-		})
-	})
-
-	b.Run("Get Component via View.Filter", func(b *testing.B) {
-		goke.Reset(ecs)
-
-		_ = goke.RegCompType[Vel](ecs)
-		var vel goke.Col[Vel]
-		blueprintA := goke.CreateEntFactory(ecs, goke.Track(&vel))
-
-		blueprintA.Create(1)
-		blueprintA.Next()
-		e := blueprintA.IDs[0]
-		vel.Slice(&blueprintA.Cursor)[0] = Vel{X: 1, Y: 2}
-
-		query := goke.CreateView(ecs, goke.Track(&vel))
-		arr := []uid.UID64{e}
-
-		measurePerEntity(b, 1, func() {
-			for i := 0; i < b.N; i++ {
-				fit := query.Filter(arr)
-				for fit.Next() {
-					vel.At(&fit.Cursor).X += 1.0
-				}
+				goke.RemoveComp(ecs, entities[i], posID)
 			}
 		})
 	})
@@ -153,10 +85,10 @@ func BenchmarkEngine_RemoveEntity_Clean(b *testing.B) {
 		goke.WithEntityCap(count),
 		goke.WithEntityFreeCap(count),
 	)
-	_ = goke.RegCompType[Pos](ecs)
+	_ = goke.RegComp[Pos](ecs)
 
 	fcPosOpt := goke.Track(new(goke.Col[Pos]))
-	blueprint := goke.CreateEntFactory(ecs, fcPosOpt)
+	blueprint := goke.CreateFactory(ecs, fcPosOpt)
 	entities := make([]uid.UID64, count)
 
 	refill := func() {
@@ -186,9 +118,9 @@ func BenchmarkEngine_RemoveEntity_Clean(b *testing.B) {
 
 func BenchmarkEngine_AddRemove_Stability(b *testing.B) {
 	ecs := goke.New(goke.WithEntityCap(1024))
-	_ = goke.RegCompType[Pos](ecs)
+	_ = goke.RegComp[Pos](ecs)
 	var pos goke.Col[Pos]
-	blueprint := goke.CreateEntFactory(ecs, goke.Track(&pos))
+	blueprint := goke.CreateFactory(ecs, goke.Track(&pos))
 	fc := &blueprint.Cursor
 
 	var e uid.UID64

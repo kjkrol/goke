@@ -34,7 +34,8 @@ type filterIter struct {
 type View struct {
 	BakedTablesCatalog
 	EntityIndex *addr.Index
-	composition comp.Composition
+	includeMask comp.Mask
+	compIDs     []comp.ID
 	excludeMask comp.Mask
 	mode        iterMode
 	Cursor      iter.Cursor
@@ -54,20 +55,22 @@ func (v *View) Init(entityIndex *addr.Index, blueprint *comp.Blueprint) {
 	}
 
 	v.EntityIndex = entityIndex
-	v.composition = comp.Composition{Mask: includeMask, Defs: blueprint.CompInfos}
+	v.includeMask = includeMask
+	v.compIDs = blueprint.CompIDs()
 	v.excludeMask = excludeMask
 }
 
 func (v *View) Clear() {
 	v.EntityIndex = nil
-	v.composition = comp.Composition{}
+	v.includeMask = comp.Mask{}
+	v.compIDs = nil
 	v.excludeMask = comp.Mask{}
 	v.BakedTablesCatalog.Clear()
 }
 
 func (v *View) BakeIfMatch(archetype *arch.Archetype) {
-	if !archetype.Mask().IsEmpty() && archetype.Mask().Matches(v.composition.Mask, v.excludeMask) {
-		v.BakedTablesCatalog.Add(archetype, v.composition.Defs)
+	if !archetype.Mask().IsEmpty() && archetype.Mask().Matches(v.includeMask, v.excludeMask) {
+		v.BakedTablesCatalog.Add(archetype, v.compIDs)
 	}
 }
 

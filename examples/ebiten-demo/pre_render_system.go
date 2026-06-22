@@ -20,6 +20,6 @@ func NewPreRenderSystem(resources *Resources) gokebiten.RenderSystem {
 	}
 }
 
-func (s *PreRenderSystem) Update(lookup goke.Lookup, sched *goke.CmdBuf, d time.Duration) {}
-func (s *PreRenderSystem) Init(ecs *goke.ECS)                                             {}
-func (s *PreRenderSystem) Draw(screen *ebiten.Image)                                      {}
+func (s *PreRenderSystem) Update(sched *goke.CmdBuf, d time.Duration) {}
+func (s *PreRenderSystem) Init(ecs *goke.ECS)                         {}
+func (s *PreRenderSystem) Draw(screen *ebiten.Image)                  {}

@@ -24,8 +24,8 @@ import (
 type Task struct{ Completed bool }
 type Log struct{ Msg string }
 
-var taskDesc goke.CompDef
-var logDesc goke.CompDef
+var taskID goke.CompID
+var logID goke.CompID
 
 // --- Systems ---
 
@@ -37,12 +37,12 @@ func (s *WorkerSystem) Init(eng *goke.ECS) {
 	s.query = goke.CreateView(eng, goke.Include[Task]())
 }
 
-func (s *WorkerSystem) Update(lookup goke.Lookup, schedule *goke.CmdBuf, duration time.Duration) {
+func (s *WorkerSystem) Update(schedule *goke.CmdBuf, duration time.Duration) {
 	s.query.All()
 	for s.query.Next() {
 		for _, entityID := range s.query.Cursor.IDs {
 			msg := Log{Msg: "Done"}
-			goke.CmdBufAddComp(schedule, entityID, logDesc, msg)
+			goke.CmdBufAddComp(schedule, entityID, logID, msg)
 		}
 	}
 }
@@ -56,7 +56,7 @@ func (s *LoggerSystem) Init(eng *goke.ECS) {
 	s.query = goke.CreateView(eng, goke.Include[Log]())
 }
 
-func (s *LoggerSystem) Update(lookup goke.Lookup, schedule *goke.CmdBuf, duration time.Duration) {
+func (s *LoggerSystem) Update(schedule *goke.CmdBuf, duration time.Duration) {
 	s.query.All()
 	for s.query.Next() {
 		s.Found = true
@@ -71,8 +71,8 @@ func (s *LoggerSystem) Update(lookup goke.Lookup, schedule *goke.CmdBuf, duratio
 func TestECS_SystemInteractions(t *testing.T) {
 
 	setupComponents := func(e *goke.ECS) {
-		taskDesc = goke.RegCompType[Task](e)
-		logDesc = goke.RegCompType[Log](e)
+		taskID = goke.RegComp[Task](e)
+		logID = goke.RegComp[Log](e)
 	}
 
 	t.Run("Isolation: Logger should not see changes from Worker without Sync between them", func(t *testing.T) {
@@ -80,7 +80,7 @@ func TestECS_SystemInteractions(t *testing.T) {
 		setupComponents(ecs)
 
 		var task goke.Col[Task]
-		blueprint := goke.CreateEntFactory(ecs, goke.Track(&task))
+		blueprint := goke.CreateFactory(ecs, goke.Track(&task))
 		blueprint.Create(1)
 		blueprint.Next()
 		task.Slice(&blueprint.Cursor)[0] = Task{Completed: false}
@@ -109,7 +109,7 @@ func TestECS_SystemInteractions(t *testing.T) {
 		setupComponents(ecs)
 
 		var task goke.Col[Task]
-		blueprint := goke.CreateEntFactory(ecs, goke.Track(&task))
+		blueprint := goke.CreateFactory(ecs, goke.Track(&task))
 		blueprint.Create(1)
 		blueprint.Next()
 		task.Slice(&blueprint.Cursor)[0] = Task{Completed: false}

@@ -82,10 +82,10 @@ func (t *Table) BakeColumns(defs []comp.Def) []ColBake {
 }
 
 // BakeOffsets returns a uintptr slice with the base offset of each tracked column.
-func (t *Table) BakeOffsets(defs []comp.Def) []uintptr {
-	offsets := make([]uintptr, len(defs))
-	for i, def := range defs {
-		if col := t.getColumn(def.ID); col != nil {
+func (t *Table) BakeOffsets(ids []comp.ID) []uintptr {
+	offsets := make([]uintptr, len(ids))
+	for i, id := range ids {
+		if col := t.getColumn(id); col != nil {
 			offsets[i] = col.Offset
 		}
 	}
@@ -106,6 +106,9 @@ func (t *Table) ComponentAt(pos Pos, id comp.ID) unsafe.Pointer {
 	return col.At(t.chunkPack.ChunkPtr(pos.Idx), pos.Slot)
 }
 
+// FillCursorNext advances to the next non-empty chunk starting at from,
+// filling cur with its base pointer, offsets, and entity ID slice.
+// Returns the chunk index and false when no more chunks remain.
 func (t *Table) FillCursorNext(cur *iter.Cursor, from int, offsets []uintptr) (int, bool) {
 	idx, _, _, ok := t.chunkPack.NextNonEmptyChunk(from)
 	if !ok {
@@ -118,9 +121,11 @@ func (t *Table) FillCursorNext(cur *iter.Cursor, from int, offsets []uintptr) (i
 	return idx, true
 }
 
-func (t *Table) FillCursorAt(cur *iter.Cursor, pos Pos, offsets []uintptr) {
+// PointCursor positions cur at pos (chunk base + slot) without touching its
+// column offsets. The caller sets cur.Offsets once per table, then moves the
+// cursor across slots of that table with PointCursor.
+func (t *Table) PointCursor(cur *iter.Cursor, pos Pos) {
 	cur.Base = t.chunkPack.ChunkPtr(pos.Idx)
-	cur.Offsets = offsets
 	cur.Slot = uintptr(pos.Slot)
 }
 
@@ -174,6 +179,7 @@ func (t *Table) ReserveSlots(count int) (firstIdx Idx, firstAvailable int, chunk
 	return idx, avail, int(t.chunkPack.Layout.ChunkCap)
 }
 
+// ReleaseSlots clears the Reserved marker set by ReserveSlots.
 func (t *Table) ReleaseSlots() {
 	t.chunkPack.Reserved = 0
 }

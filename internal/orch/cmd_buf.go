@@ -21,7 +21,8 @@ const (
 type bufferedCmd struct {
 	cType    cmdType
 	entityID uid.UID64
-	compDef  comp.Def
+	compID   comp.ID
+	size     uintptr
 	dataPtr  unsafe.Pointer
 }
 
@@ -59,7 +60,7 @@ func NewCmdBuf() *CmdBuf {
 }
 
 // AddComp safely copies component data into the buffer's pool
-func AddComp[T any](cb *CmdBuf, entityID uid.UID64, compDef comp.Def, value T) {
+func AddComp[T any](cb *CmdBuf, entityID uid.UID64, compID comp.ID, value T) {
 	size := int(unsafe.Sizeof(value))
 
 	var ptr unsafe.Pointer
@@ -75,16 +76,17 @@ func AddComp[T any](cb *CmdBuf, entityID uid.UID64, compDef comp.Def, value T) {
 	cb.cmds = append(cb.cmds, bufferedCmd{
 		cType:    cmdAssignComp,
 		entityID: entityID,
-		compDef:  compDef,
+		compID:   compID,
+		size:     uintptr(size),
 		dataPtr:  ptr,
 	})
 }
 
-func (cb *CmdBuf) RemoveComp(entityID uid.UID64, compDef comp.Def) {
+func (cb *CmdBuf) RemoveComp(entityID uid.UID64, compID comp.ID) {
 	cb.cmds = append(cb.cmds, bufferedCmd{
 		cType:    cmdRemoveComp,
 		entityID: entityID,
-		compDef:  compDef,
+		compID:   compID,
 	})
 }
 

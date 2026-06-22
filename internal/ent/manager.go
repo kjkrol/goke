@@ -98,21 +98,6 @@ func (m *Manager) RemoveComp(entityID uid.UID64, compDef comp.Def) error {
 	return nil
 }
 
-// GetComp returns an unsafe.Pointer to the entity's component data for the given
-// component ID, or an error if the entity is invalid or lacks the component.
-func (m *Manager) GetComp(entityID uid.UID64, compID comp.ID) (unsafe.Pointer, error) {
-	entry, ok := m.AddressBook.Get(entityID)
-	if !ok {
-		return nil, errInvalidEntity
-	}
-
-	ptr := m.ArchCatalog.Archetypes[entry.ArchId].Table.ComponentAt(entry.Pos, compID)
-	if ptr == nil {
-		return nil, errComponentMissing
-	}
-	return ptr, nil
-}
-
 // Reset clears all entity state, returning the manager to its initial condition.
 func (m *Manager) Reset() {
 	m.ArchCatalog.Reset()

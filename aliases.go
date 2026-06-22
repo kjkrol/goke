@@ -25,8 +25,6 @@ type (
 
 	// CompID is the unique integer identifier for a registered component type.
 	CompID = comp.ID
-	// CompDef holds type metadata for a registered component (ID, size, alignment, reflect.Type).
-	CompDef = comp.Def
 
 	// Config holds initialization parameters for the ECS.
 	Config = reg.Config
@@ -35,8 +33,6 @@ type (
 	// Plan defines the execution order and concurrency of systems each tick.
 	Plan = orch.Plan
 
-	// Lookup provides a read-only view of component data for use inside system updates.
-	Lookup = orch.Lookup
 	// CmdBuf queues structural changes (add/remove component, destroy entity) during a tick.
 	// Changes are applied at the next synchronization point, keeping iterators valid.
 	CmdBuf = orch.CmdBuf
@@ -48,6 +44,10 @@ type (
 	// Call Create to set the count, then loop with Next; access entities via Entity and
 	// components via col.Slice(&factory.Cursor).
 	Factory = ent.Factory
+
+	// Lookup provides cursor-based read access to a single entity's components.
+	// Create once via CreateLookup; call Seek per entity access.
+	Lookup = query.Lookup
 )
 
 // Track returns an Opt that registers T as a tracked data column and

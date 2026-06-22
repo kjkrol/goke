@@ -13,7 +13,7 @@ func Benchmark_Blueprint_Create(b *testing.B) {
 	b.Run(fmt.Sprintf("Batch(%d) 1 comp", entitiesNumber), func(b *testing.B) {
 		goke.Reset(ecs)
 		var c1 goke.Col[Pos]
-		blueprint := goke.CreateEntFactory(ecs, goke.Track(&c1))
+		blueprint := goke.CreateFactory(ecs, goke.Track(&c1))
 		fc := &blueprint.Cursor
 		fn := func() {
 			blueprint.Create(entitiesNumber)
@@ -35,7 +35,7 @@ func Benchmark_Blueprint_Create(b *testing.B) {
 		goke.Reset(ecs)
 		var c1 goke.Col[Pos]
 		var c2 goke.Col[Vel]
-		blueprint := goke.CreateEntFactory(ecs,
+		blueprint := goke.CreateFactory(ecs,
 			goke.Track(&c1), goke.Track(&c2))
 		fc := &blueprint.Cursor
 		fn := func() {
@@ -61,7 +61,7 @@ func Benchmark_Blueprint_Create(b *testing.B) {
 		var c1 goke.Col[Pos]
 		var c2 goke.Col[Vel]
 		var c3 goke.Col[Acc]
-		blueprint := goke.CreateEntFactory(ecs,
+		blueprint := goke.CreateFactory(ecs,
 			goke.Track(&c1), goke.Track(&c2),
 			goke.Track(&c3))
 		fc := &blueprint.Cursor
@@ -91,7 +91,7 @@ func Benchmark_Blueprint_Create(b *testing.B) {
 		var c2 goke.Col[Vel]
 		var c3 goke.Col[Acc]
 		var c4 goke.Col[T04]
-		blueprint := goke.CreateEntFactory(ecs,
+		blueprint := goke.CreateFactory(ecs,
 			goke.Track(&c1), goke.Track(&c2),
 			goke.Track(&c3), goke.Track(&c4))
 		fc := &blueprint.Cursor
@@ -124,7 +124,7 @@ func Benchmark_Blueprint_Create(b *testing.B) {
 		var c3 goke.Col[Acc]
 		var c4 goke.Col[T04]
 		var c5 goke.Col[T05]
-		blueprint := goke.CreateEntFactory(ecs,
+		blueprint := goke.CreateFactory(ecs,
 			goke.Track(&c1), goke.Track(&c2),
 			goke.Track(&c3), goke.Track(&c4),
 			goke.Track(&c5))
@@ -161,7 +161,7 @@ func Benchmark_Blueprint_Create(b *testing.B) {
 		var c4 goke.Col[T04]
 		var c5 goke.Col[T05]
 		var c6 goke.Col[T06]
-		blueprint := goke.CreateEntFactory(ecs,
+		blueprint := goke.CreateFactory(ecs,
 			goke.Track(&c1), goke.Track(&c2),
 			goke.Track(&c3), goke.Track(&c4),
 			goke.Track(&c5), goke.Track(&c6))
@@ -201,7 +201,7 @@ func Benchmark_Blueprint_Create(b *testing.B) {
 		var c5 goke.Col[T05]
 		var c6 goke.Col[T06]
 		var c7 goke.Col[T07]
-		blueprint := goke.CreateEntFactory(ecs,
+		blueprint := goke.CreateFactory(ecs,
 			goke.Track(&c1), goke.Track(&c2),
 			goke.Track(&c3), goke.Track(&c4),
 			goke.Track(&c5), goke.Track(&c6),
@@ -245,7 +245,7 @@ func Benchmark_Blueprint_Create(b *testing.B) {
 		var c6 goke.Col[T06]
 		var c7 goke.Col[T07]
 		var c8 goke.Col[T08]
-		blueprint := goke.CreateEntFactory(ecs,
+		blueprint := goke.CreateFactory(ecs,
 			goke.Track(&c1), goke.Track(&c2),
 			goke.Track(&c3), goke.Track(&c4),
 			goke.Track(&c5), goke.Track(&c6),
@@ -292,7 +292,7 @@ func Benchmark_Blueprint_Create(b *testing.B) {
 		var c7 goke.Col[T07]
 		var c8 goke.Col[T08]
 		var c9 goke.Col[T09]
-		blueprint := goke.CreateEntFactory(ecs,
+		blueprint := goke.CreateFactory(ecs,
 			goke.Track(&c1), goke.Track(&c2),
 			goke.Track(&c3), goke.Track(&c4),
 			goke.Track(&c5), goke.Track(&c6),
@@ -343,7 +343,7 @@ func Benchmark_Blueprint_Create(b *testing.B) {
 		var c8 goke.Col[T08]
 		var c9 goke.Col[T09]
 		var c10 goke.Col[T10]
-		blueprint := goke.CreateEntFactory(ecs,
+		blueprint := goke.CreateFactory(ecs,
 			goke.Track(&c1), goke.Track(&c2),
 			goke.Track(&c3), goke.Track(&c4),
 			goke.Track(&c5), goke.Track(&c6),

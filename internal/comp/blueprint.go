@@ -26,6 +26,16 @@ func (b *Blueprint) Compose() Composition {
 	return Composition{Mask: NewMask(b), Defs: b.CompInfos}
 }
 
+// CompIDs returns the IDs of the tracked data columns in track order.
+// Read-only consumers (views, lookups) need only the IDs, not the full Defs.
+func (b *Blueprint) CompIDs() []ID {
+	ids := make([]ID, len(b.CompInfos))
+	for i, def := range b.CompInfos {
+		ids[i] = def.ID
+	}
+	return ids
+}
+
 func (b *Blueprint) Comp(def Def) error {
 	for _, existing := range b.CompInfos {
 		if existing.ID == def.ID {

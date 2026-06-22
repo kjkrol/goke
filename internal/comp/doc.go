@@ -4,8 +4,11 @@
 // # ID and Def
 //
 // Each registered Go type receives a unique [ID] (uint8).
-// [Def] carries the ID, memory size, alignment, and reflect.Type
-// used during layout calculation. [DefIndex] maps Go types to [Def] in O(1).
+// [ID] is the identity of a component. [Def] additionally carries the layout
+// information (memory size, alignment, reflect.Type) needed only when storage
+// is laid out; identity alone suffices otherwise.
+// [DefIndex] maps Go types to [Def] in O(1) and resolves an [ID] back to its
+// [Def] via [DefIndex.ByID].
 //
 // # Mask
 //

@@ -33,6 +33,6 @@
 //   - [Book.Move]   — updates the stored address after archetype migration
 //   - [Book.Delete] — clears the address entry and recycles the ID
 //
-// [Book.Index] is exported so that higher layers can hold a [*Index] for
-// read-only lookups without access to the pool.
+// [Book.Index] is exported as a standalone read-only address index,
+// separate from the ID pool.
 package addr

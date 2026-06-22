@@ -36,7 +36,7 @@ type PhysicsSystem struct {
 func (s *PhysicsSystem) Init(ecs *goke.ECS) {
 	s.query = goke.CreateView(ecs, goke.Track(&s.pos), goke.Track(&s.vel))
 }
-func (s *PhysicsSystem) Update(lookup goke.Lookup, schedule *goke.CmdBuf, d time.Duration) {
+func (s *PhysicsSystem) Update(schedule *goke.CmdBuf, d time.Duration) {
 	cursor := &s.query.Cursor
 	s.query.All()
 	for s.query.Next() {
@@ -58,7 +58,7 @@ type HealthSystem struct {
 func (s *HealthSystem) Init(eng *goke.ECS) {
 	s.query = goke.CreateView(eng, goke.Track(&s.health))
 }
-func (s *HealthSystem) Update(lookup goke.Lookup, schedule *goke.CmdBuf, d time.Duration) {
+func (s *HealthSystem) Update(schedule *goke.CmdBuf, d time.Duration) {
 	s.query.All()
 	for s.query.Next() {
 		health := s.health.Slice(&s.query.Cursor)
@@ -79,9 +79,9 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	ecs := goke.New()
 
 	// 1. Setup
-	_ = goke.RegCompType[Position](ecs)
-	_ = goke.RegCompType[Velocity](ecs)
-	_ = goke.RegCompType[Health](ecs)
+	_ = goke.RegComp[Position](ecs)
+	_ = goke.RegComp[Velocity](ecs)
+	_ = goke.RegComp[Health](ecs)
 
 	phys := &PhysicsSystem{}
 	heal := &HealthSystem{}
@@ -92,7 +92,7 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	var pos goke.Col[Position]
 	var vel goke.Col[Velocity]
 	var health goke.Col[Health]
-	blueprint := goke.CreateEntFactory(ecs, goke.Track(&pos), goke.Track(&vel), goke.Track(&health))
+	blueprint := goke.CreateFactory(ecs, goke.Track(&pos), goke.Track(&vel), goke.Track(&health))
 	fc := &blueprint.Cursor
 	blueprint.Create(1000)
 	for blueprint.Next() {

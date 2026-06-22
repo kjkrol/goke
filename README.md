@@ -176,19 +176,19 @@ func main() {
 	// Initialize the ECS world.
 	ecs := goke.New()
 
-	// Register component types — binds Go types to internal descriptors.
-	posDesc := goke.RegCompType[Pos](ecs)
-	_ = goke.RegCompType[Vel](ecs)
-	_ = goke.RegCompType[Acc](ecs)
+	// Register component types — each Go type is assigned a stable CompID.
+	_ = goke.RegComp[Pos](ecs)
+	_ = goke.RegComp[Vel](ecs)
+	_ = goke.RegComp[Acc](ecs)
 
 	// Col[T] handles typed access to a component column.
-	// The same Col[T] can be reused across factory and view.
+	// The same Col[T] can be reused across factory, view, and lookup.
 	var pos goke.Col[Pos]
 	var vel goke.Col[Vel]
 	var acc goke.Col[Acc]
 
 	// Create a factory for bulk entity spawning.
-	factory := goke.CreateEntFactory(ecs, goke.Track(&pos), goke.Track(&vel), goke.Track(&acc))
+	factory := goke.CreateFactory(ecs, goke.Track(&pos), goke.Track(&vel), goke.Track(&acc))
 
 	var entityID uid.UID64
 	factory.Create(1)
@@ -230,8 +230,12 @@ func main() {
 	// Execute a single simulation step (120 TPS).
 	goke.Tick(ecs, time.Second/120)
 
-	p := goke.GetComp[Pos](ecs, entityID, posDesc)
-	fmt.Printf("Final Position: {X: %.2f, Y: %.2f}\n", p.X, p.Y)
+	// Read a single entity's component via a lookup (cursor-based, typed).
+	lookup := goke.CreateLookup(ecs, goke.Track(&pos))
+	if lookup.Seek(entityID) {
+		p := pos.At(&lookup.Cursor)
+		fmt.Printf("Final Position: {X: %.2f, Y: %.2f}\n", p.X, p.Y)
+	}
 }
 ```
 

@@ -27,17 +27,17 @@ type Tag struct{}
 
 func setupECS() *goke.ECS {
 	ecs := goke.New()
-	_ = goke.RegCompType[Pos](ecs)
-	_ = goke.RegCompType[Vel](ecs)
-	_ = goke.RegCompType[Acc](ecs)
-	_ = goke.RegCompType[T04](ecs)
-	_ = goke.RegCompType[T05](ecs)
-	_ = goke.RegCompType[T06](ecs)
-	_ = goke.RegCompType[T07](ecs)
-	_ = goke.RegCompType[T08](ecs)
-	_ = goke.RegCompType[T09](ecs)
-	_ = goke.RegCompType[T10](ecs)
-	_ = goke.RegCompType[Tag](ecs)
+	_ = goke.RegComp[Pos](ecs)
+	_ = goke.RegComp[Vel](ecs)
+	_ = goke.RegComp[Acc](ecs)
+	_ = goke.RegComp[T04](ecs)
+	_ = goke.RegComp[T05](ecs)
+	_ = goke.RegComp[T06](ecs)
+	_ = goke.RegComp[T07](ecs)
+	_ = goke.RegComp[T08](ecs)
+	_ = goke.RegComp[T09](ecs)
+	_ = goke.RegComp[T10](ecs)
+	_ = goke.RegComp[Tag](ecs)
 	return ecs
 }
 
@@ -52,7 +52,7 @@ func populate(ecs *goke.ECS, count int) []uid.UID64 {
 	var c8 goke.Col[T08]
 	var c9 goke.Col[T09]
 	var c10 goke.Col[T10]
-	blueprint := goke.CreateEntFactory(ecs, goke.Track(&c1), goke.Track(&c2), goke.Track(&c3), goke.Track(&c4), goke.Track(&c5), goke.Track(&c6), goke.Track(&c7), goke.Track(&c8), goke.Track(&c9), goke.Track(&c10))
+	blueprint := goke.CreateFactory(ecs, goke.Track(&c1), goke.Track(&c2), goke.Track(&c3), goke.Track(&c4), goke.Track(&c5), goke.Track(&c6), goke.Track(&c7), goke.Track(&c8), goke.Track(&c9), goke.Track(&c10))
 
 	var entities []uid.UID64
 	blueprint.Create(count)

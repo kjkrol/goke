@@ -21,20 +21,20 @@ type Winner struct{}
 var gameFinished = false
 var turnCounter = 0
 
-var winnerDesc, diceDesc, playerDesc goke.CompDef
+var winnerID, diceID, playerID goke.CompID
 
 func main() {
 	// 1. Initialize the ecs
 	ecs := goke.New()
 
 	// Register component types
-	winnerDesc = goke.RegCompType[Winner](ecs)
-	diceDesc = goke.RegCompType[Dice](ecs)
-	playerDesc = goke.RegCompType[Player](ecs)
+	winnerID = goke.RegComp[Winner](ecs)
+	diceID = goke.RegComp[Dice](ecs)
+	playerID = goke.RegComp[Player](ecs)
 
 	// 2. Setup Entities & Components
 	var dice goke.Col[Dice]
-	diceFactory := goke.CreateEntFactory(ecs, goke.Track(&dice))
+	diceFactory := goke.CreateFactory(ecs, goke.Track(&dice))
 
 	var diceEnt uid.UID64
 	diceFactory.Create(1)
@@ -44,7 +44,7 @@ func main() {
 
 	// Setup player entities
 	var player goke.Col[Player]
-	playerFactory := goke.CreateEntFactory(ecs, goke.Track(&player))
+	playerFactory := goke.CreateFactory(ecs, goke.Track(&player))
 
 	playerFactory.Create(2)
 	fc := &playerFactory.Cursor
@@ -62,6 +62,9 @@ func main() {
 
 	diceCursor := &vDice.Cursor
 	playerCursor := &vPlayers.Cursor
+
+	// Lookup for reading the dice entity's value each turn
+	diceLookup := goke.CreateLookup(ecs, goke.Track(&dice))
 
 	// 4. Register Systems
 
@@ -94,7 +97,8 @@ func main() {
 		}
 		turnCounter++
 
-		diceComp := goke.GetComp[Dice](ecs, diceEnt, diceDesc)
+		diceLookup.Seek(diceEnt)
+		diceComp := dice.At(&diceLookup.Cursor)
 		fmt.Printf("🎲 Turn %d | Dice Result: %d\n", turnCounter, diceComp.Value)
 
 		vPlayers.All()
@@ -106,7 +110,7 @@ func main() {
 				if bet == diceComp.Value {
 					gameFinished = true
 					// Defer the assignment of the Winner tag to the next Sync point
-					goke.CmdBufAddComp(schedule, entityID, winnerDesc, Winner{})
+					goke.CmdBufAddComp(schedule, entityID, winnerID, Winner{})
 				}
 			}
 		}

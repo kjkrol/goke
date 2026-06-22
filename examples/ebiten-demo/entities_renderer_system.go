@@ -44,7 +44,7 @@ func (s *EntitiesRendererSystem) Init(ecs *goke.ECS) {
 	s.renderView = goke.CreateView(ecs, goke.Track(&s.pos), goke.Track(&s.coll), goke.Track(&s.appearance))
 }
 
-func (s *EntitiesRendererSystem) Update(_ goke.Lookup, _ *goke.CmdBuf, _ time.Duration) {}
+func (s *EntitiesRendererSystem) Update(_ *goke.CmdBuf, _ time.Duration) {}
 
 const (
 	FRAG_SCREEN_LEFT     = plane.FRAG_RIGHT

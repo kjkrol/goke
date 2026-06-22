@@ -48,7 +48,7 @@ func TestBakedTablesCatalog_AddAndGet(t *testing.T) {
 	archetype := &archCatalog.Archetypes[archID]
 
 	var c BakedTablesCatalog
-	c.Add(archetype, []comp.Def{posMeta})
+	c.Add(archetype, []comp.ID{posMeta.ID})
 
 	bt := c.Get(archID)
 	if bt == nil {
@@ -71,7 +71,7 @@ func TestBakedTablesCatalog_GetOutOfRange(t *testing.T) {
 	archetype := &archCatalog.Archetypes[archID]
 
 	var c BakedTablesCatalog
-	c.Add(archetype, []comp.Def{posMeta})
+	c.Add(archetype, []comp.ID{posMeta.ID})
 
 	if got := c.Get(arch.ID(999)); got != nil {
 		t.Error("expected nil for archID beyond mapping range")
@@ -89,7 +89,7 @@ func TestBakedTablesCatalog_GetNonMatchedArchID(t *testing.T) {
 	archetype1 := &archCatalog.Archetypes[archID1]
 
 	var c BakedTablesCatalog
-	c.Add(archetype1, []comp.Def{posMeta})
+	c.Add(archetype1, []comp.ID{posMeta.ID})
 
 	// archID2 was never added to the catalog
 	if got := c.Get(archID2); got != nil {
@@ -109,8 +109,8 @@ func TestBakedTablesCatalog_MultipleArchetypes(t *testing.T) {
 	arch2 := &archCatalog.Archetypes[archID2]
 
 	var c BakedTablesCatalog
-	c.Add(arch1, []comp.Def{posMeta})
-	c.Add(arch2, []comp.Def{velMeta})
+	c.Add(arch1, []comp.ID{posMeta.ID})
+	c.Add(arch2, []comp.ID{velMeta.ID})
 
 	bt1 := c.Get(archID1)
 	bt2 := c.Get(archID2)
@@ -138,7 +138,7 @@ func TestBakedTablesCatalog_Clear(t *testing.T) {
 	archetype := &archCatalog.Archetypes[archID]
 
 	var c BakedTablesCatalog
-	c.Add(archetype, []comp.Def{posMeta})
+	c.Add(archetype, []comp.ID{posMeta.ID})
 
 	c.Clear()
 
@@ -163,9 +163,9 @@ func TestBakedTablesCatalog_GrowOnSequentialArchIDs(t *testing.T) {
 	archID3 := archCatalog.Upsert(comp.Composition{}.With(tagMeta))
 
 	var c BakedTablesCatalog
-	c.Add(&archCatalog.Archetypes[archID1], []comp.Def{posMeta})
-	c.Add(&archCatalog.Archetypes[archID2], []comp.Def{velMeta})
-	c.Add(&archCatalog.Archetypes[archID3], []comp.Def{tagMeta})
+	c.Add(&archCatalog.Archetypes[archID1], []comp.ID{posMeta.ID})
+	c.Add(&archCatalog.Archetypes[archID2], []comp.ID{velMeta.ID})
+	c.Add(&archCatalog.Archetypes[archID3], []comp.ID{tagMeta.ID})
 
 	if c.Get(archID1) == nil {
 		t.Error("expected BakedTable for archID1")

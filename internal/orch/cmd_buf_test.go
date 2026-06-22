@@ -22,12 +22,12 @@ type mockCompB struct {
 }
 
 type modifyTestSystem struct {
-	compA  comp.Def
-	compB  comp.Def
+	compA  comp.ID
+	compB  comp.ID
 	target uid.UID64
 }
 
-func (s *modifyTestSystem) Update(_ Lookup, cb *CmdBuf, d time.Duration) {
+func (s *modifyTestSystem) Update(cb *CmdBuf, d time.Duration) {
 	cb.RemoveComp(s.target, s.compA)
 	AddComp(cb, s.target, s.compB, mockCompB{Msg: "added"})
 }
@@ -39,10 +39,10 @@ func TestCmdBuf_ComponentCmds(t *testing.T) {
 		View:   query.Config{Cap: 10},
 	})
 
-	compA := registry.RegCompType(reflect.TypeFor[mockCompA]())
-	compB := registry.RegCompType(reflect.TypeFor[mockCompB]())
+	compA := registry.RegComp(reflect.TypeFor[mockCompA]())
+	compB := registry.RegComp(reflect.TypeFor[mockCompB]())
 
-	sched := NewScheduler(&registry, &registry)
+	sched := NewScheduler(&registry)
 
 	var colA iter.Col[mockCompA]
 	f := registry.CreateFactory(comp.Track(&colA), comp.Track(new(iter.Col[mockCompB])))
@@ -65,16 +65,19 @@ func TestCmdBuf_ComponentCmds(t *testing.T) {
 		t.Fatalf("Sync failed: %v", err)
 	}
 
-	_, err = registry.GetComp(e, compA.ID)
-	if err == nil {
+	// compA should be gone: a view requiring it must not match e
+	viewA := registry.AddView(comp.Include[mockCompA]())
+	if viewA.Filter([]uid.UID64{e}).Next() {
 		t.Errorf("Expected compA to be removed")
 	}
 
-	ptrB, err := registry.GetComp(e, compB.ID)
-	if err != nil {
+	// compB should be present with the assigned value
+	var colB iter.Col[mockCompB]
+	viewB := registry.AddView(comp.Track(&colB))
+	if !viewB.Filter([]uid.UID64{e}).Next() {
 		t.Fatalf("Expected compB to be present")
 	}
-	if (*mockCompB)(ptrB).Msg != "added" {
+	if colB.At(&viewB.Cursor).Msg != "added" {
 		t.Errorf("Expected compB.Msg to be 'added'")
 	}
 }

@@ -20,14 +20,14 @@ func main() {
 	// Define component metadata.
 	// This binds Go types to internal descriptors, allowing the engine to
 	// pre-calculate memory layouts and manage data in contiguous arrays.
-	posDesc := goke.RegCompType[Pos](ecs)
-	_ = goke.RegCompType[Vel](ecs)
-	_ = goke.RegCompType[Acc](ecs)
+	_ = goke.RegComp[Pos](ecs)
+	_ = goke.RegComp[Vel](ecs)
+	_ = goke.RegComp[Acc](ecs)
 
 	var pos goke.Col[Pos]
 	var vel goke.Col[Vel]
 	var acc goke.Col[Acc]
-	factory := goke.CreateEntFactory(ecs, goke.Track(&pos), goke.Track(&vel), goke.Track(&acc))
+	factory := goke.CreateFactory(ecs, goke.Track(&pos), goke.Track(&vel), goke.Track(&acc))
 
 	var entityID uid.UID64
 	factory.Create(1)
@@ -67,6 +67,9 @@ func main() {
 	// Execute a single simulation step (standard 120 TPS)
 	goke.Tick(ecs, time.Second/120)
 
-	p := goke.GetComp[Pos](ecs, entityID, posDesc)
-	fmt.Printf("Final Position: {X: %.2f, Y: %.2f}\n", p.X, p.Y)
+	lookup := goke.CreateLookup(ecs, goke.Track(&pos))
+	if lookup.Seek(entityID) {
+		p := pos.At(&lookup.Cursor)
+		fmt.Printf("Final Position: {X: %.2f, Y: %.2f}\n", p.X, p.Y)
+	}
 }

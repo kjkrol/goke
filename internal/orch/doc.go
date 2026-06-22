@@ -6,12 +6,12 @@
 // Any task must implement [Runnable]:
 //
 //	type Runnable interface {
-//	    Update(Lookup, *CmdBuf, time.Duration)
+//	    Update(*CmdBuf, time.Duration)
 //	}
 //
-// Each call to Update receives a [Lookup] for read access to external state,
-// a [*CmdBuf] for queuing deferred mutations, and a time.Duration
-// representing the elapsed tick interval.
+// Each call to Update receives a [*CmdBuf] for queuing deferred mutations and a
+// time.Duration representing the elapsed tick interval. Read access to external
+// state is the task's own responsibility, arranged during its initialization.
 //
 // # Plan and Scheduler
 //
@@ -38,9 +38,8 @@
 //	Runnable B ──┤──► Sync ──► mutations become visible
 //	Runnable C ──┘
 //
-// # Lookup and Mutator
+// # Mutator
 //
-// [Lookup] and [Mutator] are interfaces defined in this package. Any external
-// state that implements them can be orchestrated — for example, an ECS component
-// storage.
+// [Mutator] is an interface defined in this package. Any external state that
+// implements it can be orchestrated — for example, an ECS component storage.
 package orch

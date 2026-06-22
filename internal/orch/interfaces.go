@@ -9,16 +9,12 @@ import (
 	"github.com/kjkrol/goke/internal/comp"
 )
 
-type Lookup interface {
-	GetComp(e uid.UID64, compID comp.ID) (unsafe.Pointer, error)
-}
-
 type Mutator interface {
-	UpsertComp(uid.UID64, comp.Def) (unsafe.Pointer, error)
-	RemoveComp(uid.UID64, comp.Def) error
+	UpsertComp(uid.UID64, comp.ID) (unsafe.Pointer, error)
+	RemoveComp(uid.UID64, comp.ID) error
 	Remove(uid.UID64) bool
 }
 
 type Runnable interface {
-	Update(Lookup, *CmdBuf, time.Duration)
+	Update(*CmdBuf, time.Duration)
 }

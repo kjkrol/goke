@@ -12,27 +12,27 @@ func TestView_IncludeExclude(t *testing.T) {
 	ecs := goke.New()
 	// 1. Setup Entities with different structural profiles
 
-	_ = goke.RegCompType[position](ecs)
-	_ = goke.RegCompType[velocity](ecs)
-	_ = goke.RegCompType[complexComponent](ecs)
+	_ = goke.RegComp[position](ecs)
+	_ = goke.RegComp[velocity](ecs)
+	_ = goke.RegComp[complexComponent](ecs)
 
 	// Entity A: Only position
 	var eA uid.UID64
-	blueprintA := goke.CreateEntFactory(ecs, goke.Track(new(goke.Col[position])))
+	blueprintA := goke.CreateFactory(ecs, goke.Track(new(goke.Col[position])))
 	blueprintA.Create(1)
 	blueprintA.Next()
 	eA = blueprintA.IDs[0]
 
 	// Entity B: position + velocity (Moving entity)
 	var eB uid.UID64
-	blueprintB := goke.CreateEntFactory(ecs, goke.Track(new(goke.Col[position])), goke.Track(new(goke.Col[velocity])))
+	blueprintB := goke.CreateFactory(ecs, goke.Track(new(goke.Col[position])), goke.Track(new(goke.Col[velocity])))
 	blueprintB.Create(1)
 	blueprintB.Next()
 	eB = blueprintB.IDs[0]
 
 	// Entity C: position + complexComponent (Static named entity)
 	var eC uid.UID64
-	blueprintC := goke.CreateEntFactory(ecs, goke.Track(new(goke.Col[position])), goke.Track(new(goke.Col[complexComponent])))
+	blueprintC := goke.CreateFactory(ecs, goke.Track(new(goke.Col[position])), goke.Track(new(goke.Col[complexComponent])))
 	blueprintC.Create(1)
 	blueprintC.Next()
 	eC = blueprintC.IDs[0]

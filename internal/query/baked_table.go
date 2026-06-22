@@ -14,6 +14,9 @@ func (bt *BakedTable) FillCursorNext(cur *iter.Cursor, from int) (int, bool) {
 	return bt.Table.FillCursorNext(cur, from, bt.CompOffsets)
 }
 
-func (bt *BakedTable) FillCursorAt(cur *iter.Cursor, pos colstore.Pos) {
-	bt.Table.FillCursorAt(cur, pos, bt.CompOffsets)
+// PointCursor moves cur to pos within this baked table (chunk base + slot).
+// The caller is responsible for having set cur.Offsets to this table's
+// CompOffsets beforehand.
+func (bt *BakedTable) PointCursor(cur *iter.Cursor, pos colstore.Pos) {
+	bt.Table.PointCursor(cur, pos)
 }

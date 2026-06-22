@@ -55,8 +55,8 @@ func NewGame[T Resources](resources T, inputAdapter InputAdapter) *Game[T] {
 	return game
 }
 
-func RegCompType[T Resources, C any](game *Game[T]) goke.CompDef {
-	return goke.RegCompType[C](game.ecs)
+func RegComp[T Resources, C any](game *Game[T]) goke.CompID {
+	return goke.RegComp[C](game.ecs)
 }
 
 func (g *Game[T]) RegisterScheduledSystem(factory func(T) goke.System) goke.System {

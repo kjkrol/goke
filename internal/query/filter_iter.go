@@ -14,12 +14,15 @@ func (v *View) nextFilter() bool {
 		if link.ArchId != v.lastArchID {
 			v.bt = v.Get(link.ArchId)
 			v.lastArchID = link.ArchId
+			if v.bt != nil {
+				v.Cursor.Offsets = v.bt.CompOffsets // set once per archetype change
+			}
 		}
 		if v.bt == nil {
 			continue
 		}
 		v.Entity = e
-		v.bt.FillCursorAt(&v.Cursor, link.Pos)
+		v.bt.PointCursor(&v.Cursor, link.Pos) // per entity: chunk base + slot only
 		return true
 	}
 	return false

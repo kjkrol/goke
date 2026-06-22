@@ -16,7 +16,6 @@ type RunCtx interface {
 type Plan func(RunCtx, time.Duration)
 
 type Scheduler struct {
-	lookup    Lookup
 	mutator   Mutator
 	runnables []Runnable
 	buffers   map[Runnable]*CmdBuf
@@ -37,9 +36,8 @@ func (s *Scheduler) Reset() {
 	s.plan = nil
 }
 
-func NewScheduler(lookup Lookup, mutator Mutator) Scheduler {
+func NewScheduler(mutator Mutator) Scheduler {
 	return Scheduler{
-		lookup:    lookup,
 		mutator:   mutator,
 		buffers:   make(map[Runnable]*CmdBuf),
 		runnables: make([]Runnable, 0),
@@ -65,7 +63,7 @@ func (s *Scheduler) Tick(duration time.Duration) {
 // -------------------------------------------------------------
 
 func (s *Scheduler) Run(runnable Runnable, d time.Duration) {
-	runnable.Update(s.lookup, s.buffers[runnable], d)
+	runnable.Update(s.buffers[runnable], d)
 }
 
 func (s *Scheduler) RunParallel(d time.Duration, runnables ...Runnable) {
@@ -75,7 +73,7 @@ func (s *Scheduler) RunParallel(d time.Duration, runnables ...Runnable) {
 		wg.Add(1)
 		go func(r Runnable) {
 			defer wg.Done()
-			r.Update(s.lookup, s.buffers[r], d)
+			r.Update(s.buffers[r], d)
 		}(runnable)
 	}
 
@@ -101,15 +99,15 @@ func (s *Scheduler) applyBufferCmds(cb *CmdBuf) error {
 		switch cmd.cType {
 		case cmdAssignComp:
 			// TODD: need to be tested !!!
-			ptr, err := s.mutator.UpsertComp(target, cmd.compDef)
+			ptr, err := s.mutator.UpsertComp(target, cmd.compID)
 			if err != nil {
 				return fmt.Errorf("failed to allocate ID for target %d: %w", target, err)
 			}
 			if ptr != nil {
-				copyMemory(ptr, cmd.dataPtr, cmd.compDef.Size)
+				copyMemory(ptr, cmd.dataPtr, cmd.size)
 			}
 		case cmdRemoveComp:
-			s.mutator.RemoveComp(target, cmd.compDef)
+			s.mutator.RemoveComp(target, cmd.compID)
 		case cmdRemoveEntity:
 			s.mutator.Remove(target)
 		}

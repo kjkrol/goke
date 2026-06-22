@@ -27,7 +27,7 @@ func (s *MovementSystem) Init(ecs *goke.ECS) {
 	s.moveView = goke.CreateView(ecs, goke.Track(&s.pos), goke.Track(&s.vel))
 }
 
-func (s *MovementSystem) Update(_ goke.Lookup, _ *goke.CmdBuf, d time.Duration) {
+func (s *MovementSystem) Update(_ *goke.CmdBuf, d time.Duration) {
 	dt := d.Seconds()
 	s.moveView.All()
 	for s.moveView.Next() {

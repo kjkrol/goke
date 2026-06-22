@@ -30,7 +30,7 @@ func setupBakedTable(t *testing.T) (*BakedTable, arch.ID) {
 	a.Table.ReleaseSlots()
 
 	var btc BakedTablesCatalog
-	btc.Add(a, []comp.Def{posMeta})
+	btc.Add(a, []comp.ID{posMeta.ID})
 	bt := btc.Get(archID)
 	return bt, archID
 }

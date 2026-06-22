@@ -11,7 +11,7 @@ import (
 // System is the interface for stateful logic units that process entity data each tick.
 // Init is called once on registration; Update is called every tick.
 type System interface {
-	Update(Lookup, *CmdBuf, time.Duration)
+	Update(*CmdBuf, time.Duration)
 	Init(*ECS)
 }
 
@@ -20,8 +20,8 @@ type SystemFn func(*CmdBuf, time.Duration)
 
 // CmdBufAddComp queues the addition of a component value to an entity.
 // If the entity already has this component, its data is overwritten on flush.
-func CmdBufAddComp[T any](cb *CmdBuf, e uid.UID64, compDef CompDef, value T) {
-	orch.AddComp(cb, e, compDef, value)
+func CmdBufAddComp[T any](cb *CmdBuf, e uid.UID64, compID CompID, value T) {
+	orch.AddComp(cb, e, compID, value)
 }
 
 type functionalSystem struct {
@@ -30,7 +30,7 @@ type functionalSystem struct {
 
 func (f *functionalSystem) Init(*ECS) {}
 
-func (f *functionalSystem) Update(_ Lookup, cb *CmdBuf, d time.Duration) {
+func (f *functionalSystem) Update(cb *CmdBuf, d time.Duration) {
 	f.updateFn(cb, d)
 }
 

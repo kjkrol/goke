@@ -17,18 +17,18 @@ type (
 	Processed struct{}
 )
 
-var processedDesc, orderDesc, discountDesc goke.CompDef
+var processedID, orderID, discountID goke.CompID
 
 func main() {
 	ecs := goke.New()
-	processedDesc = goke.RegCompType[Processed](ecs)
-	orderDesc = goke.RegCompType[Order](ecs)
-	discountDesc = goke.RegCompType[Discount](ecs)
+	processedID = goke.RegComp[Processed](ecs)
+	_ = goke.RegComp[Order](ecs)
+	discountID = goke.RegComp[Discount](ecs)
 
 	// Initialize an entity with Order and Discount component data
 	var order goke.Col[Order]
 	var discount goke.Col[Discount]
-	factory := goke.CreateEntFactory(ecs, goke.Track(&order), goke.Track(&discount))
+	factory := goke.CreateFactory(ecs, goke.Track(&order), goke.Track(&discount))
 	var entityID uid.UID64
 	factory.Create(1)
 	factory.Next()
@@ -48,7 +48,7 @@ func main() {
 			for i, entityID := range query.Cursor.IDs {
 				orders[i].Total = orders[i].Total * (1 - discounts[i].Percentage/100)
 				// Defer the assignment of the Processed tag to the next synchronization point
-				goke.CmdBufAddComp(schedule, entityID, processedDesc, Processed{})
+				goke.CmdBufAddComp(schedule, entityID, processedID, Processed{})
 			}
 		}
 	})
@@ -72,13 +72,18 @@ func main() {
 	})
 
 	// Log the initial state before simulation begins
-	orderResult := goke.GetComp[Order](ecs, entityID, orderDesc)
-	fmt.Printf("Order id: %v value: %v\n", orderResult.ID, orderResult.Total)
+	lookup := goke.CreateLookup(ecs, goke.Track(&order))
+	if lookup.Seek(entityID) {
+		orderResult := order.At(&lookup.Cursor)
+		fmt.Printf("Order id: %v value: %v\n", orderResult.ID, orderResult.Total)
+	}
 
 	// Run the main simulation loop until the exit signal is received
 	for !close {
 		goke.Tick(ecs, time.Second)
-		orderResult := goke.GetComp[Order](ecs, entityID, orderDesc)
-		fmt.Printf("Order id: %v value with discount: %v\n", orderResult.ID, orderResult.Total)
+		if lookup.Seek(entityID) {
+			orderResult := order.At(&lookup.Cursor)
+			fmt.Printf("Order id: %v value with discount: %v\n", orderResult.ID, orderResult.Total)
+		}
 	}
 }

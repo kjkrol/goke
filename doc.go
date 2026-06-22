@@ -98,6 +98,5 @@
 //
 // orch and reg are fully independent of each other. The top-level goke
 // package is the only place that wires them together, passing a pointer to
-// the embedded reg.Registry to orch.NewScheduler as both an orch.Lookup
-// and an orch.Mutator.
+// the embedded reg.Registry to orch.NewScheduler as an orch.Mutator.
 package goke

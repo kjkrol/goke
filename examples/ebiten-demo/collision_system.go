@@ -35,7 +35,7 @@ func (s *CollisionSystem) Init(ecs *goke.ECS) {
 	// s.seenPairs = make(map[uint64]struct{}, 256)
 }
 
-func (s *CollisionSystem) Update(lookup goke.Lookup, sched *goke.CmdBuf, d time.Duration) {
+func (s *CollisionSystem) Update(sched *goke.CmdBuf, d time.Duration) {
 	const solverIterations = 16
 	const probeExpandMaring = 32
 	s.contactsBuffer = s.contactsBuffer[:0]

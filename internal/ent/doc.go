@@ -17,7 +17,7 @@
 //
 // [Manager] delegates storage to [arch.Catalog] and identity management
 // to [addr.Book], exposing a unified API: Remove, UpsertComp, RemoveComp,
-// GetComp, CreateFactory.
+// CreateFactory.
 //
 // [Factory] handles bulk entity creation using a chunk-based iterator.
 package ent
