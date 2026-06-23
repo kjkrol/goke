@@ -25,6 +25,8 @@ type T10 struct{ V float64 }
 
 type Tag struct{}
 
+type Base struct{ V int32 }
+
 func setupECS() *goke.ECS {
 	ecs := goke.New()
 	_ = goke.RegComp[Pos](ecs)
@@ -38,6 +40,7 @@ func setupECS() *goke.ECS {
 	_ = goke.RegComp[T09](ecs)
 	_ = goke.RegComp[T10](ecs)
 	_ = goke.RegComp[Tag](ecs)
+	_ = goke.RegComp[Base](ecs)
 	return ecs
 }
 
@@ -52,22 +55,22 @@ func populate(ecs *goke.ECS, count int) []uid.UID64 {
 	var c8 goke.Col[T08]
 	var c9 goke.Col[T09]
 	var c10 goke.Col[T10]
-	blueprint := goke.CreateFactory(ecs, goke.Track(&c1), goke.Track(&c2), goke.Track(&c3), goke.Track(&c4), goke.Track(&c5), goke.Track(&c6), goke.Track(&c7), goke.Track(&c8), goke.Track(&c9), goke.Track(&c10))
+	factory := ecs.CreateFactory(goke.Add(&c1), goke.Add(&c2), goke.Add(&c3), goke.Add(&c4), goke.Add(&c5), goke.Add(&c6), goke.Add(&c7), goke.Add(&c8), goke.Add(&c9), goke.Add(&c10))
 
 	var entities []uid.UID64
-	blueprint.Create(count)
-	for blueprint.Next() {
-		comp1 := c1.Slice(&blueprint.Cursor)
-		comp2 := c2.Slice(&blueprint.Cursor)
-		comp3 := c3.Slice(&blueprint.Cursor)
-		comp4 := c4.Slice(&blueprint.Cursor)
-		comp5 := c5.Slice(&blueprint.Cursor)
-		comp6 := c6.Slice(&blueprint.Cursor)
-		comp7 := c7.Slice(&blueprint.Cursor)
-		comp8 := c8.Slice(&blueprint.Cursor)
-		comp9 := c9.Slice(&blueprint.Cursor)
-		comp10 := c10.Slice(&blueprint.Cursor)
-		for i, entityID := range blueprint.IDs {
+	factory.Create(count)
+	for factory.Next() {
+		comp1 := c1.Slice(&factory.Cursor)
+		comp2 := c2.Slice(&factory.Cursor)
+		comp3 := c3.Slice(&factory.Cursor)
+		comp4 := c4.Slice(&factory.Cursor)
+		comp5 := c5.Slice(&factory.Cursor)
+		comp6 := c6.Slice(&factory.Cursor)
+		comp7 := c7.Slice(&factory.Cursor)
+		comp8 := c8.Slice(&factory.Cursor)
+		comp9 := c9.Slice(&factory.Cursor)
+		comp10 := c10.Slice(&factory.Cursor)
+		for i, entityID := range factory.IDs {
 			comp1[i] = Pos{rand.Float32() * 100, rand.Float32() * 100}
 			comp2[i] = Vel{rand.Float32() * 40, 1}
 			comp3[i] = Acc{rand.Float32(), 0.1}

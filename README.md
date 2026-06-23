@@ -109,8 +109,8 @@ Benchmark results were validated across worlds ranging from **2¹⁰ (1,024)** t
 
 | Category | Operation | Observed Cost (2¹⁰–2²⁰ Entities) | Allocs | Technical Mechanism |
 | :--- | :--- | :--- | :--- | :--- |
-| **Throughput** | **Iteration (View.All)** | **0.35 - 2.39 ns/ent** | **0** | Linear SoA (0-10 components) |
-| **Subset Query** | **Filter (per-entity)** | **3.09 - 10.85 ns/ent** | **0** | Per-entity record lookup + pointer math |
+| **Throughput** | **Iteration (Matcher.All)** | **0.35 - 2.39 ns/ent** | **0** | Linear SoA (0-10 components) |
+| **Subset Query** | **Pick (per-entity)** | **3.09 - 10.85 ns/ent** | **0** | Per-entity record lookup + pointer math |
 | **Structural** | **Batch Create** | **8 - 21 ns/ent** | 4-5 | Blueprint-based chunks |
 | **Structural** | **Migrate Component** | **35 ns/op** | **0** | Archetype Move (Insert) |
 | **Structural** | **Add Tag** | **33 ns/op** | **0** | Archetype Move (Metadata) |
@@ -182,13 +182,13 @@ func main() {
 	_ = goke.RegComp[Acc](ecs)
 
 	// Col[T] handles typed access to a component column.
-	// The same Col[T] can be reused across factory, view, and lookup.
+	// The same Col[T] can be reused across factory and matcher.
 	var pos goke.Col[Pos]
 	var vel goke.Col[Vel]
 	var acc goke.Col[Acc]
 
 	// Create a factory for bulk entity spawning.
-	factory := goke.CreateFactory(ecs, goke.Track(&pos), goke.Track(&vel), goke.Track(&acc))
+	factory := ecs.CreateFactory(goke.Add(&pos), goke.Add(&vel), goke.Add(&acc))
 
 	var entityID uid.UID64
 	factory.Create(1)
@@ -199,13 +199,13 @@ func main() {
 	vel.Slice(fc)[0] = Vel{X: 1, Y: 1}
 	acc.Slice(fc)[0] = Acc{X: 0.1, Y: 0.1}
 
-	// Create a view — declares which components to iterate.
-	query := goke.CreateView(ecs, goke.Track(&pos), goke.Track(&vel), goke.Track(&acc))
+	// Create a matcher — declares which components to iterate.
+	query := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&vel), goke.Track(&acc))
 
 	// Register a system using the functional pattern.
 	cursor := &query.Cursor
-	movementSystem := goke.RegSysFn(ecs, func(cb *goke.CmdBuf, d time.Duration) {
-		// SoA layout: View.All advances chunk by chunk — the inner loop
+	movementSystem := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
+		// SoA layout: Matcher.All advances chunk by chunk — the inner loop
 		// iterates over contiguous memory for cache-friendly access.
 		query.All()
 		for query.Next() {
@@ -222,18 +222,18 @@ func main() {
 	})
 
 	// Configure the execution plan and synchronization points.
-	goke.SetPlan(ecs, func(ctx goke.RunCtx, d time.Duration) {
+	ecs.SetPlan(func(ctx goke.RunCtx, d time.Duration) {
 		ctx.Run(movementSystem, d)
 		ctx.Sync()
 	})
 
 	// Execute a single simulation step (120 TPS).
-	goke.Tick(ecs, time.Second/120)
+	ecs.Tick(time.Second / 120)
 
-	// Read a single entity's component via a lookup (cursor-based, typed).
-	lookup := goke.CreateLookup(ecs, goke.Track(&pos))
-	if lookup.Seek(entityID) {
-		p := pos.At(&lookup.Cursor)
+	// Read a single entity's component via Seek (cursor-based, typed).
+	matcher := ecs.CreateMatcher(goke.Track(&pos))
+	if matcher.Seek(entityID) {
+		p := pos.At(&matcher.Cursor)
 		fmt.Printf("Final Position: {X: %.2f, Y: %.2f}\n", p.X, p.Y)
 	}
 }
@@ -250,12 +250,12 @@ GOKe is an archetype-based ECS built around data-oriented design principles. The
 |:---|:---|
 | [`github.com/kjkrol/uid`](https://pkg.go.dev/github.com/kjkrol/uid) | 64-bit generational entity identifiers — safe index recycling, ABA prevention |
 | [`internal/comp`](internal/comp/doc.go) | Shared component primitives used across all internal packages — type registration, metadata, and blueprint definitions |
-| [`internal/chunk`](internal/chunk/doc.go) | Cache-aligned chunked memory layout — L1-cache-sized fixed slabs, field offset calculation, slot tracking within a growing slab collection |
+| [`internal/chunk`](internal/chunk/doc.go) | Cache-aligned chunked memory layout — L1-cache-sized fixed slabs, field offset calculation, slot tracking within a growing slab collection; keeps one spare slab on shrink so repeated grow/shrink cycles stay allocation-free |
 | [`internal/colstore`](internal/colstore/doc.go) | Column-oriented storage for a single archetype — manages component columns over `chunk.Pack` chunks, resolves component IDs to memory locations in O(1) |
 | [`internal/arch`](internal/arch/doc.go) | Archetype identity, archetype graph, and SoA table storage — creates archetypes on demand and caches structural transitions as graph edges |
 | [`internal/addr`](internal/addr/doc.go) | Entity address book — manages entity ID lifecycle (uid pool) and maps each ID to its current storage address (`Entry`) via a flat index in O(1); generation check guards against stale references |
 | [`internal/ent`](internal/ent/doc.go) | Entity lifecycle — delegates ID allocation and address tracking to `addr.Book`, manages component migration (add/remove moves entity to a new archetype), and batch entity creation via `Factory` |
-| [`internal/query`](internal/query/doc.go) | Query layer: bakes component masks into precomputed per-archetype offsets, enabling zero-allocation iteration and O(1) per-entity lookup |
+| [`internal/query`](internal/query/doc.go) | Query layer: `Matcher` bakes component masks into precomputed per-archetype offsets, enabling zero-allocation bulk iteration (`All`), per-entity subset iteration (`Pick`), and O(1) single-entity access (`Seek`) |
 | [`internal/orch`](internal/orch/doc.go) | Plan-based task orchestrator: sequential/parallel execution, deferred mutations via command buffers |
 | [`internal/reg`](internal/reg/doc.go) | Top-level world registry — wires together all subsystems and exposes the unified API for entity and component management |
 

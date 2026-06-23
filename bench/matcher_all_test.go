@@ -1,12 +1,13 @@
 package bench_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/kjkrol/goke"
 )
 
-// Benchmark_View_All measures full chunk iteration via View.All()/Next(),
+// Benchmark_Matcher_All measures full chunk iteration via Matcher.All()/Next(),
 // reading 0..10 component columns per entity.
 //
 // Two rules keep these numbers meaningful — do not "simplify" them away:
@@ -25,10 +26,10 @@ import (
 //     a struct field per use, loses that elimination and inflates the cost (~2.5x
 //     at 3 comps).
 //
-// Views are created once outside b.Run: with -count=N each b.Run callback is
-// called N times, so creating a NewView inside would accumulate N views per
-// sub-benchmark on the same ECS and eventually exceed MaxViews.
-func Benchmark_View_All(b *testing.B) {
+// Matchers are created once outside b.Run: with -count=N each b.Run callback is
+// called N times, so creating a new Matcher inside would accumulate N matchers per
+// sub-benchmark on the same ECS and eventually exceed MaxMatchers.
+func Benchmark_Matcher_All(b *testing.B) {
 	ecs := setupECS()
 	populate(ecs, entitiesNumber)
 
@@ -43,25 +44,25 @@ func Benchmark_View_All(b *testing.B) {
 	var t09 goke.Col[T09]
 	var t10 goke.Col[T10]
 
-	view0 := goke.CreateView(ecs)
-	view1 := goke.CreateView(ecs, goke.Track(&pos))
-	view2 := goke.CreateView(ecs, goke.Track(&pos), goke.Track(&vel))
-	view3 := goke.CreateView(ecs, goke.Track(&pos), goke.Track(&vel), goke.Track(&acc), goke.Include[T04]())
-	view4 := goke.CreateView(ecs, goke.Track(&pos), goke.Track(&vel), goke.Track(&acc), goke.Track(&t04))
-	view5 := goke.CreateView(ecs, goke.Track(&pos), goke.Track(&vel), goke.Track(&acc), goke.Track(&t04), goke.Track(&t05))
-	view6 := goke.CreateView(ecs, goke.Track(&pos), goke.Track(&vel), goke.Track(&acc), goke.Track(&t04), goke.Track(&t05), goke.Track(&t06))
-	view7 := goke.CreateView(ecs, goke.Track(&pos), goke.Track(&vel), goke.Track(&acc), goke.Track(&t04), goke.Track(&t05), goke.Track(&t06), goke.Track(&t07))
-	view8 := goke.CreateView(ecs, goke.Track(&pos), goke.Track(&vel), goke.Track(&acc), goke.Track(&t04), goke.Track(&t05), goke.Track(&t06), goke.Track(&t07), goke.Track(&t08))
-	view9 := goke.CreateView(ecs, goke.Track(&pos), goke.Track(&vel), goke.Track(&acc), goke.Track(&t04), goke.Track(&t05), goke.Track(&t06), goke.Track(&t07), goke.Track(&t08), goke.Track(&t09))
-	view10 := goke.CreateView(ecs, goke.Track(&pos), goke.Track(&vel), goke.Track(&acc), goke.Track(&t04), goke.Track(&t05), goke.Track(&t06), goke.Track(&t07), goke.Track(&t08), goke.Track(&t09), goke.Track(&t10))
+	matcher0 := ecs.CreateMatcher()
+	matcher1 := ecs.CreateMatcher(goke.Track(&pos))
+	matcher2 := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&vel))
+	matcher3 := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&vel), goke.Track(&acc), goke.Include[T04]())
+	matcher4 := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&vel), goke.Track(&acc), goke.Track(&t04))
+	matcher5 := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&vel), goke.Track(&acc), goke.Track(&t04), goke.Track(&t05))
+	matcher6 := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&vel), goke.Track(&acc), goke.Track(&t04), goke.Track(&t05), goke.Track(&t06))
+	matcher7 := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&vel), goke.Track(&acc), goke.Track(&t04), goke.Track(&t05), goke.Track(&t06), goke.Track(&t07))
+	matcher8 := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&vel), goke.Track(&acc), goke.Track(&t04), goke.Track(&t05), goke.Track(&t06), goke.Track(&t07), goke.Track(&t08))
+	matcher9 := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&vel), goke.Track(&acc), goke.Track(&t04), goke.Track(&t05), goke.Track(&t06), goke.Track(&t07), goke.Track(&t08), goke.Track(&t09))
+	matcher10 := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&vel), goke.Track(&acc), goke.Track(&t04), goke.Track(&t05), goke.Track(&t06), goke.Track(&t07), goke.Track(&t08), goke.Track(&t09), goke.Track(&t10))
 
 	var GlobalCount int
-	b.Run("0 comp", func(b *testing.B) {
+	b.Run(fmt.Sprintf("pop=%d/0_comp", entitiesNumber), func(b *testing.B) {
 		fn := func() {
 			count := 0
-			view0.All()
-			for view0.Next() {
-				for _, entityID := range view0.Cursor.IDs {
+			matcher0.All()
+			for matcher0.Next() {
+				for _, entityID := range matcher0.Cursor.IDs {
 					_ = entityID
 					count++
 				}
@@ -75,16 +76,16 @@ func Benchmark_View_All(b *testing.B) {
 		})
 
 		if GlobalCount != entitiesNumber {
-			b.Fatalf("View0 sanity check failed: expected %d, got %d", entitiesNumber, GlobalCount)
+			b.Fatalf("Matcher0 sanity check failed: expected %d, got %d", entitiesNumber, GlobalCount)
 		}
 	})
 
-	b.Run("1 comp", func(b *testing.B) {
-		cursor := &view1.Cursor
+	b.Run(fmt.Sprintf("pop=%d/1_comp", entitiesNumber), func(b *testing.B) {
+		cursor := &matcher1.Cursor
 		fn := func() {
 			count := 0
-			view1.All()
-			for view1.Next() {
+			matcher1.All()
+			for matcher1.Next() {
 				posSlice := pos.Slice(cursor)
 				for i, entityID := range cursor.IDs {
 					_ = entityID
@@ -101,15 +102,15 @@ func Benchmark_View_All(b *testing.B) {
 		})
 
 		if GlobalCount != entitiesNumber {
-			b.Fatalf("View1 sanity check failed: expected %d, got %d", entitiesNumber, GlobalCount)
+			b.Fatalf("Matcher1 sanity check failed: expected %d, got %d", entitiesNumber, GlobalCount)
 		}
 	})
 
-	b.Run("2 comp", func(b *testing.B) {
-		cursor := &view2.Cursor
+	b.Run(fmt.Sprintf("pop=%d/2_comp", entitiesNumber), func(b *testing.B) {
+		cursor := &matcher2.Cursor
 		fn := func() {
-			view2.All()
-			for view2.Next() {
+			matcher2.All()
+			for matcher2.Next() {
 				posSlice := pos.Slice(cursor)
 				velSlice := vel.Slice(cursor)
 				for i, entityID := range cursor.IDs {
@@ -127,11 +128,11 @@ func Benchmark_View_All(b *testing.B) {
 		})
 	})
 
-	b.Run("3 comp", func(b *testing.B) {
-		cursor := &view3.Cursor
+	b.Run(fmt.Sprintf("pop=%d/3_comp", entitiesNumber), func(b *testing.B) {
+		cursor := &matcher3.Cursor
 		fn := func() {
-			view3.All()
-			for view3.Next() {
+			matcher3.All()
+			for matcher3.Next() {
 				posSlice := pos.Slice(cursor)
 				velSlice := vel.Slice(cursor)
 				accSlice := acc.Slice(cursor)
@@ -151,11 +152,11 @@ func Benchmark_View_All(b *testing.B) {
 		})
 	})
 
-	b.Run("4 comp", func(b *testing.B) {
-		cursor := &view4.Cursor
+	b.Run(fmt.Sprintf("pop=%d/4_comp", entitiesNumber), func(b *testing.B) {
+		cursor := &matcher4.Cursor
 		fn := func() {
-			view4.All()
-			for view4.Next() {
+			matcher4.All()
+			for matcher4.Next() {
 				posSlice := pos.Slice(cursor)
 				velSlice := vel.Slice(cursor)
 				accSlice := acc.Slice(cursor)
@@ -177,11 +178,11 @@ func Benchmark_View_All(b *testing.B) {
 		})
 	})
 
-	b.Run("5 comp", func(b *testing.B) {
-		cursor := &view5.Cursor
+	b.Run(fmt.Sprintf("pop=%d/5_comp", entitiesNumber), func(b *testing.B) {
+		cursor := &matcher5.Cursor
 		fn := func() {
-			view5.All()
-			for view5.Next() {
+			matcher5.All()
+			for matcher5.Next() {
 				posSlice := pos.Slice(cursor)
 				velSlice := vel.Slice(cursor)
 				accSlice := acc.Slice(cursor)
@@ -205,11 +206,11 @@ func Benchmark_View_All(b *testing.B) {
 		})
 	})
 
-	b.Run("6 comp", func(b *testing.B) {
-		cursor := &view6.Cursor
+	b.Run(fmt.Sprintf("pop=%d/6_comp", entitiesNumber), func(b *testing.B) {
+		cursor := &matcher6.Cursor
 		fn := func() {
-			view6.All()
-			for view6.Next() {
+			matcher6.All()
+			for matcher6.Next() {
 				posSlice := pos.Slice(cursor)
 				velSlice := vel.Slice(cursor)
 				accSlice := acc.Slice(cursor)
@@ -235,11 +236,11 @@ func Benchmark_View_All(b *testing.B) {
 		})
 	})
 
-	b.Run("7 comp", func(b *testing.B) {
-		cursor := &view7.Cursor
+	b.Run(fmt.Sprintf("pop=%d/7_comp", entitiesNumber), func(b *testing.B) {
+		cursor := &matcher7.Cursor
 		fn := func() {
-			view7.All()
-			for view7.Next() {
+			matcher7.All()
+			for matcher7.Next() {
 				posSlice := pos.Slice(cursor)
 				velSlice := vel.Slice(cursor)
 				accSlice := acc.Slice(cursor)
@@ -267,11 +268,11 @@ func Benchmark_View_All(b *testing.B) {
 		})
 	})
 
-	b.Run("8 comp", func(b *testing.B) {
-		cursor := &view8.Cursor
+	b.Run(fmt.Sprintf("pop=%d/8_comp", entitiesNumber), func(b *testing.B) {
+		cursor := &matcher8.Cursor
 		fn := func() {
-			view8.All()
-			for view8.Next() {
+			matcher8.All()
+			for matcher8.Next() {
 				posSlice := pos.Slice(cursor)
 				velSlice := vel.Slice(cursor)
 				accSlice := acc.Slice(cursor)
@@ -301,11 +302,11 @@ func Benchmark_View_All(b *testing.B) {
 		})
 	})
 
-	b.Run("9 comp", func(b *testing.B) {
-		cursor := &view9.Cursor
+	b.Run(fmt.Sprintf("pop=%d/9_comp", entitiesNumber), func(b *testing.B) {
+		cursor := &matcher9.Cursor
 		fn := func() {
-			view9.All()
-			for view9.Next() {
+			matcher9.All()
+			for matcher9.Next() {
 				posSlice := pos.Slice(cursor)
 				velSlice := vel.Slice(cursor)
 				accSlice := acc.Slice(cursor)
@@ -337,11 +338,11 @@ func Benchmark_View_All(b *testing.B) {
 		})
 	})
 
-	b.Run("10 comp", func(b *testing.B) {
-		cursor := &view10.Cursor
+	b.Run(fmt.Sprintf("pop=%d/10_comp", entitiesNumber), func(b *testing.B) {
+		cursor := &matcher10.Cursor
 		fn := func() {
-			view10.All()
-			for view10.Next() {
+			matcher10.All()
+			for matcher10.Next() {
 				posSlice := pos.Slice(cursor)
 				velSlice := vel.Slice(cursor)
 				accSlice := acc.Slice(cursor)

@@ -7,14 +7,14 @@ import (
 
 // Config defines the initial sizing of internal data structures.
 type Config struct {
-	Entity ent.Config
-	View   query.Config
+	Entity  ent.Config
+	Matcher query.Config
 }
 
 // DefaultConfig returns a configuration with sensible defaults for most use cases.
 func DefaultConfig() Config {
 	return Config{
-		Entity: ent.DefaultConfig(),
-		View:   query.DefaultConfig(),
+		Entity:  ent.DefaultConfig(),
+		Matcher: query.DefaultConfig(),
 	}
 }

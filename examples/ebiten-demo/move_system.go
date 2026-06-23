@@ -10,9 +10,9 @@ import (
 
 type MovementSystem struct {
 	*Resources
-	moveView *goke.View
-	pos      goke.Col[Position]
-	vel      goke.Col[Velocity]
+	moveMatcher *goke.Matcher
+	pos         goke.Col[Position]
+	vel         goke.Col[Velocity]
 }
 
 var _ goke.System = (*MovementSystem)(nil)
@@ -24,16 +24,16 @@ func NewMoveSystem(resources *Resources) goke.System {
 }
 
 func (s *MovementSystem) Init(ecs *goke.ECS) {
-	s.moveView = goke.CreateView(ecs, goke.Track(&s.pos), goke.Track(&s.vel))
+	s.moveMatcher = ecs.CreateMatcher(goke.Track(&s.pos), goke.Track(&s.vel))
 }
 
 func (s *MovementSystem) Update(_ *goke.CmdBuf, d time.Duration) {
 	dt := d.Seconds()
-	s.moveView.All()
-	for s.moveView.Next() {
-		pos := s.pos.Slice(&s.moveView.Cursor)
-		vel := s.vel.Slice(&s.moveView.Cursor)
-		for i, entityID := range s.moveView.Cursor.IDs {
+	s.moveMatcher.All()
+	for s.moveMatcher.Next() {
+		pos := s.pos.Slice(&s.moveMatcher.Cursor)
+		vel := s.vel.Slice(&s.moveMatcher.Cursor)
+		for i, entityID := range s.moveMatcher.Cursor.IDs {
 			pos[i].accX += float64(vel[i].X) * dt
 			pos[i].accY += float64(vel[i].Y) * dt
 

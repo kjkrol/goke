@@ -20,4 +20,12 @@
 // CreateFactory.
 //
 // [Factory] handles bulk entity creation using a chunk-based iterator.
+//
+// # Editor
+//
+// [Editor] applies a fixed set of component adds/removes to an entity as a
+// single archetype migration. Its cost scales with the width of the source
+// and destination archetypes, not with how many components the edit
+// changes — removing a few components from a wide archetype costs about as
+// much as removing many.
 package ent

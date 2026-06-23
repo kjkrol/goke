@@ -61,7 +61,7 @@ func RegComp[T Resources, C any](game *Game[T]) goke.CompID {
 
 func (g *Game[T]) RegisterScheduledSystem(factory func(T) goke.System) goke.System {
 	system := factory(g.resources)
-	goke.RegSys(g.ecs, system)
+	g.ecs.RegSys(system)
 	return system
 }
 
@@ -78,7 +78,7 @@ func (g *Game[T]) RegSys(factory func(T) goke.System) goke.System {
 }
 
 func (g *Game[T]) LogicPlan(plan func(ctx goke.RunCtx, d time.Duration)) {
-	goke.SetPlan(g.ecs, plan)
+	g.ecs.SetPlan(plan)
 }
 
 func (g *Game[T]) RenderSequence(sysFactories ...func(T) RenderSystem) {
@@ -93,7 +93,7 @@ func (g *Game[T]) Update() error {
 
 	steps := g.timeTracker.CalculateSteps(g.physicsStep, 5)
 	for range steps {
-		goke.Tick(g.ecs, g.physicsStep)
+		g.ecs.Tick(g.physicsStep)
 		g.resources.GetInputEvents().ResetTransient()
 		g.ticks++
 	}

@@ -13,26 +13,35 @@ import (
 )
 
 type Registry struct {
-	EntityManager ent.Manager
-	CompDefIndex  comp.DefIndex
-	ViewCatalog   query.Catalog
+	EntityManager  ent.Manager
+	CompDefIndex   comp.DefIndex
+	MatcherCatalog query.Catalog
 }
 
 func (r *Registry) Init(cfg Config) {
 	validateConst()
 	r.CompDefIndex.Init()
-	r.ViewCatalog.Init(&r.CompDefIndex, &r.EntityManager.AddressBook.Index, &r.EntityManager.ArchCatalog, cfg.View)
-	r.EntityManager.Init(cfg.Entity, r.ViewCatalog.OnArchetypeCreated)
+	r.MatcherCatalog.Init(&r.CompDefIndex, &r.EntityManager.AddressBook.Index, &r.EntityManager.ArchCatalog, cfg.Matcher)
+	r.EntityManager.Init(cfg.Entity, r.MatcherCatalog.OnArchetypeCreated)
 }
 
 func (r *Registry) RegComp(compType reflect.Type) comp.ID {
 	return r.CompDefIndex.Intern(compType).ID
 }
 
-func (r *Registry) CreateFactory(opts ...comp.BlueprintOpt) *ent.Factory {
-	var b comp.Blueprint
-	b.Init(&r.CompDefIndex, opts...)
-	return r.EntityManager.CreateFactory(b)
+func (r *Registry) CreateFactory(opts ...comp.EditOpt) *ent.Factory {
+	var spec comp.EditSpec
+	spec.Init(&r.CompDefIndex, opts...)
+	if len(spec.DelDefs) > 0 {
+		panic("goke: Factory cannot remove components — use Add only")
+	}
+	var accessSpec comp.AccessSpec
+	for i := range spec.AddDefs {
+		if err := accessSpec.Comp(spec.AddDefs[i]); err != nil {
+			panic(err)
+		}
+	}
+	return r.EntityManager.CreateFactory(accessSpec)
 }
 
 func (r *Registry) Remove(entID uid.UID64) bool {
@@ -47,24 +56,22 @@ func (r *Registry) RemoveComp(entID uid.UID64, compID comp.ID) error {
 	return r.EntityManager.RemoveComp(entID, r.CompDefIndex.ByID(compID))
 }
 
-func (r *Registry) AddView(opts ...comp.BlueprintOpt) *query.View {
-	var b comp.Blueprint
-	b.Init(&r.CompDefIndex, opts...)
-	return r.ViewCatalog.AddView(&b)
+func (r *Registry) AddMatcher(opts ...comp.AccessOpt) *query.Matcher {
+	var accessSpec comp.AccessSpec
+	accessSpec.Init(&r.CompDefIndex, opts...)
+	return r.MatcherCatalog.AddMatcher(&accessSpec)
 }
 
-func (r *Registry) CreateLookup(opts ...comp.BlueprintOpt) *query.Lookup {
-	var b comp.Blueprint
-	b.Init(&r.CompDefIndex, opts...)
-	lookup := &query.Lookup{}
-	lookup.Init(&r.EntityManager.AddressBook.Index, &r.EntityManager.ArchCatalog, b.CompIDs())
-	return lookup
+func (r *Registry) CreateEditor(opts ...comp.EditOpt) *ent.Editor {
+	var spec comp.EditSpec
+	spec.Init(&r.CompDefIndex, opts...)
+	return r.EntityManager.CreateEditor(spec)
 }
 
 func (r *Registry) Reset() {
 	r.EntityManager.Reset()
 	r.CompDefIndex.Reset()
-	r.ViewCatalog.Reset()
+	r.MatcherCatalog.Reset()
 }
 
 func validateConst() {

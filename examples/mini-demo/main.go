@@ -27,7 +27,7 @@ func main() {
 	var pos goke.Col[Pos]
 	var vel goke.Col[Vel]
 	var acc goke.Col[Acc]
-	factory := goke.CreateFactory(ecs, goke.Track(&pos), goke.Track(&vel), goke.Track(&acc))
+	factory := ecs.CreateFactory(goke.Add(&pos), goke.Add(&vel), goke.Add(&acc))
 
 	var entityID uid.UID64
 	factory.Create(1)
@@ -38,12 +38,12 @@ func main() {
 	vel.Slice(fc)[0] = Vel{X: 1, Y: 1}
 	acc.Slice(fc)[0] = Acc{X: 0.1, Y: 0.1}
 
-	// Initialize view for Pos, Vel, and Acc components
-	query := goke.CreateView(ecs, goke.Track(&pos), goke.Track(&vel), goke.Track(&acc))
+	// Initialize matcher for Pos, Vel, and Acc components
+	query := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&vel), goke.Track(&acc))
 
 	// Define the movement system using the functional registration pattern
 	cursor := &query.Cursor
-	movementSystem := goke.RegSysFn(ecs, func(schedule *goke.CmdBuf, d time.Duration) {
+	movementSystem := ecs.RegSysFn(func(schedule *goke.CmdBuf, d time.Duration) {
 		query.All()
 		for query.Next() {
 			posSlice := pos.Slice(cursor)
@@ -59,17 +59,17 @@ func main() {
 	})
 
 	// Configure the ECS's execution workflow and synchronization points
-	goke.SetPlan(ecs, func(ctx goke.RunCtx, d time.Duration) {
+	ecs.SetPlan(func(ctx goke.RunCtx, d time.Duration) {
 		ctx.Run(movementSystem, d)
-		ctx.Sync() // Ensure all component updates are flushed and views are consistent
+		ctx.Sync() // Ensure all component updates are flushed and matchers are consistent
 	})
 
 	// Execute a single simulation step (standard 120 TPS)
-	goke.Tick(ecs, time.Second/120)
+	ecs.Tick(time.Second / 120)
 
-	lookup := goke.CreateLookup(ecs, goke.Track(&pos))
-	if lookup.Seek(entityID) {
-		p := pos.At(&lookup.Cursor)
+	matcher := ecs.CreateMatcher(goke.Track(&pos))
+	if matcher.Seek(entityID) {
+		p := pos.At(&matcher.Cursor)
 		fmt.Printf("Final Position: {X: %.2f, Y: %.2f}\n", p.X, p.Y)
 	}
 }

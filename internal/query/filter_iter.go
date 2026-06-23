@@ -1,28 +1,28 @@
 package query
 
-// nextFilter advances the View's Filter-mode iterator to the next matching entity.
-// Sets v.Entity, v.Idx, and v.Cursor for the matched entity. Returns false when exhausted.
-func (v *View) nextFilter() bool {
-	for v.pos < len(v.selected) {
-		e := v.selected[v.pos]
-		v.Idx = v.pos
-		v.pos++
-		link, ok := v.EntityIndex.Get(e)
+// nextPick advances the Matcher's Pick-mode iterator to the next matching entity.
+// Sets m.Entity, m.Idx, and m.Cursor for the matched entity. Returns false when exhausted.
+func (m *Matcher) nextPick() bool {
+	for m.pos < len(m.selected) {
+		e := m.selected[m.pos]
+		m.Idx = m.pos
+		m.pos++
+		link, ok := m.EntityIndex.Get(e)
 		if !ok {
 			continue
 		}
-		if link.ArchId != v.lastArchID {
-			v.bt = v.Get(link.ArchId)
-			v.lastArchID = link.ArchId
-			if v.bt != nil {
-				v.Cursor.Offsets = v.bt.CompOffsets // set once per archetype change
+		if link.ArchId != m.lastArchID {
+			m.bt = m.Get(link.ArchId)
+			m.lastArchID = link.ArchId
+			if m.bt != nil {
+				m.Cursor.Offsets = m.bt.CompOffsets // set once per archetype change
 			}
 		}
-		if v.bt == nil {
+		if m.bt == nil {
 			continue
 		}
-		v.Entity = e
-		v.bt.PointCursor(&v.Cursor, link.Pos) // per entity: chunk base + slot only
+		m.Entity = e
+		m.bt.PointCursor(&m.Cursor, link.Pos) // per entity: chunk base + slot only
 		return true
 	}
 	return false

@@ -14,9 +14,9 @@
 //
 // [Mask] is a fixed-size bitset of component IDs that identifies archetype composition.
 //
-// # BlueprintOpt
+// # AccessOpt
 //
-// [BlueprintOpt] is a functional option that configures a [Blueprint]:
+// [AccessOpt] is a functional option that configures an [AccessSpec]:
 //   - [Track][T] — registers T as a data column; sets Col[T].Idx to its position
 //   - [Include][T] — adds T as a filter-only requirement (no data column)
 //   - [Exclude][T] — adds T as an exclusion constraint

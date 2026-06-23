@@ -9,60 +9,60 @@ import (
 )
 
 type Catalog struct {
-	views       []View
+	matchers    []Matcher
 	cc          *comp.DefIndex
 	entityIndex *addr.Index
 	archCatalog *arch.Catalog
 }
 
 func (c *Catalog) Init(cc *comp.DefIndex, entityIndex *addr.Index, archCatalog *arch.Catalog, cfg Config) {
-	c.views = make([]View, 0, cfg.Cap)
+	c.matchers = make([]Matcher, 0, cfg.Cap)
 	c.cc = cc
 	c.entityIndex = entityIndex
 	c.archCatalog = archCatalog
 }
 
-// Add allocates the next free View slot and returns a stable pointer to it.
-// Panics if MaxViews is exceeded — increase MaxViews in const.go if needed.
-func (c *Catalog) Add() *View {
-	if len(c.views) == cap(c.views) {
-		panic("query: view catalog capacity exceeded — increase MaxViews")
+// Add allocates the next free Matcher slot and returns a stable pointer to it.
+// Panics if MaxMatchers is exceeded — increase MaxMatchers in const.go if needed.
+func (c *Catalog) Add() *Matcher {
+	if len(c.matchers) == cap(c.matchers) {
+		panic("query: matcher catalog capacity exceeded — increase MaxMatchers")
 	}
-	c.views = append(c.views, View{})
-	return &c.views[len(c.views)-1]
+	c.matchers = append(c.matchers, Matcher{})
+	return &c.matchers[len(c.matchers)-1]
 }
 
-// NewView creates a View using Track/Include/Exclude opts.
+// NewMatcher creates a Matcher using Track/Include/Exclude opts.
 // Track[T]() opts register component data columns (accessible via Slice/At);
 // Include[T]() opts add filter-only requirements; Exclude[T]() opts add exclusions.
-func NewView(c *Catalog, opts ...comp.BlueprintOpt) *View {
-	var b comp.Blueprint
+func NewMatcher(c *Catalog, opts ...comp.AccessOpt) *Matcher {
+	var accessSpec comp.AccessSpec
 	for _, opt := range opts {
-		if err := opt(&b, c.cc); err != nil {
-			panic(fmt.Sprintf("query: NewView option: %v", err))
+		if err := opt(&accessSpec, c.cc); err != nil {
+			panic(fmt.Sprintf("query: NewMatcher option: %v", err))
 		}
 	}
-	return c.AddView(&b)
+	return c.AddMatcher(&accessSpec)
 }
 
-func (c *Catalog) AddView(blueprint *comp.Blueprint) *View {
-	view := c.Add()
-	view.Init(c.entityIndex, blueprint)
+func (c *Catalog) AddMatcher(accessSpec *comp.AccessSpec) *Matcher {
+	matcher := c.Add()
+	matcher.Init(c.entityIndex, c.archCatalog, accessSpec)
 	for archID := arch.RootID; archID < c.archCatalog.Len(); archID++ {
-		view.BakeIfMatch(&c.archCatalog.Archetypes[archID])
+		matcher.BakeIfMatch(&c.archCatalog.Archetypes[archID])
 	}
-	return view
+	return matcher
 }
 
 func (c *Catalog) OnArchetypeCreated(archetype *arch.Archetype) {
-	for i := range c.views {
-		c.views[i].BakeIfMatch(archetype)
+	for i := range c.matchers {
+		c.matchers[i].BakeIfMatch(archetype)
 	}
 }
 
 func (c *Catalog) Reset() {
-	for i := range c.views {
-		c.views[i].Clear()
+	for i := range c.matchers {
+		c.matchers[i].Clear()
 	}
-	c.views = c.views[:0]
+	c.matchers = c.matchers[:0]
 }

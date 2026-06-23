@@ -20,14 +20,14 @@ const (
 
 type EntitiesRendererSystem struct {
 	*Resources
-	renderView *goke.View
-	pos        goke.Col[Position]
-	coll       goke.Col[Collision]
-	appearance goke.Col[Appearance]
-	atlas      *ebiten.Image
-	vertices   []ebiten.Vertex
-	indices    []uint16
-	triOpts    *ebiten.DrawTrianglesOptions
+	renderMatcher *goke.Matcher
+	pos           goke.Col[Position]
+	coll          goke.Col[Collision]
+	appearance    goke.Col[Appearance]
+	atlas         *ebiten.Image
+	vertices      []ebiten.Vertex
+	indices       []uint16
+	triOpts       *ebiten.DrawTrianglesOptions
 }
 
 var _ gokebiten.RenderSystem = (*EntitiesRendererSystem)(nil)
@@ -41,7 +41,7 @@ func NewEntitiesRendererSystem(resources *Resources) gokebiten.RenderSystem {
 }
 
 func (s *EntitiesRendererSystem) Init(ecs *goke.ECS) {
-	s.renderView = goke.CreateView(ecs, goke.Track(&s.pos), goke.Track(&s.coll), goke.Track(&s.appearance))
+	s.renderMatcher = ecs.CreateMatcher(goke.Track(&s.pos), goke.Track(&s.coll), goke.Track(&s.appearance))
 }
 
 func (s *EntitiesRendererSystem) Update(_ *goke.CmdBuf, _ time.Duration) {}
@@ -59,12 +59,12 @@ func (s *EntitiesRendererSystem) Draw(screen *ebiten.Image) {
 	s.vertices = s.vertices[:0]
 	s.indices = s.indices[:0]
 
-	s.renderView.All()
-	for s.renderView.Next() {
-		positions := s.pos.Slice(&s.renderView.Cursor)
-		collisions := s.coll.Slice(&s.renderView.Cursor)
-		appearances := s.appearance.Slice(&s.renderView.Cursor)
-		for i := range s.renderView.Cursor.IDs {
+	s.renderMatcher.All()
+	for s.renderMatcher.Next() {
+		positions := s.pos.Slice(&s.renderMatcher.Cursor)
+		collisions := s.coll.Slice(&s.renderMatcher.Cursor)
+		appearances := s.appearance.Slice(&s.renderMatcher.Cursor)
+		for i := range s.renderMatcher.Cursor.IDs {
 			pos, col, app := positions[i], collisions[i], appearances[i]
 			sx0, sy0, sx1, sy1 := spriteUV(app.SpriteID)
 			r, g, b, a := s.resolveColor(app, col, now)

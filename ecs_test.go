@@ -21,15 +21,15 @@ type Discount struct {
 
 type Processed struct{}
 
-// lookupComp reads a single entity's component via a Lookup.
+// seekComp reads a single entity's component via Matcher.Seek.
 // Returns nil if the entity does not exist.
-func lookupComp[T any](ecs *goke.ECS, e uid.UID64) *T {
+func seekComp[T any](ecs *goke.ECS, e uid.UID64) *T {
 	var col goke.Col[T]
-	lk := goke.CreateLookup(ecs, goke.Track(&col))
-	if !lk.Seek(e) {
+	m := ecs.CreateMatcher(goke.Track(&col))
+	if !m.Seek(e) {
 		return nil
 	}
-	return col.At(&lk.Cursor)
+	return col.At(&m.Cursor)
 }
 
 func TestECS_UseCase(t *testing.T) {
@@ -41,27 +41,27 @@ func TestECS_UseCase(t *testing.T) {
 
 	var order goke.Col[Order]
 	var discount goke.Col[Discount]
-	blueprint1 := goke.CreateFactory(ecs, goke.Track(&order), goke.Track(&discount))
+	factory1 := ecs.CreateFactory(goke.Add(&order), goke.Add(&discount))
 
 	var eA, eB uid.UID64
-	blueprint1.Create(1)
-	blueprint1.Next()
-	eA = blueprint1.IDs[0]
-	fc1 := &blueprint1.Cursor
+	factory1.Create(1)
+	factory1.Next()
+	eA = factory1.IDs[0]
+	fc1 := &factory1.Cursor
 	order.Slice(fc1)[0] = Order{ID: "ORD-001", Total: 100.0}
 	discount.Slice(fc1)[0] = Discount{Percentage: 10.0}
 
-	blueprint2 := goke.CreateFactory(ecs, goke.Track(&order))
-	blueprint2.Create(1)
-	blueprint2.Next()
-	eB = blueprint2.IDs[0]
-	order.Slice(&blueprint2.Cursor)[0] = Order{ID: "ORD-002", Total: 50.0}
+	factory2 := ecs.CreateFactory(goke.Add(&order))
+	factory2.Create(1)
+	factory2.Next()
+	eB = factory2.IDs[0]
+	order.Slice(&factory2.Cursor)[0] = Order{ID: "ORD-002", Total: 50.0}
 
-	query1 := goke.CreateView(ecs, goke.Track(&order), goke.Track(&discount))
+	query1 := ecs.CreateMatcher(goke.Track(&order), goke.Track(&discount))
 	cursor1 := &query1.Cursor
 	processedCount := 0
 
-	billingSystem := goke.RegSysFn(ecs, func(cb *goke.CmdBuf, d time.Duration) {
+	billingSystem := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
 		query1.All()
 		for query1.Next() {
 			orders := order.Slice(cursor1)
@@ -73,8 +73,8 @@ func TestECS_UseCase(t *testing.T) {
 			}
 		}
 	})
-	query2 := goke.CreateView(ecs, goke.Include[Processed](), goke.Include[Order](), goke.Include[Discount]())
-	cleanerSystem := goke.RegSysFn(ecs, func(schedule *goke.CmdBuf, d time.Duration) {
+	query2 := ecs.CreateMatcher(goke.Include[Processed](), goke.Include[Order](), goke.Include[Discount]())
+	cleanerSystem := ecs.RegSysFn(func(schedule *goke.CmdBuf, d time.Duration) {
 		query2.All()
 		for query2.Next() {
 			for _, entityID := range query2.Cursor.IDs {
@@ -83,11 +83,11 @@ func TestECS_UseCase(t *testing.T) {
 		}
 	})
 
-	goke.SetPlan(ecs, func(ctx goke.RunCtx, d time.Duration) {
+	ecs.SetPlan(func(ctx goke.RunCtx, d time.Duration) {
 		ctx.Run(billingSystem, d)
 
 		// test this stage
-		result := lookupComp[Order](ecs, eA)
+		result := seekComp[Order](ecs, eA)
 		if result.Total != 90.0 {
 			t.Errorf("Discount has not been applied, Total: %v", result.Total)
 		}
@@ -102,7 +102,7 @@ func TestECS_UseCase(t *testing.T) {
 		ctx.Run(cleanerSystem, d)
 		ctx.Sync()
 	})
-	goke.Tick(ecs, time.Duration(time.Second))
+	ecs.Tick(time.Duration(time.Second))
 
 	// Final Assertions
 	if processedCount != 1 {
@@ -110,53 +110,53 @@ func TestECS_UseCase(t *testing.T) {
 	}
 
 	// Entity A should be removed from Registry
-	if lookupComp[Order](ecs, eA) != nil {
+	if seekComp[Order](ecs, eA) != nil {
 		t.Error("Entity eA should have been removed from the registry")
 	}
 
 	// Entity B should still exist
-	if lookupComp[Order](ecs, eB) == nil {
+	if seekComp[Order](ecs, eB) == nil {
 		t.Error("Entity eB should not have been removed")
 	}
 }
 
-func TestECS_Lookup(t *testing.T) {
+func TestECS_Seek(t *testing.T) {
 	ecs := goke.New()
 	_ = goke.RegComp[Position](ecs)
 
 	var pos goke.Col[Position]
-	blueprint := goke.CreateFactory(ecs, goke.Track(&pos))
-	blueprint.Create(1)
-	blueprint.Next()
-	entityID := blueprint.IDs[0]
-	pos.Slice(&blueprint.Cursor)[0] = Position{X: 10, Y: 20}
+	factory := ecs.CreateFactory(goke.Add(&pos))
+	factory.Create(1)
+	factory.Next()
+	entityID := factory.IDs[0]
+	pos.Slice(&factory.Cursor)[0] = Position{X: 10, Y: 20}
 
-	lookup := goke.CreateLookup(ecs, goke.Track(&pos))
+	matcher := ecs.CreateMatcher(goke.Track(&pos))
 
-	if !lookup.Seek(entityID) {
+	if !matcher.Seek(entityID) {
 		t.Fatalf("expected Seek to find the entity")
 	}
-	if got := pos.At(&lookup.Cursor); got.X != 10 {
+	if got := pos.At(&matcher.Cursor); got.X != 10 {
 		t.Errorf("wrong value: got X=%v, want 10", got.X)
 	}
 
 	fakeEntity := uid.UID64(999)
-	if lookup.Seek(fakeEntity) {
+	if matcher.Seek(fakeEntity) {
 		t.Errorf("expected Seek to fail for a nonexistent entity")
 	}
 }
 
-// TestECS_Lookup_AcrossArchetypes exercises the per-archetype cache: alternating
+// TestECS_Seek_AcrossArchetypes exercises the per-archetype cache: alternating
 // Seeks between two archetypes must re-resolve the table and offsets each switch,
 // never returning stale ones.
-func TestECS_Lookup_AcrossArchetypes(t *testing.T) {
+func TestECS_Seek_AcrossArchetypes(t *testing.T) {
 	ecs := goke.New()
 	_ = goke.RegComp[Position](ecs)
 	_ = goke.RegComp[Velocity](ecs)
 
 	// Entity A: {Position}
 	var posA goke.Col[Position]
-	fa := goke.CreateFactory(ecs, goke.Track(&posA))
+	fa := ecs.CreateFactory(goke.Add(&posA))
 	fa.Create(1)
 	fa.Next()
 	eA := fa.IDs[0]
@@ -165,20 +165,20 @@ func TestECS_Lookup_AcrossArchetypes(t *testing.T) {
 	// Entity B: {Position, Velocity} — a different archetype
 	var posB goke.Col[Position]
 	var velB goke.Col[Velocity]
-	fb := goke.CreateFactory(ecs, goke.Track(&posB), goke.Track(&velB))
+	fb := ecs.CreateFactory(goke.Add(&posB), goke.Add(&velB))
 	fb.Create(1)
 	fb.Next()
 	eB := fb.IDs[0]
 	posB.Slice(&fb.Cursor)[0] = Position{X: 2}
 
 	var pos goke.Col[Position]
-	lookup := goke.CreateLookup(ecs, goke.Track(&pos))
+	matcher := ecs.CreateMatcher(goke.Track(&pos))
 
 	for i := 0; i < 3; i++ {
-		if !lookup.Seek(eA) || pos.At(&lookup.Cursor).X != 1 {
+		if !matcher.Seek(eA) || pos.At(&matcher.Cursor).X != 1 {
 			t.Fatalf("iter %d: expected eA.X == 1", i)
 		}
-		if !lookup.Seek(eB) || pos.At(&lookup.Cursor).X != 2 {
+		if !matcher.Seek(eB) || pos.At(&matcher.Cursor).X != 2 {
 			t.Fatalf("iter %d: expected eB.X == 2", i)
 		}
 	}
@@ -186,21 +186,21 @@ func TestECS_Lookup_AcrossArchetypes(t *testing.T) {
 
 func TestECS_RemoveComp(t *testing.T) {
 	ecs := goke.New()
-	posID := goke.RegComp[Position](ecs)
+	_ = goke.RegComp[Position](ecs)
 
 	var entityID uid.UID64
-	fcPosOpt := goke.Track(new(goke.Col[Position]))
-	blueprint := goke.CreateFactory(ecs, fcPosOpt)
-	blueprint.Create(1)
-	blueprint.Next()
-	entityID = blueprint.IDs[0]
+	factory := ecs.CreateFactory(goke.Add(new(goke.Col[Position])))
+	factory.Create(1)
+	factory.Next()
+	entityID = factory.IDs[0]
 
-	err := goke.RemoveComp(ecs, entityID, posID)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	editor := ecs.CreateEditor(goke.Del[Position]())
+	if !editor.Update(entityID) {
+		t.Fatalf("expected Update to succeed")
 	}
 
-	ptr := lookupComp[Position](ecs, entityID)
+	// Position was the entity's only component, so removing it unlinks the entity.
+	ptr := seekComp[Position](ecs, entityID)
 	if ptr != nil {
 		t.Errorf("expected component to be removed")
 	}
@@ -212,58 +212,72 @@ func TestECS_RemoveEntity(t *testing.T) {
 	_ = posID // to avoid unused variable error if any
 
 	var entityID uid.UID64
-	fcPosOpt := goke.Track(new(goke.Col[Position]))
-	blueprint := goke.CreateFactory(ecs, fcPosOpt)
-	blueprint.Create(1)
-	blueprint.Next()
-	entityID = blueprint.IDs[0]
+	fcPosOpt := goke.Add(new(goke.Col[Position]))
+	factory := ecs.CreateFactory(fcPosOpt)
+	factory.Create(1)
+	factory.Next()
+	entityID = factory.IDs[0]
 
-	ok := goke.RemoveEnt(ecs, entityID)
+	ok := ecs.RemoveEnt(entityID)
 	if !ok {
 		t.Errorf("expected entity to be removed")
 	}
 
-	ok = goke.RemoveEnt(ecs, entityID)
+	ok = ecs.RemoveEnt(entityID)
 	if ok {
 		t.Errorf("expected false for already removed entity")
 	}
 }
 
-func TestECS_UpsertComp(t *testing.T) {
+func TestECS_Editor_AddComp(t *testing.T) {
 	ecs := goke.New()
-	posID := goke.RegComp[Position](ecs)
+	_ = goke.RegComp[Position](ecs)
+	_ = goke.RegComp[Velocity](ecs)
 
-	fcPosOpt := goke.Track(new(goke.Col[Position]))
-	blueprint := goke.CreateFactory(ecs, fcPosOpt)
-	blueprint.Create(1)
-	blueprint.Next()
-	entityID := blueprint.IDs[0]
+	// Entity starts with only Velocity.
+	var vel goke.Col[Velocity]
+	factory := ecs.CreateFactory(goke.Add(&vel))
+	factory.Create(1)
+	factory.Next()
+	entityID := factory.IDs[0]
 
-	ptr := goke.UpsertComp[Position](ecs, entityID, posID)
-	if ptr == nil {
-		t.Fatalf("expected valid pointer")
+	// Add Position and write its value through the editor's cursor.
+	var pos goke.Col[Position]
+	editor := ecs.CreateEditor(goke.Add(&pos))
+	if !editor.Update(entityID) {
+		t.Fatalf("expected Update to succeed")
 	}
-	ptr.X = 55
+	pos.At(&editor.Cursor).X = 55
 
-	val := lookupComp[Position](ecs, entityID)
-	if val.X != 55 {
-		t.Errorf("expected 55, got %v", val.X)
+	val := seekComp[Position](ecs, entityID)
+	if val == nil || val.X != 55 {
+		t.Errorf("expected Position.X == 55, got %v", val)
 	}
 }
 
-func TestECS_UpsertComp_Panic(t *testing.T) {
+func TestECS_Factory_DelPanics(t *testing.T) {
 	ecs := goke.New()
-	posID := goke.RegComp[Position](ecs)
-
-	fakeEntity := uid.UID64(999)
+	_ = goke.RegComp[Position](ecs)
 
 	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("expected UpsertComp to panic on invalid entity")
+		if recover() == nil {
+			t.Errorf("expected CreateFactory to panic when given a Del opt")
 		}
 	}()
 
-	goke.UpsertComp[Position](ecs, fakeEntity, posID)
+	ecs.CreateFactory(goke.Del[Position]())
+}
+
+func TestECS_Editor_InvalidEntity(t *testing.T) {
+	ecs := goke.New()
+	_ = goke.RegComp[Position](ecs)
+
+	var pos goke.Col[Position]
+	editor := ecs.CreateEditor(goke.Add(&pos))
+
+	if editor.Update(uid.UID64(999)) {
+		t.Errorf("expected Update to return false for a nonexistent entity")
+	}
 }
 
 func TestECS_Reset(t *testing.T) {
@@ -271,14 +285,14 @@ func TestECS_Reset(t *testing.T) {
 	_ = goke.RegComp[Position](ecs)
 
 	var entityID uid.UID64
-	blueprint := goke.CreateFactory(ecs, goke.Track(new(goke.Col[Position])))
-	blueprint.Create(1)
-	blueprint.Next()
-	entityID = blueprint.IDs[0]
+	factory := ecs.CreateFactory(goke.Add(new(goke.Col[Position])))
+	factory.Create(1)
+	factory.Next()
+	entityID = factory.IDs[0]
 
-	goke.Reset(ecs)
+	ecs.Reset()
 
-	ptr := lookupComp[Position](ecs, entityID)
+	ptr := seekComp[Position](ecs, entityID)
 	if ptr != nil {
 		t.Errorf("expected entity to be reset/removed")
 	}

@@ -23,13 +23,13 @@ type Factory struct {
 	available int
 }
 
-// Init resolves or creates the archetype from b and prepares
+// Init resolves or creates the archetype from accessSpec and prepares
 // the Factory for repeated Create/Next cycles.
-func (f *Factory) Init(em *Manager, b comp.Blueprint) {
-	archID := em.ArchCatalog.Upsert(b.Compose())
+func (f *Factory) Init(em *Manager, accessSpec comp.AccessSpec) {
+	archID := em.ArchCatalog.Upsert(accessSpec.Compose())
 	f.arch = &em.ArchCatalog.Archetypes[archID]
-	f.colBakes = f.arch.Table.BakeColumns(b.CompInfos)
-	f.Cursor = iter.Cursor{Offsets: make([]uintptr, len(b.CompInfos))}
+	f.colBakes = f.arch.Table.BakeColumns(accessSpec.CompInfos)
+	f.Cursor = iter.Cursor{Offsets: make([]uintptr, len(accessSpec.CompInfos))}
 }
 
 // Create pre-allocates chunks for count entities and resets the iterator.

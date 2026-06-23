@@ -43,11 +43,11 @@ func (m *Manager) Remove(id uid.UID64) bool {
 	return true
 }
 
-// CreateFactory resolves or creates the archetype from b and returns
+// CreateFactory resolves or creates the archetype from accessSpec and returns
 // a reusable Factory ready for repeated Create/Next cycles.
-func (m *Manager) CreateFactory(b comp.Blueprint) *Factory {
+func (m *Manager) CreateFactory(accessSpec comp.AccessSpec) *Factory {
 	var f Factory
-	f.Init(m, b)
+	f.Init(m, accessSpec)
 	return &f
 }
 

@@ -30,11 +30,11 @@ var logID goke.CompID
 // --- Systems ---
 
 type WorkerSystem struct {
-	query *goke.View
+	query *goke.Matcher
 }
 
 func (s *WorkerSystem) Init(eng *goke.ECS) {
-	s.query = goke.CreateView(eng, goke.Include[Task]())
+	s.query = eng.CreateMatcher(goke.Include[Task]())
 }
 
 func (s *WorkerSystem) Update(schedule *goke.CmdBuf, duration time.Duration) {
@@ -48,12 +48,12 @@ func (s *WorkerSystem) Update(schedule *goke.CmdBuf, duration time.Duration) {
 }
 
 type LoggerSystem struct {
-	query *goke.View
+	query *goke.Matcher
 	Found bool
 }
 
 func (s *LoggerSystem) Init(eng *goke.ECS) {
-	s.query = goke.CreateView(eng, goke.Include[Log]())
+	s.query = eng.CreateMatcher(goke.Include[Log]())
 }
 
 func (s *LoggerSystem) Update(schedule *goke.CmdBuf, duration time.Duration) {
@@ -80,24 +80,24 @@ func TestECS_SystemInteractions(t *testing.T) {
 		setupComponents(ecs)
 
 		var task goke.Col[Task]
-		blueprint := goke.CreateFactory(ecs, goke.Track(&task))
-		blueprint.Create(1)
-		blueprint.Next()
-		task.Slice(&blueprint.Cursor)[0] = Task{Completed: false}
+		factory := ecs.CreateFactory(goke.Add(&task))
+		factory.Create(1)
+		factory.Next()
+		task.Slice(&factory.Cursor)[0] = Task{Completed: false}
 
 		worker := &WorkerSystem{}
 		logger := &LoggerSystem{}
 
-		goke.RegSys(ecs, worker)
-		goke.RegSys(ecs, logger)
+		ecs.RegSys(worker)
+		ecs.RegSys(logger)
 
-		goke.SetPlan(ecs, func(s goke.RunCtx, d time.Duration) {
+		ecs.SetPlan(func(s goke.RunCtx, d time.Duration) {
 			s.Run(worker, d)
 			s.Run(logger, d)
 			s.Sync()
 		})
 
-		goke.Tick(ecs, time.Millisecond)
+		ecs.Tick(time.Millisecond)
 
 		if logger.Found {
 			t.Error("LoggerSystem found Log that should have been deferred until the end of the plan")
@@ -109,25 +109,25 @@ func TestECS_SystemInteractions(t *testing.T) {
 		setupComponents(ecs)
 
 		var task goke.Col[Task]
-		blueprint := goke.CreateFactory(ecs, goke.Track(&task))
-		blueprint.Create(1)
-		blueprint.Next()
-		task.Slice(&blueprint.Cursor)[0] = Task{Completed: false}
+		factory := ecs.CreateFactory(goke.Add(&task))
+		factory.Create(1)
+		factory.Next()
+		task.Slice(&factory.Cursor)[0] = Task{Completed: false}
 
 		worker := &WorkerSystem{}
 		logger := &LoggerSystem{}
 
-		goke.RegSys(ecs, worker)
-		goke.RegSys(ecs, logger)
+		ecs.RegSys(worker)
+		ecs.RegSys(logger)
 
-		goke.SetPlan(ecs, func(s goke.RunCtx, d time.Duration) {
+		ecs.SetPlan(func(s goke.RunCtx, d time.Duration) {
 			s.Run(worker, d)
 			s.Sync() // Force synchronization between systems
 			s.Run(logger, d)
 			s.Sync()
 		})
 
-		goke.Tick(ecs, time.Millisecond)
+		ecs.Tick(time.Millisecond)
 
 		if !logger.Found {
 			t.Error("LoggerSystem should have found Log due to explicit Sync call in the Plan")

@@ -16,9 +16,8 @@ type Pack struct {
 	Layout   Layout
 	len      uint32
 	Reserved Idx
+	spare    []byte // backing array of the most recently trimmed chunk, reused by AddChunks
 }
-
-func (g *Pack) Len() uint32 { return g.len }
 
 func (g *Pack) Init(layout Layout) {
 	g.Layout = layout
@@ -26,10 +25,7 @@ func (g *Pack) Init(layout Layout) {
 	g.AddChunks(1)
 }
 
-// tylko testy
-func (g *Pack) NumChunks() int {
-	return len(g.chunks)
-}
+func (g *Pack) Len() uint32 { return g.len }
 
 func (g *Pack) ChunkPtr(idx Idx) unsafe.Pointer {
 	return g.chunks[idx].Ptr
@@ -57,17 +53,13 @@ func (g *Pack) AllocSlot() Pos {
 	return Pos{Idx: lastIdx, Slot: slot}
 }
 
-func (g *Pack) commitSlots(idx Idx, n int) {
-	g.chunks[idx].Len += Slot(n)
-	g.len += uint32(n)
-}
-
 // Extend advances chunk idx by n slots and returns the base pointer
 // and the slot at which the new range starts.
 func (g *Pack) Extend(idx Idx, n int) (base unsafe.Pointer, startSlot Slot) {
 	startSlot = g.ChunkLen(idx)
-	g.commitSlots(idx, n)
-	base = g.ChunkPtr(idx)
+	g.chunks[idx].Len += Slot(n)
+	g.len += uint32(n)
+	base = g.chunks[idx].Ptr
 	return
 }
 
@@ -91,9 +83,19 @@ func (g *Pack) NextNonEmptyChunk(from int) (idx int, ptr unsafe.Pointer, length 
 }
 
 // AddChunks allocates n new chunks as one contiguous []byte and appends them.
+// When n is 1 and a spare chunk (from a previous trim) is available, it is
+// reused instead of allocating fresh memory.
 func (g *Pack) AddChunks(n int) {
-	bigBlock := make([]byte, uintptr(n)*g.Layout.ChunkBytes)
 	start := len(g.chunks)
+
+	if n == 1 && g.spare != nil {
+		g.chunks = append(g.chunks, chunk{})
+		g.chunks[start].init(g.spare)
+		g.spare = nil
+		return
+	}
+
+	bigBlock := make([]byte, uintptr(n)*g.Layout.ChunkBytes)
 	g.chunks = append(g.chunks, make([]chunk, n)...)
 	for i := range n {
 		offset := uintptr(i) * g.Layout.ChunkBytes
@@ -105,8 +107,8 @@ func (g *Pack) AddChunks(n int) {
 // Sets Reserved to prevent ResolveTail from trimming pre-allocated chunks.
 // Returns the starting chunk index and the number of slots available in that first chunk.
 func (g *Pack) ReserveSlots(count int) (startChunkIdx Idx, available int) {
-	chunkIdx := Idx(g.NumChunks() - 1)
-	available = int(g.Layout.ChunkCap) - int(g.ChunkLen(chunkIdx))
+	chunkIdx := Idx(len(g.chunks) - 1)
+	available = int(g.Layout.ChunkCap) - int(g.chunks[chunkIdx].Len)
 
 	if available == 0 {
 		chunksNeeded := (count + int(g.Layout.ChunkCap) - 1) / int(g.Layout.ChunkCap)
@@ -120,28 +122,39 @@ func (g *Pack) ReserveSlots(count int) (startChunkIdx Idx, available int) {
 		}
 	}
 
-	g.Reserved = Idx(g.NumChunks() - 1)
+	g.Reserved = Idx(len(g.chunks) - 1)
 	return chunkIdx, available
 }
 
-// ResolveTail trims empty trailing chunks above the Reserved floor and returns
-// the index and slot of the last occupied position.
-func (g *Pack) ResolveTail() (Idx, Slot) {
+// trimTrailing releases empty trailing chunks above the Reserved floor,
+// stashing the last one released as the spare for AddChunks to reuse.
+func (g *Pack) trimTrailing() {
 	lastIdx := len(g.chunks) - 1
 	floor := int(g.Reserved)
 
 	for lastIdx > floor && g.chunks[lastIdx].Len == 0 {
+		g.spare = g.chunks[lastIdx].data
 		g.chunks = g.chunks[:lastIdx]
 		lastIdx--
 	}
+}
 
-	tailIdx := lastIdx
+// ResolveTail trims empty trailing chunks above the Reserved floor and
+// returns the index and slot of the last occupied position.
+func (g *Pack) ResolveTail() (Idx, Slot) {
+	g.trimTrailing()
+
+	tailIdx := len(g.chunks) - 1
 	for tailIdx > 0 && g.chunks[tailIdx].Len == 0 {
 		tailIdx--
 	}
 
 	tail := &g.chunks[tailIdx]
 	return Idx(tailIdx), Slot(tail.Len - 1)
+}
+
+func (g *Pack) Purge() {
+	g.trimTrailing()
 }
 
 func (g *Pack) Clear() {

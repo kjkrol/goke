@@ -14,15 +14,15 @@ type (
 	iterVel struct{ VX, VY float32 }
 )
 
-func TestAllIter_EmptyView(t *testing.T) {
+func TestAllIter_EmptyMatcher(t *testing.T) {
 	cat, _, _ := newQueryCatalog()
-	v := NewView(cat)
+	m := NewMatcher(cat)
 
-	v.All()
-	if v.Next() {
-		t.Error("Next() on empty view should return false")
+	m.All()
+	if m.Next() {
+		t.Error("Next() on empty matcher should return false")
 	}
-	if v.Cursor.IDs != nil {
+	if m.Cursor.IDs != nil {
 		t.Error("Chunk should be nil after exhaustion")
 	}
 }
@@ -32,21 +32,21 @@ func TestAllIter_SingleEntity(t *testing.T) {
 
 	var pos iter.Col[iterPos]
 	posOpt := comp.Track(&pos)
-	var b comp.Blueprint
-	b.Init(cc, posOpt)
-	f := em.CreateFactory(b)
+	var accessSpec comp.AccessSpec
+	accessSpec.Init(cc, posOpt)
+	f := em.CreateFactory(accessSpec)
 	f.Create(1)
 	f.Next()
 	e := f.IDs[0]
 	*pos.At(&f.Cursor) = iterPos{X: 1, Y: 2}
 
-	v := NewView(cat, posOpt)
+	m := NewMatcher(cat, posOpt)
 
 	var visited []uid.UID64
-	v.All()
-	for v.Next() {
-		posSlice := pos.Slice(&v.Cursor)
-		for i, entity := range v.Cursor.IDs {
+	m.All()
+	for m.Next() {
+		posSlice := pos.Slice(&m.Cursor)
+		for i, entity := range m.Cursor.IDs {
 			_ = posSlice[i]
 			visited = append(visited, entity)
 		}
@@ -62,9 +62,9 @@ func TestAllIter_SliceValues(t *testing.T) {
 
 	var pos iter.Col[iterPos]
 	posOpt := comp.Track(&pos)
-	var b comp.Blueprint
-	b.Init(cc, posOpt)
-	f := em.CreateFactory(b)
+	var accessSpec comp.AccessSpec
+	accessSpec.Init(cc, posOpt)
+	f := em.CreateFactory(accessSpec)
 
 	f.Create(1)
 	f.Next()
@@ -76,13 +76,13 @@ func TestAllIter_SliceValues(t *testing.T) {
 	e2 := f.IDs[0]
 	*pos.At(&f.Cursor) = iterPos{X: 30, Y: 40}
 
-	v := NewView(cat, posOpt)
+	m := NewMatcher(cat, posOpt)
 
 	got := map[uid.UID64]iterPos{}
-	v.All()
-	for v.Next() {
-		posSlice := pos.Slice(&v.Cursor)
-		for i, entity := range v.Cursor.IDs {
+	m.All()
+	for m.Next() {
+		posSlice := pos.Slice(&m.Cursor)
+		for i, entity := range m.Cursor.IDs {
 			got[entity] = posSlice[i]
 		}
 	}
@@ -99,28 +99,28 @@ func TestAllIter_SliceInPlaceMutation(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
 
 	var pos iter.Col[iterPos]
-	var b comp.Blueprint
-	b.Init(cc, comp.Track(&pos))
-	f := em.CreateFactory(b)
+	var accessSpec comp.AccessSpec
+	accessSpec.Init(cc, comp.Track(&pos))
+	f := em.CreateFactory(accessSpec)
 	f.Create(1)
 	f.Next()
 	*pos.At(&f.Cursor) = iterPos{X: 5, Y: 3}
 
-	v := NewView(cat, comp.Track(&pos))
+	m := NewMatcher(cat, comp.Track(&pos))
 
-	v.All()
-	for v.Next() {
-		posSlice := pos.Slice(&v.Cursor)
-		for i := range v.Cursor.IDs {
+	m.All()
+	for m.Next() {
+		posSlice := pos.Slice(&m.Cursor)
+		for i := range m.Cursor.IDs {
 			posSlice[i].X += posSlice[i].Y
 		}
 	}
 
 	// re-read from live memory via a second pass
-	v.All()
-	for v.Next() {
-		posSlice := pos.Slice(&v.Cursor)
-		for range v.Cursor.IDs {
+	m.All()
+	for m.Next() {
+		posSlice := pos.Slice(&m.Cursor)
+		for range m.Cursor.IDs {
 			if posSlice[0].X != 8 {
 				t.Errorf("expected X=8 after mutation, got %v", posSlice[0].X)
 			}
@@ -133,9 +133,9 @@ func TestAllIter_MultipleArchetypes(t *testing.T) {
 
 	// archetype A: pos only
 	var posA iter.Col[iterPos]
-	var bA comp.Blueprint
-	bA.Init(cc, comp.Track(&posA))
-	fA := em.CreateFactory(bA)
+	var accessSpecA comp.AccessSpec
+	accessSpecA.Init(cc, comp.Track(&posA))
+	fA := em.CreateFactory(accessSpecA)
 	fA.Create(1)
 	fA.Next()
 	eA := fA.IDs[0]
@@ -143,21 +143,21 @@ func TestAllIter_MultipleArchetypes(t *testing.T) {
 
 	// archetype B: pos + vel
 	var posB iter.Col[iterPos]
-	var bB comp.Blueprint
-	bB.Init(cc, comp.Track(&posB), comp.Track(new(iter.Col[iterVel])))
-	fB := em.CreateFactory(bB)
+	var accessSpecB comp.AccessSpec
+	accessSpecB.Init(cc, comp.Track(&posB), comp.Track(new(iter.Col[iterVel])))
+	fB := em.CreateFactory(accessSpecB)
 	fB.Create(1)
 	fB.Next()
 	eB := fB.IDs[0]
 	*posB.At(&fB.Cursor) = iterPos{X: 2}
 
 	_trackOpt0 := comp.Track(new(iter.Col[iterPos]))
-	v := NewView(cat, _trackOpt0)
+	m := NewMatcher(cat, _trackOpt0)
 
 	visited := map[uid.UID64]bool{}
-	v.All()
-	for v.Next() {
-		for _, e := range v.Cursor.IDs {
+	m.All()
+	for m.Next() {
+		for _, e := range m.Cursor.IDs {
 			visited[e] = true
 		}
 	}
@@ -170,19 +170,19 @@ func TestAllIter_MultipleArchetypes(t *testing.T) {
 func TestAllIter_ResetOnSecondCall(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
 
-	var b comp.Blueprint
-	b.Init(cc, comp.Track(new(iter.Col[iterPos])))
-	f := em.CreateFactory(b)
+	var accessSpec comp.AccessSpec
+	accessSpec.Init(cc, comp.Track(new(iter.Col[iterPos])))
+	f := em.CreateFactory(accessSpec)
 	f.Create(1)
 	f.Next()
 
-	v := NewView(cat, comp.Track(new(iter.Col[iterPos])))
+	m := NewMatcher(cat, comp.Track(new(iter.Col[iterPos])))
 
 	count := func() int {
 		n := 0
-		v.All()
-		for v.Next() {
-			n += len(v.Cursor.IDs)
+		m.All()
+		for m.Next() {
+			n += len(m.Cursor.IDs)
 		}
 		return n
 	}

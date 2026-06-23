@@ -28,13 +28,13 @@ type Health struct{ Current, Max float32 }
 
 // --- PhysicsSystem: Operates only on Motion data ---
 type PhysicsSystem struct {
-	query *goke.View
+	query *goke.Matcher
 	pos   goke.Col[Position]
 	vel   goke.Col[Velocity]
 }
 
 func (s *PhysicsSystem) Init(ecs *goke.ECS) {
-	s.query = goke.CreateView(ecs, goke.Track(&s.pos), goke.Track(&s.vel))
+	s.query = ecs.CreateMatcher(goke.Track(&s.pos), goke.Track(&s.vel))
 }
 func (s *PhysicsSystem) Update(schedule *goke.CmdBuf, d time.Duration) {
 	cursor := &s.query.Cursor
@@ -51,12 +51,12 @@ func (s *PhysicsSystem) Update(schedule *goke.CmdBuf, d time.Duration) {
 
 // --- HealthSystem: Operates only on Health data ---
 type HealthSystem struct {
-	query  *goke.View
+	query  *goke.Matcher
 	health goke.Col[Health]
 }
 
 func (s *HealthSystem) Init(eng *goke.ECS) {
-	s.query = goke.CreateView(eng, goke.Track(&s.health))
+	s.query = eng.CreateMatcher(goke.Track(&s.health))
 }
 func (s *HealthSystem) Update(schedule *goke.CmdBuf, d time.Duration) {
 	s.query.All()
@@ -85,21 +85,21 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 
 	phys := &PhysicsSystem{}
 	heal := &HealthSystem{}
-	goke.RegSys(ecs, phys)
-	goke.RegSys(ecs, heal)
+	ecs.RegSys(phys)
+	ecs.RegSys(heal)
 
 	// Create entities with ALL components
 	var pos goke.Col[Position]
 	var vel goke.Col[Velocity]
 	var health goke.Col[Health]
-	blueprint := goke.CreateFactory(ecs, goke.Track(&pos), goke.Track(&vel), goke.Track(&health))
-	fc := &blueprint.Cursor
-	blueprint.Create(1000)
-	for blueprint.Next() {
+	factory := ecs.CreateFactory(goke.Add(&pos), goke.Add(&vel), goke.Add(&health))
+	fc := &factory.Cursor
+	factory.Create(1000)
+	for factory.Next() {
 		positions := pos.Slice(fc)
 		velocities := vel.Slice(fc)
 		healths := health.Slice(fc)
-		for i := range blueprint.IDs {
+		for i := range factory.IDs {
 			positions[i] = Position{0, 0}
 			velocities[i] = Velocity{10, 10}
 			healths[i] = Health{50, 100}
@@ -107,16 +107,16 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	}
 
 	// 2. Execution Plan: Run Physics and Health in parallel
-	goke.SetPlan(ecs, func(ctx goke.RunCtx, d time.Duration) {
+	ecs.SetPlan(func(ctx goke.RunCtx, d time.Duration) {
 		ctx.RunParallel(d, phys, heal)
 		ctx.Sync()
 	})
 
 	// 3. Tick ecs
-	goke.Tick(ecs, time.Second) // Simulate 1 second
+	ecs.Tick(time.Second) // Simulate 1 second
 
 	// 4. Verification
-	query := goke.CreateView(ecs, goke.Track(&pos), goke.Track(&health))
+	query := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&health))
 	cursor := &query.Cursor
 	count := 0
 	query.All()

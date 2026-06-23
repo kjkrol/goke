@@ -31,7 +31,7 @@ func NewEntitiesInitSystem(reources *Resources) goke.System {
 
 func (s *EntitiesInitSystem) Init(ecs *goke.ECS) {
 	spawnEntitiesNumber := s.entityCounter
-	s.factory = goke.CreateFactory(ecs, goke.Track(&s.fPos), goke.Track(&s.fVel), goke.Track(&s.fColl), goke.Track(&s.fAppear))
+	s.factory = ecs.CreateFactory(goke.Add(&s.fPos), goke.Add(&s.fVel), goke.Add(&s.fColl), goke.Add(&s.fAppear))
 
 	gridSize := math.Ceil(math.Sqrt(float64(spawnEntitiesNumber)))
 	cols := uint32(gridSize)

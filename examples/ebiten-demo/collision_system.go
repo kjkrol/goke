@@ -14,7 +14,7 @@ var _ goke.System = (*CollisionSystem)(nil)
 
 type CollisionSystem struct {
 	*Resources
-	collisionView    *goke.View
+	collisionMatcher *goke.Matcher
 	pos              goke.Col[Position]
 	vel              goke.Col[Velocity]
 	coll             goke.Col[Collision]
@@ -31,7 +31,7 @@ func NewCollisionSystem(resouces *Resources) goke.System {
 }
 
 func (s *CollisionSystem) Init(ecs *goke.ECS) {
-	s.collisionView = goke.CreateView(ecs, goke.Track(&s.pos), goke.Track(&s.vel), goke.Track(&s.coll))
+	s.collisionMatcher = ecs.CreateMatcher(goke.Track(&s.pos), goke.Track(&s.vel), goke.Track(&s.coll))
 	// s.seenPairs = make(map[uint64]struct{}, 256)
 }
 
@@ -48,12 +48,12 @@ func (s *CollisionSystem) Update(sched *goke.CmdBuf, d time.Duration) {
 }
 
 func (s *CollisionSystem) broadPhase(probeExpandMargin uint32) {
-	s.collisionView.All()
-	for s.collisionView.Next() {
-		posSlice := s.pos.Slice(&s.collisionView.Cursor)
-		velSlice := s.vel.Slice(&s.collisionView.Cursor)
-		collSlice := s.coll.Slice(&s.collisionView.Cursor)
-		for i, entityA := range s.collisionView.Cursor.IDs {
+	s.collisionMatcher.All()
+	for s.collisionMatcher.Next() {
+		posSlice := s.pos.Slice(&s.collisionMatcher.Cursor)
+		velSlice := s.vel.Slice(&s.collisionMatcher.Cursor)
+		collSlice := s.coll.Slice(&s.collisionMatcher.Cursor)
+		for i, entityA := range s.collisionMatcher.Cursor.IDs {
 			p, v, c := &posSlice[i], &velSlice[i], &collSlice[i]
 
 			checkFunc := func(boxA geom.AABB[uint32], fragA plane.FragPosition) {
@@ -89,11 +89,11 @@ func (s *CollisionSystem) broadPhase(probeExpandMargin uint32) {
 func (s *CollisionSystem) narrowPhase(solverIterations int) {
 	now := time.Now()
 
-	s.collisionView.Filter(s.contactsEntities)
-	for s.collisionView.Next() {
-		s.contactsBuffer[s.collisionView.Idx].PosB = s.pos.At(&s.collisionView.Cursor)
-		s.contactsBuffer[s.collisionView.Idx].VelB = s.vel.At(&s.collisionView.Cursor)
-		s.contactsBuffer[s.collisionView.Idx].ColB = s.coll.At(&s.collisionView.Cursor)
+	s.collisionMatcher.Pick(s.contactsEntities)
+	for s.collisionMatcher.Next() {
+		s.contactsBuffer[s.collisionMatcher.Idx].PosB = s.pos.At(&s.collisionMatcher.Cursor)
+		s.contactsBuffer[s.collisionMatcher.Idx].VelB = s.vel.At(&s.collisionMatcher.Cursor)
+		s.contactsBuffer[s.collisionMatcher.Idx].ColB = s.coll.At(&s.collisionMatcher.Cursor)
 	}
 
 	for range solverIterations {

@@ -28,7 +28,7 @@ func main() {
 	// Initialize an entity with Order and Discount component data
 	var order goke.Col[Order]
 	var discount goke.Col[Discount]
-	factory := goke.CreateFactory(ecs, goke.Track(&order), goke.Track(&discount))
+	factory := ecs.CreateFactory(goke.Add(&order), goke.Add(&discount))
 	var entityID uid.UID64
 	factory.Create(1)
 	factory.Next()
@@ -38,9 +38,9 @@ func main() {
 	discount.Slice(fc)[0] = Discount{Percentage: 20.0}
 
 	// Define the Billing System to calculate discounted totals for unprocessed orders
-	query := goke.CreateView(ecs, goke.Track(&order), goke.Track(&discount), goke.Exclude[Processed]())
+	query := ecs.CreateMatcher(goke.Track(&order), goke.Track(&discount), goke.Exclude[Processed]())
 	cursor := &query.Cursor
-	billing := goke.RegSysFn(ecs, func(schedule *goke.CmdBuf, d time.Duration) {
+	billing := ecs.RegSysFn(func(schedule *goke.CmdBuf, d time.Duration) {
 		query.All()
 		for query.Next() {
 			orders := order.Slice(cursor)
@@ -55,16 +55,16 @@ func main() {
 
 	// Define the Teardown System to monitor simulation exit conditions
 	close := false
-	query2 := goke.CreateView(ecs, goke.Include[Processed]())
-	teardownSystem := goke.RegSysFn(ecs, func(cb *goke.CmdBuf, d time.Duration) {
-		query2.Filter([]uid.UID64{entityID})
+	query2 := ecs.CreateMatcher(goke.Include[Processed]())
+	teardownSystem := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
+		query2.Pick([]uid.UID64{entityID})
 		if query2.Next() {
 			close = true
 		}
 	})
 
 	// Configure the execution plan and define system dependencies
-	goke.SetPlan(ecs, func(ctx goke.RunCtx, d time.Duration) {
+	ecs.SetPlan(func(ctx goke.RunCtx, d time.Duration) {
 		ctx.Run(billing, d)
 		ctx.Sync()
 		ctx.Run(teardownSystem, d)
@@ -72,17 +72,17 @@ func main() {
 	})
 
 	// Log the initial state before simulation begins
-	lookup := goke.CreateLookup(ecs, goke.Track(&order))
-	if lookup.Seek(entityID) {
-		orderResult := order.At(&lookup.Cursor)
+	matcher := ecs.CreateMatcher(goke.Track(&order))
+	if matcher.Seek(entityID) {
+		orderResult := order.At(&matcher.Cursor)
 		fmt.Printf("Order id: %v value: %v\n", orderResult.ID, orderResult.Total)
 	}
 
 	// Run the main simulation loop until the exit signal is received
 	for !close {
-		goke.Tick(ecs, time.Second)
-		if lookup.Seek(entityID) {
-			orderResult := order.At(&lookup.Cursor)
+		ecs.Tick(time.Second)
+		if matcher.Seek(entityID) {
+			orderResult := order.At(&matcher.Cursor)
 			fmt.Printf("Order id: %v value with discount: %v\n", orderResult.ID, orderResult.Total)
 		}
 	}

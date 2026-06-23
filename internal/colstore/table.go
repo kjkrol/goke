@@ -184,6 +184,14 @@ func (t *Table) ReleaseSlots() {
 	t.chunkPack.Reserved = 0
 }
 
+// Purge releases all trailing empty chunks, including the one spare chunk
+// normally kept for reuse after a table drains to zero rows. Call it when
+// the table is not expected to be repopulated soon, to give its memory back
+// immediately instead of waiting for natural reuse.
+func (t *Table) Purge() {
+	t.chunkPack.Purge()
+}
+
 // RemoveAt removes the slot at pos using swap-and-pop to keep the table dense.
 // Returns the ID that moved into pos and true if a swap occurred,
 // or (0, false) if pos was already the last slot.

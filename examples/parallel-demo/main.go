@@ -34,7 +34,7 @@ func main() {
 
 	// 2. Setup Entities & Components
 	var dice goke.Col[Dice]
-	diceFactory := goke.CreateFactory(ecs, goke.Track(&dice))
+	diceFactory := ecs.CreateFactory(goke.Add(&dice))
 
 	var diceEnt uid.UID64
 	diceFactory.Create(1)
@@ -44,7 +44,7 @@ func main() {
 
 	// Setup player entities
 	var player goke.Col[Player]
-	playerFactory := goke.CreateFactory(ecs, goke.Track(&player))
+	playerFactory := ecs.CreateFactory(goke.Add(&player))
 
 	playerFactory.Create(2)
 	fc := &playerFactory.Cursor
@@ -55,21 +55,21 @@ func main() {
 		}
 	}
 
-	// 3. Define Views (for system filtering)
-	vDice := goke.CreateView(ecs, goke.Track(&dice))
-	vPlayers := goke.CreateView(ecs, goke.Track(&player))
-	vWinners := goke.CreateView(ecs, goke.Include[Winner]())
+	// 3. Define Matchers (for system filtering)
+	vDice := ecs.CreateMatcher(goke.Track(&dice))
+	vPlayers := ecs.CreateMatcher(goke.Track(&player))
+	vWinners := ecs.CreateMatcher(goke.Include[Winner]())
 
 	diceCursor := &vDice.Cursor
 	playerCursor := &vPlayers.Cursor
 
-	// Lookup for reading the dice entity's value each turn
-	diceLookup := goke.CreateLookup(ecs, goke.Track(&dice))
+	// Matcher for reading the dice entity's value each turn
+	diceMatcher := ecs.CreateMatcher(goke.Track(&dice))
 
 	// 4. Register Systems
 
 	// System A: Roll the dice
-	rollSys := goke.RegSysFn(ecs, func(cb *goke.CmdBuf, d time.Duration) {
+	rollSys := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
 		vDice.All()
 		for vDice.Next() {
 			diceSlice := dice.Slice(diceCursor)
@@ -80,7 +80,7 @@ func main() {
 	})
 
 	// System B: Players place their bets
-	betSys := goke.RegSysFn(ecs, func(cb *goke.CmdBuf, d time.Duration) {
+	betSys := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
 		vPlayers.All()
 		for vPlayers.Next() {
 			players := player.Slice(playerCursor)
@@ -91,14 +91,14 @@ func main() {
 	})
 
 	// System C: Judge the results
-	judgeSys := goke.RegSysFn(ecs, func(schedule *goke.CmdBuf, d time.Duration) {
+	judgeSys := ecs.RegSysFn(func(schedule *goke.CmdBuf, d time.Duration) {
 		if gameFinished {
 			return
 		}
 		turnCounter++
 
-		diceLookup.Seek(diceEnt)
-		diceComp := dice.At(&diceLookup.Cursor)
+		diceMatcher.Seek(diceEnt)
+		diceComp := dice.At(&diceMatcher.Cursor)
 		fmt.Printf("🎲 Turn %d | Dice Result: %d\n", turnCounter, diceComp.Value)
 
 		vPlayers.All()
@@ -117,7 +117,7 @@ func main() {
 	})
 
 	// System D: Display winners (Reactive System)
-	displayWinnerSys := goke.RegSysFn(ecs, func(cb *goke.CmdBuf, d time.Duration) {
+	displayWinnerSys := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
 		vWinners.All()
 		for vWinners.Next() {
 			for _, e := range vWinners.Cursor.IDs {
@@ -127,7 +127,7 @@ func main() {
 	})
 
 	// 5. Define Execution Plan
-	goke.SetPlan(ecs, func(ctx goke.RunCtx, d time.Duration) {
+	ecs.SetPlan(func(ctx goke.RunCtx, d time.Duration) {
 		// Run data updates in parallel
 		ctx.RunParallel(d, rollSys, betSys)
 		ctx.Sync()
@@ -142,7 +142,7 @@ func main() {
 	// 6. Simulation Loop
 	fmt.Println("Starting GOKe Dice Game Simulation...")
 	for !gameFinished {
-		goke.Tick(ecs, 16*time.Millisecond)
+		ecs.Tick(16 * time.Millisecond)
 		time.Sleep(200 * time.Millisecond)
 	}
 

@@ -1,8 +1,8 @@
 package query
 
 const (
-	// MaxViews is the maximum number of Views that can be registered in a Catalog.
+	// MaxMatchers is the maximum number of Matchers that can be registered in a Catalog.
 	// The Catalog pre-allocates this capacity once at Init time so that pointers
-	// to individual View slots remain stable for the lifetime of the ECS world.
-	MaxViews = 64
+	// to individual Matcher slots remain stable for the lifetime of the ECS world.
+	MaxMatchers = 64
 )

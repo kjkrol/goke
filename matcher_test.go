@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestView_IncludeExclude(t *testing.T) {
+func TestMatcher_IncludeExclude(t *testing.T) {
 	ecs := goke.New()
 	// 1. Setup Entities with different structural profiles
 
@@ -18,31 +18,30 @@ func TestView_IncludeExclude(t *testing.T) {
 
 	// Entity A: Only position
 	var eA uid.UID64
-	blueprintA := goke.CreateFactory(ecs, goke.Track(new(goke.Col[position])))
-	blueprintA.Create(1)
-	blueprintA.Next()
-	eA = blueprintA.IDs[0]
+	factoryA := ecs.CreateFactory(goke.Add(new(goke.Col[position])))
+	factoryA.Create(1)
+	factoryA.Next()
+	eA = factoryA.IDs[0]
 
 	// Entity B: position + velocity (Moving entity)
 	var eB uid.UID64
-	blueprintB := goke.CreateFactory(ecs, goke.Track(new(goke.Col[position])), goke.Track(new(goke.Col[velocity])))
-	blueprintB.Create(1)
-	blueprintB.Next()
-	eB = blueprintB.IDs[0]
+	factoryB := ecs.CreateFactory(goke.Add(new(goke.Col[position])), goke.Add(new(goke.Col[velocity])))
+	factoryB.Create(1)
+	factoryB.Next()
+	eB = factoryB.IDs[0]
 
 	// Entity C: position + complexComponent (Static named entity)
 	var eC uid.UID64
-	blueprintC := goke.CreateFactory(ecs, goke.Track(new(goke.Col[position])), goke.Track(new(goke.Col[complexComponent])))
-	blueprintC.Create(1)
-	blueprintC.Next()
-	eC = blueprintC.IDs[0]
+	factoryC := ecs.CreateFactory(goke.Add(new(goke.Col[position])), goke.Add(new(goke.Col[complexComponent])))
+	factoryC.Create(1)
+	factoryC.Next()
+	eC = factoryC.IDs[0]
 
 	// 2. Test: Filter Inclusion (WithTag) and Exclusion (Without)
 	t.Run("Inclusion and Exclusion Logic", func(t *testing.T) {
 		// Goal: Find entities that have 'position', but are NOT 'velocity' (not moving)
 		// Expected: eA and eC
-		query := goke.CreateView(ecs,
-			goke.Include[position](),
+		query := ecs.CreateMatcher(goke.Include[position](),
 			goke.Exclude[velocity](),
 		)
 
@@ -64,8 +63,7 @@ func TestView_IncludeExclude(t *testing.T) {
 	t.Run("Tag as Requirement", func(t *testing.T) {
 		// Goal: Find entities with 'position' AND 'complexComponent'
 		// Expected: eC only
-		query := goke.CreateView(ecs,
-			goke.Include[position](),
+		query := ecs.CreateMatcher(goke.Include[position](),
 			goke.Include[complexComponent](),
 		)
 
@@ -80,14 +78,14 @@ func TestView_IncludeExclude(t *testing.T) {
 		assert.Equal(t, 1, count)
 	})
 
-	// 4. Test: Filter method on a manual slice
+	// 4. Test: Pick method on a manual slice
 	t.Run("Manual Slice Filtering", func(t *testing.T) {
 		// Goal: From a list of entities, filter out those that are 'complexComponent'
-		query := goke.CreateView(ecs, goke.Exclude[complexComponent]())
+		query := ecs.CreateMatcher(goke.Exclude[complexComponent]())
 
 		input := []uid.UID64{eA, eB, eC}
 		var result []uid.UID64
-		query.Filter(input)
+		query.Pick(input)
 		for query.Next() {
 			result = append(result, query.Entity)
 		}

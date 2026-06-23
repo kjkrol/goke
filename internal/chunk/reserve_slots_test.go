@@ -20,7 +20,7 @@ func TestReserveSlots_FitsInCurrent(t *testing.T) {
 	g := newTestPack(t)
 	cap := int(g.Layout.ChunkCap)
 
-	g.commitSlots(0, 1) // occupy one slot
+	g.Extend(0, 1) // occupy one slot
 
 	startIdx, available := g.ReserveSlots(1)
 
@@ -30,8 +30,8 @@ func TestReserveSlots_FitsInCurrent(t *testing.T) {
 	if available != cap-1 {
 		t.Errorf("expected available %d, got %d", cap-1, available)
 	}
-	if g.NumChunks() != 1 {
-		t.Errorf("expected 1 chunk, got %d", g.NumChunks())
+	if len(g.chunks) != 1 {
+		t.Errorf("expected 1 chunk, got %d", len(g.chunks))
 	}
 	if g.Reserved != 0 {
 		t.Errorf("expected Reserved 0, got %d", g.Reserved)
@@ -43,8 +43,8 @@ func TestReserveSlots_SpillsOverCurrent(t *testing.T) {
 	g := newTestPack(t)
 	cap := int(g.Layout.ChunkCap)
 
-	g.commitSlots(0, 1) // occupy one slot, available = cap-1
-	count := cap + 1    // needs current partial + at least one full new chunk
+	g.Extend(0, 1)   // occupy one slot, available = cap-1
+	count := cap + 1 // needs current partial + at least one full new chunk
 
 	startIdx, available := g.ReserveSlots(count)
 
@@ -54,11 +54,11 @@ func TestReserveSlots_SpillsOverCurrent(t *testing.T) {
 	if available != cap-1 {
 		t.Errorf("expected available %d, got %d", cap-1, available)
 	}
-	if g.NumChunks() < 2 {
-		t.Errorf("expected at least 2 chunks, got %d", g.NumChunks())
+	if len(g.chunks) < 2 {
+		t.Errorf("expected at least 2 chunks, got %d", len(g.chunks))
 	}
-	if int(g.Reserved) != g.NumChunks()-1 {
-		t.Errorf("expected Reserved %d, got %d", g.NumChunks()-1, g.Reserved)
+	if int(g.Reserved) != len(g.chunks)-1 {
+		t.Errorf("expected Reserved %d, got %d", len(g.chunks)-1, g.Reserved)
 	}
 }
 
@@ -67,7 +67,7 @@ func TestReserveSlots_LastChunkFull(t *testing.T) {
 	g := newTestPack(t)
 	cap := int(g.Layout.ChunkCap)
 
-	g.commitSlots(0, cap) // fill chunk 0 completely
+	g.Extend(0, cap) // fill chunk 0 completely
 
 	startIdx, available := g.ReserveSlots(1)
 
@@ -77,8 +77,8 @@ func TestReserveSlots_LastChunkFull(t *testing.T) {
 	if available != cap {
 		t.Errorf("expected available %d, got %d", cap, available)
 	}
-	if g.NumChunks() < 2 {
-		t.Errorf("expected at least 2 chunks, got %d", g.NumChunks())
+	if len(g.chunks) < 2 {
+		t.Errorf("expected at least 2 chunks, got %d", len(g.chunks))
 	}
 }
 
@@ -89,7 +89,7 @@ func TestReserveSlots_ReservedTracksLastChunk(t *testing.T) {
 
 	g.ReserveSlots(cap * 3)
 
-	if int(g.Reserved) != g.NumChunks()-1 {
-		t.Errorf("Reserved %d != last chunk index %d", g.Reserved, g.NumChunks()-1)
+	if int(g.Reserved) != len(g.chunks)-1 {
+		t.Errorf("Reserved %d != last chunk index %d", g.Reserved, len(g.chunks)-1)
 	}
 }

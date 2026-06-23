@@ -43,13 +43,14 @@
 //     world (like adding components or removing entities) are buffered via
 //     the CmdBuf and applied during explicit synchronization points (Sync).
 //
-//  6. Type-Safe Views & Cache-Optimized Queries:
-//     Data retrieval is handled through [View] obtained via [CreateView].
+//  6. Type-Safe Matchers & Cache-Optimized Queries:
+//     Data retrieval is handled through [Matcher] obtained via [ECS.CreateMatcher].
 //     Component columns are declared with [Col][T] and accessed via
 //     [Col.Slice] (bulk) or [Col.At] (per-entity). Bulk iteration via
-//     View.All yields SoA chunks (Go slices over native memory), while
-//     subset queries via View.Filter yield per-entity component pointers
-//     resolved via the entity-to-storage index. All access is zero-allocation and reflection-free.
+//     Matcher.All yields SoA chunks (Go slices over native memory), while
+//     subset queries via Matcher.Pick or single-entity access via Matcher.Seek
+//     yield per-entity component pointers resolved via the entity-to-storage
+//     index. All access is zero-allocation and reflection-free.
 //
 // # Hardware Constraints & Limits
 //
@@ -67,7 +68,7 @@
 //   - Entity Indexing: Entities are 64-bit identifiers, allowing for a virtually
 //     unlimited number of entities, constrained only by the available system RAM.
 //
-//   - View Complexity: A single [View] can track any number of component columns
+//   - Matcher Complexity: A single [Matcher] can track any number of component columns
 //     declared via [Col][T]. Additional types can be used as filter-only
 //     constraints via Include/Exclude opts without occupying tracked columns.
 //
@@ -77,23 +78,23 @@
 // may only import packages from layers below it:
 //
 //	Layer 0   iter     — column-access primitives: Cursor, Col[T]
-//	Layer 1   comp     — shared primitives: ID, Def, Mask, Blueprint, DefIndex  (→ iter)
-//	Layer 2   mem      — cache-aligned chunked memory layout     (→ comp)
+//	Layer 1   comp     — shared primitives: ID, Def, Mask, AccessSpec, DefIndex  (→ iter)
+//	Layer 2   chunk    — cache-aligned chunked memory layout     (→ comp)
 //	Layer 2   orch     — scheduler, plans, command buffers       (→ comp)
-//	Layer 3   colstore — column-oriented storage                 (→ comp, mem)
-//	Layer 4   arch     — archetype ID, Mask, graph               (→ comp, mem, colstore)
-//	Layer 5   addr     — entity address book: Entry, Index, Book (→ arch, mem)
-//	Layer 6   ent      — entity lifecycle, Manager, Factory      (→ addr, arch, colstore, comp, mem, iter)
-//	Layer 7   query    — query layer, view baking                (→ addr, arch, colstore, comp, iter)
+//	Layer 3   colstore — column-oriented storage                 (→ comp, chunk, iter)
+//	Layer 4   arch     — archetype ID, Mask, graph               (→ comp, colstore)
+//	Layer 5   addr     — entity address book: Entry, Index, Book (→ arch, colstore)
+//	Layer 6   ent      — entity lifecycle, Manager, Factory, Editor (→ addr, arch, colstore, comp, iter)
+//	Layer 7   query    — query layer, matcher baking              (→ addr, arch, colstore, comp, iter)
 //	Layer 8   reg      — top-level Registry                      (→ ent, arch, comp, query)
 //
 // Expressed as a directed graph (arrow = "is imported by"):
 //
-//	iter ──► comp ──► mem ──► colstore ──► arch ──► addr ──► ent ──► reg
-//	           └──► orch                              │               ▲
-//	                                                  └──► query ─────┘
+//	iter ──► comp ──► chunk ──► colstore ──► arch ──► addr ──► ent ──► reg
+//	           └──► orch                                │                ▲
+//	                                                    └──► query ──────┘
 //
-// [github.com/kjkrol/uid] is an external module used across layers (mem, orch, colstore,
+// [github.com/kjkrol/uid] is an external module used across layers (chunk, orch, colstore,
 // arch, addr, ent, query, reg) for 64-bit generational entity identifiers.
 //
 // orch and reg are fully independent of each other. The top-level goke
