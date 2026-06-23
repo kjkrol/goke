@@ -176,11 +176,6 @@ func main() {
 	// Initialize the ECS world.
 	ecs := goke.New()
 
-	// Register component types — each Go type is assigned a stable CompID.
-	_ = goke.RegComp[Pos](ecs)
-	_ = goke.RegComp[Vel](ecs)
-	_ = goke.RegComp[Acc](ecs)
-
 	// Col[T] handles typed access to a component column.
 	// The same Col[T] can be reused across factory and matcher.
 	var pos goke.Col[Pos]
@@ -194,21 +189,21 @@ func main() {
 	factory.Create(1)
 	factory.Next()
 	entityID = factory.IDs[0]
-	fc := &factory.Cursor
-	pos.Slice(fc)[0] = Pos{X: 0, Y: 0}
-	vel.Slice(fc)[0] = Vel{X: 1, Y: 1}
-	acc.Slice(fc)[0] = Acc{X: 0.1, Y: 0.1}
+	cursor := &factory.Cursor
+	pos.Slice(cursor)[0] = Pos{X: 0, Y: 0}
+	vel.Slice(cursor)[0] = Vel{X: 1, Y: 1}
+	acc.Slice(cursor)[0] = Acc{X: 0.1, Y: 0.1}
 
 	// Create a matcher — declares which components to iterate.
-	query := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&vel), goke.Track(&acc))
+	matcher := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&vel), goke.Track(&acc))
 
 	// Register a system using the functional pattern.
-	cursor := &query.Cursor
+	cursor = &matcher.Cursor
 	movementSystem := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
 		// SoA layout: Matcher.All advances chunk by chunk — the inner loop
 		// iterates over contiguous memory for cache-friendly access.
-		query.All()
-		for query.Next() {
+		matcher.All()
+		for matcher.Next() {
 			posSlice := pos.Slice(cursor)
 			velSlice := vel.Slice(cursor)
 			accSlice := acc.Slice(cursor)
@@ -231,9 +226,9 @@ func main() {
 	ecs.Tick(time.Second / 120)
 
 	// Read a single entity's component via Seek (cursor-based, typed).
-	matcher := ecs.CreateMatcher(goke.Track(&pos))
-	if matcher.Seek(entityID) {
-		p := pos.At(&matcher.Cursor)
+	matcher2 := ecs.CreateMatcher(goke.Track(&pos))
+	if matcher2.Seek(entityID) {
+		p := pos.At(&matcher2.Cursor)
 		fmt.Printf("Final Position: {X: %.2f, Y: %.2f}\n", p.X, p.Y)
 	}
 }
