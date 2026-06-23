@@ -1,186 +1,102 @@
 package goke
 
 import (
-	"fmt"
 	"reflect"
 	"time"
 
-	"github.com/kjkrol/goke/internal/core"
 	"github.com/kjkrol/uid"
+
+	"github.com/kjkrol/goke/internal/orch"
+	"github.com/kjkrol/goke/internal/reg"
 )
 
-type (
-	// Entity represents a 64-bit unique identifier for an object in the ECS world.
-	Entity = uid.UID64
-	// ComponentID is a unique integer identifier for a specific component type.
-	ComponentID = core.ComponentID
-	// ComponentDesc is a component descriptor; it contains metadata about a component type, such as its ID and memory size.
-	ComponentDesc = core.ComponentInfo
+var _ orch.Mutator = (*reg.Registry)(nil)
 
-	ECSConfig = core.RegistryConfig
-	// ExecutionContext provides methods to run systems (parallel or sync) within a plan.
-	ExecutionContext = core.ExecutionContext
-	// ExecutionPlan defines the order and concurrency of system updates.
-	ExecutionPlan = core.ExecutionPlan
-)
-
-// ECS is the main entry point for the ECS. It acts as the coordinator
-// that ties together data (entities and components) and logic (systems).
-//
-// Use the ECS to manage the lifecycle of entities, register component
-// types, and define the execution flow of your application.
+// ECS is the central coordinator of the entity-component-system world.
+// It manages entity lifecycles, component storage, and system execution.
 type ECS struct {
-	registry  *core.Registry
-	scheduler core.Scheduler
+	registry  reg.Registry
+	scheduler orch.Scheduler
 }
 
-// New creates and initializes a new ECS instance.
-// It accepts optional ECSOption functions to override the default ECSConfig,
-// allowing for fine-tuned memory pre-allocation and performance optimization
-// (e.g., adjusting archetype chunk sizes to minimize GC pressure).
+// New creates a new ECS instance. Use ECSOption functions to tune memory
+// pre-allocation for your expected entity count and component variety.
 func New(opts ...ECSOption) *ECS {
-	config := ECSConfig{
-		InitialEntityCap: 1024,
-		FreeIndicesCap:   1024,
-	}
+	config := reg.DefaultConfig()
 
 	for _, opt := range opts {
 		opt(&config)
 	}
 
-	ecs := ECS{
-		registry: core.NewRegistry(config),
-	}
-	ecs.scheduler = core.NewScheduler(ecs.registry)
-	return &ecs
+	ecs := &ECS{}
+	ecs.registry.Init(config)
+	ecs.scheduler = orch.NewScheduler(&ecs.registry)
+	return ecs
 }
 
-// ---- [E]CS Entity ----
-
-// RemoveEntity destroys an entity and recycles its ID. All associated
-// components are removed and memory is reclaimed. Returns true if the entity existed.
-func RemoveEntity(ecs *ECS, entity Entity) bool {
-	return ecs.registry.RemoveEntity(entity)
+// RegComp registers the component type T with the ECS and returns its ID.
+// Call once at startup; subsequent calls for the same type return the cached ID.
+func RegComp[T any](ecs *ECS) CompID {
+	compType := reflect.TypeFor[T]()
+	return ecs.registry.RegComp(compType)
 }
 
-// EnsureComponent returns a direct pointer to the entity's component data,
-// providing the most efficient way to perform in-place upserts.
-//
-// Note: This function panics if the operation fails (e.g., if the entity is invalid).
-// Use SafeEnsureComponent if you need to handle these errors gracefully.
-func EnsureComponent[T any](ecs *ECS, entity Entity, compDesc ComponentDesc) *T {
-	ptr, err := SafeEnsureComponent[T](ecs, entity, compDesc)
-	if err != nil {
-		panic(fmt.Sprintf("goke: failed to ensure component: %v", err))
-	}
-	return ptr
+// CreateFactory resolves or creates the archetype from Add opts and returns
+// a reusable Factory ready for repeated Create/Next cycles.
+// Only Add is meaningful; Del panics (a new entity has nothing to remove).
+func (ecs *ECS) CreateFactory(opts ...EditOpt) *Factory {
+	return ecs.registry.CreateFactory(opts...)
 }
 
-// SafeEnsureComponent attempts to return a direct pointer to the entity's component data.
-// It functions as a zero-copy upsert: if the component exists, it returns a pointer
-// to the existing data; otherwise, it allocates new memory.
-// Returns an error if the entity does not exist or the allocation fails.
-func SafeEnsureComponent[T any](ecs *ECS, entity Entity, compDesc ComponentDesc) (*T, error) {
-	requestedType := reflect.TypeFor[T]()
-	if requestedType != compDesc.Type {
-		return nil, fmt.Errorf("type mismatch: component ID %d is registered as %v, but requested as %v",
-			compDesc.ID, compDesc.Type, requestedType)
-	}
-	ptr, err := ecs.registry.AllocateByID(entity, compDesc)
-	if err != nil {
-		return nil, err
-	}
-	return (*T)(ptr), nil
+// CreateMatcher creates a Matcher filtered by opts. Use Track[T]() to declare
+// component data columns (accessible via Slice/At); Include[T]() for filter-only
+// requirements; Exclude[T]() for exclusions. Call All() or Pick() on the result
+// for iteration, or Seek() directly for single-entity access.
+func (ecs *ECS) CreateMatcher(opts ...Opt) *Matcher {
+	return ecs.registry.AddMatcher(opts...)
 }
 
-// SafeGetComponent retrieves a typed pointer to an entity's component with strict runtime type checking.
-//
-// It verifies that:
-//  1. The entity exists and possesses the component defined by compDesc.ID.
-//  2. The requested generic type T matches the type registered in compDesc.Type (using reflection).
-//
-// If the types do not match or the component is missing, an error is returned.
-//
-// Use Use Case:
-// Recommended for debugging, development, or logic outside the main loop where performance is less critical
-// than type safety.
-func SafeGetComponent[T any](ecs *ECS, entity Entity, compDesc ComponentDesc) (*T, error) {
-	data, err := ecs.registry.ComponentGet(entity, compDesc.ID)
-	requestedType := reflect.TypeFor[T]()
-	if requestedType != compDesc.Type {
-		return nil, fmt.Errorf("type mismatch: component ID %d is registered as %v, but requested as %v",
-			compDesc.ID, compDesc.Type, requestedType)
-	}
-	if err != nil {
-		return nil, err
-	}
-	return (*T)(data), nil
+// CreateEditor creates an Editor that applies structural changes to an entity.
+// Use Add[T](&col) to add a component (and write its value via col.At after
+// Update) and Del[T]() to remove one. Update migrates the entity in a single move.
+func (ecs *ECS) CreateEditor(opts ...EditOpt) *Editor {
+	return ecs.registry.CreateEditor(opts...)
 }
 
-// GetComponent retrieves a typed pointer to an entity's component, optimized for performance.
-//
-// It returns nil if the component does not exist for the given entity.
-//
-// Performance:
-// This method bypasses reflection-based type checking, making it significantly faster
-// than SafeGetComponent. It is designed for use in "hot paths" (e.g., system update loops).
-//
-// Warning:
-// This method performs an unsafe pointer cast to *T. The caller is strictly responsible
-// for ensuring that T matches the actual component type associated with compDesc.
-func GetComponent[T any](ecs *ECS, entity Entity, compDesc ComponentDesc) *T {
-	data, err := ecs.registry.ComponentGet(entity, compDesc.ID)
-	if err != nil {
-		return nil
-	}
-	return (*T)(data)
+// RemoveEnt destroys an entity and recycles its ID.
+// All associated components are removed. Returns true if the entity existed.
+func (ecs *ECS) RemoveEnt(id uid.UID64) bool {
+	return ecs.registry.Remove(id)
 }
 
-// RemoveComponent removes a component from an entity using its ComponentInfo.
-func RemoveComponent(ecs *ECS, entity Entity, compDesc ComponentDesc) error {
-	return ecs.registry.UnassignByID(entity, compDesc)
-}
-
-// ---- E[C]S Component ----
-
-// RegisterComponent ensures a component of type T is registered in the ECS
-// and returns its metadata.
-func RegisterComponent[T any](ecs *ECS) ComponentDesc {
-	componentType := reflect.TypeFor[T]()
-	return ecs.registry.RegisterComponentType(componentType)
-}
-
-// ---- EC[S] System ----
-
-// RegisterSystem adds a stateful system to the ECS. The system's Init method
-// will be called immediately.
-func RegisterSystem(ecs *ECS, system System) {
+// RegSys registers a stateful system. The system's Init method is called immediately.
+func (ecs *ECS) RegSys(system System) {
 	system.Init(ecs)
-	ecs.scheduler.RegisterSystem(system)
+	ecs.scheduler.Register(system)
 }
 
-// RegisterSystemFunc adds a stateless, function-based system to the ECS.
-func RegisterSystemFunc(ecs *ECS, fn SystemFunc) System {
+// RegSysFn registers a stateless function as a system and returns the created System.
+func (ecs *ECS) RegSysFn(fn SystemFn) System {
 	wrapper := &functionalSystem{updateFn: fn}
 	wrapper.Init(ecs)
-	ecs.scheduler.RegisterSystem(wrapper)
+	ecs.scheduler.Register(wrapper)
 	return wrapper
 }
 
-// ---- ECS ----
-
-// Plan defines the logic for each ECS tick (how systems are orchestrated).
-func Plan(ecs *ECS, plan ExecutionPlan) {
-	ecs.scheduler.SetExecutionPlan(plan)
+// SetPlan sets the execution plan that controls how systems run each tick.
+// Call before the first Tick; replaces any previously set plan.
+func (ecs *ECS) SetPlan(plan Plan) {
+	ecs.scheduler.SetPlan(plan)
 }
 
-// Tick updates the ecs state by executing a single simulation step
-// with the given delta time.
-func Tick(ecs *ECS, duration time.Duration) {
+// Tick advances the simulation by one step with the given delta time.
+func (ecs *ECS) Tick(duration time.Duration) {
 	ecs.scheduler.Tick(duration)
 }
 
-func Reset(ecs *ECS) {
+// Reset clears all entities, components, and system state, returning the ECS
+// to its initial (post-New) condition. Registered component types are preserved.
+func (ecs *ECS) Reset() {
 	ecs.scheduler.Reset()
 	ecs.registry.Reset()
 }

@@ -37,7 +37,7 @@
     &nbsp;&bull;&nbsp;
     <a href="#performance">Performance</a>
     &nbsp;&bull;&nbsp; 
-    <a href="#usage">Usage</a>
+    <a href="#example">Example</a>
     &nbsp;&bull;&nbsp; 
     <a href="#architecture">Architecture</a>
     &nbsp;&bull;&nbsp; 
@@ -54,16 +54,17 @@ real-time analytics, and other performance-critical workloads.
 
 The project is built around a few core principles:
 
-- Predictable performance over clever abstractions
+- Abstractions that reflect ideas, not implementation details
+- Predictable performance with no hidden costs
 - Cache-friendly data layouts
 - Zero-allocation hot paths
+- Inlining-friendly hot paths
 - Type-safe APIs without reflection
 - Native Go development without CGO dependencies
-- Explicit execution over automatic scheduling
 
 While native C and Rust ECS frameworks may achieve higher peak throughput,
 GOKe is designed to maximize performance within the Go ecosystem. For many
-projects, avoiding CGO boundaries, external dependencies, and cross-language
+projects, **avoiding CGO boundaries**, external dependencies, and cross-language
 integration costs can outweigh the gains of a faster foreign implementation.
 
 <a id="installation"></a>
@@ -79,16 +80,20 @@ go get github.com/kjkrol/goke
 
 # ✨ Key Features
 
-## ✨ Key Features
+| Capability | How |
+|:---|:---|
+| **Zero-allocation hot paths** | Chunk-based SoA layout with direct pointer arithmetic — no GC pressure during iteration or component access |
+| **Predictable iteration speed** | Linear SoA memory access — cache-friendly, branch-free inner loops; sub-nanosecond per entity at scale |
+| **Predictable iteration cost** | Per-entity overhead stays constant regardless of how much logic runs in the loop body |
+| **O(1) component lookup** | Entity-to-storage is a direct array index, not a hash map — constant time at any world size |
+| **Safe entity recycling** | 64-bit generational IDs detect stale references after deletion, preventing ABA bugs |
+| **Cache-friendly storage** | Contiguous SoA chunks; growth appends new chunks, removal uses swap-and-pop — no fragmentation |
+| **Batch entity creation** | `Factory` writes components directly into chunk-shaped batches — no per-entity allocation |
+| **Type-safe component API** | Fully generic — no reflection, no interface boxing, no runtime type assertions |
+| **Built-in scheduler** | Declarative `Plan` wires systems into an execution graph — a full ECS runtime, not just a component store |
+| **Command Buffer** | Structural changes during iteration are queued and flushed at explicit `Sync()` points — enables safe `RunParallel` |
 
-* **Strictly Zero-Allocation API** All runtime hot paths—including iteration, component access, and view filtering—execute without heap allocations. Memory is allocated only during structural changes (entity creation, component addition, or storage growth), eliminating garbage collector pressure during normal update loops.
-* **Cache-Friendly Paged Iteration** Entity traversal operates directly on contiguous memory pages. This layout maximizes CPU cache locality and enables highly efficient iteration throughput.
-* **Memory-Conscious Storage (Chunked SoA)** Data is stored in chunked Structure-of-Arrays (SoA) pages. Capacity growth allocates new pages instead of triggering large slice reallocations. Deleted entities are removed using a swap-and-pop operation, keeping storage densely packed and avoiding fragmentation.
-* **Generational O(1) Lookups** Direct entity-to-storage mapping provides constant-time component access. Backed by 64-bit identifiers (`uid.UID64`), it enables safe entity recycling while preventing ABA issues and stale entity references.
-* **Blueprint-Based Mass Spawning** High-throughput template instantiation optimized for creating large batches of entities. Blueprints leverage contiguous memory copying and integrate naturally with high-performance object pooling workflows.
-* **Safe Parallel Execution & Scheduling** An explicit scheduling model provides deterministic execution order with built-in parallel execution (`RunParallel`). Structural changes requested during parallel execution are captured by Command Buffers and applied at explicit `Sync()` points, eliminating data races without hidden locking overhead. Runtime entity creation inside systems is intentionally unsupported; use blueprints or object pools instead.
-* **Type-Safe API** Fully generic component access without reflection, runtime type assertions, or interface-based component storage.
-> 💡 **See the Performance & Scalability section below for benchmark results across worlds ranging from 2¹⁰ to 2²⁰ entities.**
+> 💡 **See the Performance & Scalability section below for benchmark results validated from 2¹⁰ to 2²⁰ entities.**
 
 <a id="performance"></a>
 # ⏱️ Performance & Scalability
@@ -100,20 +105,20 @@ Benchmarks against other Go ECS libraries (Arche, Donburi, Ento, etc.) are maint
 ⚠️ Before drawing conclusions, verify which GOKe version (tag) is used in the comparison, as published results may lag behind the latest release.
 
 ## Scalability Validation
-Benchmark results were validated across worlds ranging from **2¹⁰ (1,024)** to **2²⁰ (1,048,576)** entities. Per-entity costs remained nearly constant throughout this range, demonstrating the scale-independent behavior of GOKe's core operations.
+`Editor`/`Factory.Create`/`Matcher.All` were validated across worlds ranging from **2¹⁰ (1,024)** to **2²⁰ (1,048,576)** entities on an **Apple M1 Max**. Structural per-entity cost stays nearly constant across that range; `Matcher.All`'s per-entity cost roughly doubles at 2²⁰ once the working set outgrows cache (a known trade-off of the chunked SoA layout). `Pick`/`Seek`/`Remove` are currently only benchmarked at a fixed population.
 
 | Category | Operation | Observed Cost (2¹⁰–2²⁰ Entities) | Allocs | Technical Mechanism |
 | :--- | :--- | :--- | :--- | :--- |
-| **Throughput** | **Iteration (View.All)** | **0.35 - 2.39 ns/ent** | **0** | Linear SoA (0-10 components) |
-| **Subset Query** | **Filter (per-entity)** | **3.09 - 10.85 ns/ent** | **0** | Per-entity record lookup + pointer math |
-| **Structural** | **Batch Create** | **8 - 21 ns/ent** | 4-5 | Blueprint-based pages |
-| **Structural** | **Migrate Component** | **35 ns/op** | **0** | Archetype Move (Insert) |
-| **Structural** | **Add Tag** | **33 ns/op** | **0** | Archetype Move (Metadata) |
-| **Structural** | **Remove Component** | **8 ns/op** | **0** | Swap-and-pop |
-| **Structural** | **Remove Entity** | **3 ns/op** | **0** | Index Recycling |
-| **Access** | **Get Component** | **4.5 ns/op** | **0** | Inlined Record Lookup |
+| **Throughput** | **Iteration (Matcher.All)** | **0.32 - 3.41 ns/ent** | **0** | Linear SoA (0-10 components) |
+| **Subset Query** | **Pick (per-entity, 1,024 only)** | **3.6 - 11.2 ns/ent** | **0** | Per-entity record lookup + pointer math |
+| **Direct Access** | **Seek (single entity, 1,024 only)** | **2.9 - 10.7 ns/ent** | **0** | Index lookup, independent of include/exclude mask |
+| **Structural** | **Batch Create** | **3.9 - 9.0 ns/ent** | 0-1 | Factory-based chunk writes |
+| **Structural** | **Add Component** | **32 - 90 ns/op** | 0 at 2¹⁰; grows with N at 2²⁰ | Archetype migration (1 → 1+N components) |
+| **Structural** | **Add Tag** | **30 - 71 ns/op** | 0 at 2¹⁰; grows with N at 2²⁰ | Archetype migration (zero-size component) |
+| **Structural** | **Remove Component** | **83 - 110 ns/op** | 0 at 2¹⁰; grows with N at 2²⁰ | Archetype migration (10 → 10-N components) |
+| **Structural** | **Remove Entity** | **3.2 ns/op** (population 100,000) | **0** | Swap-and-pop + index recycling |
 
-> **Deep Dive**: For a complete breakdown of benchmark methodology, hardware specifications, scaling tests, and performance charts, see [**BENCHMARKS.md**](./BENCHMARKS.md).
+> **Deep Dive**: For the full per-component-count breakdown, methodology, and reproduction instructions, see [**BENCHMARKS.md**](./BENCHMARKS.md).
 
 ### Reproducing Results
 
@@ -148,7 +153,7 @@ It simulates thousands of moving AABBs while maintaining a fixed 120 TPS update 
 
 > Source code: [examples/ebiten-demo](examples/ebiten-demo/main.go)
 
-<a id="usage"></a>
+<a id="example"></a>
 # Example
 > **New to ECS?** Check out the [**Getting Started with GOKe**](https://github.com/kjkrol/goke/wiki/Getting-Started-with-GOKe) guide for a step-by-step deep dive into building your first simulation.
 
@@ -160,6 +165,7 @@ import (
 	"time"
 
 	"github.com/kjkrol/goke"
+	"github.com/kjkrol/uid"
 )
 
 type Pos struct{ X, Y float32 }
@@ -168,282 +174,90 @@ type Acc struct{ X, Y float32 }
 
 func main() {
 	// Initialize the ECS world.
-	// The ECS instance acts as the central coordinator for entities and systems.
 	ecs := goke.New()
 
-	// Define component metadata.
-	// This binds Go types to internal descriptors, allowing the engine to
-	// pre-calculate memory layouts and manage data in contiguous arrays.
-	posDesc := goke.RegisterComponent[Pos](ecs)
-	_ = goke.RegisterComponent[Vel](ecs)
-	_ = goke.RegisterComponent[Acc](ecs)
+	// Register component types — each Go type is assigned a stable CompID.
+	_ = goke.RegComp[Pos](ecs)
+	_ = goke.RegComp[Vel](ecs)
+	_ = goke.RegComp[Acc](ecs)
 
-	// --- Type-Safe Entity Template (Blueprint) ---
-	// Blueprints place entities into the correct archetype immediately and
-	// reserve memory for all components in a single batch operation.
-	// Each yielded page exposes typed slices for direct, in-place initialization.
-	blueprint := goke.NewBlueprint3[Pos, Vel, Acc](ecs)
+	// Col[T] handles typed access to a component column.
+	// The same Col[T] can be reused across factory and matcher.
+	var pos goke.Col[Pos]
+	var vel goke.Col[Vel]
+	var acc goke.Col[Acc]
 
-	var entity goke.Entity
-	for page := range blueprint.Create(1) {
-		entity = page.Entity[0]
-		page.Comp1[0] = Pos{X: 0, Y: 0}
-		page.Comp2[0] = Vel{X: 1, Y: 1}
-		page.Comp3[0] = Acc{X: 0.1, Y: 0.1}
-	}
+	// Create a factory for bulk entity spawning.
+	factory := ecs.CreateFactory(goke.Add(&pos), goke.Add(&vel), goke.Add(&acc))
 
-	// Initialize view for Pos, Vel, and Acc components
-	view := goke.NewView3[Pos, Vel, Acc](ecs)
+	var entityID uid.UID64
+	factory.Create(1)
+	factory.Next()
+	entityID = factory.IDs[0]
+	fc := &factory.Cursor
+	pos.Slice(fc)[0] = Pos{X: 0, Y: 0}
+	vel.Slice(fc)[0] = Vel{X: 1, Y: 1}
+	acc.Slice(fc)[0] = Acc{X: 0.1, Y: 0.1}
 
-	// Define the movement system using the functional registration pattern
-	movementSystem := goke.RegisterSystemFunc(ecs, func(schedule *goke.Schedule, d time.Duration) {
-		// SoA (Structure of Arrays) layout ensures CPU cache friendliness.
-		// View.All yields page-shaped slices over native memory — the inner
-		// loop is on the caller side for aggressive compiler inlining.
-		for page := range view.All() {
-			for i := range page.Entity {
-				pos, vel, acc := &page.Comp1[i], &page.Comp2[i], &page.Comp3[i]
+	// Create a matcher — declares which components to iterate.
+	query := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&vel), goke.Track(&acc))
 
-				vel.X += acc.X
-				vel.Y += acc.Y
-				pos.X += vel.X
-				pos.Y += vel.Y
+	// Register a system using the functional pattern.
+	cursor := &query.Cursor
+	movementSystem := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
+		// SoA layout: Matcher.All advances chunk by chunk — the inner loop
+		// iterates over contiguous memory for cache-friendly access.
+		query.All()
+		for query.Next() {
+			posSlice := pos.Slice(cursor)
+			velSlice := vel.Slice(cursor)
+			accSlice := acc.Slice(cursor)
+			for i := range cursor.IDs {
+				velSlice[i].X += accSlice[i].X
+				velSlice[i].Y += accSlice[i].Y
+				posSlice[i].X += velSlice[i].X
+				posSlice[i].Y += velSlice[i].Y
 			}
 		}
 	})
 
-	// Configure the ECS's execution workflow and synchronization points
-	goke.Plan(ecs, func(ctx goke.ExecutionContext, d time.Duration) {
+	// Configure the execution plan and synchronization points.
+	ecs.SetPlan(func(ctx goke.RunCtx, d time.Duration) {
 		ctx.Run(movementSystem, d)
-		ctx.Sync() // Ensure all component updates are flushed and views are consistent
+		ctx.Sync()
 	})
 
-	// Execute a single simulation step (standard 120 TPS)
-	goke.Tick(ecs, time.Second/120)
+	// Execute a single simulation step (120 TPS).
+	ecs.Tick(time.Second / 120)
 
-	p := goke.GetComponent[Pos](ecs, entity, posDesc)
-	fmt.Printf("Final Position: {X: %.2f, Y: %.2f}\n", p.X, p.Y)
+	// Read a single entity's component via Seek (cursor-based, typed).
+	matcher := ecs.CreateMatcher(goke.Track(&pos))
+	if matcher.Seek(entityID) {
+		p := pos.At(&matcher.Cursor)
+		fmt.Printf("Final Position: {X: %.2f, Y: %.2f}\n", p.X, p.Y)
+	}
 }
 ```
 
-### Explore Examples
 Check the [**examples/**](./examples) directory for complete, ready-to-run projects.
 
-> ⚠️ **IMPORTANT**:
-> **Setup Required**: To keep the core ECS engine lightweight and free of GUI dependencies, examples are managed as isolated modules. Before running them, you must initialize the workspace:
-> ```bash
-> make setup
-> ```
-
-* [**Mini Demo**](./examples/mini-demo/main.go) – The minimalist starter.
-* [**Simple Demo**](./examples/simple-demo/main.go) – A slightly more advanced introduction to the ECS lifecycle.
-* [**Parallel Demo**](./examples/parallel-demo/main.go) – **Advanced showcase**:
-  * Coordination of multiple systems.
-  * Concurrent execution using `RunParallel`.
-  * Handling structural changes via **Command Buffer** and explicit **Sync points**.
-* [**Ebiten Demo**](./examples/ebiten-demo/main.go) – **Graphics Integration & Spatial Physics**:
-  * Real-time rendering using [Ebitengine](https://github.com/kjkrol/gokg).
-  * High-performance spatial management using [GOKg](https://github.com/kjkrol/gokg).
-  * Custom physics pipeline: **Velocity Inversion** is processed strictly before **Position Compensation** to ensure boundary stability.
-  * **Note**: Run `make` inside the example directory to fetch dependencies and start the demo.
-
 <a id="architecture"></a>
-# Core Architecture
-
-GOKe is an archetype-based ECS built around data-oriented design principles. The storage layer is designed for predictable performance, efficient memory usage, and cache-friendly iteration while maintaining a fully type-safe API.
-
-## Type-Safe API
-
-All component access is resolved at compile time using Go's type system. GOKe avoids reflection, dynamic type assertions, and string-based component lookups in performance-critical code paths.
-
-## Archetype-Based Storage
-
-Entities are grouped into archetypes according to their component composition.
-
-Each archetype is identified by a fixed-size **128-bit component mask**, enabling fast composition checks through bitwise operations. This allows queries to quickly determine whether an archetype matches a required component set without inspecting individual entities.
-
-The maximum number of component types is currently 128 and can be adjusted if needed.
-
-## Paged SoA Memory Layout
-
-Component data is stored using a paged **Structure of Arrays (SoA)** architecture.
-
-Each archetype owns one or more memory pages. From the system's perspective, a page exposes typed component columns:
-
-```text
-Page
-
-┌─────────────┬─────────────┬─────────────┬─────────────┐
-│ []Entity    │ []CompA     │ []CompB     │ []CompC     │
-├─────────────┼─────────────┼─────────────┼─────────────┤
-│ e0          │ a0          │ b0          │ c0          │
-│ e1          │ a1          │ b1          │ c1          │
-│ e2          │ a2          │ b2          │ c2          │
-│ ...         │ ...         │ ...         │ ...         │
-└─────────────┴─────────────┴─────────────┴─────────────┘
-```
-
-This layout allows systems to iterate over large numbers of entities with predictable memory access patterns and excellent cache locality.
-
-Internally, these columns are not separate allocations. Each page is backed by a single contiguous memory block, while typed slices are reconstructed from precomputed layout offsets:
-
-```text
-Page (single allocation)
-
-┌────────────────────────────────────────────────────────────┐
-│ data []byte                                                │
-├────────────────────────────────────────────────────────────┤
-│ Entity Column │ CompA Column │ CompB Column │ ...          │
-└────────────────────────────────────────────────────────────┘
-
-Layout Offsets
-
-Entity Column ─► offset 0
-CompA Column  ─► offset A
-CompB Column  ─► offset B
-CompC Column  ─► offset C
-```
-
-This design provides:
-
-- cache-friendly iteration
-- predictable memory growth
-- efficient memory utilization
-- minimal allocation pressure
-
-Unlike monolithic arrays, growing an archetype only requires allocating an additional page rather than resizing and copying an entire component store.
-
-## Entity Lookup
-
-Every entity is backed by a centralized record that maps directly to its storage location.
-
-```text
-EntityID
-    ↓
-Record
-    ↓
-(Archetype, Page, Slot)
-```
-
-This enables direct access to entity data without hash maps or archetype scans.
-
-As a result, operations such as component access, component insertion, component removal, and entity destruction maintain stable costs regardless of total world size.
-
-## Generational Entity IDs
-
-Entities are represented by `uid.UID64`, a compact generational identifier designed for safe index recycling and stale reference detection.
-
-Destroyed entities can safely reuse storage slots without risking accidental access through outdated references.
-
-For implementation details, see the [uid](https://github.com/kjkrol/uid) package.
-
-## Dense Storage
-
-When an entity is removed, the final slot of the page is immediately moved into the freed slot.
-
-This swap-and-pop strategy:
-
-- avoids holes in memory
-- maintains dense storage
-- preserves iteration performance
-- eliminates the need for background defragmentation
-
-As a result, archetype pages remain compact throughout their lifetime.
-
-# Scheduler
-
-GOKe includes a lightweight scheduler responsible for system execution, synchronization, and deferred structural changes.
-
-The scheduler is intentionally explicit. It does not perform dependency analysis, automatic system ordering, or conflict detection. Instead, developers define execution flow directly through an `ExecutionPlan`.
-
-## Systems
-
-A system is any type implementing the `System` interface:
-
-```go
-type System interface {
-    Update(
-        ReadOnlyRegistry,
-        *SystemCommandBuffer,
-        time.Duration,
-    )
-}
-```
-
-Each system receives:
-
-- read-only access to the registry
-- its own command buffer
-- frame delta time
-
-Systems can safely inspect the world state while deferring structural modifications through the command buffer.
-
-## Execution Plans
-
-Execution order is defined explicitly through an `ExecutionPlan`.
-
-```go
-goke.Plan(ecs, func(ctx goke.ExecutionContext, d time.Duration) {
-    ctx.RunParallel(d, rollSys, betSys)
-    ctx.Sync()
-
-    ctx.Run(judgeSys, d)
-    ctx.Sync()
-
-    ctx.Run(displayWinnerSys, d)
-})
-```
-
-Execution plans provide:
-
-- deterministic execution order
-- explicit synchronization points
-- optional parallel execution
-
-This makes update flow easy to reason about and avoids hidden scheduling behavior.
-
-## Parallel Execution
-
-Independent systems can be executed concurrently using `RunParallel()`.
-
-```go
-ctx.RunParallel(d,
-    physicsSystem,
-    aiSystem,
-    animationSystem,
-)
-```
-
-GOKe does not perform automatic dependency analysis.
-
-Developers are responsible for ensuring that parallel systems do not introduce conflicting writes or race conditions.
-
-## Command Buffers
-
-Each system owns a dedicated command buffer.
-
-Structural operations are queued during execution and applied later during `Sync()`:
-
-- Add Component
-- Remove Component
-- Remove Entity
-
-This allows systems to safely modify archetype composition while iterating over entities.
-
-## Synchronization
-
-Queued commands become visible only after a synchronization point.
-
-```text
-System A
-System B
-    ↓
-   Sync
-    ↓
-Changes become visible
-```
-
-This guarantees predictable behavior and prevents structural changes from invalidating active iterations.
+# Architecture
+
+GOKe is an archetype-based ECS built around data-oriented design principles. The internal packages each own a single, well-defined responsibility:
+
+| Package | Responsibility |
+|:---|:---|
+| [`github.com/kjkrol/uid`](https://pkg.go.dev/github.com/kjkrol/uid) | 64-bit generational entity identifiers — safe index recycling, ABA prevention |
+| [`internal/comp`](internal/comp/doc.go) | Shared component primitives used across all internal packages — type registration, metadata, and blueprint definitions |
+| [`internal/chunk`](internal/chunk/doc.go) | Cache-aligned chunked memory layout — L1-cache-sized fixed slabs, field offset calculation, slot tracking within a growing slab collection; keeps one spare slab on shrink so repeated grow/shrink cycles stay allocation-free |
+| [`internal/colstore`](internal/colstore/doc.go) | Column-oriented storage for a single archetype — manages component columns over `chunk.Pack` chunks, resolves component IDs to memory locations in O(1) |
+| [`internal/arch`](internal/arch/doc.go) | Archetype identity, archetype graph, and SoA table storage — creates archetypes on demand and caches structural transitions as graph edges |
+| [`internal/addr`](internal/addr/doc.go) | Entity address book — manages entity ID lifecycle (uid pool) and maps each ID to its current storage address (`Entry`) via a flat index in O(1); generation check guards against stale references |
+| [`internal/ent`](internal/ent/doc.go) | Entity lifecycle — delegates ID allocation and address tracking to `addr.Book`, manages component migration (add/remove moves entity to a new archetype), and batch entity creation via `Factory` |
+| [`internal/query`](internal/query/doc.go) | Query layer: `Matcher` bakes component masks into precomputed per-archetype offsets, enabling zero-allocation bulk iteration (`All`), per-entity subset iteration (`Pick`), and O(1) single-entity access (`Seek`) |
+| [`internal/orch`](internal/orch/doc.go) | Plan-based task orchestrator: sequential/parallel execution, deferred mutations via command buffers |
+| [`internal/reg`](internal/reg/doc.go) | Top-level world registry — wires together all subsystems and exposes the unified API for entity and component management |
 
 <a id="roadmap"></a>
 # 🗺️ Roadmap
@@ -466,7 +280,7 @@ GOKe is optimized for large-scale, data-oriented workloads. It may not be the be
 
 # Limitations
 
-* **Maximum component types: 128 by default.** The archetype system uses a fixed-size bitmask (`[2]uint64`) for fast component membership checks. Projects requiring more component types can increase this limit by modifying `MaskSize` and `MaxComponents` and recompiling GOKe. This is a compile-time configuration, not a runtime setting.
+* **Maximum component types: 128 by default.** The archetype system uses a fixed-size bitmask (`[2]uint64`) for fast component membership checks. Projects requiring more component types can increase this limit by modifying `MaskSize` in `internal/comp` (e.g. `MaskSize = 4` gives 256 component types) and recompiling GOKe — `MaxComponents` is derived automatically as `64 * MaskSize`. This is a compile-time configuration, not a runtime setting.
 
 # License
 GOKe is licensed under the MIT License. See the LICENSE [file](./LICENSE) for more details.
@@ -475,4 +289,4 @@ GOKe is licensed under the MIT License. See the LICENSE [file](./LICENSE) for mo
 # 📖 Documentation
 * **API Reference**: Detailed documentation and examples are available on [**pkg.go.dev**](https://pkg.go.dev/github.com/kjkrol/goke).
 * **Wiki & Guides**: For a step-by-step deep dive into building your first simulation, check the [**Getting Started with GOKe**](https://github.com/kjkrol/goke/wiki/Getting-Started-with-GOKe) guide.
-* **Internal Mechanics**: For a technical breakdown of the engine's core, check the `doc.go` files within the `ecs` packages.
+* **Internal Mechanics**: For a technical breakdown of the engine's core, check the `doc.go` files within the `internal` packages.

@@ -27,4 +27,3 @@ type Appearance struct {
 }
 
 const SpriteCount = 4
-

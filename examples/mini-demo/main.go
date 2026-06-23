@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/kjkrol/goke"
+	"github.com/kjkrol/uid"
 )
 
 type Pos struct{ X, Y float32 }
@@ -19,52 +20,56 @@ func main() {
 	// Define component metadata.
 	// This binds Go types to internal descriptors, allowing the engine to
 	// pre-calculate memory layouts and manage data in contiguous arrays.
-	posDesc := goke.RegisterComponent[Pos](ecs)
-	_ = goke.RegisterComponent[Vel](ecs)
-	_ = goke.RegisterComponent[Acc](ecs)
+	_ = goke.RegComp[Pos](ecs)
+	_ = goke.RegComp[Vel](ecs)
+	_ = goke.RegComp[Acc](ecs)
 
-	// --- Type-Safe Entity Template (Blueprint) ---
-	// Blueprints place the entity into the correct archetype immediately and
-	// reserve memory for all components in a single atomic operation.
-	// This returns typed pointers for direct, in-place initialization.
-	blueprint := goke.NewBlueprint3[Pos, Vel, Acc](ecs)
+	var pos goke.Col[Pos]
+	var vel goke.Col[Vel]
+	var acc goke.Col[Acc]
+	factory := ecs.CreateFactory(goke.Add(&pos), goke.Add(&vel), goke.Add(&acc))
 
-	// Create the entity and get direct access to its memory slots.
-	var entity goke.Entity
-	for page := range blueprint.Create(1) {
-		entity = page.Entity[0]
-		page.Comp1[0] = Pos{X: 0, Y: 0}
-		page.Comp2[0] = Vel{X: 1, Y: 1}
-		page.Comp3[0] = Acc{X: 0.1, Y: 0.1}
-	}
+	var entityID uid.UID64
+	factory.Create(1)
+	factory.Next()
+	entityID = factory.IDs[0]
+	fc := &factory.Cursor
+	pos.Slice(fc)[0] = Pos{X: 0, Y: 0}
+	vel.Slice(fc)[0] = Vel{X: 1, Y: 1}
+	acc.Slice(fc)[0] = Acc{X: 0.1, Y: 0.1}
 
-	// Initialize view for Pos, Vel, and Acc components
-	view := goke.NewView3[Pos, Vel, Acc](ecs)
+	// Initialize matcher for Pos, Vel, and Acc components
+	query := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&vel), goke.Track(&acc))
 
 	// Define the movement system using the functional registration pattern
-	movementSystem := goke.RegisterSystemFunc(ecs, func(schedule *goke.Schedule, d time.Duration) {
-		// SoA (Structure of Arrays) layout ensures CPU Cache friendliness.
-		for page := range view.All() {
-			for i, _ := range page.Entity {
-				pos, vel, acc := &page.Comp1[i], &page.Comp2[i], &page.Comp3[i]
-
-				vel.X += acc.X
-				vel.Y += acc.Y
-				pos.X += vel.X
-				pos.Y += vel.Y
+	cursor := &query.Cursor
+	movementSystem := ecs.RegSysFn(func(schedule *goke.CmdBuf, d time.Duration) {
+		query.All()
+		for query.Next() {
+			posSlice := pos.Slice(cursor)
+			velSlice := vel.Slice(cursor)
+			accSlice := acc.Slice(cursor)
+			for i := range query.Cursor.IDs {
+				velSlice[i].X += accSlice[i].X
+				velSlice[i].Y += accSlice[i].Y
+				posSlice[i].X += velSlice[i].X
+				posSlice[i].Y += velSlice[i].Y
 			}
 		}
 	})
 
 	// Configure the ECS's execution workflow and synchronization points
-	goke.Plan(ecs, func(ctx goke.ExecutionContext, d time.Duration) {
+	ecs.SetPlan(func(ctx goke.RunCtx, d time.Duration) {
 		ctx.Run(movementSystem, d)
-		ctx.Sync() // Ensure all component updates are flushed and views are consistent
+		ctx.Sync() // Ensure all component updates are flushed and matchers are consistent
 	})
 
 	// Execute a single simulation step (standard 120 TPS)
-	goke.Tick(ecs, time.Second/120)
+	ecs.Tick(time.Second / 120)
 
-	p, _ := goke.SafeGetComponent[Pos](ecs, entity, posDesc)
-	fmt.Printf("Final Position: {X: %.2f, Y: %.2f}\n", p.X, p.Y)
+	matcher := ecs.CreateMatcher(goke.Track(&pos))
+	if matcher.Seek(entityID) {
+		p := pos.At(&matcher.Cursor)
+		fmt.Printf("Final Position: {X: %.2f, Y: %.2f}\n", p.X, p.Y)
+	}
 }

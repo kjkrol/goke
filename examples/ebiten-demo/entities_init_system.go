@@ -9,11 +9,16 @@ import (
 	"github.com/kjkrol/goke"
 	"github.com/kjkrol/gokg/geom"
 	"github.com/kjkrol/gokg/plane"
+	"github.com/kjkrol/uid"
 )
 
 type EntitiesInitSystem struct {
 	*Resources
-	blueprint *goke.Blueprint4[Position, Velocity, Collision, Appearance]
+	factory *goke.Factory
+	fPos    goke.Col[Position]
+	fVel    goke.Col[Velocity]
+	fColl   goke.Col[Collision]
+	fAppear goke.Col[Appearance]
 }
 
 var _ goke.System = (*EntitiesInitSystem)(nil)
@@ -26,7 +31,7 @@ func NewEntitiesInitSystem(reources *Resources) goke.System {
 
 func (s *EntitiesInitSystem) Init(ecs *goke.ECS) {
 	spawnEntitiesNumber := s.entityCounter
-	s.blueprint = goke.NewBlueprint4[Position, Velocity, Collision, Appearance](ecs)
+	s.factory = ecs.CreateFactory(goke.Add(&s.fPos), goke.Add(&s.fVel), goke.Add(&s.fColl), goke.Add(&s.fAppear))
 
 	gridSize := math.Ceil(math.Sqrt(float64(spawnEntitiesNumber)))
 	cols := uint32(gridSize)
@@ -36,26 +41,30 @@ func (s *EntitiesInitSystem) Init(ecs *goke.ECS) {
 	cellHeight := s.space.Height / cols
 
 	index := 0
-	for page := range s.blueprint.Create(spawnEntitiesNumber) {
-		for j, entity := range page.Entity {
-			position, velocity, collision, appearance := &page.Comp1[j], &page.Comp2[j], &page.Comp3[j], &page.Comp4[j]
+	s.factory.Create(spawnEntitiesNumber)
+	for s.factory.Next() {
+		positions := s.fPos.Slice(&s.factory.Cursor)
+		velocities := s.fVel.Slice(&s.factory.Cursor)
+		collisions := s.fColl.Slice(&s.factory.Cursor)
+		appearances := s.fAppear.Slice(&s.factory.Cursor)
+		for j, entityID := range s.factory.IDs {
 			row := uint32(index) / cols
 			col := uint32(index) % cols
 
-			spawnEntity(entity, position, velocity, collision, appearance,
+			spawnEntity(entityID, &positions[j], &velocities[j], &collisions[j], &appearances[j],
 				cellWidth, cellHeight, row, col)
 
-			s.space.Insert(uint64(entity), position.AABB)
+			s.space.Insert(uint64(entityID), positions[j].AABB)
 			index++
 		}
 	}
 	s.space.Flush(nil)
 }
 
-func (s *EntitiesInitSystem) Update(goke.Lookup, *goke.Schedule, time.Duration) {}
+func (s *EntitiesInitSystem) Update(*goke.CmdBuf, time.Duration) {}
 
 func spawnEntity(
-	entity goke.Entity,
+	entityID uid.UID64,
 	position *Position,
 	velocity *Velocity,
 	collistion *Collision,

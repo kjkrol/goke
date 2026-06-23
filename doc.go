@@ -19,7 +19,7 @@
 //     internal storage to reuse memory slots for dense packing and high cache hit rates.
 //
 //  2. Components as Data Columns:
-//     Components are user-defined structs registered within the ComponentsRegistry.
+//     Components are user-defined structs registered within the Registry.
 //     The engine treats them as contiguous blocks of memory. By registering a
 //     component type, the engine gains metadata (Size and reflect.Type) used to
 //     build Archetype Columns. This registry-based approach enables zero-allocation
@@ -28,8 +28,8 @@
 //
 //  3. Systems & Execution Plans:
 //     Logic is decoupled into Systems. The engine supports both interface-based
-//     systems (System interface) and lightweight functional systems (SystemFunc).
-//     The order and concurrency of execution are defined via an ExecutionPlan.
+//     systems (System interface) and lightweight functional systems (SystemFn).
+//     The order and concurrency of execution are defined via a Plan.
 //
 //  4. Thread Safety & Parallelism:
 //     The engine allows for synchronous or parallel system execution. While the engine
@@ -41,39 +41,63 @@
 //  5. Deferred Commands:
 //     To maintain state consistency during system updates, modifications to the
 //     world (like adding components or removing entities) are buffered via
-//     the SystemCommandBuffer and applied during explicit synchronization points (Sync).
+//     the CmdBuf and applied during explicit synchronization points (Sync).
 //
-//  6. Type-Safe Views & Cache-Optimized Queries:
-//     Data retrieval is handled through generated View structures. These views
-//     provide type safety without reflection overhead during the main loop.
-//     By accessing contiguous archetype columns directly, views leverage
-//     maximal hardware prefetching. Bulk iteration via View.All yields
-//     SoA pages (Go slices over native memory), while subset queries via
-//     View.Filter yield per-entity records with index correlation.
+//  6. Type-Safe Matchers & Cache-Optimized Queries:
+//     Data retrieval is handled through [Matcher] obtained via [ECS.CreateMatcher].
+//     Component columns are declared with [Col][T] and accessed via
+//     [Col.Slice] (bulk) or [Col.At] (per-entity). Bulk iteration via
+//     Matcher.All yields SoA chunks (Go slices over native memory), while
+//     subset queries via Matcher.Pick or single-entity access via Matcher.Seek
+//     yield per-entity component pointers resolved via the entity-to-storage
+//     index. All access is zero-allocation and reflection-free.
 //
 // # Hardware Constraints & Limits
 //
 // To maintain extreme performance, the engine operates with certain fixed limits:
 //
 //   - Component Types: The engine supports up to 128 unique component types per registry.
-//     This is determined by the ArchetypeMask (2x64-bit fields), ensuring that
+//     This is determined by the Mask (2x64-bit fields), ensuring that
 //     archetype matching remains a fast, constant-time bitwise operation.
 //
 //   - Memory Pre-allocation: Archetypes and internal structures are initialized
-//     with predefined capacities (configurable via EngineOptions). This reduces
+//     with predefined capacities (configurable via ECSOption). This reduces
 //     early memory fragmentation and minimizes GC pressure during the initial
 //     entity burst.
 //
 //   - Entity Indexing: Entities are 64-bit identifiers, allowing for a virtually
 //     unlimited number of entities, constrained only by the available system RAM.
 //
-//   - View Complexity: Queries support up to 10 simultaneous component types
-//     (View1..View10). For more complex filtering, an unlimited number of
-//     additional types can be filtered using Include/Exclude constraints (Tags).
+//   - Matcher Complexity: A single [Matcher] can track any number of component columns
+//     declared via [Col][T]. Additional types can be used as filter-only
+//     constraints via Include/Exclude opts without occupying tracked columns.
 //
-// # Maintenance & Code Generation
+// # Internal Package Dependencies
 //
-// Much of the high-arity query logic is generated to ensure type safety
-// across different component counts. Files matching 'view_gen_*.go' should
-// not be edited manually, as they are overwritten during the generation cycle.
+// The internal packages form a strict acyclic dependency graph. Each layer
+// may only import packages from layers below it:
+//
+//	Layer 0   iter     — column-access primitives: Cursor, Col[T]
+//	Layer 1   comp     — shared primitives: ID, Def, Mask, AccessSpec, DefIndex  (→ iter)
+//	Layer 2   chunk    — cache-aligned chunked memory layout     (→ comp)
+//	Layer 2   orch     — scheduler, plans, command buffers       (→ comp)
+//	Layer 3   colstore — column-oriented storage                 (→ comp, chunk, iter)
+//	Layer 4   arch     — archetype ID, Mask, graph               (→ comp, colstore)
+//	Layer 5   addr     — entity address book: Entry, Index, Book (→ arch, colstore)
+//	Layer 6   ent      — entity lifecycle, Manager, Factory, Editor (→ addr, arch, colstore, comp, iter)
+//	Layer 7   query    — query layer, matcher baking              (→ addr, arch, colstore, comp, iter)
+//	Layer 8   reg      — top-level Registry                      (→ ent, arch, comp, query)
+//
+// Expressed as a directed graph (arrow = "is imported by"):
+//
+//	iter ──► comp ──► chunk ──► colstore ──► arch ──► addr ──► ent ──► reg
+//	           └──► orch                                │                ▲
+//	                                                    └──► query ──────┘
+//
+// [github.com/kjkrol/uid] is an external module used across layers (chunk, orch, colstore,
+// arch, addr, ent, query, reg) for 64-bit generational entity identifiers.
+//
+// orch and reg are fully independent of each other. The top-level goke
+// package is the only place that wires them together, passing a pointer to
+// the embedded reg.Registry to orch.NewScheduler as an orch.Mutator.
 package goke

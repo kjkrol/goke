@@ -3,67 +3,34 @@ package goke
 import (
 	"time"
 
-	"github.com/kjkrol/goke/internal/core"
+	"github.com/kjkrol/uid"
+
+	"github.com/kjkrol/goke/internal/orch"
 )
 
-type (
-	// Lookup provides a thread-safe, read-only view of the components.
-	// It is used by systems to inspect the state of entities without the risk
-	// of concurrent modification.
-	Lookup = core.ReadOnlyRegistry
-
-	// Schedule manages structural changes to the world that are deferred until
-	// a synchronization point. It allows for safe modification of entities and
-	// components during system updates without invalidating current iterators.
-	Schedule = core.SystemCommandBuffer
-
-	// System is the interface for logic units that process entity data.
-	//
-	// Update is called by the scheduler and receives a ReadOnlyRegistry to inspect
-	// data and a SystemCommandBuffer to request changes.
-	//
-	// Init is called once when the system is registered, providing access
-	// to the ECS instance for setup (e.g., pre-registering components or views).
-	System interface {
-		Update(Lookup, *Schedule, time.Duration)
-		Init(*ECS)
-	}
-)
-
-// ScheduleAddComponent queues the addition of a component to an entity.
-// The component is initialized with the provided value. If the entity
-// already has this component, the existing data will be overwritten
-// when the schedule is applied.
-func ScheduleAddComponent[T any](schedule *Schedule, e Entity, compDesc ComponentDesc, value T) {
-	core.AddComponent(schedule, e, compDesc, value)
+// System is the interface for stateful logic units that process entity data each tick.
+// Init is called once on registration; Update is called every tick.
+type System interface {
+	Update(*CmdBuf, time.Duration)
+	Init(*ECS)
 }
 
-// ScheduleRemoveComponent queues the removal of a component from an entity.
-// This operation is ignored if the entity does not have the specified component.
-func ScheduleRemoveComponent(schedule *Schedule, e Entity, compDesc ComponentDesc) {
-	core.RemoveComponent(schedule, e, compDesc)
+// SystemFn is a stateless function-based system — a shorthand alternative to implementing System.
+type SystemFn func(*CmdBuf, time.Duration)
+
+// CmdBufAddComp queues the addition of a component value to an entity.
+// If the entity already has this component, its data is overwritten on flush.
+func CmdBufAddComp[T any](cb *CmdBuf, e uid.UID64, compID CompID, value T) {
+	orch.AddComp(cb, e, compID, value)
 }
-
-// ScheduleRemoveEntity queues the destruction of an entity and all its
-// associated components. Any pending operations on this entity in the
-// same schedule will be discarded.
-func ScheduleRemoveEntity(schedule *Schedule, e Entity) {
-	core.RemoveEntity(schedule, e)
-}
-
-// SystemFunc defines a function signature for stateless logic units.
-// It allows for quick system implementation without defining a dedicated struct.
-type SystemFunc func(*Schedule, time.Duration)
-
-// ------------- helper struct -------------
 
 type functionalSystem struct {
-	updateFn SystemFunc
+	updateFn SystemFn
 }
 
 func (f *functionalSystem) Init(*ECS) {}
 
-func (f *functionalSystem) Update(reg Lookup, cb *Schedule, d time.Duration) {
+func (f *functionalSystem) Update(cb *CmdBuf, d time.Duration) {
 	f.updateFn(cb, d)
 }
 

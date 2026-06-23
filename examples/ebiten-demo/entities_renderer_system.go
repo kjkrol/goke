@@ -20,11 +20,14 @@ const (
 
 type EntitiesRendererSystem struct {
 	*Resources
-	renderView *goke.View3[Position, Collision, Appearance]
-	atlas      *ebiten.Image
-	vertices   []ebiten.Vertex
-	indices    []uint16
-	triOpts    *ebiten.DrawTrianglesOptions
+	renderMatcher *goke.Matcher
+	pos           goke.Col[Position]
+	coll          goke.Col[Collision]
+	appearance    goke.Col[Appearance]
+	atlas         *ebiten.Image
+	vertices      []ebiten.Vertex
+	indices       []uint16
+	triOpts       *ebiten.DrawTrianglesOptions
 }
 
 var _ gokebiten.RenderSystem = (*EntitiesRendererSystem)(nil)
@@ -38,10 +41,10 @@ func NewEntitiesRendererSystem(resources *Resources) gokebiten.RenderSystem {
 }
 
 func (s *EntitiesRendererSystem) Init(ecs *goke.ECS) {
-	s.renderView = goke.NewView3[Position, Collision, Appearance](ecs)
+	s.renderMatcher = ecs.CreateMatcher(goke.Track(&s.pos), goke.Track(&s.coll), goke.Track(&s.appearance))
 }
 
-func (s *EntitiesRendererSystem) Update(_ goke.Lookup, _ *goke.Schedule, _ time.Duration) {}
+func (s *EntitiesRendererSystem) Update(_ *goke.CmdBuf, _ time.Duration) {}
 
 const (
 	FRAG_SCREEN_LEFT     = plane.FRAG_RIGHT
@@ -56,9 +59,13 @@ func (s *EntitiesRendererSystem) Draw(screen *ebiten.Image) {
 	s.vertices = s.vertices[:0]
 	s.indices = s.indices[:0]
 
-	for page := range s.renderView.All() {
-		for i := range page.Entity {
-			pos, col, app := page.Comp1[i], page.Comp2[i], page.Comp3[i]
+	s.renderMatcher.All()
+	for s.renderMatcher.Next() {
+		positions := s.pos.Slice(&s.renderMatcher.Cursor)
+		collisions := s.coll.Slice(&s.renderMatcher.Cursor)
+		appearances := s.appearance.Slice(&s.renderMatcher.Cursor)
+		for i := range s.renderMatcher.Cursor.IDs {
+			pos, col, app := positions[i], collisions[i], appearances[i]
 			sx0, sy0, sx1, sy1 := spriteUV(app.SpriteID)
 			r, g, b, a := s.resolveColor(app, col, now)
 

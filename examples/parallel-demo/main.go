@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/kjkrol/goke"
+	"github.com/kjkrol/uid"
 )
 
 // --- Components ---
@@ -20,92 +21,113 @@ type Winner struct{}
 var gameFinished = false
 var turnCounter = 0
 
-var winnerDesc, diceDesc, playerDesc goke.ComponentDesc
+var winnerID, diceID, playerID goke.CompID
 
 func main() {
 	// 1. Initialize the ecs
 	ecs := goke.New()
 
 	// Register component types
-	winnerDesc = goke.RegisterComponent[Winner](ecs)
-	diceDesc = goke.RegisterComponent[Dice](ecs)
-	playerDesc = goke.RegisterComponent[Player](ecs)
+	winnerID = goke.RegComp[Winner](ecs)
+	diceID = goke.RegComp[Dice](ecs)
+	playerID = goke.RegComp[Player](ecs)
 
 	// 2. Setup Entities & Components
-	diceBlueprint := goke.NewBlueprint1[Dice](ecs)
+	var dice goke.Col[Dice]
+	diceFactory := ecs.CreateFactory(goke.Add(&dice))
 
-	var diceEnt goke.Entity
-	for page := range diceBlueprint.Create(1) {
-		diceEnt = page.Entity[0]
-		page.Comp1[0] = Dice{Value: 0}
-	}
+	var diceEnt uid.UID64
+	diceFactory.Create(1)
+	diceFactory.Next()
+	diceEnt = diceFactory.IDs[0]
+	dice.Slice(&diceFactory.Cursor)[0] = Dice{Value: 0}
 
 	// Setup player entities
-	playerBlueprint := goke.NewBlueprint1[Player](ecs)
+	var player goke.Col[Player]
+	playerFactory := ecs.CreateFactory(goke.Add(&player))
 
-	for page := range playerBlueprint.Create(2) {
-		for i, _ := range page.Entity {
-			page.Comp1[i] = Player{Bet: 0}
+	playerFactory.Create(2)
+	fc := &playerFactory.Cursor
+	for playerFactory.Next() {
+		players := player.Slice(fc)
+		for i := range playerFactory.IDs {
+			players[i] = Player{Bet: 0}
 		}
 	}
 
-	// 3. Define Views (for system filtering)
-	vDice := goke.NewView1[Dice](ecs)
-	vPlayers := goke.NewView1[Player](ecs)
-	vWinners := goke.NewView0(ecs, goke.Include[Winner]())
+	// 3. Define Matchers (for system filtering)
+	vDice := ecs.CreateMatcher(goke.Track(&dice))
+	vPlayers := ecs.CreateMatcher(goke.Track(&player))
+	vWinners := ecs.CreateMatcher(goke.Include[Winner]())
+
+	diceCursor := &vDice.Cursor
+	playerCursor := &vPlayers.Cursor
+
+	// Matcher for reading the dice entity's value each turn
+	diceMatcher := ecs.CreateMatcher(goke.Track(&dice))
 
 	// 4. Register Systems
 
 	// System A: Roll the dice
-	rollSys := goke.RegisterSystemFunc(ecs, func(cb *goke.Schedule, d time.Duration) {
-		for page := range vDice.All() {
-			for i, _ := range page.Entity {
-				page.Comp1[i].Value = rand.Intn(6) + 1
+	rollSys := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
+		vDice.All()
+		for vDice.Next() {
+			diceSlice := dice.Slice(diceCursor)
+			for i := range vDice.Cursor.IDs {
+				diceSlice[i].Value = rand.Intn(6) + 1
 			}
 		}
 	})
 
 	// System B: Players place their bets
-	betSys := goke.RegisterSystemFunc(ecs, func(cb *goke.Schedule, d time.Duration) {
-		for page := range vPlayers.All() {
-			for i, _ := range page.Entity {
-				page.Comp1[i].Bet = rand.Intn(6) + 1
+	betSys := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
+		vPlayers.All()
+		for vPlayers.Next() {
+			players := player.Slice(playerCursor)
+			for i := range vPlayers.Cursor.IDs {
+				players[i].Bet = rand.Intn(6) + 1
 			}
 		}
 	})
 
 	// System C: Judge the results
-	judgeSys := goke.RegisterSystemFunc(ecs, func(schedule *goke.Schedule, d time.Duration) {
+	judgeSys := ecs.RegSysFn(func(schedule *goke.CmdBuf, d time.Duration) {
 		if gameFinished {
 			return
 		}
 		turnCounter++
 
-		dice, _ := goke.SafeGetComponent[Dice](ecs, diceEnt, diceDesc)
-		fmt.Printf("🎲 Turn %d | Dice Result: %d\n", turnCounter, dice.Value)
+		diceMatcher.Seek(diceEnt)
+		diceComp := dice.At(&diceMatcher.Cursor)
+		fmt.Printf("🎲 Turn %d | Dice Result: %d\n", turnCounter, diceComp.Value)
 
-		for page := range vPlayers.All() {
-			for i, entity := range page.Entity {
-				bet := page.Comp1[i].Bet
-				fmt.Printf("   Player %d bet: %d\n", entity, bet)
-				if bet == dice.Value {
+		vPlayers.All()
+		for vPlayers.Next() {
+			players := player.Slice(playerCursor)
+			for i, entityID := range vPlayers.Cursor.IDs {
+				bet := players[i].Bet
+				fmt.Printf("   Player %d bet: %d\n", entityID, bet)
+				if bet == diceComp.Value {
 					gameFinished = true
 					// Defer the assignment of the Winner tag to the next Sync point
-					goke.ScheduleAddComponent(schedule, entity, winnerDesc, Winner{})
+					goke.CmdBufAddComp(schedule, entityID, winnerID, Winner{})
 				}
 			}
 		}
 	})
 
 	// System D: Display winners (Reactive System)
-	displayWinnerSys := goke.RegisterSystemFunc(ecs, func(cb *goke.Schedule, d time.Duration) {
-		for res := range vWinners.All() {
-			fmt.Printf("🏆 VICTORY! Entity %d is marked as a Winner!\n", res.Entity)
+	displayWinnerSys := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
+		vWinners.All()
+		for vWinners.Next() {
+			for _, e := range vWinners.Cursor.IDs {
+				fmt.Printf("🏆 VICTORY! Entity %d is marked as a Winner!\n", e)
+			}
 		}
 	})
 
 	// 5. Define Execution Plan
-	goke.Plan(ecs, func(ctx goke.ExecutionContext, d time.Duration) {
+	ecs.SetPlan(func(ctx goke.RunCtx, d time.Duration) {
 		// Run data updates in parallel
 		ctx.RunParallel(d, rollSys, betSys)
 		ctx.Sync()
@@ -120,7 +142,7 @@ func main() {
 	// 6. Simulation Loop
 	fmt.Println("Starting GOKe Dice Game Simulation...")
 	for !gameFinished {
-		goke.Tick(ecs, 16*time.Millisecond)
+		ecs.Tick(16 * time.Millisecond)
 		time.Sleep(200 * time.Millisecond)
 	}
 

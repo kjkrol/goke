@@ -12,12 +12,12 @@ func main() {
 	inputAdapter := &DesktopInputAdapter{}
 	game := gokebiten.NewGame(resources, inputAdapter)
 
-	game.RegisterSystem(NewEntitiesInitSystem)
+	game.RegSys(NewEntitiesInitSystem)
 
 	inputSystem := game.RegisterScheduledSystem(NewInputSystem)
 	moveSystem := game.RegisterScheduledSystem(NewMoveSystem)
 	collisionSystem := game.RegisterScheduledSystem(NewCollisionSystem)
-	game.LogicPlan(func(ctx goke.ExecutionContext, d time.Duration) {
+	game.LogicPlan(func(ctx goke.RunCtx, d time.Duration) {
 		ctx.Run(inputSystem, d)
 		if resources.gamePause {
 			return

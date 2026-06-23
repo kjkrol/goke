@@ -5,12 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] — `core-refactor` vs `main`
+
+A full internal rewrite: the monolithic package was decomposed into focused, independently-testable internal packages, the generated `View0`–`View10`/`Blueprint` API was replaced with a unified pull-iterator API, and the entity/archetype/storage layers were rebuilt around explicit ownership boundaries.
+
+### Breaking Changes ⚠️
+* **`View`/`Lookup` merged into a single `Matcher`.** `ecs.CreateView()` and `ecs.CreateLookup()` are gone; `ecs.CreateMatcher(opts...)` returns one type with three access patterns: `All()` (full chunk iteration), `Pick(selected)` (subset iteration), and `Seek(entityID)` (single-entity, mask-independent direct access — replaces `Lookup.Seek`).
+* **Generated `View0`–`View10` types and `Blueprint`/`Blueprint1`–`Blueprint10` removed.** Replaced by `Matcher` (query side) and `Factory` (creation side), both driven by `comp.AccessOpt`/`comp.EditOpt` functional options instead of generated per-arity types.
+* **`GetComponent[T]`/`SafeGetComponent[T]` removed.** Use `Matcher.Seek` + `Col[T].At` for direct single-entity access.
+* Internal package layout changed substantially (`internal/arch`, `internal/ent`, `internal/comp`, `internal/colstore`, `internal/chunk`, `internal/addr`, `internal/reg`, `internal/orch`, `internal/query`) — not part of the public API, but relevant if you vendor or patch internals.
+
+### Added ✨
+* **`Editor`** — explicit, reusable structural-edit handle (`comp.Add`/`comp.Del` options) replacing ad-hoc per-call component add/remove.
+* **`Matcher.Seek`** — direct single-entity resolution, independent of the Matcher's include/exclude mask, with per-archetype table/offset caching for repeated seeks within the same archetype.
+* Comprehensive unit test coverage added across `internal/addr`, `internal/arch`, `internal/chunk`, `internal/colstore`, `internal/comp`, `internal/ent`, `internal/orch`, `internal/query`, `internal/reg`, the root `goke` package, and `iter` — all now at 96–100% statement coverage (up from several packages at 0%).
+* New benchmark families: `Benchmark_Editor_Mix` (combined add+remove in one migration), `Benchmark_Remove`, `Benchmark_Stability_Grow`, `Benchmark_Matcher_Seek`.
+
+### Performance 🚀
+The `chunk.Pack` reuse fix above eliminates the dominant allocation source for any workload that repeatedly migrates entities between the same two archetype shapes (e.g. toggling a component or tag every tick). Measured on an i5-8265U, population 1,024, comparing before/after the fix:
+
+| Benchmark | Before (allocs/op, B/op) | After (allocs/op, B/op) |
+| :--- | :--- | :--- |
+| `Editor_Add` (2–10 comp) | 1 alloc, ~32.8 KB/op | **0 allocs**, single-digit–dozens B/op |
+| `Editor_Del` (2–10 comp) | 1 alloc, ~32.8 KB/op | **0 allocs**, single-digit–dozens B/op |
+| `Editor_Mix` (all comp counts) | 1 alloc, ~32.8 KB/op | **0 allocs**, single-digit–dozens B/op |
+
+The 1-component cases for `Add`/`Del` still allocate once (the migration crosses more than one chunk boundary in a single step, exceeding the single-slot `spare` cache), which is a known, accepted limit of a one-deep reuse cache.
+
+See [BENCHMARKS.md](./BENCHMARKS.md) for the full current per-component-count numbers (Apple M1 Max) across `Editor.Add/AddTags/Del/Mix`, `Factory.Create`, `Matcher.All/Pick/Seek`, and entity lifecycle operations — including the new `Mix` and `Seek` sections that didn't exist in earlier versions of that document.
+
 ## [1.3.0] - 2026-06-07
 
 ### Breaking Changes ⚠️
-* **`View.All()` returns SoA pages directly.** Replaced the previous `Values()` / `Head` / `Tail` pattern with a single `iter.Seq[struct{Entity []Entity, Comp1 []T1, ...}]` that yields page-shaped slices over native memory. The inner loop is now on the caller side, exposing full SoA layout for SIMD-friendly access patterns and aggressive compiler inlining.
+* **`View.All()` returns SoA pages directly.** Replaced the previous `Values()` / `Head` / `Tail` pattern with a single `iter.Seq[struct{Entity []Entity, Comp1 []T1, ...}]` that yields chunk-shaped slices over native memory. The inner loop is now on the caller side, exposing full SoA layout for SIMD-friendly access patterns and aggressive compiler inlining.
 * **`View.Filter(selected)` redesigned**: now returns `iter.Seq2[int, struct{Entity, Comp1, ...}]`. The index is the position in the input `selected` slice — callers can identify which entities were skipped (not matching the view, or already removed) and correlate results with parallel side-tables without maintaining a manual counter.
-* **`Blueprint.Create(n)` is now batch-based**: returns `iter.Seq[page]` where each yielded page exposes typed slices (`Entity[]`, `Comp1[]`, ...) for direct in-place initialization. Replaces the previous single-entity `Create()` returning a struct of pointers.
+* **`Blueprint.Create(n)` is now batch-based**: returns `iter.Seq[chunk]` where each yielded chunk exposes typed slices (`Entity[]`, `Comp1[]`, ...) for direct in-place initialization. Replaces the previous single-entity `Create()` returning a struct of pointers.
 * **`GetComponent[T]` returns `*T` directly** (without error). Use `SafeGetComponent[T]` for the error-returning variant with reflection-based type validation.
 
 ### Added ✨

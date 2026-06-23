@@ -7,7 +7,7 @@ they operate on non-overlapping sets of components.
 
 The test verifies that:
  1. The Scheduler correctly orchestrates concurrent execution using RunParallel.
- 2. Data integrity is maintained across different components of the same entity
+ 2. Data integrity is maintained across different components of the same entityID
     when accessed by multiple threads simultaneously.
  3. Post-parallel synchronization (Sync) correctly stabilizes the state for
     subsequent read operations.
@@ -28,36 +28,43 @@ type Health struct{ Current, Max float32 }
 
 // --- PhysicsSystem: Operates only on Motion data ---
 type PhysicsSystem struct {
-	query *goke.View2[Position, Velocity]
+	query *goke.Matcher
+	pos   goke.Col[Position]
+	vel   goke.Col[Velocity]
 }
 
 func (s *PhysicsSystem) Init(ecs *goke.ECS) {
-	s.query = goke.NewView2[Position, Velocity](ecs)
+	s.query = ecs.CreateMatcher(goke.Track(&s.pos), goke.Track(&s.vel))
 }
-func (s *PhysicsSystem) Update(lookup goke.Lookup, schedule *goke.Schedule, d time.Duration) {
-	for page := range s.query.All() {
-		for i, _ := range page.Entity {
-			v1, v2 := &page.Comp1[i], &page.Comp2[i]
-			v1.X += v2.VX * float32(d.Seconds())
-			v1.Y += v2.VY * float32(d.Seconds())
+func (s *PhysicsSystem) Update(schedule *goke.CmdBuf, d time.Duration) {
+	cursor := &s.query.Cursor
+	s.query.All()
+	for s.query.Next() {
+		pos := s.pos.Slice(cursor)
+		vel := s.vel.Slice(cursor)
+		for i := range s.query.Cursor.IDs {
+			pos[i].X += vel[i].VX * float32(d.Seconds())
+			pos[i].Y += vel[i].VY * float32(d.Seconds())
 		}
 	}
 }
 
 // --- HealthSystem: Operates only on Health data ---
 type HealthSystem struct {
-	query *goke.View1[Health]
+	query  *goke.Matcher
+	health goke.Col[Health]
 }
 
 func (s *HealthSystem) Init(eng *goke.ECS) {
-	s.query = goke.NewView1[Health](eng)
+	s.query = eng.CreateMatcher(goke.Track(&s.health))
 }
-func (s *HealthSystem) Update(lookup goke.Lookup, schedule *goke.Schedule, d time.Duration) {
-	for page := range s.query.All() {
-		for i, _ := range page.Entity {
-			health := &page.Comp1[i]
-			if health.Current < health.Max {
-				health.Current += 1.0
+func (s *HealthSystem) Update(schedule *goke.CmdBuf, d time.Duration) {
+	s.query.All()
+	for s.query.Next() {
+		health := s.health.Slice(&s.query.Cursor)
+		for i := range s.query.Cursor.IDs {
+			if health[i].Current < health[i].Max {
+				health[i].Current += 1.0
 			}
 		}
 	}
@@ -72,48 +79,57 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	ecs := goke.New()
 
 	// 1. Setup
-	_ = goke.RegisterComponent[Position](ecs)
-	_ = goke.RegisterComponent[Velocity](ecs)
-	_ = goke.RegisterComponent[Health](ecs)
+	_ = goke.RegComp[Position](ecs)
+	_ = goke.RegComp[Velocity](ecs)
+	_ = goke.RegComp[Health](ecs)
 
 	phys := &PhysicsSystem{}
 	heal := &HealthSystem{}
-	goke.RegisterSystem(ecs, phys)
-	goke.RegisterSystem(ecs, heal)
+	ecs.RegSys(phys)
+	ecs.RegSys(heal)
 
 	// Create entities with ALL components
-	blueprint := goke.NewBlueprint3[Position, Velocity, Health](ecs)
-	for page := range blueprint.Create(1000) {
-		for i, _ := range page.Entity {
-			page.Comp1[i] = Position{0, 0}
-			page.Comp2[i] = Velocity{10, 10}
-			page.Comp3[i] = Health{50, 100}
+	var pos goke.Col[Position]
+	var vel goke.Col[Velocity]
+	var health goke.Col[Health]
+	factory := ecs.CreateFactory(goke.Add(&pos), goke.Add(&vel), goke.Add(&health))
+	fc := &factory.Cursor
+	factory.Create(1000)
+	for factory.Next() {
+		positions := pos.Slice(fc)
+		velocities := vel.Slice(fc)
+		healths := health.Slice(fc)
+		for i := range factory.IDs {
+			positions[i] = Position{0, 0}
+			velocities[i] = Velocity{10, 10}
+			healths[i] = Health{50, 100}
 		}
 	}
 
 	// 2. Execution Plan: Run Physics and Health in parallel
-	goke.Plan(ecs, func(ctx goke.ExecutionContext, d time.Duration) {
+	ecs.SetPlan(func(ctx goke.RunCtx, d time.Duration) {
 		ctx.RunParallel(d, phys, heal)
 		ctx.Sync()
 	})
 
 	// 3. Tick ecs
-	goke.Tick(ecs, time.Second) // Simulate 1 second
+	ecs.Tick(time.Second) // Simulate 1 second
 
 	// 4. Verification
-	query := goke.NewView2[Position, Health](ecs)
+	query := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&health))
+	cursor := &query.Cursor
 	count := 0
-	for page := range query.All() {
-		for i, _ := range page.Entity {
-			v1, v2 := &page.Comp1[i], &page.Comp2[i]
+	query.All()
+	for query.Next() {
+		positions := pos.Slice(cursor)
+		healths := health.Slice(cursor)
+		for i := range query.Cursor.IDs {
 			count++
-			// Check Physics result: 0 + 10*1s = 10
-			if v1.X != 10 {
-				t.Errorf("Physics failed: expected X=10, got %f", v1.X)
+			if positions[i].X != 10 {
+				t.Errorf("Physics failed: expected X=10, got %f", positions[i].X)
 			}
-			// Check Health result: 50 + 1 = 51
-			if v2.Current != 51 {
-				t.Errorf("Health failed: expected HP=51, got %f", v2.Current)
+			if healths[i].Current != 51 {
+				t.Errorf("Health failed: expected HP=51, got %f", healths[i].Current)
 			}
 		}
 	}
