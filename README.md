@@ -88,12 +88,12 @@ go get github.com/kjkrol/goke
 | **O(1) component lookup** | Entity-to-storage is a direct array index, not a hash map — constant time at any world size |
 | **Safe entity recycling** | 64-bit generational IDs detect stale references after deletion, preventing ABA bugs |
 | **Cache-friendly storage** | Contiguous SoA chunks; growth appends new chunks, removal uses swap-and-pop — no fragmentation |
-| **Batch entity creation** | Blueprint templates copy components in bulk — no per-entity allocation |
+| **Batch entity creation** | `Factory` writes components directly into chunk-shaped batches — no per-entity allocation |
 | **Type-safe component API** | Fully generic — no reflection, no interface boxing, no runtime type assertions |
 | **Built-in scheduler** | Declarative `Plan` wires systems into an execution graph — a full ECS runtime, not just a component store |
 | **Command Buffer** | Structural changes during iteration are queued and flushed at explicit `Sync()` points — enables safe `RunParallel` |
 
-> 💡 **See the Performance & Scalability section below for benchmark results across worlds ranging from 2¹⁰ to 2²⁰ entities.**
+> 💡 **See the Performance & Scalability section below for benchmark results validated from 2¹⁰ to 2²⁰ entities.**
 
 <a id="performance"></a>
 # ⏱️ Performance & Scalability
@@ -105,20 +105,20 @@ Benchmarks against other Go ECS libraries (Arche, Donburi, Ento, etc.) are maint
 ⚠️ Before drawing conclusions, verify which GOKe version (tag) is used in the comparison, as published results may lag behind the latest release.
 
 ## Scalability Validation
-Benchmark results were validated across worlds ranging from **2¹⁰ (1,024)** to **2²⁰ (1,048,576)** entities on an **Apple M1 Max**. Per-entity costs remained nearly constant throughout this range, demonstrating the scale-independent behavior of GOKe's core operations.
+`Editor`/`Factory.Create`/`Matcher.All` were validated across worlds ranging from **2¹⁰ (1,024)** to **2²⁰ (1,048,576)** entities on an **Apple M1 Max**. Structural per-entity cost stays nearly constant across that range; `Matcher.All`'s per-entity cost roughly doubles at 2²⁰ once the working set outgrows cache (a known trade-off of the chunked SoA layout). `Pick`/`Seek`/`Remove` are currently only benchmarked at a fixed population.
 
 | Category | Operation | Observed Cost (2¹⁰–2²⁰ Entities) | Allocs | Technical Mechanism |
 | :--- | :--- | :--- | :--- | :--- |
-| **Throughput** | **Iteration (Matcher.All)** | **0.35 - 2.39 ns/ent** | **0** | Linear SoA (0-10 components) |
-| **Subset Query** | **Pick (per-entity)** | **3.09 - 10.85 ns/ent** | **0** | Per-entity record lookup + pointer math |
-| **Structural** | **Batch Create** | **8 - 21 ns/ent** | 4-5 | Blueprint-based chunks |
-| **Structural** | **Migrate Component** | **35 ns/op** | **0** | Archetype Move (Insert) |
-| **Structural** | **Add Tag** | **33 ns/op** | **0** | Archetype Move (Metadata) |
-| **Structural** | **Remove Component** | **8 ns/op** | **0** | Swap-and-pop |
-| **Structural** | **Remove Entity** | **3 ns/op** | **0** | Index Recycling |
-| **Access** | **Get Component** | **4.5 ns/op** | **0** | Inlined Record Lookup |
+| **Throughput** | **Iteration (Matcher.All)** | **0.32 - 3.41 ns/ent** | **0** | Linear SoA (0-10 components) |
+| **Subset Query** | **Pick (per-entity, 1,024 only)** | **3.6 - 11.2 ns/ent** | **0** | Per-entity record lookup + pointer math |
+| **Direct Access** | **Seek (single entity, 1,024 only)** | **2.9 - 10.7 ns/ent** | **0** | Index lookup, independent of include/exclude mask |
+| **Structural** | **Batch Create** | **3.9 - 9.0 ns/ent** | 0-1 | Factory-based chunk writes |
+| **Structural** | **Add Component** | **32 - 90 ns/op** | 0 at 2¹⁰; grows with N at 2²⁰ | Archetype migration (1 → 1+N components) |
+| **Structural** | **Add Tag** | **30 - 71 ns/op** | 0 at 2¹⁰; grows with N at 2²⁰ | Archetype migration (zero-size component) |
+| **Structural** | **Remove Component** | **83 - 110 ns/op** | 0 at 2¹⁰; grows with N at 2²⁰ | Archetype migration (10 → 10-N components) |
+| **Structural** | **Remove Entity** | **3.2 ns/op** (population 100,000) | **0** | Swap-and-pop + index recycling |
 
-> **Deep Dive**: For a complete breakdown of benchmark methodology, hardware specifications, scaling tests, and performance charts, see [**BENCHMARKS.md**](./BENCHMARKS.md).
+> **Deep Dive**: For the full per-component-count breakdown, methodology, and reproduction instructions, see [**BENCHMARKS.md**](./BENCHMARKS.md).
 
 ### Reproducing Results
 
