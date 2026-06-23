@@ -133,6 +133,53 @@ func TestIndex_Reset(t *testing.T) {
 	}
 }
 
+func TestIndex_Get_IndexBeyondEntries(t *testing.T) {
+	s := newIndex(2)
+	farID := uid.UID64(100) // index 100, generation 0 — never allocated, beyond len(entries)
+
+	if _, ok := s.Get(farID); ok {
+		t.Error("expected no entry for an index beyond the entries slice")
+	}
+}
+
+func TestIndex_Clear_IndexBeyondEntries(t *testing.T) {
+	s := newIndex(2)
+	farID := uid.UID64(100)
+
+	s.Clear(farID) // must not panic, and must not grow the slice
+}
+
+func TestIndex_EnsureCap(t *testing.T) {
+	s := newIndex(2)
+
+	s.EnsureCap(10)
+	if cap(s.entries) < 10 {
+		t.Errorf("expected cap >= 10 after EnsureCap, got %d", cap(s.entries))
+	}
+
+	before := cap(s.entries)
+	s.EnsureCap(1) // already sufficient — must be a no-op
+	if cap(s.entries) != before {
+		t.Errorf("expected EnsureCap to leave cap unchanged when already sufficient, got %d (was %d)", cap(s.entries), before)
+	}
+}
+
+func TestIndex_UpsertUnchecked(t *testing.T) {
+	s := newIndex(8)
+	pool := newPool()
+	e := pool.Next()
+
+	s.UpsertUnchecked(e, arch.ID(4), chunk.Pos{Idx: 1, Slot: 2})
+
+	entry, ok := s.Get(e)
+	if !ok {
+		t.Fatal("expected entry after UpsertUnchecked")
+	}
+	if entry.ArchId != arch.ID(4) || entry.Pos.Idx != chunk.Idx(1) || entry.Pos.Slot != chunk.Slot(2) {
+		t.Errorf("expected entry to match, got %+v", entry)
+	}
+}
+
 func TestIndex_Upsert_Overwrite(t *testing.T) {
 	s := newIndex(8)
 	pool := newPool()

@@ -15,7 +15,7 @@ setup:
 test:
 	go test ./...
 bench:
-	go test -bench=. -benchmem ./...
+	go test -bench=. -benchmem ./... -benchtime=50000x -count=1
 bench-save:
 	@mkdir -p bench_results
 	go test -bench=. -benchmem -cpu=1 -count=7 ./bench/... > $(RESULT_FILE)

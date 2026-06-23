@@ -7,14 +7,14 @@ import (
 	"github.com/kjkrol/goke/internal/comp"
 )
 
-func newMetaIndex() comp.DefIndex {
+func newDefIndex() comp.DefIndex {
 	var c comp.DefIndex
 	c.Init()
 	return c
 }
 
-func TestMetaIndex_RegistrationAndMapping(t *testing.T) {
-	c := newMetaIndex()
+func TestDefIndex_RegistrationAndMapping(t *testing.T) {
+	c := newDefIndex()
 
 	t.Run("First registration", func(t *testing.T) {
 		posType := reflect.TypeFor[position]()
@@ -42,7 +42,7 @@ func TestMetaIndex_RegistrationAndMapping(t *testing.T) {
 	})
 
 	t.Run("Multiple types", func(t *testing.T) {
-		fresh := newMetaIndex()
+		fresh := newDefIndex()
 
 		id0 := fresh.Intern(reflect.TypeFor[position]()).ID
 		id1 := fresh.Intern(reflect.TypeFor[velocity]()).ID
@@ -54,8 +54,8 @@ func TestMetaIndex_RegistrationAndMapping(t *testing.T) {
 	})
 }
 
-func TestMetaIndex_Lookup(t *testing.T) {
-	c := newMetaIndex()
+func TestDefIndex_Lookup(t *testing.T) {
+	c := newDefIndex()
 	posType := reflect.TypeFor[position]()
 	info := c.Intern(posType)
 
@@ -88,8 +88,8 @@ func TestMetaIndex_Lookup(t *testing.T) {
 	})
 }
 
-func TestMetaIndex_GenericHelper(t *testing.T) {
-	c := newMetaIndex()
+func TestDefIndex_GenericHelper(t *testing.T) {
+	c := newDefIndex()
 
 	t.Run("Register via reflect.TypeFor matches manual reflection", func(t *testing.T) {
 		genericInfo := c.Intern(reflect.TypeFor[position]())
@@ -102,8 +102,8 @@ func TestMetaIndex_GenericHelper(t *testing.T) {
 	})
 }
 
-func TestMetaIndex_MetadataConsistency(t *testing.T) {
-	c := newMetaIndex()
+func TestDefIndex_MetadataConsistency(t *testing.T) {
+	c := newDefIndex()
 
 	t.Run("Size correctness", func(t *testing.T) {
 		type complexStruct struct {
@@ -132,8 +132,8 @@ func TestMetaIndex_MetadataConsistency(t *testing.T) {
 	})
 }
 
-func TestMetaIndex_EdgeCases(t *testing.T) {
-	c := newMetaIndex()
+func TestDefIndex_EdgeCases(t *testing.T) {
+	c := newDefIndex()
 
 	t.Run("Empty structures", func(t *testing.T) {
 		type empty struct{}
@@ -155,4 +155,65 @@ func TestMetaIndex_EdgeCases(t *testing.T) {
 			t.Error("primitive type size mismatch")
 		}
 	})
+}
+
+func TestDefIndex_ByID(t *testing.T) {
+	c := newDefIndex()
+	posType := reflect.TypeFor[position]()
+	info := c.Intern(posType)
+
+	if got := c.ByID(info.ID); got.Type != posType {
+		t.Errorf("expected ByID(%d) to return the interned type, got %v", info.ID, got.Type)
+	}
+
+	if got := c.ByID(comp.ID(99)); got.Type != nil {
+		t.Errorf("expected ByID for an unregistered ID to return a zero Def, got %+v", got)
+	}
+}
+
+func TestDefIndex_Reset(t *testing.T) {
+	c := newDefIndex()
+	posType := reflect.TypeFor[position]()
+	info := c.Intern(posType)
+
+	c.Reset()
+
+	if _, ok := c.ByType(posType); ok {
+		t.Error("expected ByType to find nothing after Reset")
+	}
+	if got := c.ByID(info.ID); got.Type != nil {
+		t.Errorf("expected ByID to return a zero Def after Reset, got %+v", got)
+	}
+
+	// Registration must restart from ID 0 after Reset.
+	again := c.Intern(posType)
+	if again.ID != 0 {
+		t.Errorf("expected first registration after Reset to get ID 0, got %d", again.ID)
+	}
+}
+
+func TestDefIndex_ResetOnZeroValue(t *testing.T) {
+	var c comp.DefIndex // never Init'd — typeIndex is nil
+
+	c.Reset()
+
+	posType := reflect.TypeFor[position]()
+	info := c.Intern(posType)
+	if info.ID != 0 {
+		t.Errorf("expected first registration after Reset to get ID 0, got %d", info.ID)
+	}
+}
+
+func TestDefIndex_InternPanicsWhenFull(t *testing.T) {
+	c := newDefIndex()
+	for i := 1; i <= comp.MaxComponents; i++ {
+		c.Intern(reflect.ArrayOf(i, reflect.TypeFor[byte]()))
+	}
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected panic when exceeding MaxComponents")
+		}
+	}()
+	c.Intern(reflect.ArrayOf(comp.MaxComponents+1, reflect.TypeFor[byte]()))
 }

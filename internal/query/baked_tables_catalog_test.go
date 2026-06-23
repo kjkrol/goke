@@ -13,7 +13,7 @@ type (
 	testVel struct{ VX, VY float32 }
 )
 
-func newCatalog() comp.DefIndex {
+func newDefIndex() comp.DefIndex {
 	var c comp.DefIndex
 	c.Init()
 	return c
@@ -40,7 +40,7 @@ func TestBakedTablesCatalog_EmptyInitially(t *testing.T) {
 }
 
 func TestBakedTablesCatalog_AddAndGet(t *testing.T) {
-	compCatalog := newCatalog()
+	compCatalog := newDefIndex()
 	posMeta := compCatalog.Intern(reflect.TypeFor[testPos]())
 
 	archCatalog := setupArchCatalog()
@@ -63,7 +63,7 @@ func TestBakedTablesCatalog_AddAndGet(t *testing.T) {
 }
 
 func TestBakedTablesCatalog_GetOutOfRange(t *testing.T) {
-	compCatalog := newCatalog()
+	compCatalog := newDefIndex()
 	posMeta := compCatalog.Intern(reflect.TypeFor[testPos]())
 
 	archCatalog := setupArchCatalog()
@@ -79,7 +79,7 @@ func TestBakedTablesCatalog_GetOutOfRange(t *testing.T) {
 }
 
 func TestBakedTablesCatalog_GetNonMatchedArchID(t *testing.T) {
-	compCatalog := newCatalog()
+	compCatalog := newDefIndex()
 	posMeta := compCatalog.Intern(reflect.TypeFor[testPos]())
 	velMeta := compCatalog.Intern(reflect.TypeFor[testVel]())
 
@@ -98,7 +98,7 @@ func TestBakedTablesCatalog_GetNonMatchedArchID(t *testing.T) {
 }
 
 func TestBakedTablesCatalog_MultipleArchetypes(t *testing.T) {
-	compCatalog := newCatalog()
+	compCatalog := newDefIndex()
 	posMeta := compCatalog.Intern(reflect.TypeFor[testPos]())
 	velMeta := compCatalog.Intern(reflect.TypeFor[testVel]())
 
@@ -130,7 +130,7 @@ func TestBakedTablesCatalog_MultipleArchetypes(t *testing.T) {
 }
 
 func TestBakedTablesCatalog_Clear(t *testing.T) {
-	compCatalog := newCatalog()
+	compCatalog := newDefIndex()
 	posMeta := compCatalog.Intern(reflect.TypeFor[testPos]())
 
 	archCatalog := setupArchCatalog()
@@ -151,7 +151,7 @@ func TestBakedTablesCatalog_Clear(t *testing.T) {
 }
 
 func TestBakedTablesCatalog_GrowOnSequentialArchIDs(t *testing.T) {
-	compCatalog := newCatalog()
+	compCatalog := newDefIndex()
 	posMeta := compCatalog.Intern(reflect.TypeFor[testPos]())
 	velMeta := compCatalog.Intern(reflect.TypeFor[testVel]())
 	type Tag struct{}

@@ -3,7 +3,6 @@ package arch
 import (
 	"reflect"
 	"testing"
-	"unsafe"
 
 	"github.com/kjkrol/uid"
 
@@ -20,369 +19,278 @@ type velocity struct {
 	vx, vy float64
 }
 
-func newCatalog() comp.DefIndex {
+func newDefIndex() comp.DefIndex {
 	var c comp.DefIndex
 	c.Init()
 	return c
 }
 
 func testMetas() (pos, vel comp.Def) {
-	mi := newCatalog()
+	mi := newDefIndex()
 	pos = mi.Intern(reflect.TypeFor[position]())
 	vel = mi.Intern(reflect.TypeFor[velocity]())
 	return
 }
 
-// testEntityEntry is a test-local entity location record. It mirrors entity.Link
-// without importing the entity package, which imports arch and would create a cycle
-// in this package's test binary.
-type testEntityEntry struct {
-	ArchId ID
-	Pos    chunk.Pos
-	gen    uint32
-}
-
-// testEntityIndex is a minimal entity index for use in arch package tests.
-type testEntityIndex struct {
-	entries []testEntityEntry
-}
-
-func newTestEntityIndex(initialCap int) testEntityIndex {
-	return testEntityIndex{entries: make([]testEntityEntry, initialCap)}
-}
-
-func (t *testEntityIndex) Get(entityID uid.UID64) (testEntityEntry, bool) {
-	idx, gen := entityID.Unpack()
-	if int(idx) >= len(t.entries) {
-		return testEntityEntry{}, false
-	}
-	e := t.entries[idx]
-	if e.ArchId == NullID || e.gen != gen {
-		return testEntityEntry{}, false
-	}
-	return e, true
-}
-
-func (t *testEntityIndex) Upsert(entityID uid.UID64, archID ID, pos chunk.Pos) {
-	idx, gen := entityID.Unpack()
-	for int(idx) >= len(t.entries) {
-		t.entries = append(t.entries, testEntityEntry{})
-	}
-	t.entries[idx] = testEntityEntry{ArchId: archID, Pos: pos, gen: gen}
-}
-
-func (t *testEntityIndex) Clear(entityID uid.UID64) {
-	idx, gen := entityID.Unpack()
-	if int(idx) >= len(t.entries) {
-		return
-	}
-	if t.entries[idx].gen == gen {
-		t.entries[idx] = testEntityEntry{ArchId: NullID}
-	}
-}
-
-// testEnv wraps Catalog with a local entity tracker to mirror what reg.Registry does.
-type testEnv struct {
-	catalog     *Catalog
-	entityIndex testEntityIndex
-}
-
-func newTestEnv() *testEnv {
-	catalog := &Catalog{}
-	catalog.Init(func(*Archetype) {})
-	return &testEnv{
-		catalog:     catalog,
-		entityIndex: newTestEntityIndex(1000),
-	}
-}
-
-func (env *testEnv) addEntity(entityID uid.UID64, archID ID) {
-	table := &env.catalog.Archetypes[archID].Table
-	table.SetIDSeeder(func(dst []uid.UID64, _ chunk.Pos) { dst[0] = entityID })
-	idx, _, _ := table.ReserveSlots(1)
+// spawnEntity registers id as the next entity seeded into archetype's table
+// and returns its storage position. Tests track positions themselves —
+// Catalog has no entity index of its own (that's addr.Index's job, one
+// layer up).
+func spawnEntity(t *testing.T, archetype *Archetype, id uid.UID64) chunk.Pos {
+	t.Helper()
+	archetype.Table.SetIDSeeder(func(dst []uid.UID64, _ chunk.Pos) { dst[0] = id })
+	idx, _, _ := archetype.Table.ReserveSlots(1)
 	var cur iter.Cursor
-	_, pos := table.SpawnCursor(&cur, idx, 1, nil)
-	table.ReleaseSlots()
-	env.entityIndex.Upsert(entityID, archID, pos)
+	_, pos := archetype.Table.SpawnCursor(&cur, idx, 1, nil)
+	archetype.Table.ReleaseSlots()
+	return pos
 }
 
-func (env *testEnv) upsertComp(entityID uid.UID64, compDef comp.Def) (unsafe.Pointer, bool) {
-	link, ok := env.entityIndex.Get(entityID)
-	if !ok {
-		panic("upsertComp: entity not in EntityIndex")
-	}
-
-	targetArchID := link.ArchId
-	targetPos := link.Pos
-
-	if !env.catalog.Archetypes[link.ArchId].Mask().IsSet(compDef.ID) {
-		targetArchID = env.catalog.EnsureEdgeNext(compDef, link.ArchId)
-		newPos, swappedEntity, swapped := env.catalog.MigrateEntity(entityID, link.ArchId, link.Pos, targetArchID)
-		if swapped {
-			env.entityIndex.Upsert(swappedEntity, link.ArchId, link.Pos)
-		}
-		env.entityIndex.Upsert(entityID, targetArchID, newPos)
-		targetPos = newPos
-	}
-
-	if compDef.Size == 0 {
-		return nil, true
-	}
-
-	return env.catalog.Archetypes[targetArchID].Table.ComponentAt(targetPos, compDef.ID), true
+func newTestCatalog() *Catalog {
+	cat := &Catalog{}
+	cat.Init(func(*Archetype) {})
+	return cat
 }
 
-func (env *testEnv) removeComp(entityID uid.UID64, compDef comp.Def) {
-	link, ok := env.entityIndex.Get(entityID)
-	if !ok {
-		return
-	}
-	if !env.catalog.Archetypes[link.ArchId].Mask().IsSet(compDef.ID) {
-		return
-	}
+func TestCatalog_Init(t *testing.T) {
+	cat := newTestCatalog()
 
-	targetArchID, shouldUnlink := env.catalog.EnsureEdgePrev(compDef, link.ArchId)
-	if shouldUnlink {
-		swappedEntity, swapped := env.catalog.RemoveEntity(link.ArchId, link.Pos)
-		if swapped {
-			env.entityIndex.Upsert(swappedEntity, link.ArchId, link.Pos)
-		}
-		env.entityIndex.Clear(entityID)
-		return
+	// Len() reports the next free archetype ID, i.e. one past the root
+	// archetype that Init creates.
+	if cat.Len() != RootID+1 {
+		t.Errorf("expected Len() == RootID+1 after Init, got %d", cat.Len())
 	}
-
-	newPos, swappedEntity, swapped := env.catalog.MigrateEntity(entityID, link.ArchId, link.Pos, targetArchID)
-	if swapped {
-		env.entityIndex.Upsert(swappedEntity, link.ArchId, link.Pos)
-	}
-	env.entityIndex.Upsert(entityID, targetArchID, newPos)
-}
-
-func (env *testEnv) unlinkEntity(entityID uid.UID64) {
-	link, ok := env.entityIndex.Get(entityID)
-	if !ok {
-		return
-	}
-	swappedEntity, swapped := env.catalog.RemoveEntity(link.ArchId, link.Pos)
-	if swapped {
-		env.entityIndex.Upsert(swappedEntity, link.ArchId, link.Pos)
-	}
-	env.entityIndex.Clear(entityID)
-}
-
-func TestRegistry_FastPath(t *testing.T) {
-	env := newTestEnv()
-	e1, e2 := uid.UID64(1), uid.UID64(2)
-	posTypeInfo, _ := testMetas()
-	posData := position{10, 20}
-
-	env.addEntity(e1, RootID)
-	env.addEntity(e2, RootID)
-
-	if ptr, ok := env.upsertComp(e1, posTypeInfo); ok {
-		*(*position)(ptr) = posData
-	}
-
-	arch1, _ := env.entityIndex.Get(e1)
-	if arch1.ArchId == RootID {
-		t.Fatal("entity E1 should have moved from rootArch")
-	}
-
-	rootArch := &env.catalog.Archetypes[RootID]
-	if nextEdge := rootArch.graph.edgesNext[posTypeInfo.ID]; nextEdge == RootID {
-		t.Fatal("fast path edge was not cached in rootArch")
-	}
-
-	if ptr, ok := env.upsertComp(e2, posTypeInfo); ok {
-		*(*position)(ptr) = posData
-	}
-	arch2, _ := env.entityIndex.Get(e2)
-
-	if arch1.ArchId != arch2.ArchId {
-		t.Error("E1 and E2 should share the same archetype instance via graph edges")
+	if !cat.Archetypes[RootID].Mask().IsEmpty() {
+		t.Error("expected the root archetype to have an empty mask")
 	}
 }
 
-func TestRegistry_CycleConsistency(t *testing.T) {
-	env := newTestEnv()
-	e := uid.UID64(10)
-	posTypeInfo, _ := testMetas()
+func TestCatalog_Upsert_CachesByMask(t *testing.T) {
+	cat := newTestCatalog()
+	posDef, _ := testMetas()
+	composition := comp.Composition{}.With(posDef)
 
-	env.addEntity(e, RootID)
+	id1 := cat.Upsert(composition)
+	id2 := cat.Upsert(composition)
 
-	posData := position{x: 10, y: 20}
-	if ptr, ok := env.upsertComp(e, posTypeInfo); ok {
-		*(*position)(ptr) = posData
+	if id1 != id2 {
+		t.Errorf("expected Upsert to return the same archetype for an identical mask, got %d and %d", id1, id2)
 	}
-	linkA, _ := env.entityIndex.Get(e)
-
-	if linkA.ArchId == NullID || linkA.ArchId == RootID {
-		t.Fatal("entity failed to move to a new archetype")
-	}
-
-	linkAArch := &env.catalog.Archetypes[linkA.ArchId]
-	if linkAArch.graph.edgesPrev[posTypeInfo.ID] != RootID {
-		t.Error("bidirectional link (edgesPrev) from ArchA to Root not established")
+	if id1 == RootID {
+		t.Error("expected a new archetype distinct from root")
 	}
 }
 
-func TestRegistry_GraphBranching(t *testing.T) {
-	env := newTestEnv()
-	e1, e2 := uid.UID64(100), uid.UID64(101)
-	posTypeInfo, velTypeInfo := testMetas()
+func TestCatalog_Upsert_InvokesCallbackOnlyForNewArchetypes(t *testing.T) {
+	created := 0
+	cat := &Catalog{}
+	cat.Init(func(*Archetype) { created++ })
+	posDef, _ := testMetas()
+	composition := comp.Composition{}.With(posDef)
 
-	env.addEntity(e1, RootID)
-	env.addEntity(e2, RootID)
+	cat.Upsert(composition)
+	cat.Upsert(composition) // same mask — must not re-trigger the callback
 
-	if ptr, ok := env.upsertComp(e1, posTypeInfo); ok {
-		*(*position)(ptr) = position{x: 1, y: 1}
+	if created != 1 {
+		t.Errorf("expected onArchetypeCreated to fire exactly once, got %d", created)
 	}
-	if ptr, ok := env.upsertComp(e2, velTypeInfo); ok {
-		*(*velocity)(ptr) = velocity{vx: 10, vy: 10}
-	}
+}
 
-	rootArch := &env.catalog.Archetypes[RootID]
-	if count := rootArch.graph.CountNextEdges(); count != 2 {
+func TestCatalog_EnsureEdgeNext_CachesFastPath(t *testing.T) {
+	cat := newTestCatalog()
+	posDef, _ := testMetas()
+
+	target1 := cat.EnsureEdgeNext(posDef, RootID)
+	target2 := cat.EnsureEdgeNext(posDef, RootID)
+
+	if target1 != target2 {
+		t.Errorf("expected EnsureEdgeNext to return the cached edge, got %d then %d", target1, target2)
+	}
+	if cat.Archetypes[RootID].graph.edgesNext[posDef.ID] != target1 {
+		t.Error("expected the edge to be cached on the source archetype's graph")
+	}
+}
+
+func TestCatalog_EnsureEdgeNext_EstablishesBidirectionalLink(t *testing.T) {
+	cat := newTestCatalog()
+	posDef, _ := testMetas()
+
+	target := cat.EnsureEdgeNext(posDef, RootID)
+
+	if cat.Archetypes[target].graph.edgesPrev[posDef.ID] != RootID {
+		t.Error("expected a bidirectional edgesPrev link back to Root")
+	}
+}
+
+func TestCatalog_EnsureEdgeNext_DifferentComponentsBranch(t *testing.T) {
+	cat := newTestCatalog()
+	posDef, velDef := testMetas()
+
+	posTarget := cat.EnsureEdgeNext(posDef, RootID)
+	velTarget := cat.EnsureEdgeNext(velDef, RootID)
+
+	if posTarget == velTarget {
+		t.Error("expected different components to lead to distinct archetypes")
+	}
+	if count := cat.Archetypes[RootID].graph.CountNextEdges(); count != 2 {
 		t.Errorf("expected 2 outgoing edges from Root, got %d", count)
 	}
+}
 
-	archPos := rootArch.graph.edgesNext[posTypeInfo.ID]
-	archVel := rootArch.graph.edgesNext[velTypeInfo.ID]
+// EnsureEdgeNext has no concept of "the caller should check the mask
+// first" — callers (ent.Manager, ent.Editor) do guard against this, but
+// Catalog itself stays correct even without that guard: asking to add a
+// component the archetype already has resolves back to the same archetype.
+func TestCatalog_EnsureEdgeNext_RedundantAddIsSelfLoop(t *testing.T) {
+	cat := newTestCatalog()
+	posDef, _ := testMetas()
 
-	if archPos == archVel {
-		t.Error("different components must lead to distinct archetypes")
+	withPos := cat.EnsureEdgeNext(posDef, RootID)
+	again := cat.EnsureEdgeNext(posDef, withPos)
+
+	if again != withPos {
+		t.Errorf("expected redundant EnsureEdgeNext to self-loop to %d, got %d", withPos, again)
 	}
 }
 
-func TestRegistry_RemovalStrategy(t *testing.T) {
-	env := newTestEnv()
-	e := uid.UID64(50)
-	posTypeInfo, _ := testMetas()
+func TestCatalog_EnsureEdgePrev_CachesFastPath(t *testing.T) {
+	cat := newTestCatalog()
+	posDef, velDef := testMetas()
+	// Built via Upsert directly, so no graph edges exist yet — the first
+	// EnsureEdgePrev call below is a genuine cache miss exercising linkPrev,
+	// not a fast path inherited from EnsureEdgeNext's own linkNext side effect.
+	withPosVel := cat.Upsert(comp.Composition{}.With(posDef).With(velDef))
+	withPos := cat.Upsert(comp.Composition{}.With(posDef))
 
-	env.addEntity(e, RootID)
+	target1, unlink1 := cat.EnsureEdgePrev(velDef, withPosVel)
+	target2, unlink2 := cat.EnsureEdgePrev(velDef, withPosVel)
 
-	if ptr, ok := env.upsertComp(e, posTypeInfo); ok {
-		*(*position)(ptr) = position{x: 1, y: 1}
-	} else {
-		t.Fatal("failed to assign component")
+	if target1 != target2 || unlink1 != unlink2 {
+		t.Errorf("expected cached EnsureEdgePrev result, got (%d,%v) then (%d,%v)", target1, unlink1, target2, unlink2)
 	}
-
-	env.removeComp(e, posTypeInfo)
-
-	link, _ := env.entityIndex.Get(e)
-	if link.ArchId != NullID {
-		linkArch := &env.catalog.Archetypes[link.ArchId]
-		t.Errorf("entity should be removed (arch == nil), but still linked to archetype with mask: %v", linkArch.Mask())
+	if target1 != withPos || unlink1 {
+		t.Errorf("expected removing Velocity to land back at the Position-only archetype, got archID=%d unlink=%v", target1, unlink1)
 	}
 }
 
-func TestRegistry_OverwriteIdempotency(t *testing.T) {
-	env := newTestEnv()
-	e := uid.UID64(7)
-	posTypeInfo, _ := testMetas()
+func TestCatalog_EnsureEdgePrev_UnlinksWhenMaskBecomesEmpty(t *testing.T) {
+	cat := newTestCatalog()
+	posDef, _ := testMetas()
+	// Built via Upsert directly (not EnsureEdgeNext), so no edgesPrev cache
+	// entry exists yet — this exercises the genuine cache-miss path.
+	archID := cat.Upsert(comp.Composition{}.With(posDef))
 
-	env.addEntity(e, RootID)
-	if ptr, ok := env.upsertComp(e, posTypeInfo); ok {
-		*(*position)(ptr) = position{1, 1}
+	target, shouldUnlink := cat.EnsureEdgePrev(posDef, archID)
+
+	if !shouldUnlink {
+		t.Error("expected removing the only component to signal unlink")
 	}
-
-	linkBefore, _ := env.entityIndex.Get(e)
-
-	if ptr, ok := env.upsertComp(e, posTypeInfo); ok {
-		*(*position)(ptr) = position{2, 2}
-	}
-
-	linkAfter, _ := env.entityIndex.Get(e)
-
-	if linkBefore.ArchId != linkAfter.ArchId || linkBefore.Pos.Slot != linkAfter.Pos.Slot {
-		t.Error("re-assigning same component should not move entity in graph")
-	}
-
-	gotData := *(*position)(env.catalog.Archetypes[linkAfter.ArchId].Table.ComponentAt(linkAfter.Pos, posTypeInfo.ID))
-	if gotData != (position{2, 2}) {
-		t.Errorf("data update failed: got %+v, want {2 2}", gotData)
+	if target != NullID {
+		t.Errorf("expected NullID target on unlink, got %d", target)
 	}
 }
 
-func TestRegistry_SwapPopIntegrity(t *testing.T) {
-	env := newTestEnv()
-	posTypeInfo, _ := testMetas()
-
-	spec := comp.Composition{}.With(posTypeInfo)
-	archID := env.catalog.Upsert(spec)
+func TestCatalog_RemoveEntity_SwapPop(t *testing.T) {
+	cat := newTestCatalog()
+	posDef, _ := testMetas()
+	archID := cat.Upsert(comp.Composition{}.With(posDef))
+	archetype := &cat.Archetypes[archID]
 
 	e0, e1, e2 := uid.UID64(10), uid.UID64(11), uid.UID64(12)
+	spawnEntity(t, archetype, e0)
+	pos1 := spawnEntity(t, archetype, e1)
+	pos2 := spawnEntity(t, archetype, e2)
 
-	setPos := func(entityID uid.UID64, p position) {
-		env.addEntity(entityID, archID)
-		ptr, ok := env.upsertComp(entityID, posTypeInfo)
-		if !ok {
-			t.Fatalf("failed to allocate memory for entity %d", entityID)
-		}
-		*(*position)(ptr) = p
+	if pos1.Slot != 1 || pos2.Slot != 2 {
+		t.Fatalf("setup error: expected e1@1 e2@2, got e1@%d e2@%d", pos1.Slot, pos2.Slot)
 	}
 
-	setPos(e0, position{x: 1, y: 1})
-	setPos(e1, position{x: 1, y: 1})
-	setPos(e2, position{x: 2, y: 2})
+	// Remove e1 (not the last slot) — e2 must swap into its slot.
+	swappedEntity, swapped := cat.RemoveEntity(archID, pos1)
 
-	link2Pre, _ := env.entityIndex.Get(e2)
-	if link2Pre.Pos.Slot != 2 {
-		t.Fatalf("setup error: e2 should be at slot 2, got %d", link2Pre.Pos.Slot)
+	if !swapped {
+		t.Fatal("expected a swap since the removed slot wasn't the last one")
 	}
-
-	env.unlinkEntity(e1)
-
-	link2Post, ok := env.entityIndex.Get(e2)
-	if !ok {
-		t.Fatal("entity e2 lost from EntityIndex")
-	}
-	if link2Post.Pos.Slot != 1 {
-		t.Errorf("swap-pop failed: e2 should move to slot 1, got %d", link2Post.Pos.Slot)
-	}
-
-	ptr, ok := env.upsertComp(e2, posTypeInfo)
-	if !ok {
-		t.Fatal("failed to access memory for e2")
-	}
-	if gotVal := *(*position)(ptr); gotVal != (position{x: 2, y: 2}) {
-		t.Errorf("data integrity lost: got %+v, want {2 2}", gotVal)
+	if swappedEntity != e2 {
+		t.Errorf("expected the swapped entity to be e2, got %v", swappedEntity)
 	}
 }
 
-func TestRegistry_AssignValidation(t *testing.T) {
-	env := newTestEnv()
-	e := uid.UID64(1)
-	env.addEntity(e, RootID)
+func TestCatalog_RemoveEntity_LastSlotNoSwap(t *testing.T) {
+	cat := newTestCatalog()
+	posDef, _ := testMetas()
+	archID := cat.Upsert(comp.Composition{}.With(posDef))
+	archetype := &cat.Archetypes[archID]
 
-	mi := newCatalog()
-	type void struct{}
-	voidTypeInfo := mi.Intern(reflect.TypeFor[void]())
-	posTypeInfo := mi.Intern(reflect.TypeFor[position]())
+	e0 := uid.UID64(1)
+	pos0 := spawnEntity(t, archetype, e0)
 
-	if _, ok := env.upsertComp(e, voidTypeInfo); !ok {
-		t.Error("unexpected failure when assigning tag component")
+	_, swapped := cat.RemoveEntity(archID, pos0)
+	if swapped {
+		t.Error("expected no swap when removing the only/last entity")
+	}
+}
+
+func TestCatalog_MigrateEntity_MovesDataAndSwapsSource(t *testing.T) {
+	cat := newTestCatalog()
+	posDef, velDef := testMetas()
+	srcArchID := cat.Upsert(comp.Composition{}.With(posDef))
+	dstArchID := cat.Upsert(comp.Composition{}.With(posDef).With(velDef))
+
+	srcArch := &cat.Archetypes[srcArchID]
+	e0, e1 := uid.UID64(1), uid.UID64(2)
+	pos0 := spawnEntity(t, srcArch, e0)
+	spawnEntity(t, srcArch, e1)
+
+	*(*position)(srcArch.Table.ComponentAt(pos0, posDef.ID)) = position{x: 9, y: 9}
+
+	newPos, swappedEntity, swapped := cat.MigrateEntity(e0, srcArchID, pos0, dstArchID)
+
+	if !swapped {
+		t.Fatal("expected e1 to swap into e0's old slot in the source table")
+	}
+	if swappedEntity != e1 {
+		t.Errorf("expected swapped entity e1, got %v", swappedEntity)
 	}
 
-	eX := uid.UID64(3123)
-	func() {
-		defer func() {
-			if r := recover(); r == nil {
-				t.Error("expected panic for unknown entityID, got none")
-			}
-		}()
-		env.upsertComp(eX, posTypeInfo)
+	dstArch := &cat.Archetypes[dstArchID]
+	got := *(*position)(dstArch.Table.ComponentAt(newPos, posDef.ID))
+	if got != (position{x: 9, y: 9}) {
+		t.Errorf("expected migrated Position data to survive, got %+v", got)
+	}
+}
+
+func TestCatalog_Reset(t *testing.T) {
+	cat := newTestCatalog()
+	posDef, _ := testMetas()
+	cat.Upsert(comp.Composition{}.With(posDef))
+
+	cat.Reset()
+
+	if cat.Len() != RootID+1 {
+		t.Errorf("expected Len() == RootID+1 after Reset, got %d", cat.Len())
+	}
+	if !cat.Archetypes[RootID].Mask().IsEmpty() {
+		t.Error("expected a fresh root archetype with an empty mask after Reset")
+	}
+}
+
+// addArchetype must panic rather than silently wrap around once the
+// archetype table is exhausted — this is a real, reachable limit (MaxID
+// distinct component combinations), not a defensive check for an
+// impossible state.
+func TestCatalog_AddArchetype_PanicsWhenMaxIDExceeded(t *testing.T) {
+	cat := newTestCatalog()
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected a panic when exceeding MaxID archetypes")
+		}
 	}()
 
-	if ptr, ok := env.upsertComp(e, posTypeInfo); ok {
-		*(*position)(ptr) = position{1, 2}
-	} else {
-		t.Error("unexpected failure for valid assign")
+	// Synthetic, directly-constructed masks — no real component
+	// registration needed, since MaskIndex only cares about the Mask value.
+	for i := uint64(1); i <= uint64(MaxID)+1; i++ {
+		cat.Upsert(comp.Composition{Mask: comp.Mask{i, 0}})
 	}
-}
-
-func setupTestArchCatalog() *Catalog {
-	catalog := &Catalog{}
-	catalog.Init(func(*Archetype) {})
-	return catalog
 }

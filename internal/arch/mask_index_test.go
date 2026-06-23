@@ -66,15 +66,32 @@ func TestMaskIndex_Idempotency(t *testing.T) {
 	})
 }
 
-func TestMaskIndex_CollisionResolution(t *testing.T) {
-	t.Run("masks that hash to the same slot are both retrievable", func(t *testing.T) {
-		var m MaskIndex
+// findCollidingMasks brute-forces n distinct masks that all hash to the same
+// MaskIndex bucket, using the real hashMask function — deterministic, unlike
+// hoping a handful of arbitrary masks happen to collide (with 8192 buckets,
+// a handful of random-ish masks usually won't).
+func findCollidingMasks(t *testing.T, n int) []comp.Mask {
+	t.Helper()
+	buckets := make(map[uint64][]comp.Mask)
+	for i := uint64(1); i < 1_000_000; i++ {
+		mask := comp.Mask{i, 0}
+		bucket := hashMask(mask) & HashMask
+		buckets[bucket] = append(buckets[bucket], mask)
+		if len(buckets[bucket]) >= n {
+			return buckets[bucket][:n]
+		}
+	}
+	t.Fatalf("failed to find %d colliding masks within search bound", n)
+	return nil
+}
 
-		const n = 20
-		masks := make([]comp.Mask, n)
-		for i := range n {
-			masks[i] = comp.Mask{}.Set(comp.ID(i))
-			m.Upsert(masks[i], ID(i+1))
+func TestMaskIndex_CollisionResolution(t *testing.T) {
+	t.Run("masks that hash to the same slot are all retrievable via linear probing", func(t *testing.T) {
+		var m MaskIndex
+		masks := findCollidingMasks(t, 3)
+
+		for i, mask := range masks {
+			m.Upsert(mask, ID(i+1))
 		}
 
 		for i, mask := range masks {

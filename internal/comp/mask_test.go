@@ -100,6 +100,40 @@ func TestMask_GroupLogic(t *testing.T) {
 			t.Error("mask {1, 10} should not contain {1, 10, 100}")
 		}
 	})
+
+	t.Run("Count", func(t *testing.T) {
+		mask := Mask{}.Set(1).Set(10).Set(100)
+		if got := mask.Count(); got != 3 {
+			t.Errorf("expected Count 3, got %d", got)
+		}
+		if got := (Mask{}).Count(); got != 0 {
+			t.Errorf("expected Count 0 for empty mask, got %d", got)
+		}
+	})
+
+	t.Run("Matches", func(t *testing.T) {
+		include := Mask{}.Set(1).Set(2)
+		exclude := Mask{}.Set(10)
+
+		hasAllRequired := Mask{}.Set(1).Set(2).Set(3)
+		if !hasAllRequired.Matches(include, exclude) {
+			t.Error("expected mask with all required bits and none excluded to match")
+		}
+
+		missingRequired := Mask{}.Set(1)
+		if missingRequired.Matches(include, exclude) {
+			t.Error("expected mask missing a required bit to not match")
+		}
+
+		hasExcluded := Mask{}.Set(1).Set(2).Set(10)
+		if hasExcluded.Matches(include, exclude) {
+			t.Error("expected mask with an excluded bit to not match")
+		}
+
+		if !(Mask{}).Matches(Mask{}, Mask{}) {
+			t.Error("expected empty mask to match empty include/exclude")
+		}
+	})
 }
 
 func TestMask_Iteration(t *testing.T) {
@@ -111,6 +145,18 @@ func TestMask_Iteration(t *testing.T) {
 		}
 		if calls != 0 {
 			t.Errorf("expected 0 iteration calls, got %d", calls)
+		}
+	})
+
+	t.Run("Early break stops iteration", func(t *testing.T) {
+		mask := Mask{}.Set(5).Set(70).Set(100)
+		var seen []ID
+		for id := range mask.AllSet() {
+			seen = append(seen, id)
+			break
+		}
+		if len(seen) != 1 || seen[0] != 5 {
+			t.Errorf("expected iteration to stop after the first id (5), got %v", seen)
 		}
 	})
 
@@ -144,6 +190,28 @@ func TestMask_Iteration(t *testing.T) {
 			t.Errorf("expected to iterate over 64 bits, got %d", count)
 		}
 	})
+}
+
+func TestNewMask(t *testing.T) {
+	spec := &AccessSpec{
+		CompInfos: []Def{{ID: 1}, {ID: 2}},
+		TagIDs:    []ID{5},
+		ExCompIDs: []ID{99}, // NewMask must ignore exclusions
+	}
+
+	mask := NewMask(spec)
+
+	for _, id := range []ID{1, 2, 5} {
+		if !mask.IsSet(id) {
+			t.Errorf("expected bit %d (tracked or tag) to be set", id)
+		}
+	}
+	if mask.IsSet(99) {
+		t.Error("expected NewMask to ignore ExCompIDs")
+	}
+	if mask.Count() != 3 {
+		t.Errorf("expected Count 3, got %d", mask.Count())
+	}
 }
 
 func TestMask_Immutability(t *testing.T) {

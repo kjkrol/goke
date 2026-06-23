@@ -98,7 +98,6 @@ func (s *Scheduler) applyBufferCmds(cb *CmdBuf) error {
 
 		switch cmd.cType {
 		case cmdAssignComp:
-			// TODD: need to be tested !!!
 			ptr, err := s.mutator.UpsertComp(target, cmd.compID)
 			if err != nil {
 				return fmt.Errorf("failed to allocate ID for target %d: %w", target, err)
