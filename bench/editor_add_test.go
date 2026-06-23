@@ -9,7 +9,7 @@ import (
 )
 
 func populateBase(ecs *goke.ECS, count int) []uid.UID64 {
-	factory := ecs.CreateFactory(goke.Add(new(goke.Col[Base])))
+	factory := ecs.NewFactory(new(goke.Comp[Base]))
 	var ids []uid.UID64
 	factory.Create(count)
 	for factory.Next() {
@@ -27,9 +27,9 @@ func Benchmark_Editor_Add(b *testing.B) {
 	b.Run(fmt.Sprintf("pop=%d/comp=1/add=1", entitiesNumber), func(b *testing.B) {
 		ecs.Reset()
 		entities := populateBase(ecs, entitiesNumber)
-		var c1 goke.Col[Pos]
-		addEd := ecs.CreateEditor(goke.Add(&c1))
-		delEd := ecs.CreateEditor(goke.Del[Pos]())
+		var c1 goke.Comp[Pos]
+		addEd := ecs.NewEditorBuilder(&c1).Build()
+		delEd := ecs.NewEditorBuilder().Delete(goke.Del[Pos]()).Build()
 		cur := &addEd.Cursor
 		measurePerEntity(b, entitiesNumber, func() {
 			for b.Loop() {
@@ -49,10 +49,10 @@ func Benchmark_Editor_Add(b *testing.B) {
 	b.Run(fmt.Sprintf("pop=%d/comp=1/add=2", entitiesNumber), func(b *testing.B) {
 		ecs.Reset()
 		entities := populateBase(ecs, entitiesNumber)
-		var c1 goke.Col[Pos]
-		var c2 goke.Col[Vel]
-		addEd := ecs.CreateEditor(goke.Add(&c1), goke.Add(&c2))
-		delEd := ecs.CreateEditor(goke.Del[Pos](), goke.Del[Vel]())
+		var c1 goke.Comp[Pos]
+		var c2 goke.Comp[Vel]
+		addEd := ecs.NewEditorBuilder(&c1, &c2).Build()
+		delEd := ecs.NewEditorBuilder().Delete(goke.Del[Pos](), goke.Del[Vel]()).Build()
 		cur := &addEd.Cursor
 		measurePerEntity(b, entitiesNumber, func() {
 			for b.Loop() {
@@ -73,11 +73,11 @@ func Benchmark_Editor_Add(b *testing.B) {
 	b.Run(fmt.Sprintf("pop=%d/comp=1/add=3", entitiesNumber), func(b *testing.B) {
 		ecs.Reset()
 		entities := populateBase(ecs, entitiesNumber)
-		var c1 goke.Col[Pos]
-		var c2 goke.Col[Vel]
-		var c3 goke.Col[Acc]
-		addEd := ecs.CreateEditor(goke.Add(&c1), goke.Add(&c2), goke.Add(&c3))
-		delEd := ecs.CreateEditor(goke.Del[Pos](), goke.Del[Vel](), goke.Del[Acc]())
+		var c1 goke.Comp[Pos]
+		var c2 goke.Comp[Vel]
+		var c3 goke.Comp[Acc]
+		addEd := ecs.NewEditorBuilder(&c1, &c2, &c3).Build()
+		delEd := ecs.NewEditorBuilder().Delete(goke.Del[Pos](), goke.Del[Vel](), goke.Del[Acc]()).Build()
 		cur := &addEd.Cursor
 		measurePerEntity(b, entitiesNumber, func() {
 			for b.Loop() {
@@ -99,12 +99,12 @@ func Benchmark_Editor_Add(b *testing.B) {
 	b.Run(fmt.Sprintf("pop=%d/comp=1/add=4", entitiesNumber), func(b *testing.B) {
 		ecs.Reset()
 		entities := populateBase(ecs, entitiesNumber)
-		var c1 goke.Col[Pos]
-		var c2 goke.Col[Vel]
-		var c3 goke.Col[Acc]
-		var c4 goke.Col[T04]
-		addEd := ecs.CreateEditor(goke.Add(&c1), goke.Add(&c2), goke.Add(&c3), goke.Add(&c4))
-		delEd := ecs.CreateEditor(goke.Del[Pos](), goke.Del[Vel](), goke.Del[Acc](), goke.Del[T04]())
+		var c1 goke.Comp[Pos]
+		var c2 goke.Comp[Vel]
+		var c3 goke.Comp[Acc]
+		var c4 goke.Comp[T04]
+		addEd := ecs.NewEditorBuilder(&c1, &c2, &c3, &c4).Build()
+		delEd := ecs.NewEditorBuilder().Delete(goke.Del[Pos](), goke.Del[Vel](), goke.Del[Acc](), goke.Del[T04]()).Build()
 		cur := &addEd.Cursor
 		measurePerEntity(b, entitiesNumber, func() {
 			for b.Loop() {
@@ -127,13 +127,13 @@ func Benchmark_Editor_Add(b *testing.B) {
 	b.Run(fmt.Sprintf("pop=%d/comp=1/add=5", entitiesNumber), func(b *testing.B) {
 		ecs.Reset()
 		entities := populateBase(ecs, entitiesNumber)
-		var c1 goke.Col[Pos]
-		var c2 goke.Col[Vel]
-		var c3 goke.Col[Acc]
-		var c4 goke.Col[T04]
-		var c5 goke.Col[T05]
-		addEd := ecs.CreateEditor(goke.Add(&c1), goke.Add(&c2), goke.Add(&c3), goke.Add(&c4), goke.Add(&c5))
-		delEd := ecs.CreateEditor(goke.Del[Pos](), goke.Del[Vel](), goke.Del[Acc](), goke.Del[T04](), goke.Del[T05]())
+		var c1 goke.Comp[Pos]
+		var c2 goke.Comp[Vel]
+		var c3 goke.Comp[Acc]
+		var c4 goke.Comp[T04]
+		var c5 goke.Comp[T05]
+		addEd := ecs.NewEditorBuilder(&c1, &c2, &c3, &c4, &c5).Build()
+		delEd := ecs.NewEditorBuilder().Delete(goke.Del[Pos](), goke.Del[Vel](), goke.Del[Acc](), goke.Del[T04](), goke.Del[T05]()).Build()
 		cur := &addEd.Cursor
 		measurePerEntity(b, entitiesNumber, func() {
 			for b.Loop() {
@@ -157,16 +157,14 @@ func Benchmark_Editor_Add(b *testing.B) {
 	b.Run(fmt.Sprintf("pop=%d/comp=1/add=6", entitiesNumber), func(b *testing.B) {
 		ecs.Reset()
 		entities := populateBase(ecs, entitiesNumber)
-		var c1 goke.Col[Pos]
-		var c2 goke.Col[Vel]
-		var c3 goke.Col[Acc]
-		var c4 goke.Col[T04]
-		var c5 goke.Col[T05]
-		var c6 goke.Col[T06]
-		addEd := ecs.CreateEditor(goke.Add(&c1), goke.Add(&c2), goke.Add(&c3),
-			goke.Add(&c4), goke.Add(&c5), goke.Add(&c6))
-		delEd := ecs.CreateEditor(goke.Del[Pos](), goke.Del[Vel](), goke.Del[Acc](),
-			goke.Del[T04](), goke.Del[T05](), goke.Del[T06]())
+		var c1 goke.Comp[Pos]
+		var c2 goke.Comp[Vel]
+		var c3 goke.Comp[Acc]
+		var c4 goke.Comp[T04]
+		var c5 goke.Comp[T05]
+		var c6 goke.Comp[T06]
+		addEd := ecs.NewEditorBuilder(&c1, &c2, &c3, &c4, &c5, &c6).Build()
+		delEd := ecs.NewEditorBuilder().Delete(goke.Del[Pos](), goke.Del[Vel](), goke.Del[Acc](), goke.Del[T04](), goke.Del[T05](), goke.Del[T06]()).Build()
 		cur := &addEd.Cursor
 		measurePerEntity(b, entitiesNumber, func() {
 			for b.Loop() {
@@ -191,17 +189,15 @@ func Benchmark_Editor_Add(b *testing.B) {
 	b.Run(fmt.Sprintf("pop=%d/comp=1/add=7", entitiesNumber), func(b *testing.B) {
 		ecs.Reset()
 		entities := populateBase(ecs, entitiesNumber)
-		var c1 goke.Col[Pos]
-		var c2 goke.Col[Vel]
-		var c3 goke.Col[Acc]
-		var c4 goke.Col[T04]
-		var c5 goke.Col[T05]
-		var c6 goke.Col[T06]
-		var c7 goke.Col[T07]
-		addEd := ecs.CreateEditor(goke.Add(&c1), goke.Add(&c2), goke.Add(&c3),
-			goke.Add(&c4), goke.Add(&c5), goke.Add(&c6), goke.Add(&c7))
-		delEd := ecs.CreateEditor(goke.Del[Pos](), goke.Del[Vel](), goke.Del[Acc](),
-			goke.Del[T04](), goke.Del[T05](), goke.Del[T06](), goke.Del[T07]())
+		var c1 goke.Comp[Pos]
+		var c2 goke.Comp[Vel]
+		var c3 goke.Comp[Acc]
+		var c4 goke.Comp[T04]
+		var c5 goke.Comp[T05]
+		var c6 goke.Comp[T06]
+		var c7 goke.Comp[T07]
+		addEd := ecs.NewEditorBuilder(&c1, &c2, &c3, &c4, &c5, &c6, &c7).Build()
+		delEd := ecs.NewEditorBuilder().Delete(goke.Del[Pos](), goke.Del[Vel](), goke.Del[Acc](), goke.Del[T04](), goke.Del[T05](), goke.Del[T06](), goke.Del[T07]()).Build()
 		cur := &addEd.Cursor
 		measurePerEntity(b, entitiesNumber, func() {
 			for b.Loop() {
@@ -227,20 +223,16 @@ func Benchmark_Editor_Add(b *testing.B) {
 	b.Run(fmt.Sprintf("pop=%d/comp=1/add=8", entitiesNumber), func(b *testing.B) {
 		ecs.Reset()
 		entities := populateBase(ecs, entitiesNumber)
-		var c1 goke.Col[Pos]
-		var c2 goke.Col[Vel]
-		var c3 goke.Col[Acc]
-		var c4 goke.Col[T04]
-		var c5 goke.Col[T05]
-		var c6 goke.Col[T06]
-		var c7 goke.Col[T07]
-		var c8 goke.Col[T08]
-		addEd := ecs.CreateEditor(goke.Add(&c1), goke.Add(&c2), goke.Add(&c3),
-			goke.Add(&c4), goke.Add(&c5), goke.Add(&c6),
-			goke.Add(&c7), goke.Add(&c8))
-		delEd := ecs.CreateEditor(goke.Del[Pos](), goke.Del[Vel](), goke.Del[Acc](),
-			goke.Del[T04](), goke.Del[T05](), goke.Del[T06](),
-			goke.Del[T07](), goke.Del[T08]())
+		var c1 goke.Comp[Pos]
+		var c2 goke.Comp[Vel]
+		var c3 goke.Comp[Acc]
+		var c4 goke.Comp[T04]
+		var c5 goke.Comp[T05]
+		var c6 goke.Comp[T06]
+		var c7 goke.Comp[T07]
+		var c8 goke.Comp[T08]
+		addEd := ecs.NewEditorBuilder(&c1, &c2, &c3, &c4, &c5, &c6, &c7, &c8).Build()
+		delEd := ecs.NewEditorBuilder().Delete(goke.Del[Pos](), goke.Del[Vel](), goke.Del[Acc](), goke.Del[T04](), goke.Del[T05](), goke.Del[T06](), goke.Del[T07](), goke.Del[T08]()).Build()
 		cur := &addEd.Cursor
 		measurePerEntity(b, entitiesNumber, func() {
 			for b.Loop() {
@@ -267,21 +259,17 @@ func Benchmark_Editor_Add(b *testing.B) {
 	b.Run(fmt.Sprintf("pop=%d/comp=1/add=9", entitiesNumber), func(b *testing.B) {
 		ecs.Reset()
 		entities := populateBase(ecs, entitiesNumber)
-		var c1 goke.Col[Pos]
-		var c2 goke.Col[Vel]
-		var c3 goke.Col[Acc]
-		var c4 goke.Col[T04]
-		var c5 goke.Col[T05]
-		var c6 goke.Col[T06]
-		var c7 goke.Col[T07]
-		var c8 goke.Col[T08]
-		var c9 goke.Col[T09]
-		addEd := ecs.CreateEditor(goke.Add(&c1), goke.Add(&c2), goke.Add(&c3),
-			goke.Add(&c4), goke.Add(&c5), goke.Add(&c6),
-			goke.Add(&c7), goke.Add(&c8), goke.Add(&c9))
-		delEd := ecs.CreateEditor(goke.Del[Pos](), goke.Del[Vel](), goke.Del[Acc](),
-			goke.Del[T04](), goke.Del[T05](), goke.Del[T06](),
-			goke.Del[T07](), goke.Del[T08](), goke.Del[T09]())
+		var c1 goke.Comp[Pos]
+		var c2 goke.Comp[Vel]
+		var c3 goke.Comp[Acc]
+		var c4 goke.Comp[T04]
+		var c5 goke.Comp[T05]
+		var c6 goke.Comp[T06]
+		var c7 goke.Comp[T07]
+		var c8 goke.Comp[T08]
+		var c9 goke.Comp[T09]
+		addEd := ecs.NewEditorBuilder(&c1, &c2, &c3, &c4, &c5, &c6, &c7, &c8, &c9).Build()
+		delEd := ecs.NewEditorBuilder().Delete(goke.Del[Pos](), goke.Del[Vel](), goke.Del[Acc](), goke.Del[T04](), goke.Del[T05](), goke.Del[T06](), goke.Del[T07](), goke.Del[T08](), goke.Del[T09]()).Build()
 		cur := &addEd.Cursor
 		measurePerEntity(b, entitiesNumber, func() {
 			for b.Loop() {
@@ -309,22 +297,18 @@ func Benchmark_Editor_Add(b *testing.B) {
 	b.Run(fmt.Sprintf("pop=%d/comp=1/add=10", entitiesNumber), func(b *testing.B) {
 		ecs.Reset()
 		entities := populateBase(ecs, entitiesNumber)
-		var c1 goke.Col[Pos]
-		var c2 goke.Col[Vel]
-		var c3 goke.Col[Acc]
-		var c4 goke.Col[T04]
-		var c5 goke.Col[T05]
-		var c6 goke.Col[T06]
-		var c7 goke.Col[T07]
-		var c8 goke.Col[T08]
-		var c9 goke.Col[T09]
-		var c10 goke.Col[T10]
-		addEd := ecs.CreateEditor(goke.Add(&c1), goke.Add(&c2), goke.Add(&c3),
-			goke.Add(&c4), goke.Add(&c5), goke.Add(&c6),
-			goke.Add(&c7), goke.Add(&c8), goke.Add(&c9), goke.Add(&c10))
-		delEd := ecs.CreateEditor(goke.Del[Pos](), goke.Del[Vel](), goke.Del[Acc](),
-			goke.Del[T04](), goke.Del[T05](), goke.Del[T06](),
-			goke.Del[T07](), goke.Del[T08](), goke.Del[T09](), goke.Del[T10]())
+		var c1 goke.Comp[Pos]
+		var c2 goke.Comp[Vel]
+		var c3 goke.Comp[Acc]
+		var c4 goke.Comp[T04]
+		var c5 goke.Comp[T05]
+		var c6 goke.Comp[T06]
+		var c7 goke.Comp[T07]
+		var c8 goke.Comp[T08]
+		var c9 goke.Comp[T09]
+		var c10 goke.Comp[T10]
+		addEd := ecs.NewEditorBuilder(&c1, &c2, &c3, &c4, &c5, &c6, &c7, &c8, &c9, &c10).Build()
+		delEd := ecs.NewEditorBuilder().Delete(goke.Del[Pos](), goke.Del[Vel](), goke.Del[Acc](), goke.Del[T04](), goke.Del[T05](), goke.Del[T06](), goke.Del[T07](), goke.Del[T08](), goke.Del[T09](), goke.Del[T10]()).Build()
 		cur := &addEd.Cursor
 		measurePerEntity(b, entitiesNumber, func() {
 			for b.Loop() {

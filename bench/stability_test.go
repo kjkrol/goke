@@ -15,8 +15,8 @@ import (
 func Benchmark_Stability_Grow(b *testing.B) {
 	ecs := goke.New(goke.WithEntityCap(1024))
 	_ = goke.RegComp[Pos](ecs)
-	var pos goke.Col[Pos]
-	factory := ecs.CreateFactory(goke.Add(&pos))
+	var pos goke.Comp[Pos]
+	factory := ecs.NewFactory(&pos)
 	fc := &factory.Cursor
 
 	var e uid.UID64

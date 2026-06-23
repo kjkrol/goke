@@ -10,21 +10,16 @@ import (
 )
 
 type (
-	// Matcher matches entities by component mask and provides three access
+	// Query matches entities by component mask and provides three access
 	// patterns: All (chunk-level iteration), Pick (per-entity iteration over a
 	// given entity subset), and Seek (direct positioning on a single known
 	// entity). Call All() or Pick() to set the iteration mode and loop with
 	// Next(), or call Seek() directly for single-entity access.
-	Matcher = query.Matcher
+	Query = query.Matcher
 
-	// Col is a typed column handle for a tracked component.
-	// Obtain one via Track[T](); use col.Slice(cursor) in All/Factory-mode
-	// and col.At(cursor) in Pick/Seek-mode.
-	Col[T any] = iter.Col[T]
-
-	// Cursor holds the per-chunk or per-entity state populated by Matcher.Next(),
-	// Matcher.Seek(), and Factory.Next(). Pass matcher.Cursor or factory.Cursor
-	// to Col[T].Slice and Col[T].At.
+	// Cursor holds the per-chunk or per-entity state populated by Query.Next(),
+	// Query.Seek(), and Factory.Next(). Pass query.Cursor or factory.Cursor
+	// to Comp[T].Slice and Comp[T].At.
 	Cursor = iter.Cursor
 
 	// CompID is the unique integer identifier for a registered component type.
@@ -41,7 +36,7 @@ type (
 	// Changes are applied at the next synchronization point, keeping iterators valid.
 	CmdBuf = orch.CmdBuf
 
-	// Opt configures component access for a Matcher (Track / Include / Exclude).
+	// Opt configures component access for a Query (Track / Include / Exclude).
 	// It grants value access (read or write) within an entity's existing structure —
 	// it never adds or removes components.
 	Opt = comp.AccessOpt
@@ -52,8 +47,8 @@ type (
 	Factory = ent.Factory
 
 	// Editor applies add/remove component changes to an entity in a single
-	// migration. Create once via CreateEditor; call Update per entity, then write
-	// added components' values via col.At(&editor.Cursor).
+	// migration. Create once via NewEditorBuilder; call Update per entity, then
+	// write added components' values via comp.At(&editor.Cursor).
 	Editor = ent.Editor
 
 	// EditOpt configures an Editor's structural change — Add or Del a component —
@@ -62,21 +57,51 @@ type (
 	EditOpt = comp.EditOpt
 )
 
-// Track returns an Opt that registers T as a tracked data column and
-// sets col.Idx when applied. Pass it to NewMatcher or NewFactory.
-func Track[T any](col *Col[T]) Opt { return comp.Track[T](col) }
+// Comp is a typed handle for a component, used to read/write its value and to
+// declare that value as tracked (data access) or added (structural change).
+// Declare one as a variable, then pass its address directly to
+// NewFactory/NewQueryBuilder/NewEditorBuilder — it binds itself, no separate
+// wrapping call needed. Use comp.Slice(cursor) in All/Factory-mode and
+// comp.At(cursor) in Pick/Seek-mode.
+type Comp[T any] struct {
+	col iter.Col[T]
+}
 
-// Include adds a required component type T to the Matcher's filter.
+// Slice returns the component slice for the current All-mode chunk or
+// Factory batch. Its length equals len(cursor.IDs), so ranging cursor.IDs in
+// the inner loop lets the compiler eliminate bounds checks on slice[i] accesses.
+func (c *Comp[T]) Slice(cur *Cursor) []T { return c.col.Slice(cur) }
+
+// At returns a pointer to the component for the current Pick/Seek-mode entity.
+func (c *Comp[T]) At(cur *Cursor) *T { return c.col.At(cur) }
+
+// Trackable is satisfied by *Comp[T] for any T — it lets NewQueryBuilder
+// accept component handles (&comp) directly as tracked data columns.
+type Trackable interface {
+	// asTrack is unexported so *Comp[T] is the only implementer — this is a
+	// sealed interface, not an extension point.
+	asTrack() Opt
+}
+
+// Addable is satisfied by *Comp[T] for any T — it lets NewFactory and
+// NewEditorBuilder accept component handles (&comp) directly as added
+// components.
+type Addable interface {
+	// asAdd is unexported so *Comp[T] is the only implementer — this is a
+	// sealed interface, not an extension point.
+	asAdd() EditOpt
+}
+
+func (c *Comp[T]) asTrack() Opt   { return comp.Track[T](&c.col) }
+func (c *Comp[T]) asAdd() EditOpt { return comp.Add[T](&c.col) }
+
+// Include adds a required component type T to the Query's filter.
 // Only entities that possess this component will be matched.
 func Include[T any]() Opt { return comp.Include[T]() }
 
-// Exclude adds an exclusion for component type T to the Matcher's filter.
+// Exclude adds an exclusion for component type T to the Query's filter.
 // Entities that possess this component will not be matched.
 func Exclude[T any]() Opt { return comp.Exclude[T]() }
-
-// Add returns an EditOpt that adds component T to an entity and binds col so its
-// value can be written via col.At(&editor.Cursor) after Update.
-func Add[T any](col *Col[T]) EditOpt { return comp.Add[T](col) }
 
 // Del returns an EditOpt that removes component T from an entity.
 func Del[T any]() EditOpt { return comp.Del[T]() }

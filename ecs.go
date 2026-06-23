@@ -41,26 +41,15 @@ func RegComp[T any](ecs *ECS) CompID {
 	return ecs.registry.RegComp(compType)
 }
 
-// CreateFactory resolves or creates the archetype from Add opts and returns
-// a reusable Factory ready for repeated Create/Next cycles.
-// Only Add is meaningful; Del panics (a new entity has nothing to remove).
-func (ecs *ECS) CreateFactory(opts ...EditOpt) *Factory {
+// NewFactory resolves or creates the archetype from the given component
+// handles and returns a reusable Factory ready for repeated Create/Next
+// cycles. Each handle behaves like Add[T] — pass &comp directly.
+func (ecs *ECS) NewFactory(comps ...Addable) *Factory {
+	opts := make([]EditOpt, len(comps))
+	for i, c := range comps {
+		opts[i] = c.asAdd()
+	}
 	return ecs.registry.CreateFactory(opts...)
-}
-
-// CreateMatcher creates a Matcher filtered by opts. Use Track[T]() to declare
-// component data columns (accessible via Slice/At); Include[T]() for filter-only
-// requirements; Exclude[T]() for exclusions. Call All() or Pick() on the result
-// for iteration, or Seek() directly for single-entity access.
-func (ecs *ECS) CreateMatcher(opts ...Opt) *Matcher {
-	return ecs.registry.AddMatcher(opts...)
-}
-
-// CreateEditor creates an Editor that applies structural changes to an entity.
-// Use Add[T](&col) to add a component (and write its value via col.At after
-// Update) and Del[T]() to remove one. Update migrates the entity in a single move.
-func (ecs *ECS) CreateEditor(opts ...EditOpt) *Editor {
-	return ecs.registry.CreateEditor(opts...)
 }
 
 // RemoveEnt destroys an entity and recycles its ID.

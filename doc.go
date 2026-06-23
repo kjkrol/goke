@@ -43,12 +43,12 @@
 //     world (like adding components or removing entities) are buffered via
 //     the CmdBuf and applied during explicit synchronization points (Sync).
 //
-//  6. Type-Safe Matchers & Cache-Optimized Queries:
-//     Data retrieval is handled through [Matcher] obtained via [ECS.CreateMatcher].
-//     Component columns are declared with [Col][T] and accessed via
-//     [Col.Slice] (bulk) or [Col.At] (per-entity). Bulk iteration via
-//     Matcher.All yields SoA chunks (Go slices over native memory), while
-//     subset queries via Matcher.Pick or single-entity access via Matcher.Seek
+//  6. Type-Safe Queries & Cache-Optimized Iteration:
+//     Data retrieval is handled through [Query] obtained via [ECS.NewQueryBuilder].
+//     Component columns are declared with [Comp][T] and accessed via
+//     [Comp.Slice] (bulk) or [Comp.At] (per-entity). Bulk iteration via
+//     Query.All yields SoA chunks (Go slices over native memory), while
+//     subset queries via Query.Pick or single-entity access via Query.Seek
 //     yield per-entity component pointers resolved via the entity-to-storage
 //     index. All access is zero-allocation and reflection-free.
 //
@@ -68,8 +68,8 @@
 //   - Entity Indexing: Entities are 64-bit identifiers, allowing for a virtually
 //     unlimited number of entities, constrained only by the available system RAM.
 //
-//   - Matcher Complexity: A single [Matcher] can track any number of component columns
-//     declared via [Col][T]. Additional types can be used as filter-only
+//   - Query Complexity: A single [Query] can track any number of component columns
+//     declared via [Comp][T]. Additional types can be used as filter-only
 //     constraints via Include/Exclude opts without occupying tracked columns.
 //
 // # Internal Package Dependencies
@@ -85,7 +85,7 @@
 //	Layer 4   arch     — archetype ID, Mask, graph               (→ comp, colstore)
 //	Layer 5   addr     — entity address book: Entry, Index, Book (→ arch, colstore)
 //	Layer 6   ent      — entity lifecycle, Manager, Factory, Editor (→ addr, arch, colstore, comp, iter)
-//	Layer 7   query    — query layer, matcher baking              (→ addr, arch, colstore, comp, iter)
+//	Layer 7   query    — query layer, matcher baking             (→ addr, arch, colstore, comp, iter)
 //	Layer 8   reg      — top-level Registry                      (→ ent, arch, comp, query)
 //
 // Expressed as a directed graph (arrow = "is imported by"):

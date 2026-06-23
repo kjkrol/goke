@@ -28,13 +28,13 @@ type Health struct{ Current, Max float32 }
 
 // --- PhysicsSystem: Operates only on Motion data ---
 type PhysicsSystem struct {
-	query *goke.Matcher
-	pos   goke.Col[Position]
-	vel   goke.Col[Velocity]
+	query *goke.Query
+	pos   goke.Comp[Position]
+	vel   goke.Comp[Velocity]
 }
 
 func (s *PhysicsSystem) Init(ecs *goke.ECS) {
-	s.query = ecs.CreateMatcher(goke.Track(&s.pos), goke.Track(&s.vel))
+	s.query = ecs.NewQueryBuilder(&s.pos, &s.vel).Build()
 }
 func (s *PhysicsSystem) Update(schedule *goke.CmdBuf, d time.Duration) {
 	cursor := &s.query.Cursor
@@ -51,12 +51,12 @@ func (s *PhysicsSystem) Update(schedule *goke.CmdBuf, d time.Duration) {
 
 // --- HealthSystem: Operates only on Health data ---
 type HealthSystem struct {
-	query  *goke.Matcher
-	health goke.Col[Health]
+	query  *goke.Query
+	health goke.Comp[Health]
 }
 
 func (s *HealthSystem) Init(eng *goke.ECS) {
-	s.query = eng.CreateMatcher(goke.Track(&s.health))
+	s.query = eng.NewQueryBuilder(&s.health).Build()
 }
 func (s *HealthSystem) Update(schedule *goke.CmdBuf, d time.Duration) {
 	s.query.All()
@@ -89,10 +89,10 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	ecs.RegSys(heal)
 
 	// Create entities with ALL components
-	var pos goke.Col[Position]
-	var vel goke.Col[Velocity]
-	var health goke.Col[Health]
-	factory := ecs.CreateFactory(goke.Add(&pos), goke.Add(&vel), goke.Add(&health))
+	var pos goke.Comp[Position]
+	var vel goke.Comp[Velocity]
+	var health goke.Comp[Health]
+	factory := ecs.NewFactory(&pos, &vel, &health)
 	fc := &factory.Cursor
 	factory.Create(1000)
 	for factory.Next() {
@@ -116,7 +116,7 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	ecs.Tick(time.Second) // Simulate 1 second
 
 	// 4. Verification
-	query := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&health))
+	query := ecs.NewQueryBuilder(&pos, &health).Build()
 	cursor := &query.Cursor
 	count := 0
 	query.All()

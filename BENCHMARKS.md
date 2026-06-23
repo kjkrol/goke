@@ -12,9 +12,9 @@
 
 ## Scalability Validation
 
-`Editor.Add/AddTags/Del/Mix`, `Factory.Create`, and `Matcher.All` are benchmarked at both **2¹⁰ (1,024)** and **2²⁰ (1,048,576)** entities. Per-entity cost for the structural (`Editor`/`Factory`) operations stays close between the two scales — see the tables below. `Matcher.All`'s per-entity cost roughly doubles at 2²⁰ due to chunk-hopping overhead once the working set no longer fits in cache (a known, documented trade-off of the chunked SoA layout — see [CHANGELOG](./CHANGELOG.md)).
+`Editor.Add/AddTags/Del/Mix`, `Factory.Create`, and `Query.All` are benchmarked at both **2¹⁰ (1,024)** and **2²⁰ (1,048,576)** entities. Per-entity cost for the structural (`Editor`/`Factory`) operations stays close between the two scales — see the tables below. `Query.All`'s per-entity cost roughly doubles at 2²⁰ due to chunk-hopping overhead once the working set no longer fits in cache (a known, documented trade-off of the chunked SoA layout — see [CHANGELOG](./CHANGELOG.md)).
 
-`Matcher.Pick`/`Matcher.Seek` are benchmarked at a fixed population of 1,024 with a 100-entity subset; `Remove` is benchmarked at a fixed population of 100,000. These don't currently have a 2²⁰ sweep.
+`Query.Pick`/`Query.Seek` are benchmarked at a fixed population of 1,024 with a 100-entity subset; `Remove` is benchmarked at a fixed population of 100,000. These don't currently have a 2²⁰ sweep.
 
 ## Performance Metrics
 
@@ -99,7 +99,7 @@ At 1,024 entities, all four operations cycle between two already-allocated arche
 
 > **Note on `1_comp`:** `Factory.Create` is the one benchmark that never frees what it allocates (entities accumulate for the whole run — there's nothing to reuse). Its very first batch pays a one-time "cold start" cost that later batches don't; with only one measured repetition, `1_comp`'s number above still carries some of that cold-start weight rather than the pure steady-state cost the other rows settle into. For a stable, comparable number, run with a fixed iteration count and discard the first repeat (see [How to benchmark](#how-to-benchmark)).
 
-### Matcher.All (full archetype scan, SoA chunks)
+### Query.All (full archetype scan, SoA chunks)
 
 | Components | 2¹⁰ ns/ent | 2²⁰ ns/ent |
 | :--- | ---: | ---: |
@@ -117,7 +117,7 @@ At 1,024 entities, all four operations cycle between two already-allocated arche
 
 At higher component counts, 2²⁰ runs roughly 1.4–1.8× slower per entity than 2¹⁰ — the working set (10 components × ~1M rows) no longer fits in cache, so chunk-to-chunk pointer hops stop being free. Both scales remain branch-free, zero-allocation, linear in component count.
 
-### Matcher.Pick (per-entity subset iteration, 100 of 1,024 entities)
+### Query.Pick (per-entity subset iteration, 100 of 1,024 entities)
 
 `sorted` = first 100 entities in creation order. `random` = 100 entities randomly sampled from the full population, in random order (cache-unfriendly, jumps between memory locations).
 
@@ -135,9 +135,9 @@ At higher component counts, 2²⁰ runs roughly 1.4–1.8× slower per entity th
 | 9 | 10.58 | 10.63 |
 | 10 | 11.13 | 11.18 |
 
-### Matcher.Seek (single-entity access, 100 of 1,024 entities)
+### Query.Seek (single-entity access, 100 of 1,024 entities)
 
-New section — `Seek` resolves an entity's address directly through the index (no mask filtering), independent of `Matcher`'s include/exclude mask. `default` = entities in creation order. `random` = randomly sampled, same technique as `Pick`'s random column.
+New section — `Seek` resolves an entity's address directly through the index (no mask filtering), independent of `Query`'s include/exclude mask. `default` = entities in creation order. `random` = randomly sampled, same technique as `Pick`'s random column.
 
 | Components | default ns/ent | random ns/ent |
 | :--- | ---: | ---: |
@@ -163,9 +163,9 @@ New section — `Seek` resolves an entity's address directly through the index (
 ### Key Technical Takeaways
 * **Migration cost scales with archetype width, not edit size.** `Add` (from a 1-component anchor) stays under 100 ns through 10 added components; `Del` (from a 10-component archetype) starts above 80 ns even for removing just one — because vacating the source row touches every column the source tracks, regardless of how many are being changed. See [`internal/ent/editor.go`](internal/ent/editor.go).
 * **Structural per-entity cost is scale-independent; allocation behavior is not.** `Add`/`AddTags`/`Del`/`Mix` cost about the same per entity at 1,024 and at 1,048,576 — but the latter scale necessarily performs real allocation work (growing/shrinking an archetype spanning the whole population), while the former cycles between two already-sized archetypes and reports 0 allocs/op thanks to the `chunk.Pack` `spare`-reuse mechanism.
-* **`Matcher.All` chunk-hopping overhead becomes visible past cache size.** Per-entity cost roughly doubles from 1,024 to 1,048,576 entities at higher component counts — a known trade-off of the chunked SoA layout, not a regression.
+* **`Query.All` chunk-hopping overhead becomes visible past cache size.** Per-entity cost roughly doubles from 1,024 to 1,048,576 entities at higher component counts — a known trade-off of the chunked SoA layout, not a regression.
 * **Sorted vs random access:** `Pick`/`Seek` show only minor variance between sequential and randomly-sampled entity order, indicating the hot path is dominated by direct record lookup and pointer arithmetic rather than access locality.
-* **Zero allocations on all query paths.** `Matcher.All`/`Pick`/`Seek` report 0 B/op and 0 allocs/op across every component count and scale tested.
+* **Zero allocations on all query paths.** `Query.All`/`Pick`/`Seek` report 0 B/op and 0 allocs/op across every component count and scale tested.
 
 ## Benchmark Comparison with Other ECS Libraries
 

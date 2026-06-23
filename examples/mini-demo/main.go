@@ -24,10 +24,10 @@ func main() {
 	_ = goke.RegComp[Vel](ecs)
 	_ = goke.RegComp[Acc](ecs)
 
-	var pos goke.Col[Pos]
-	var vel goke.Col[Vel]
-	var acc goke.Col[Acc]
-	factory := ecs.CreateFactory(goke.Add(&pos), goke.Add(&vel), goke.Add(&acc))
+	var pos goke.Comp[Pos]
+	var vel goke.Comp[Vel]
+	var acc goke.Comp[Acc]
+	factory := ecs.NewFactory(&pos, &vel, &acc)
 
 	var entityID uid.UID64
 	factory.Create(1)
@@ -39,7 +39,7 @@ func main() {
 	acc.Slice(fc)[0] = Acc{X: 0.1, Y: 0.1}
 
 	// Initialize matcher for Pos, Vel, and Acc components
-	query := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&vel), goke.Track(&acc))
+	query := ecs.NewQueryBuilder(&pos, &vel, &acc).Build()
 
 	// Define the movement system using the functional registration pattern
 	cursor := &query.Cursor
@@ -67,7 +67,7 @@ func main() {
 	// Execute a single simulation step (standard 120 TPS)
 	ecs.Tick(time.Second / 120)
 
-	matcher := ecs.CreateMatcher(goke.Track(&pos))
+	matcher := ecs.NewQueryBuilder(&pos).Build()
 	if matcher.Seek(entityID) {
 		p := pos.At(&matcher.Cursor)
 		fmt.Printf("Final Position: {X: %.2f, Y: %.2f}\n", p.X, p.Y)

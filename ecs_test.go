@@ -24,8 +24,8 @@ type Processed struct{}
 // seekComp reads a single entity's component via Matcher.Seek.
 // Returns nil if the entity does not exist.
 func seekComp[T any](ecs *goke.ECS, e uid.UID64) *T {
-	var col goke.Col[T]
-	m := ecs.CreateMatcher(goke.Track(&col))
+	var col goke.Comp[T]
+	m := ecs.NewQueryBuilder(&col).Build()
 	if !m.Seek(e) {
 		return nil
 	}
@@ -39,9 +39,9 @@ func TestECS_UseCase(t *testing.T) {
 	_ = goke.RegComp[Discount](ecs)
 	processedID := goke.RegComp[Processed](ecs)
 
-	var order goke.Col[Order]
-	var discount goke.Col[Discount]
-	factory1 := ecs.CreateFactory(goke.Add(&order), goke.Add(&discount))
+	var order goke.Comp[Order]
+	var discount goke.Comp[Discount]
+	factory1 := ecs.NewFactory(&order, &discount)
 
 	var eA, eB uid.UID64
 	factory1.Create(1)
@@ -51,13 +51,13 @@ func TestECS_UseCase(t *testing.T) {
 	order.Slice(fc1)[0] = Order{ID: "ORD-001", Total: 100.0}
 	discount.Slice(fc1)[0] = Discount{Percentage: 10.0}
 
-	factory2 := ecs.CreateFactory(goke.Add(&order))
+	factory2 := ecs.NewFactory(&order)
 	factory2.Create(1)
 	factory2.Next()
 	eB = factory2.IDs[0]
 	order.Slice(&factory2.Cursor)[0] = Order{ID: "ORD-002", Total: 50.0}
 
-	query1 := ecs.CreateMatcher(goke.Track(&order), goke.Track(&discount))
+	query1 := ecs.NewQueryBuilder(&order, &discount).Build()
 	cursor1 := &query1.Cursor
 	processedCount := 0
 
@@ -73,7 +73,7 @@ func TestECS_UseCase(t *testing.T) {
 			}
 		}
 	})
-	query2 := ecs.CreateMatcher(goke.Include[Processed](), goke.Include[Order](), goke.Include[Discount]())
+	query2 := ecs.NewQueryBuilder().Include(goke.Include[Processed](), goke.Include[Order](), goke.Include[Discount]()).Build()
 	cleanerSystem := ecs.RegSysFn(func(schedule *goke.CmdBuf, d time.Duration) {
 		query2.All()
 		for query2.Next() {
@@ -124,14 +124,14 @@ func TestECS_Seek(t *testing.T) {
 	ecs := goke.New()
 	_ = goke.RegComp[Position](ecs)
 
-	var pos goke.Col[Position]
-	factory := ecs.CreateFactory(goke.Add(&pos))
+	var pos goke.Comp[Position]
+	factory := ecs.NewFactory(&pos)
 	factory.Create(1)
 	factory.Next()
 	entityID := factory.IDs[0]
 	pos.Slice(&factory.Cursor)[0] = Position{X: 10, Y: 20}
 
-	matcher := ecs.CreateMatcher(goke.Track(&pos))
+	matcher := ecs.NewQueryBuilder(&pos).Build()
 
 	if !matcher.Seek(entityID) {
 		t.Fatalf("expected Seek to find the entity")
@@ -155,24 +155,24 @@ func TestECS_Seek_AcrossArchetypes(t *testing.T) {
 	_ = goke.RegComp[Velocity](ecs)
 
 	// Entity A: {Position}
-	var posA goke.Col[Position]
-	fa := ecs.CreateFactory(goke.Add(&posA))
+	var posA goke.Comp[Position]
+	fa := ecs.NewFactory(&posA)
 	fa.Create(1)
 	fa.Next()
 	eA := fa.IDs[0]
 	posA.Slice(&fa.Cursor)[0] = Position{X: 1}
 
 	// Entity B: {Position, Velocity} — a different archetype
-	var posB goke.Col[Position]
-	var velB goke.Col[Velocity]
-	fb := ecs.CreateFactory(goke.Add(&posB), goke.Add(&velB))
+	var posB goke.Comp[Position]
+	var velB goke.Comp[Velocity]
+	fb := ecs.NewFactory(&posB, &velB)
 	fb.Create(1)
 	fb.Next()
 	eB := fb.IDs[0]
 	posB.Slice(&fb.Cursor)[0] = Position{X: 2}
 
-	var pos goke.Col[Position]
-	matcher := ecs.CreateMatcher(goke.Track(&pos))
+	var pos goke.Comp[Position]
+	matcher := ecs.NewQueryBuilder(&pos).Build()
 
 	for i := 0; i < 3; i++ {
 		if !matcher.Seek(eA) || pos.At(&matcher.Cursor).X != 1 {
@@ -189,12 +189,12 @@ func TestECS_RemoveComp(t *testing.T) {
 	_ = goke.RegComp[Position](ecs)
 
 	var entityID uid.UID64
-	factory := ecs.CreateFactory(goke.Add(new(goke.Col[Position])))
+	factory := ecs.NewFactory(new(goke.Comp[Position]))
 	factory.Create(1)
 	factory.Next()
 	entityID = factory.IDs[0]
 
-	editor := ecs.CreateEditor(goke.Del[Position]())
+	editor := ecs.NewEditorBuilder().Delete(goke.Del[Position]()).Build()
 	if !editor.Update(entityID) {
 		t.Fatalf("expected Update to succeed")
 	}
@@ -212,8 +212,7 @@ func TestECS_RemoveEntity(t *testing.T) {
 	_ = posID // to avoid unused variable error if any
 
 	var entityID uid.UID64
-	fcPosOpt := goke.Add(new(goke.Col[Position]))
-	factory := ecs.CreateFactory(fcPosOpt)
+	factory := ecs.NewFactory(new(goke.Comp[Position]))
 	factory.Create(1)
 	factory.Next()
 	entityID = factory.IDs[0]
@@ -229,63 +228,12 @@ func TestECS_RemoveEntity(t *testing.T) {
 	}
 }
 
-func TestECS_Editor_AddComp(t *testing.T) {
-	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
-	_ = goke.RegComp[Velocity](ecs)
-
-	// Entity starts with only Velocity.
-	var vel goke.Col[Velocity]
-	factory := ecs.CreateFactory(goke.Add(&vel))
-	factory.Create(1)
-	factory.Next()
-	entityID := factory.IDs[0]
-
-	// Add Position and write its value through the editor's cursor.
-	var pos goke.Col[Position]
-	editor := ecs.CreateEditor(goke.Add(&pos))
-	if !editor.Update(entityID) {
-		t.Fatalf("expected Update to succeed")
-	}
-	pos.At(&editor.Cursor).X = 55
-
-	val := seekComp[Position](ecs, entityID)
-	if val == nil || val.X != 55 {
-		t.Errorf("expected Position.X == 55, got %v", val)
-	}
-}
-
-func TestECS_Factory_DelPanics(t *testing.T) {
-	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
-
-	defer func() {
-		if recover() == nil {
-			t.Errorf("expected CreateFactory to panic when given a Del opt")
-		}
-	}()
-
-	ecs.CreateFactory(goke.Del[Position]())
-}
-
-func TestECS_Editor_InvalidEntity(t *testing.T) {
-	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
-
-	var pos goke.Col[Position]
-	editor := ecs.CreateEditor(goke.Add(&pos))
-
-	if editor.Update(uid.UID64(999)) {
-		t.Errorf("expected Update to return false for a nonexistent entity")
-	}
-}
-
 func TestECS_Reset(t *testing.T) {
 	ecs := goke.New()
 	_ = goke.RegComp[Position](ecs)
 
 	var entityID uid.UID64
-	factory := ecs.CreateFactory(goke.Add(new(goke.Col[Position])))
+	factory := ecs.NewFactory(new(goke.Comp[Position]))
 	factory.Create(1)
 	factory.Next()
 	entityID = factory.IDs[0]

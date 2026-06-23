@@ -30,11 +30,11 @@ var logID goke.CompID
 // --- Systems ---
 
 type WorkerSystem struct {
-	query *goke.Matcher
+	query *goke.Query
 }
 
 func (s *WorkerSystem) Init(eng *goke.ECS) {
-	s.query = eng.CreateMatcher(goke.Include[Task]())
+	s.query = eng.NewQueryBuilder().Include(goke.Include[Task]()).Build()
 }
 
 func (s *WorkerSystem) Update(schedule *goke.CmdBuf, duration time.Duration) {
@@ -48,12 +48,12 @@ func (s *WorkerSystem) Update(schedule *goke.CmdBuf, duration time.Duration) {
 }
 
 type LoggerSystem struct {
-	query *goke.Matcher
+	query *goke.Query
 	Found bool
 }
 
 func (s *LoggerSystem) Init(eng *goke.ECS) {
-	s.query = eng.CreateMatcher(goke.Include[Log]())
+	s.query = eng.NewQueryBuilder().Include(goke.Include[Log]()).Build()
 }
 
 func (s *LoggerSystem) Update(schedule *goke.CmdBuf, duration time.Duration) {
@@ -79,8 +79,8 @@ func TestECS_SystemInteractions(t *testing.T) {
 		ecs := goke.New()
 		setupComponents(ecs)
 
-		var task goke.Col[Task]
-		factory := ecs.CreateFactory(goke.Add(&task))
+		var task goke.Comp[Task]
+		factory := ecs.NewFactory(&task)
 		factory.Create(1)
 		factory.Next()
 		task.Slice(&factory.Cursor)[0] = Task{Completed: false}
@@ -108,8 +108,8 @@ func TestECS_SystemInteractions(t *testing.T) {
 		ecs := goke.New()
 		setupComponents(ecs)
 
-		var task goke.Col[Task]
-		factory := ecs.CreateFactory(goke.Add(&task))
+		var task goke.Comp[Task]
+		factory := ecs.NewFactory(&task)
 		factory.Create(1)
 		factory.Next()
 		task.Slice(&factory.Cursor)[0] = Task{Completed: false}

@@ -33,8 +33,8 @@ func main() {
 	playerID = goke.RegComp[Player](ecs)
 
 	// 2. Setup Entities & Components
-	var dice goke.Col[Dice]
-	diceFactory := ecs.CreateFactory(goke.Add(&dice))
+	var dice goke.Comp[Dice]
+	diceFactory := ecs.NewFactory(&dice)
 
 	var diceEnt uid.UID64
 	diceFactory.Create(1)
@@ -43,8 +43,8 @@ func main() {
 	dice.Slice(&diceFactory.Cursor)[0] = Dice{Value: 0}
 
 	// Setup player entities
-	var player goke.Col[Player]
-	playerFactory := ecs.CreateFactory(goke.Add(&player))
+	var player goke.Comp[Player]
+	playerFactory := ecs.NewFactory(&player)
 
 	playerFactory.Create(2)
 	fc := &playerFactory.Cursor
@@ -55,16 +55,16 @@ func main() {
 		}
 	}
 
-	// 3. Define Matchers (for system filtering)
-	vDice := ecs.CreateMatcher(goke.Track(&dice))
-	vPlayers := ecs.CreateMatcher(goke.Track(&player))
-	vWinners := ecs.CreateMatcher(goke.Include[Winner]())
+	// 3. Define Queries (for system filtering)
+	vDice := ecs.NewQueryBuilder(&dice).Build()
+	vPlayers := ecs.NewQueryBuilder(&player).Build()
+	vWinners := ecs.NewQueryBuilder().Include(goke.Include[Winner]()).Build()
 
 	diceCursor := &vDice.Cursor
 	playerCursor := &vPlayers.Cursor
 
-	// Matcher for reading the dice entity's value each turn
-	diceMatcher := ecs.CreateMatcher(goke.Track(&dice))
+	// Query for reading the dice entity's value each turn
+	diceQuery := ecs.NewQueryBuilder(&dice).Build()
 
 	// 4. Register Systems
 
@@ -97,8 +97,8 @@ func main() {
 		}
 		turnCounter++
 
-		diceMatcher.Seek(diceEnt)
-		diceComp := dice.At(&diceMatcher.Cursor)
+		diceQuery.Seek(diceEnt)
+		diceComp := dice.At(&diceQuery.Cursor)
 		fmt.Printf("🎲 Turn %d | Dice Result: %d\n", turnCounter, diceComp.Value)
 
 		vPlayers.All()

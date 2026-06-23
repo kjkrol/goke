@@ -7,32 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.0.0] - 2026-06-23
 
-A full internal rewrite: the monolithic package was decomposed into focused, independently-testable internal packages, the generated `View0`–`View10`/`Blueprint` API was replaced with a unified pull-iterator API, and the entity/archetype/storage layers were rebuilt around explicit ownership boundaries.
+A full rewrite of the public API and the internal engine. The package-level free-function API (`goke.Tick(ecs, d)`, `goke.RegisterSystem(ecs, sys)`, ...) is replaced by methods on `*ECS`; the generated `View0`–`View10`/`Blueprint1`–`Blueprint10` API is replaced by a unified `Query`/`Factory`/`Editor` API built on component handles; and the monolithic internal package was decomposed into focused, independently-testable internal packages.
 
 ### Breaking Changes ⚠️
-* **`View`/`Lookup` merged into a single `Matcher`.** `ecs.CreateView()` and `ecs.CreateLookup()` are gone; `ecs.CreateMatcher(opts...)` returns one type with three access patterns: `All()` (full chunk iteration), `Pick(selected)` (subset iteration), and `Seek(entityID)` (single-entity, mask-independent direct access — replaces `Lookup.Seek`).
-* **Generated `View0`–`View10` types and `Blueprint`/`Blueprint1`–`Blueprint10` removed.** Replaced by `Matcher` (query side) and `Factory` (creation side), both driven by `comp.AccessOpt`/`comp.EditOpt` functional options instead of generated per-arity types.
-* **`GetComponent[T]`/`SafeGetComponent[T]` removed.** Use `Matcher.Seek` + `Col[T].At` for direct single-entity access.
-* Internal package layout changed substantially (`internal/arch`, `internal/ent`, `internal/comp`, `internal/colstore`, `internal/chunk`, `internal/addr`, `internal/reg`, `internal/orch`, `internal/query`) — not part of the public API, but relevant if you vendor or patch internals.
+* **Free functions replaced by methods on `*ECS`.** `goke.RemoveEntity(ecs, e)` → `ecs.RemoveEnt(e)`; `goke.RegisterSystem(ecs, sys)` → `ecs.RegSys(sys)`; `goke.RegisterSystemFunc(ecs, fn)` → `ecs.RegSysFn(fn)`; `goke.Plan(ecs, plan)` → `ecs.SetPlan(plan)`; `goke.Tick(ecs, d)` → `ecs.Tick(d)`; `goke.Reset(ecs)` → `ecs.Reset()`.
+* **`View0`–`View10` and `Blueprint`/`Blueprint1`–`Blueprint10` (generated, per-arity types) removed.** Replaced by `Query` (built via `ECS.NewQueryBuilder(comps ...).Include(...).Exclude(...).Build()`) for reading, and `Factory` (built via `ECS.NewFactory(comps ...)`) for bulk creation. Component access goes through a typed handle, `Comp[T]` — declare one as a variable and pass `&comp` directly to either builder; it binds itself, no separate wrapping call.
+* **`EnsureComponent[T]`/`SafeEnsureComponent[T]`/`GetComponent[T]`/`SafeGetComponent[T]`/`RemoveComponent` removed.** Use a `Query` for reads (`Query.Seek` + `Comp[T].At` for single-entity access, `Query.All`/`Pick` for bulk/subset) and an `Editor` (built via `ECS.NewEditorBuilder(comps ...).Delete(...).Build()`) for structural add/remove.
+* **`Entity` removed** — use `uid.UID64` directly (it was always a plain alias).
+* **`ComponentID`/`ComponentDesc` replaced by `CompID`.** Component lookups no longer pass around a full descriptor struct (`{ID, Type}`) — only the ID, resolved automatically by the generic component-handle/option functions. `RegisterComponent[T](ecs) ComponentDesc` → `RegComp[T](ecs) CompID`.
+* **`System.Update` signature changed**: `Update(Lookup, *Schedule, time.Duration)` → `Update(*CmdBuf, time.Duration)`. The `Lookup` (read-only registry) parameter is gone — a system that needs to read entities builds and holds its own `Query` (typically created once in `Init`), the same way it would for any other read access. `Schedule` is renamed `CmdBuf`.
+* **`ScheduleAddComponent[T]` → `CmdBufAddComp[T]`** (same shape, takes a `CompID` resolved via `RegComp[T]`, typically once in `System.Init` — `CmdBuf`-based writes happen outside the registry's live context, so the ID can't be resolved automatically the way `Query`/`Factory`/`Editor` do it). **`ScheduleRemoveComponent`/`ScheduleRemoveEntity` removed as free functions** — call `cb.RemoveComp(e, compID)` / `cb.RemoveEntity(e)` directly as methods on the `*CmdBuf` passed into `Update`.
+* **`Include[T]()`/`Exclude[T]()` kept (same names), but their return type and the type they configure changed** — from `BlueprintOption` (configuring a `core.Blueprint`) to `Opt` (configuring a `Query`, via `.Include(...)`/`.Exclude(...)` on `NewQueryBuilder`'s result).
+* **`WithInitialEntityCap`/`WithFreeIndicesCap` renamed** to `WithEntityCap`/`WithEntityFreeCap`.
+* Internal package layout changed substantially (`internal/arch`, `internal/ent`, `internal/comp`, `internal/colstore`, `internal/chunk`, `internal/addr`, `internal/reg`, `internal/orch`, `internal/query` replace the previous single `internal/core` package) — not part of the public API, but relevant if you vendor or patch internals.
+
+### Why pull, not push
+`View.All`/`View.Filter` were **push iterators**: built on `iter.Seq[...]` (Go's range-over-func), the iteration loop lived inside the engine and pushed each chunk/element out to a caller-supplied `yield` callback. Calling through `yield` is an indirect call through a function value, not a static call — the compiler can't always inline it. Worse, when the caller's loop body was non-trivial ("heavy"), the inliner's failure at that one call site tended to cascade, defeating bounds-check elimination and register allocation across the whole iteration — a caller-side change to ordinary loop logic could silently degrade engine throughput, with no obvious cause from the caller's perspective. `Query.All`/`Pick` (via `Next()` + `Cursor`) is a **pull iterator** instead: the loop body lives directly in the caller's own code, calling an ordinary method (`Next()`) with no closure indirection — inlining and loop optimizations no longer depend on how much work the loop body does.
 
 ### Added ✨
-* **`Editor`** — explicit, reusable structural-edit handle (`comp.Add`/`comp.Del` options) replacing ad-hoc per-call component add/remove.
-* **`Matcher.Seek`** — direct single-entity resolution, independent of the Matcher's include/exclude mask, with per-archetype table/offset caching for repeated seeks within the same archetype.
+* **`Editor`** — explicit, reusable structural-edit handle (built via `NewEditorBuilder`), replacing the old `EnsureComponent`/`RemoveComponent` free-function calls with a single batched migration per `Update`.
+* **`Query.Seek`** — direct single-entity resolution, independent of the Query's include/exclude mask, with per-archetype table/offset caching for repeated seeks within the same archetype. Replaces `GetComponent`/`SafeGetComponent`.
+* **`Trackable`/`Addable`** — sealed interfaces (unexported method, same pattern as `testing.TB`) satisfied only by `*Comp[T]`, letting `NewQueryBuilder`/`NewFactory`/`NewEditorBuilder` accept component handles directly instead of a separate wrapping call.
 * Comprehensive unit test coverage added across `internal/addr`, `internal/arch`, `internal/chunk`, `internal/colstore`, `internal/comp`, `internal/ent`, `internal/orch`, `internal/query`, `internal/reg`, the root `goke` package, and `iter` — all now at 96–100% statement coverage (up from several packages at 0%).
 * New benchmark families: `Benchmark_Editor_Mix` (combined add+remove in one migration), `Benchmark_Remove`, `Benchmark_Stability_Grow`, `Benchmark_Matcher_Seek`.
 
+### Note on `RegComp`
+`RegComp[T]` is still needed, but only for one case: `CmdBufAddComp[T]` (used inside a `System.Update`, which has no live access to the registry) needs a pre-resolved `CompID`, typically captured once via `RegComp[T]` in `System.Init`. Every other entry point (`NewFactory`, `NewQueryBuilder`, `NewEditorBuilder`, `Include`/`Exclude`/`Del`) resolves component types automatically — no manual registration required.
+
 ### Performance 🚀
-The `chunk.Pack` reuse fix above eliminates the dominant allocation source for any workload that repeatedly migrates entities between the same two archetype shapes (e.g. toggling a component or tag every tick). Measured on an i5-8265U, population 1,024, comparing before/after the fix:
+`chunk.Pack` keeps one spare chunk on hand after a shrink and reuses it on the next growth, instead of always allocating fresh memory. As a result, `Editor.Add`/`Del`/`Mix` (2–10 components, population 1,024) report **0 allocs/op at steady state** — measured directly on this release, not as a delta against v1.3.4, which used a different internal storage implementation. The 1-component cases for `Add`/`Del` still allocate once per call (the migration crosses more than one chunk boundary in a single step, exceeding the single-slot `spare` cache), a known, accepted limit of a one-deep reuse cache.
 
-| Benchmark | Before (allocs/op, B/op) | After (allocs/op, B/op) |
-| :--- | :--- | :--- |
-| `Editor_Add` (2–10 comp) | 1 alloc, ~32.8 KB/op | **0 allocs**, single-digit–dozens B/op |
-| `Editor_Del` (2–10 comp) | 1 alloc, ~32.8 KB/op | **0 allocs**, single-digit–dozens B/op |
-| `Editor_Mix` (all comp counts) | 1 alloc, ~32.8 KB/op | **0 allocs**, single-digit–dozens B/op |
-
-The 1-component cases for `Add`/`Del` still allocate once (the migration crosses more than one chunk boundary in a single step, exceeding the single-slot `spare` cache), which is a known, accepted limit of a one-deep reuse cache.
-
-See [BENCHMARKS.md](./BENCHMARKS.md) for the full current per-component-count numbers (Apple M1 Max) across `Editor.Add/AddTags/Del/Mix`, `Factory.Create`, `Matcher.All/Pick/Seek`, and entity lifecycle operations — including the new `Mix` and `Seek` sections that didn't exist in earlier versions of that document.
+See [BENCHMARKS.md](./BENCHMARKS.md) for the full current per-component-count numbers (Apple M1 Max) across `Editor.Add/AddTags/Del/Mix`, `Factory.Create`, `Query.All/Pick/Seek`, and entity lifecycle operations — including the new `Mix` and `Seek` sections that didn't exist in earlier versions of that document.
 
 ## [1.3.0] - 2026-06-07
 

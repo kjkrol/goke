@@ -15,10 +15,10 @@ import (
 type EntitiesInitSystem struct {
 	*Resources
 	factory *goke.Factory
-	fPos    goke.Col[Position]
-	fVel    goke.Col[Velocity]
-	fColl   goke.Col[Collision]
-	fAppear goke.Col[Appearance]
+	fPos    goke.Comp[Position]
+	fVel    goke.Comp[Velocity]
+	fColl   goke.Comp[Collision]
+	fAppear goke.Comp[Appearance]
 }
 
 var _ goke.System = (*EntitiesInitSystem)(nil)
@@ -31,7 +31,7 @@ func NewEntitiesInitSystem(reources *Resources) goke.System {
 
 func (s *EntitiesInitSystem) Init(ecs *goke.ECS) {
 	spawnEntitiesNumber := s.entityCounter
-	s.factory = ecs.CreateFactory(goke.Add(&s.fPos), goke.Add(&s.fVel), goke.Add(&s.fColl), goke.Add(&s.fAppear))
+	s.factory = ecs.NewFactory(&s.fPos, &s.fVel, &s.fColl, &s.fAppear)
 
 	gridSize := math.Ceil(math.Sqrt(float64(spawnEntitiesNumber)))
 	cols := uint32(gridSize)

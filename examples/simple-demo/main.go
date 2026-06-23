@@ -26,9 +26,9 @@ func main() {
 	discountID = goke.RegComp[Discount](ecs)
 
 	// Initialize an entity with Order and Discount component data
-	var order goke.Col[Order]
-	var discount goke.Col[Discount]
-	factory := ecs.CreateFactory(goke.Add(&order), goke.Add(&discount))
+	var order goke.Comp[Order]
+	var discount goke.Comp[Discount]
+	factory := ecs.NewFactory(&order, &discount)
 	var entityID uid.UID64
 	factory.Create(1)
 	factory.Next()
@@ -38,7 +38,7 @@ func main() {
 	discount.Slice(fc)[0] = Discount{Percentage: 20.0}
 
 	// Define the Billing System to calculate discounted totals for unprocessed orders
-	query := ecs.CreateMatcher(goke.Track(&order), goke.Track(&discount), goke.Exclude[Processed]())
+	query := ecs.NewQueryBuilder(&order, &discount).Exclude(goke.Exclude[Processed]()).Build()
 	cursor := &query.Cursor
 	billing := ecs.RegSysFn(func(schedule *goke.CmdBuf, d time.Duration) {
 		query.All()
@@ -55,7 +55,7 @@ func main() {
 
 	// Define the Teardown System to monitor simulation exit conditions
 	close := false
-	query2 := ecs.CreateMatcher(goke.Include[Processed]())
+	query2 := ecs.NewQueryBuilder().Include(goke.Include[Processed]()).Build()
 	teardownSystem := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
 		query2.Pick([]uid.UID64{entityID})
 		if query2.Next() {
@@ -72,17 +72,17 @@ func main() {
 	})
 
 	// Log the initial state before simulation begins
-	matcher := ecs.CreateMatcher(goke.Track(&order))
-	if matcher.Seek(entityID) {
-		orderResult := order.At(&matcher.Cursor)
+	lookup := ecs.NewQueryBuilder(&order).Build()
+	if lookup.Seek(entityID) {
+		orderResult := order.At(&lookup.Cursor)
 		fmt.Printf("Order id: %v value: %v\n", orderResult.ID, orderResult.Total)
 	}
 
 	// Run the main simulation loop until the exit signal is received
 	for !close {
 		ecs.Tick(time.Second)
-		if matcher.Seek(entityID) {
-			orderResult := order.At(&matcher.Cursor)
+		if lookup.Seek(entityID) {
+			orderResult := order.At(&lookup.Cursor)
 			fmt.Printf("Order id: %v value with discount: %v\n", orderResult.ID, orderResult.Total)
 		}
 	}

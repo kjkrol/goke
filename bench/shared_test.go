@@ -45,17 +45,17 @@ func setupECS() *goke.ECS {
 }
 
 func populate(ecs *goke.ECS, count int) []uid.UID64 {
-	var c1 goke.Col[Pos]
-	var c2 goke.Col[Vel]
-	var c3 goke.Col[Acc]
-	var c4 goke.Col[T04]
-	var c5 goke.Col[T05]
-	var c6 goke.Col[T06]
-	var c7 goke.Col[T07]
-	var c8 goke.Col[T08]
-	var c9 goke.Col[T09]
-	var c10 goke.Col[T10]
-	factory := ecs.CreateFactory(goke.Add(&c1), goke.Add(&c2), goke.Add(&c3), goke.Add(&c4), goke.Add(&c5), goke.Add(&c6), goke.Add(&c7), goke.Add(&c8), goke.Add(&c9), goke.Add(&c10))
+	var c1 goke.Comp[Pos]
+	var c2 goke.Comp[Vel]
+	var c3 goke.Comp[Acc]
+	var c4 goke.Comp[T04]
+	var c5 goke.Comp[T05]
+	var c6 goke.Comp[T06]
+	var c7 goke.Comp[T07]
+	var c8 goke.Comp[T08]
+	var c9 goke.Comp[T09]
+	var c10 goke.Comp[T10]
+	factory := ecs.NewFactory(&c1, &c2, &c3, &c4, &c5, &c6, &c7, &c8, &c9, &c10)
 
 	var entities []uid.UID64
 	factory.Create(count)

@@ -33,28 +33,28 @@ func Benchmark_Matcher_All(b *testing.B) {
 	ecs := setupECS()
 	populate(ecs, entitiesNumber)
 
-	var pos goke.Col[Pos]
-	var vel goke.Col[Vel]
-	var acc goke.Col[Acc]
-	var t04 goke.Col[T04]
-	var t05 goke.Col[T05]
-	var t06 goke.Col[T06]
-	var t07 goke.Col[T07]
-	var t08 goke.Col[T08]
-	var t09 goke.Col[T09]
-	var t10 goke.Col[T10]
+	var pos goke.Comp[Pos]
+	var vel goke.Comp[Vel]
+	var acc goke.Comp[Acc]
+	var t04 goke.Comp[T04]
+	var t05 goke.Comp[T05]
+	var t06 goke.Comp[T06]
+	var t07 goke.Comp[T07]
+	var t08 goke.Comp[T08]
+	var t09 goke.Comp[T09]
+	var t10 goke.Comp[T10]
 
-	matcher0 := ecs.CreateMatcher()
-	matcher1 := ecs.CreateMatcher(goke.Track(&pos))
-	matcher2 := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&vel))
-	matcher3 := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&vel), goke.Track(&acc), goke.Include[T04]())
-	matcher4 := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&vel), goke.Track(&acc), goke.Track(&t04))
-	matcher5 := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&vel), goke.Track(&acc), goke.Track(&t04), goke.Track(&t05))
-	matcher6 := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&vel), goke.Track(&acc), goke.Track(&t04), goke.Track(&t05), goke.Track(&t06))
-	matcher7 := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&vel), goke.Track(&acc), goke.Track(&t04), goke.Track(&t05), goke.Track(&t06), goke.Track(&t07))
-	matcher8 := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&vel), goke.Track(&acc), goke.Track(&t04), goke.Track(&t05), goke.Track(&t06), goke.Track(&t07), goke.Track(&t08))
-	matcher9 := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&vel), goke.Track(&acc), goke.Track(&t04), goke.Track(&t05), goke.Track(&t06), goke.Track(&t07), goke.Track(&t08), goke.Track(&t09))
-	matcher10 := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&vel), goke.Track(&acc), goke.Track(&t04), goke.Track(&t05), goke.Track(&t06), goke.Track(&t07), goke.Track(&t08), goke.Track(&t09), goke.Track(&t10))
+	matcher0 := ecs.NewQueryBuilder().Build()
+	matcher1 := ecs.NewQueryBuilder(&pos).Build()
+	matcher2 := ecs.NewQueryBuilder(&pos, &vel).Build()
+	matcher3 := ecs.NewQueryBuilder(&pos, &vel, &acc).Include(goke.Include[T04]()).Build()
+	matcher4 := ecs.NewQueryBuilder(&pos, &vel, &acc, &t04).Build()
+	matcher5 := ecs.NewQueryBuilder(&pos, &vel, &acc, &t04, &t05).Build()
+	matcher6 := ecs.NewQueryBuilder(&pos, &vel, &acc, &t04, &t05, &t06).Build()
+	matcher7 := ecs.NewQueryBuilder(&pos, &vel, &acc, &t04, &t05, &t06, &t07).Build()
+	matcher8 := ecs.NewQueryBuilder(&pos, &vel, &acc, &t04, &t05, &t06, &t07, &t08).Build()
+	matcher9 := ecs.NewQueryBuilder(&pos, &vel, &acc, &t04, &t05, &t06, &t07, &t08, &t09).Build()
+	matcher10 := ecs.NewQueryBuilder(&pos, &vel, &acc, &t04, &t05, &t06, &t07, &t08, &t09, &t10).Build()
 
 	var GlobalCount int
 	b.Run(fmt.Sprintf("pop=%d/0_comp", entitiesNumber), func(b *testing.B) {

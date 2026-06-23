@@ -105,11 +105,11 @@ Benchmarks against other Go ECS libraries (Arche, Donburi, Ento, etc.) are maint
 ⚠️ Before drawing conclusions, verify which GOKe version (tag) is used in the comparison, as published results may lag behind the latest release.
 
 ## Scalability Validation
-`Editor`/`Factory.Create`/`Matcher.All` were validated across worlds ranging from **2¹⁰ (1,024)** to **2²⁰ (1,048,576)** entities on an **Apple M1 Max**. Structural per-entity cost stays nearly constant across that range; `Matcher.All`'s per-entity cost roughly doubles at 2²⁰ once the working set outgrows cache (a known trade-off of the chunked SoA layout). `Pick`/`Seek`/`Remove` are currently only benchmarked at a fixed population.
+`Editor`/`Factory.Create`/`Query.All` were validated across worlds ranging from **2¹⁰ (1,024)** to **2²⁰ (1,048,576)** entities on an **Apple M1 Max**. Structural per-entity cost stays nearly constant across that range; `Query.All`'s per-entity cost roughly doubles at 2²⁰ once the working set outgrows cache (a known trade-off of the chunked SoA layout). `Pick`/`Seek`/`Remove` are currently only benchmarked at a fixed population.
 
 | Category | Operation | Observed Cost (2¹⁰–2²⁰ Entities) | Allocs | Technical Mechanism |
 | :--- | :--- | :--- | :--- | :--- |
-| **Throughput** | **Iteration (Matcher.All)** | **0.32 - 3.41 ns/ent** | **0** | Linear SoA (0-10 components) |
+| **Throughput** | **Iteration (Query.All)** | **0.32 - 3.41 ns/ent** | **0** | Linear SoA (0-10 components) |
 | **Subset Query** | **Pick (per-entity, 1,024 only)** | **3.6 - 11.2 ns/ent** | **0** | Per-entity record lookup + pointer math |
 | **Direct Access** | **Seek (single entity, 1,024 only)** | **2.9 - 10.7 ns/ent** | **0** | Index lookup, independent of include/exclude mask |
 | **Structural** | **Batch Create** | **3.9 - 9.0 ns/ent** | 0-1 | Factory-based chunk writes |
@@ -176,14 +176,14 @@ func main() {
 	// Initialize the ECS world.
 	ecs := goke.New()
 
-	// Col[T] handles typed access to a component column.
-	// The same Col[T] can be reused across factory and matcher.
-	var pos goke.Col[Pos]
-	var vel goke.Col[Vel]
-	var acc goke.Col[Acc]
+	// Comp[T] handles typed access to a component. The same handle can be
+	// reused across factory and query — pass &comp directly, no wrapping.
+	var pos goke.Comp[Pos]
+	var vel goke.Comp[Vel]
+	var acc goke.Comp[Acc]
 
 	// Create a factory for bulk entity spawning.
-	factory := ecs.CreateFactory(goke.Add(&pos), goke.Add(&vel), goke.Add(&acc))
+	factory := ecs.NewFactory(&pos, &vel, &acc)
 
 	var entityID uid.UID64
 	factory.Create(1)
@@ -194,16 +194,16 @@ func main() {
 	vel.Slice(cursor)[0] = Vel{X: 1, Y: 1}
 	acc.Slice(cursor)[0] = Acc{X: 0.1, Y: 0.1}
 
-	// Create a matcher — declares which components to iterate.
-	matcher := ecs.CreateMatcher(goke.Track(&pos), goke.Track(&vel), goke.Track(&acc))
+	// Create a query — declares which components to iterate.
+	query := ecs.NewQueryBuilder(&pos, &vel, &acc).Build()
 
 	// Register a system using the functional pattern.
-	cursor = &matcher.Cursor
+	cursor = &query.Cursor
 	movementSystem := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
-		// SoA layout: Matcher.All advances chunk by chunk — the inner loop
+		// SoA layout: Query.All advances chunk by chunk — the inner loop
 		// iterates over contiguous memory for cache-friendly access.
-		matcher.All()
-		for matcher.Next() {
+		query.All()
+		for query.Next() {
 			posSlice := pos.Slice(cursor)
 			velSlice := vel.Slice(cursor)
 			accSlice := acc.Slice(cursor)
@@ -226,9 +226,9 @@ func main() {
 	ecs.Tick(time.Second / 120)
 
 	// Read a single entity's component via Seek (cursor-based, typed).
-	matcher2 := ecs.CreateMatcher(goke.Track(&pos))
-	if matcher2.Seek(entityID) {
-		p := pos.At(&matcher2.Cursor)
+	lookup := ecs.NewQueryBuilder(&pos).Build()
+	if lookup.Seek(entityID) {
+		p := pos.At(&lookup.Cursor)
 		fmt.Printf("Final Position: {X: %.2f, Y: %.2f}\n", p.X, p.Y)
 	}
 }

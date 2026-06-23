@@ -32,8 +32,8 @@ func TestECSOptions_AppliedByNew(t *testing.T) {
 
 	// The options must actually take effect, not just be accepted silently:
 	// an entity pool with Cap=10 should still be usable for creating entities.
-	var pos goke.Col[Position]
-	factory := ecs.CreateFactory(goke.Add(&pos))
+	var pos goke.Comp[Position]
+	factory := ecs.NewFactory(&pos)
 	factory.Create(10)
 	total := 0
 	for factory.Next() {
