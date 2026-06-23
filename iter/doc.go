@@ -9,9 +9,6 @@
 //   - Slot      — index of the current entity within the chunk (single-entity access)
 //   - IDs       — entity ID slice for the current chunk or batch
 //
-// Cursor carries no type information. Both Offsets and IDs are slice fields;
-// Offsets is allocated once at construction time, IDs is set on each Next() call.
-//
 // # Col[T]
 //
 // [Col][T] is a typed column handle. It holds a single int field — Idx — which is

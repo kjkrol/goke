@@ -20,20 +20,14 @@ type Cursor struct {
 }
 
 // Col is a typed column handle for a tracked component.
-// Declare one as a struct field, register it via Track(&col), then use
-// col.Slice(cursor) in All/Factory mode and col.At(cursor) in Filter mode.
 type Col[T any] struct {
 	Idx int
 }
 
-// Slice returns the component slice for the current All-mode chunk or Factory batch.
-// Its length equals len(cursor.IDs), so ranging cursor.IDs in the inner
-// loop lets the compiler eliminate bounds checks on slice[i] accesses.
 func (c *Col[T]) Slice(cur *Cursor) []T {
 	return unsafe.Slice((*T)(unsafe.Add(cur.Base, cur.Offsets[c.Idx])), len(cur.IDs))
 }
 
-// At returns a pointer to the component for the current Filter-mode entity.
 func (c *Col[T]) At(cur *Cursor) *T {
 	var zero T
 	return (*T)(unsafe.Add(cur.Base, cur.Offsets[c.Idx]+cur.Slot*unsafe.Sizeof(zero)))
