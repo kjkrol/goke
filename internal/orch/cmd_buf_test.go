@@ -65,8 +65,8 @@ func TestCmdBuf_ComponentCmds(t *testing.T) {
 
 	sched := NewScheduler(&registry)
 
-	var colA iter.Col[mockCompA]
-	f := registry.CreateFactory(comp.Add(&colA), comp.Add(new(iter.Col[mockCompB])))
+	var colA iter.ArrayRef[mockCompA]
+	f := registry.CreateFactory(comp.Add(&colA), comp.Add(new(iter.ArrayRef[mockCompB])))
 	f.Create(1)
 	f.Next()
 	e := f.IDs[0]
@@ -93,7 +93,7 @@ func TestCmdBuf_ComponentCmds(t *testing.T) {
 	}
 
 	// compB should be present with the assigned value
-	var colB iter.Col[mockCompB]
+	var colB iter.ArrayRef[mockCompB]
 	matcherB := registry.AddMatcher(comp.Track(&colB))
 	if !matcherB.Pick([]uid.UID64{e}).Next() {
 		t.Fatalf("Expected compB to be present")

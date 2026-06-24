@@ -21,7 +21,7 @@ func Include[T any]() AccessOpt {
 // sets col.Idx to its position. Pass col.Slice or col.At to access data.
 // The same opt may be reused across multiple views as long as T occupies the
 // same track position in each.
-func Track[T any](col *iter.Col[T]) AccessOpt {
+func Track[T any](col *iter.ArrayRef[T]) AccessOpt {
 	return func(s *AccessSpec, mi *DefIndex) error {
 		col.Idx = len(s.CompInfos)
 		compDef := mi.Intern(reflect.TypeFor[T]())

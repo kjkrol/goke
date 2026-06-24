@@ -41,9 +41,9 @@ func RegComp[T any](ecs *ECS) CompID {
 	return ecs.registry.RegComp(compType)
 }
 
-// NewFactory resolves or creates the archetype from the given component
-// handles and returns a reusable Factory ready for repeated Create/Next
-// cycles. Each handle behaves like Add[T] — pass &comp directly.
+// NewFactory resolves or creates the archetype from the given components and
+// returns a reusable Factory ready for repeated Create/Next cycles. Each
+// component behaves like Add[T] — pass &comp directly.
 func (ecs *ECS) NewFactory(comps ...Addable) *Factory {
 	opts := make([]EditOpt, len(comps))
 	for i, c := range comps {

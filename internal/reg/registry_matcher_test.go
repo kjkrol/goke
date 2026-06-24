@@ -12,13 +12,13 @@ func TestRegistry_AddMatcher_MatchesExistingArchetype(t *testing.T) {
 	r := newRegistry(t)
 	r.RegComp(reflect.TypeFor[Position]())
 
-	var pos iter.Col[Position]
+	var pos iter.ArrayRef[Position]
 	factory := r.CreateFactory(comp.Add(&pos))
 	factory.Create(1)
 	factory.Next()
 	pos.Slice(&factory.Cursor)[0] = Position{X: 1, Y: 2}
 
-	var trackedPos iter.Col[Position]
+	var trackedPos iter.ArrayRef[Position]
 	matcher := r.AddMatcher(comp.Track(&trackedPos))
 
 	count := 0
@@ -42,7 +42,7 @@ func TestRegistry_AddMatcher_ReactsToArchetypeCreatedAfterward(t *testing.T) {
 	r := newRegistry(t)
 	r.RegComp(reflect.TypeFor[Position]())
 
-	var trackedPos iter.Col[Position]
+	var trackedPos iter.ArrayRef[Position]
 	matcher := r.AddMatcher(comp.Track(&trackedPos))
 
 	count := 0
@@ -56,7 +56,7 @@ func TestRegistry_AddMatcher_ReactsToArchetypeCreatedAfterward(t *testing.T) {
 		t.Fatalf("expected no matches before any entity exists, got %d", count)
 	}
 
-	var pos iter.Col[Position]
+	var pos iter.ArrayRef[Position]
 	factory := r.CreateFactory(comp.Add(&pos))
 	factory.Create(1)
 	factory.Next()
@@ -78,7 +78,7 @@ func TestRegistry_AddMatcher_RespectsExclude(t *testing.T) {
 	r.RegComp(reflect.TypeFor[Position]())
 	r.RegComp(reflect.TypeFor[Tag]())
 
-	var pos iter.Col[Position]
+	var pos iter.ArrayRef[Position]
 	factory := r.CreateFactory(comp.Add(&pos))
 	factory.Create(1)
 	factory.Next()

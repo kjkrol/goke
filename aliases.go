@@ -57,14 +57,14 @@ type (
 	EditOpt = comp.EditOpt
 )
 
-// Comp is a typed handle for a component, used to read/write its value and to
-// declare that value as tracked (data access) or added (structural change).
-// Declare one as a variable, then pass its address directly to
-// NewFactory/NewQueryBuilder/NewEditorBuilder — it binds itself, no separate
-// wrapping call needed. Use comp.Slice(cursor) in All/Factory-mode and
-// comp.At(cursor) in Pick/Seek-mode.
+// Comp gives typed read/write access to a component's value, and declares
+// that component as tracked (data access) or added (structural change) when
+// passed to a builder. Declare one as a variable, then pass its address
+// directly to NewFactory/NewQueryBuilder/NewEditorBuilder — it binds itself,
+// no separate wrapping call needed. Use comp.Slice(cursor) in All/Factory-mode
+// and comp.At(cursor) in Pick/Seek-mode.
 type Comp[T any] struct {
-	col iter.Col[T]
+	col iter.ArrayRef[T]
 }
 
 // Slice returns the component slice for the current All-mode chunk or
@@ -76,7 +76,7 @@ func (c *Comp[T]) Slice(cur *Cursor) []T { return c.col.Slice(cur) }
 func (c *Comp[T]) At(cur *Cursor) *T { return c.col.At(cur) }
 
 // Trackable is satisfied by *Comp[T] for any T — it lets NewQueryBuilder
-// accept component handles (&comp) directly as tracked data columns.
+// accept components (&comp) directly as tracked data columns.
 type Trackable interface {
 	// asTrack is unexported so *Comp[T] is the only implementer — this is a
 	// sealed interface, not an extension point.
@@ -84,8 +84,7 @@ type Trackable interface {
 }
 
 // Addable is satisfied by *Comp[T] for any T — it lets NewFactory and
-// NewEditorBuilder accept component handles (&comp) directly as added
-// components.
+// NewEditorBuilder accept components (&comp) directly as added components.
 type Addable interface {
 	// asAdd is unexported so *Comp[T] is the only implementer — this is a
 	// sealed interface, not an extension point.

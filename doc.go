@@ -77,7 +77,7 @@
 // The internal packages form a strict acyclic dependency graph. Each layer
 // may only import packages from layers below it:
 //
-//	Layer 0   iter     — column-access primitives: Cursor, Col[T]
+//	Layer 0   iter     — column-access primitives: Cursor, ArrayRef[T]
 //	Layer 1   comp     — shared primitives: ID, Def, Mask, AccessSpec, DefIndex  (→ iter)
 //	Layer 2   chunk    — cache-aligned chunked memory layout     (→ comp)
 //	Layer 2   orch     — scheduler, plans, command buffers       (→ comp)

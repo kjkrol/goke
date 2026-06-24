@@ -165,7 +165,6 @@ import (
 	"time"
 
 	"github.com/kjkrol/goke"
-	"github.com/kjkrol/uid"
 )
 
 type Pos struct{ X, Y float32 }
@@ -176,8 +175,9 @@ func main() {
 	// Initialize the ECS world.
 	ecs := goke.New()
 
-	// Comp[T] handles typed access to a component. The same handle can be
-	// reused across factory and query — pass &comp directly, no wrapping.
+	// Comp[T] gives typed read/write access to a component. The same
+	// instance can be reused across factory, editor and query — pass &comp
+	// directly, no wrapping.
 	var pos goke.Comp[Pos]
 	var vel goke.Comp[Vel]
 	var acc goke.Comp[Acc]
@@ -185,10 +185,9 @@ func main() {
 	// Create a factory for bulk entity spawning.
 	factory := ecs.NewFactory(&pos, &vel, &acc)
 
-	var entityID uid.UID64
 	factory.Create(1)
 	factory.Next()
-	entityID = factory.IDs[0]
+	entityID := factory.IDs[0]
 	cursor := &factory.Cursor
 	pos.Slice(cursor)[0] = Pos{X: 0, Y: 0}
 	vel.Slice(cursor)[0] = Vel{X: 1, Y: 1}
@@ -196,10 +195,9 @@ func main() {
 
 	// Create a query — declares which components to iterate.
 	query := ecs.NewQueryBuilder(&pos, &vel, &acc).Build()
-
-	// Register a system using the functional pattern.
 	cursor = &query.Cursor
-	movementSystem := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
+	// Register a system using the functional pattern.
+	movementSystem := ecs.RegSysFn(func(_ *goke.CmdBuf, _ time.Duration) {
 		// SoA layout: Query.All advances chunk by chunk — the inner loop
 		// iterates over contiguous memory for cache-friendly access.
 		query.All()
@@ -244,6 +242,7 @@ GOKe is an archetype-based ECS built around data-oriented design principles. The
 | Package | Responsibility |
 |:---|:---|
 | [`github.com/kjkrol/uid`](https://pkg.go.dev/github.com/kjkrol/uid) | 64-bit generational entity identifiers — safe index recycling, ABA prevention |
+| [`iter`](iter/doc.go) | Lowest-level column-access primitives — `Cursor` (current iteration position) and `ArrayRef[T]` (typed pointer arithmetic into a Cursor, zero-allocation `Slice`/`At`); the public `Comp[T]` wraps this |
 | [`internal/comp`](internal/comp/doc.go) | Shared component primitives used across all internal packages — type registration, metadata, and blueprint definitions |
 | [`internal/chunk`](internal/chunk/doc.go) | Cache-aligned chunked memory layout — L1-cache-sized fixed slabs, field offset calculation, slot tracking within a growing slab collection; keeps one spare slab on shrink so repeated grow/shrink cycles stay allocation-free |
 | [`internal/colstore`](internal/colstore/doc.go) | Column-oriented storage for a single archetype — manages component columns over `chunk.Pack` chunks, resolves component IDs to memory locations in O(1) |
@@ -253,6 +252,7 @@ GOKe is an archetype-based ECS built around data-oriented design principles. The
 | [`internal/query`](internal/query/doc.go) | Query layer: `Matcher` bakes component masks into precomputed per-archetype offsets, enabling zero-allocation bulk iteration (`All`), per-entity subset iteration (`Pick`), and O(1) single-entity access (`Seek`) |
 | [`internal/orch`](internal/orch/doc.go) | Plan-based task orchestrator: sequential/parallel execution, deferred mutations via command buffers |
 | [`internal/reg`](internal/reg/doc.go) | Top-level world registry — wires together all subsystems and exposes the unified API for entity and component management |
+| [`goke`](doc.go) (public) | The package you import. `ECS` wires `reg.Registry` + `orch.Scheduler`; `Comp[T]` gives typed access to a component; `NewFactory`/`NewQueryBuilder`/`NewEditorBuilder` are the only construction paths for `Factory`/`Query`/`Editor`; `System`/`SystemFn`/`CmdBuf` round out the scheduling API |
 
 <a id="roadmap"></a>
 # 🗺️ Roadmap

@@ -43,7 +43,7 @@ func TestRegistry_CreateFactory(t *testing.T) {
 	r := newRegistry(t)
 	r.RegComp(reflect.TypeFor[Position]())
 
-	var pos iter.Col[Position]
+	var pos iter.ArrayRef[Position]
 	factory := r.CreateFactory(comp.Add(&pos))
 	factory.Create(2)
 
@@ -81,14 +81,14 @@ func TestRegistry_CreateFactory_PanicsOnZeroSizeAddOpt(t *testing.T) {
 			t.Error("expected CreateFactory to panic when Add targets a zero-size (tag) type")
 		}
 	}()
-	r.CreateFactory(comp.Add(new(iter.Col[Tag])))
+	r.CreateFactory(comp.Add(new(iter.ArrayRef[Tag])))
 }
 
 func TestRegistry_Remove(t *testing.T) {
 	r := newRegistry(t)
 	r.RegComp(reflect.TypeFor[Position]())
 
-	var pos iter.Col[Position]
+	var pos iter.ArrayRef[Position]
 	factory := r.CreateFactory(comp.Add(&pos))
 	factory.Create(1)
 	factory.Next()
@@ -110,7 +110,7 @@ func TestRegistry_UpsertAndRemoveComp(t *testing.T) {
 	posID := r.RegComp(reflect.TypeFor[Position]())
 	velID := r.RegComp(reflect.TypeFor[Velocity]())
 
-	var pos iter.Col[Position]
+	var pos iter.ArrayRef[Position]
 	factory := r.CreateFactory(comp.Add(&pos))
 	factory.Create(1)
 	factory.Next()
@@ -142,13 +142,13 @@ func TestRegistry_CreateEditor(t *testing.T) {
 	r.RegComp(reflect.TypeFor[Position]())
 	r.RegComp(reflect.TypeFor[Velocity]())
 
-	var pos iter.Col[Position]
+	var pos iter.ArrayRef[Position]
 	factory := r.CreateFactory(comp.Add(&pos))
 	factory.Create(1)
 	factory.Next()
 	id := factory.IDs[0]
 
-	var vel iter.Col[Velocity]
+	var vel iter.ArrayRef[Velocity]
 	editor := r.CreateEditor(comp.Add(&vel), comp.Del[Position]())
 	if !editor.Update(id) {
 		t.Fatal("expected Editor.Update to succeed")
@@ -164,7 +164,7 @@ func TestRegistry_Reset(t *testing.T) {
 	r := newRegistry(t)
 	r.RegComp(reflect.TypeFor[Position]())
 
-	var pos iter.Col[Position]
+	var pos iter.ArrayRef[Position]
 	factory := r.CreateFactory(comp.Add(&pos))
 	factory.Create(1)
 	factory.Next()

@@ -1,4 +1,5 @@
-// Package colstore implements column-oriented storage for a single archetype.
+// Package colstore implements column-oriented storage for a fixed set of
+// component types.
 //
 // # Table
 //

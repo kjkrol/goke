@@ -11,7 +11,7 @@ import (
 func TestSeek_FindsEntity(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
 
-	var pos iter.Col[iterPos]
+	var pos iter.ArrayRef[iterPos]
 	posOpt := comp.Track(&pos)
 	var accessSpec comp.AccessSpec
 	accessSpec.Init(cc, posOpt)
@@ -45,7 +45,7 @@ func TestSeek_UnknownEntity(t *testing.T) {
 func TestSeek_AcrossArchetypes(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
 
-	var posA iter.Col[iterPos]
+	var posA iter.ArrayRef[iterPos]
 	specA := comp.AccessSpec{}
 	specA.Init(cc, comp.Track(&posA))
 	fa := em.CreateFactory(specA)
@@ -54,8 +54,8 @@ func TestSeek_AcrossArchetypes(t *testing.T) {
 	eA := fa.IDs[0]
 	*posA.At(&fa.Cursor) = iterPos{X: 1}
 
-	var posB iter.Col[iterPos]
-	var velB iter.Col[iterVel]
+	var posB iter.ArrayRef[iterPos]
+	var velB iter.ArrayRef[iterVel]
 	specB := comp.AccessSpec{}
 	specB.Init(cc, comp.Track(&posB), comp.Track(&velB))
 	fb := em.CreateFactory(specB)
@@ -64,7 +64,7 @@ func TestSeek_AcrossArchetypes(t *testing.T) {
 	eB := fb.IDs[0]
 	*posB.At(&fb.Cursor) = iterPos{X: 2}
 
-	var pos iter.Col[iterPos]
+	var pos iter.ArrayRef[iterPos]
 	m := NewMatcher(cat, comp.Track(&pos))
 
 	for i := 0; i < 3; i++ {
@@ -83,8 +83,8 @@ func TestSeek_AcrossArchetypes(t *testing.T) {
 func TestSeek_IgnoresIncludeExcludeMask(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
 
-	var pos iter.Col[iterPos]
-	var vel iter.Col[iterVel]
+	var pos iter.ArrayRef[iterPos]
+	var vel iter.ArrayRef[iterVel]
 	spec := comp.AccessSpec{}
 	spec.Init(cc, comp.Track(&pos), comp.Track(&vel))
 	f := em.CreateFactory(spec)

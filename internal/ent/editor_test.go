@@ -14,7 +14,7 @@ func TestEditor_Update_InvalidEntity(t *testing.T) {
 	m := newManager()
 	var mi comp.DefIndex
 	mi.Init()
-	var col iter.Col[Position]
+	var col iter.ArrayRef[Position]
 	var spec comp.EditSpec
 	spec.Init(&mi, comp.Add(&col))
 	editor := m.CreateEditor(spec)
@@ -36,7 +36,7 @@ func TestEditor_Update_AddComponent(t *testing.T) {
 	factory.Next()
 	id := factory.IDs[0]
 
-	var posCol iter.Col[Position]
+	var posCol iter.ArrayRef[Position]
 	var spec comp.EditSpec
 	spec.Init(&mi, comp.Add(&posCol))
 	editor := m.CreateEditor(spec)
@@ -106,7 +106,7 @@ func TestEditor_Update_AddAndRemoveTogether(t *testing.T) {
 	factory.Next()
 	id := factory.IDs[0]
 
-	var velCol iter.Col[Velocity]
+	var velCol iter.ArrayRef[Velocity]
 	var editSpec comp.EditSpec
 	editSpec.Init(&mi, comp.Add(&velCol), comp.Del[Position]())
 	editor := m.CreateEditor(editSpec)
@@ -219,7 +219,7 @@ func TestEditor_Update_AcrossDifferentTargetArchetypes(t *testing.T) {
 
 	// Both get a Velocity added — A migrates into the {Pos,Vel} archetype
 	// (idempotent no-op for B, which already has it).
-	var velCol iter.Col[Velocity]
+	var velCol iter.ArrayRef[Velocity]
 	var spec comp.EditSpec
 	spec.Init(&mi, comp.Add(&velCol))
 	editor := m.CreateEditor(spec)

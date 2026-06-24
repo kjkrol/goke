@@ -11,7 +11,7 @@ import (
 
 // Editor applies a fixed set of structural changes — adding and removing
 // components — to an entity in a single archetype migration, then positions
-// Cursor so the added components' values can be written via Col.At.
+// Cursor so the added components' values can be written via ArrayRef.At.
 //
 // Migration cost scales with the width of the source and destination
 // archetypes, not with how many components the edit changes: vacating the
@@ -48,7 +48,7 @@ func (m *Manager) CreateEditor(spec comp.EditSpec) *Editor {
 
 // Update migrates entityID to the archetype composed from its current
 // components plus the added and minus the removed ones — in a single move — then
-// positions Cursor so the added components' values can be written via Col.At.
+// positions Cursor so the added components' values can be written via ArrayRef.At.
 // Returns false if the entity does not exist. If the edit would leave the entity
 // with no components, it is removed entirely.
 func (e *Editor) Update(entityID uid.UID64) bool {

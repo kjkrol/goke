@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/kjkrol/goke"
-	"github.com/kjkrol/uid"
 )
 
 type Pos struct{ X, Y float32 }
@@ -17,33 +16,25 @@ func main() {
 	// The ECS instance acts as the central coordinator for entities and systems.
 	ecs := goke.New()
 
-	// Define component metadata.
-	// This binds Go types to internal descriptors, allowing the engine to
-	// pre-calculate memory layouts and manage data in contiguous arrays.
-	_ = goke.RegComp[Pos](ecs)
-	_ = goke.RegComp[Vel](ecs)
-	_ = goke.RegComp[Acc](ecs)
-
 	var pos goke.Comp[Pos]
 	var vel goke.Comp[Vel]
 	var acc goke.Comp[Acc]
 	factory := ecs.NewFactory(&pos, &vel, &acc)
 
-	var entityID uid.UID64
 	factory.Create(1)
 	factory.Next()
-	entityID = factory.IDs[0]
-	fc := &factory.Cursor
-	pos.Slice(fc)[0] = Pos{X: 0, Y: 0}
-	vel.Slice(fc)[0] = Vel{X: 1, Y: 1}
-	acc.Slice(fc)[0] = Acc{X: 0.1, Y: 0.1}
+	entityID := factory.IDs[0]
+	cursor := &factory.Cursor
+	pos.Slice(cursor)[0] = Pos{X: 0, Y: 0}
+	vel.Slice(cursor)[0] = Vel{X: 1, Y: 1}
+	acc.Slice(cursor)[0] = Acc{X: 0.1, Y: 0.1}
 
 	// Initialize matcher for Pos, Vel, and Acc components
 	query := ecs.NewQueryBuilder(&pos, &vel, &acc).Build()
 
 	// Define the movement system using the functional registration pattern
-	cursor := &query.Cursor
-	movementSystem := ecs.RegSysFn(func(schedule *goke.CmdBuf, d time.Duration) {
+	cursor = &query.Cursor
+	movementSystem := ecs.RegSysFn(func(_ *goke.CmdBuf, _ time.Duration) {
 		query.All()
 		for query.Next() {
 			posSlice := pos.Slice(cursor)
@@ -67,9 +58,9 @@ func main() {
 	// Execute a single simulation step (standard 120 TPS)
 	ecs.Tick(time.Second / 120)
 
-	matcher := ecs.NewQueryBuilder(&pos).Build()
-	if matcher.Seek(entityID) {
-		p := pos.At(&matcher.Cursor)
+	lookup := ecs.NewQueryBuilder(&pos).Build()
+	if lookup.Seek(entityID) {
+		p := pos.At(&lookup.Cursor)
 		fmt.Printf("Final Position: {X: %.2f, Y: %.2f}\n", p.X, p.Y)
 	}
 }

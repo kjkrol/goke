@@ -12,12 +12,12 @@
 //
 // # Mask
 //
-// [Mask] is a fixed-size bitset of component IDs that identifies archetype composition.
+// [Mask] is a fixed-size bitset of component IDs.
 //
 // # AccessOpt
 //
 // [AccessOpt] is a functional option that configures an [AccessSpec]:
-//   - [Track][T] — registers T as a data column; sets Col[T].Idx to its position
+//   - [Track][T] — registers T as a data column; sets ArrayRef[T].Idx to its position
 //   - [Include][T] — adds T as a filter-only requirement (no data column)
 //   - [Exclude][T] — adds T as an exclusion constraint
 //

@@ -9,7 +9,7 @@ import (
 )
 
 // Benchmark_Matcher_Seek measures single-entity component access via
-// Matcher.Seek + Col.At, reading 0..10 component columns per entity, over a
+// Query.Seek + Comp.At, reading 0..10 component columns per entity, over a
 // subset of filterSubsetSize entities drawn from a population of
 // entitiesNumber, under two access patterns:
 //   - (default) : the first filterSubsetSize entities in creation order
@@ -17,19 +17,19 @@ import (
 //     population, in random order (cache-unfriendly, jumps between
 //     archetype/chunk locations)
 //
-// A Matcher.Seek resolves an entity's address directly through the index (no mask
+// A Query.Seek resolves an entity's address directly through the index (no mask
 // filtering) and bakes per-archetype column offsets lazily on the first Seek,
 // caching them by archetype. The per-Seek cost is therefore dominated by the
-// index lookup and cursor fill; the component count drives only how many Col.At
+// index lookup and cursor fill; the component count drives only how many Comp.At
 // reads run per entity.
 //
 // Same in-place-write rule as the other read benchmarks: write through the
-// pointer returned by Col.At so the compiler cannot delete the store (a
+// pointer returned by Comp.At so the compiler cannot delete the store (a
 // copy-then-mutate local would be eliminated and measure nothing).
 //
 // Matchers are created once outside b.Run: with -count=N each callback runs N
 // times, so creating one per call would leak state across iterations. Because
-// every matcher tracks the same components in the same prefix order, each Col[T]
+// every matcher tracks the same components in the same prefix order, each Comp[T]
 // keeps a stable Idx across all matchers.
 func Benchmark_Matcher_Seek(b *testing.B) {
 	ecs := setupECS()

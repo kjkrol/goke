@@ -29,7 +29,7 @@ func (s *EditSpec) Init(mi *DefIndex, opts ...EditOpt) {
 
 // Add registers T as a component to add, binding col so its value can be written
 // after the edit. col.Idx is set to T's position among the added columns.
-func Add[T any](col *iter.Col[T]) EditOpt {
+func Add[T any](col *iter.ArrayRef[T]) EditOpt {
 	return func(s *EditSpec, mi *DefIndex) error {
 		col.Idx = len(s.AddDefs)
 		s.AddDefs = append(s.AddDefs, mi.Intern(reflect.TypeFor[T]()))

@@ -7,7 +7,7 @@ import (
 	"github.com/kjkrol/uid"
 )
 
-func TestCol_Slice(t *testing.T) {
+func TestArrayRef_Slice(t *testing.T) {
 	buf := make([]byte, 64)
 	cur := &Cursor{
 		Base:    unsafe.Pointer(&buf[0]),
@@ -15,7 +15,7 @@ func TestCol_Slice(t *testing.T) {
 		IDs:     make([]uid.UID64, 3),
 	}
 
-	var col Col[int32]
+	var col ArrayRef[int32]
 	s := col.Slice(cur)
 	if len(s) != 3 {
 		t.Fatalf("expected slice length 3 (== len(cur.IDs)), got %d", len(s))
@@ -30,7 +30,7 @@ func TestCol_Slice(t *testing.T) {
 	}
 }
 
-func TestCol_Slice_RespectsOffsetAndIdx(t *testing.T) {
+func TestArrayRef_Slice_RespectsOffsetAndIdx(t *testing.T) {
 	buf := make([]byte, 64)
 	cur := &Cursor{
 		Base:    unsafe.Pointer(&buf[0]),
@@ -38,9 +38,9 @@ func TestCol_Slice_RespectsOffsetAndIdx(t *testing.T) {
 		IDs:     make([]uid.UID64, 2),
 	}
 
-	var colA Col[int32]
+	var colA ArrayRef[int32]
 	colA.Idx = 0
-	var colB Col[int64]
+	var colB ArrayRef[int64]
 	colB.Idx = 1
 
 	sa := colA.Slice(cur)
@@ -56,14 +56,14 @@ func TestCol_Slice_RespectsOffsetAndIdx(t *testing.T) {
 	}
 }
 
-func TestCol_At(t *testing.T) {
+func TestArrayRef_At(t *testing.T) {
 	buf := make([]byte, 64)
 	cur := &Cursor{
 		Base:    unsafe.Pointer(&buf[0]),
 		Offsets: []uintptr{0},
 	}
 
-	var col Col[int32]
+	var col ArrayRef[int32]
 	cur.Slot = 2
 	*col.At(cur) = 42
 
@@ -81,14 +81,14 @@ func TestCol_At(t *testing.T) {
 	}
 }
 
-func TestCol_At_DifferentSlots(t *testing.T) {
+func TestArrayRef_At_DifferentSlots(t *testing.T) {
 	buf := make([]byte, 64)
 	cur := &Cursor{
 		Base:    unsafe.Pointer(&buf[0]),
 		Offsets: []uintptr{0},
 	}
 
-	var col Col[int32]
+	var col ArrayRef[int32]
 	for slot := uintptr(0); slot < 4; slot++ {
 		cur.Slot = slot
 		*col.At(cur) = int32(slot * 10)
@@ -103,7 +103,7 @@ func TestCol_At_DifferentSlots(t *testing.T) {
 	}
 }
 
-func TestCol_At_RespectsIdx(t *testing.T) {
+func TestArrayRef_At_RespectsIdx(t *testing.T) {
 	buf := make([]byte, 64)
 	cur := &Cursor{
 		Base:    unsafe.Pointer(&buf[0]),
@@ -111,9 +111,9 @@ func TestCol_At_RespectsIdx(t *testing.T) {
 		Slot:    1,
 	}
 
-	var colA Col[int32]
+	var colA ArrayRef[int32]
 	colA.Idx = 0
-	var colB Col[int32]
+	var colB ArrayRef[int32]
 	colB.Idx = 1
 
 	*colA.At(cur) = 7

@@ -31,10 +31,9 @@
 // to keep backing memory cache-friendly. [Pack.ResolveTail] trims empty
 // trailing chunks as the Pack shrinks, but keeps the backing array of the
 // last one trimmed as a spare — [Pack.AddChunks] reuses it on the next
-// growth instead of allocating fresh memory, which makes repeated
-// shrink/regrow cycles (e.g. structural edits that migrate entities back and
-// forth between two archetypes) effectively allocation-free after the first
-// cycle. [Pack.Purge] releases that spare (and any other trimmable chunks)
+// growth instead of allocating fresh memory, which makes a repeated
+// shrink/regrow cycle effectively allocation-free after the first cycle.
+// [Pack.Purge] releases that spare (and any other trimmable chunks)
 // immediately, for callers that know a Pack won't be repopulated soon.
 //
 // # Pos

@@ -27,5 +27,8 @@
 // single archetype migration. Its cost scales with the width of the source
 // and destination archetypes, not with how many components the edit
 // changes — removing a few components from a wide archetype costs about as
-// much as removing many.
+// much as removing many. When the same Editor repeatedly migrates entities
+// back and forth between the same two archetypes (e.g. toggling a component
+// every tick), the underlying storage reuses the freed capacity instead of
+// reallocating it, making the cycle allocation-free after the first one.
 package ent

@@ -14,7 +14,7 @@ func TestFactory_SingleBatchSingleChunk(t *testing.T) {
 	m := newManager()
 	var mi comp.DefIndex
 	mi.Init()
-	var posCol iter.Col[Position]
+	var posCol iter.ArrayRef[Position]
 	var spec comp.AccessSpec
 	spec.Init(&mi, comp.Track(&posCol))
 
@@ -55,7 +55,7 @@ func TestFactory_MultipleBatchesAcrossChunks(t *testing.T) {
 	m := newManager()
 	var mi comp.DefIndex
 	mi.Init()
-	var posCol iter.Col[Position]
+	var posCol iter.ArrayRef[Position]
 	var spec comp.AccessSpec
 	spec.Init(&mi, comp.Track(&posCol))
 
@@ -89,7 +89,7 @@ func TestFactory_ZeroCount(t *testing.T) {
 	m := newManager()
 	var mi comp.DefIndex
 	mi.Init()
-	var posCol iter.Col[Position]
+	var posCol iter.ArrayRef[Position]
 	var spec comp.AccessSpec
 	spec.Init(&mi, comp.Track(&posCol))
 
@@ -108,7 +108,7 @@ func TestFactory_ReuseAcrossCreateCalls(t *testing.T) {
 	m := newManager()
 	var mi comp.DefIndex
 	mi.Init()
-	var posCol iter.Col[Position]
+	var posCol iter.ArrayRef[Position]
 	var spec comp.AccessSpec
 	spec.Init(&mi, comp.Track(&posCol))
 

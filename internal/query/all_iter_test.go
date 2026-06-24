@@ -30,7 +30,7 @@ func TestAllIter_EmptyMatcher(t *testing.T) {
 func TestAllIter_SingleEntity(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
 
-	var pos iter.Col[iterPos]
+	var pos iter.ArrayRef[iterPos]
 	posOpt := comp.Track(&pos)
 	var accessSpec comp.AccessSpec
 	accessSpec.Init(cc, posOpt)
@@ -60,7 +60,7 @@ func TestAllIter_SingleEntity(t *testing.T) {
 func TestAllIter_SliceValues(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
 
-	var pos iter.Col[iterPos]
+	var pos iter.ArrayRef[iterPos]
 	posOpt := comp.Track(&pos)
 	var accessSpec comp.AccessSpec
 	accessSpec.Init(cc, posOpt)
@@ -98,7 +98,7 @@ func TestAllIter_SliceValues(t *testing.T) {
 func TestAllIter_SliceInPlaceMutation(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
 
-	var pos iter.Col[iterPos]
+	var pos iter.ArrayRef[iterPos]
 	var accessSpec comp.AccessSpec
 	accessSpec.Init(cc, comp.Track(&pos))
 	f := em.CreateFactory(accessSpec)
@@ -132,7 +132,7 @@ func TestAllIter_MultipleArchetypes(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
 
 	// archetype A: pos only
-	var posA iter.Col[iterPos]
+	var posA iter.ArrayRef[iterPos]
 	var accessSpecA comp.AccessSpec
 	accessSpecA.Init(cc, comp.Track(&posA))
 	fA := em.CreateFactory(accessSpecA)
@@ -142,16 +142,16 @@ func TestAllIter_MultipleArchetypes(t *testing.T) {
 	*posA.At(&fA.Cursor) = iterPos{X: 1}
 
 	// archetype B: pos + vel
-	var posB iter.Col[iterPos]
+	var posB iter.ArrayRef[iterPos]
 	var accessSpecB comp.AccessSpec
-	accessSpecB.Init(cc, comp.Track(&posB), comp.Track(new(iter.Col[iterVel])))
+	accessSpecB.Init(cc, comp.Track(&posB), comp.Track(new(iter.ArrayRef[iterVel])))
 	fB := em.CreateFactory(accessSpecB)
 	fB.Create(1)
 	fB.Next()
 	eB := fB.IDs[0]
 	*posB.At(&fB.Cursor) = iterPos{X: 2}
 
-	_trackOpt0 := comp.Track(new(iter.Col[iterPos]))
+	_trackOpt0 := comp.Track(new(iter.ArrayRef[iterPos]))
 	m := NewMatcher(cat, _trackOpt0)
 
 	visited := map[uid.UID64]bool{}
@@ -171,12 +171,12 @@ func TestAllIter_ResetOnSecondCall(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
 
 	var accessSpec comp.AccessSpec
-	accessSpec.Init(cc, comp.Track(new(iter.Col[iterPos])))
+	accessSpec.Init(cc, comp.Track(new(iter.ArrayRef[iterPos])))
 	f := em.CreateFactory(accessSpec)
 	f.Create(1)
 	f.Next()
 
-	m := NewMatcher(cat, comp.Track(new(iter.Col[iterPos])))
+	m := NewMatcher(cat, comp.Track(new(iter.ArrayRef[iterPos])))
 
 	count := func() int {
 		n := 0

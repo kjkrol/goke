@@ -7,8 +7,8 @@ type QueryBuilder struct {
 	opts []Opt
 }
 
-// NewQueryBuilder starts a QueryBuilder, tracking the given component
-// handles as data columns (equivalent to Track[T] for each).
+// NewQueryBuilder starts a QueryBuilder, tracking the given components as
+// data columns (equivalent to Track[T] for each).
 func (ecs *ECS) NewQueryBuilder(comps ...Trackable) *QueryBuilder {
 	b := &QueryBuilder{ecs: ecs, opts: make([]Opt, 0, len(comps))}
 	for _, c := range comps {
@@ -42,8 +42,8 @@ type EditorBuilder struct {
 	opts []EditOpt
 }
 
-// NewEditorBuilder starts an EditorBuilder, adding the given component
-// handles (equivalent to Add[T] for each).
+// NewEditorBuilder starts an EditorBuilder, adding the given components
+// (equivalent to Add[T] for each).
 func (ecs *ECS) NewEditorBuilder(comps ...Addable) *EditorBuilder {
 	b := &EditorBuilder{ecs: ecs, opts: make([]EditOpt, 0, len(comps))}
 	for _, c := range comps {

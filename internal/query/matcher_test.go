@@ -12,12 +12,12 @@ func TestMatcher_Clear(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
 
 	var accessSpec comp.AccessSpec
-	accessSpec.Init(cc, comp.Track(new(iter.Col[iterPos])))
+	accessSpec.Init(cc, comp.Track(new(iter.ArrayRef[iterPos])))
 	f := em.CreateFactory(accessSpec)
 	f.Create(1)
 	f.Next()
 
-	_trackOpt0 := comp.Track(new(iter.Col[iterPos]))
+	_trackOpt0 := comp.Track(new(iter.ArrayRef[iterPos]))
 	m := NewMatcher(cat, _trackOpt0)
 	if len(m.BakedTables) == 0 {
 		t.Fatal("matcher should have baked tables before Clear")
@@ -37,12 +37,12 @@ func TestMatcher_AllAfterClear(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
 
 	var accessSpec comp.AccessSpec
-	accessSpec.Init(cc, comp.Track(new(iter.Col[iterPos])))
+	accessSpec.Init(cc, comp.Track(new(iter.ArrayRef[iterPos])))
 	f := em.CreateFactory(accessSpec)
 	f.Create(1)
 	f.Next()
 
-	_trackOpt0 := comp.Track(new(iter.Col[iterPos]))
+	_trackOpt0 := comp.Track(new(iter.ArrayRef[iterPos]))
 	m := NewMatcher(cat, _trackOpt0)
 	m.Clear()
 
@@ -70,14 +70,14 @@ func TestMatcher_InitPanicsOnConflict(t *testing.T) {
 func TestMatcher_Init_AppliesNonConflictingExclude(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
 
-	var pos iter.Col[iterPos]
+	var pos iter.ArrayRef[iterPos]
 	spec := comp.AccessSpec{}
 	spec.Init(cc, comp.Track(&pos))
 	f := em.CreateFactory(spec)
 	f.Create(1)
 	f.Next()
 
-	m := NewMatcher(cat, comp.Track(new(iter.Col[iterPos])), comp.Exclude[iterVel]())
+	m := NewMatcher(cat, comp.Track(new(iter.ArrayRef[iterPos])), comp.Exclude[iterVel]())
 
 	count := 0
 	m.All()
@@ -119,12 +119,12 @@ func TestCatalog_NewMatcher(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
 
 	var accessSpec comp.AccessSpec
-	accessSpec.Init(cc, comp.Track(new(iter.Col[iterPos])))
+	accessSpec.Init(cc, comp.Track(new(iter.ArrayRef[iterPos])))
 	f := em.CreateFactory(accessSpec)
 	f.Create(1)
 	f.Next()
 
-	_trackOpt0 := comp.Track(new(iter.Col[iterPos]))
+	_trackOpt0 := comp.Track(new(iter.ArrayRef[iterPos]))
 	m := NewMatcher(cat, _trackOpt0)
 
 	if len(m.BakedTables) != 1 {
@@ -136,12 +136,12 @@ func TestCatalog_Reset(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
 
 	var accessSpec comp.AccessSpec
-	accessSpec.Init(cc, comp.Track(new(iter.Col[iterPos])))
+	accessSpec.Init(cc, comp.Track(new(iter.ArrayRef[iterPos])))
 	f := em.CreateFactory(accessSpec)
 	f.Create(1)
 	f.Next()
 
-	m := NewMatcher(cat, comp.Track(new(iter.Col[iterPos])))
+	m := NewMatcher(cat, comp.Track(new(iter.ArrayRef[iterPos])))
 	if len(m.BakedTables) == 0 {
 		t.Fatal("matcher should have baked tables before Reset")
 	}

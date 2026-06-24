@@ -21,7 +21,7 @@ func TestFilterIter_EmptySelected(t *testing.T) {
 func TestFilterIter_EntityInMatcher(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
 
-	_trackOpt0 := comp.Track(new(iter.Col[iterPos]))
+	_trackOpt0 := comp.Track(new(iter.ArrayRef[iterPos]))
 	var accessSpec comp.AccessSpec
 	accessSpec.Init(cc, _trackOpt0)
 	f := em.CreateFactory(accessSpec)
@@ -51,13 +51,13 @@ func TestFilterIter_EntityNotInMatcher(t *testing.T) {
 
 	// entity has vel only — matcher requires pos
 	var accessSpec comp.AccessSpec
-	accessSpec.Init(cc, comp.Track(new(iter.Col[iterVel])))
+	accessSpec.Init(cc, comp.Track(new(iter.ArrayRef[iterVel])))
 	f := em.CreateFactory(accessSpec)
 	f.Create(1)
 	f.Next()
 	e := f.IDs[0]
 
-	_trackOpt0 := comp.Track(new(iter.Col[iterPos]))
+	_trackOpt0 := comp.Track(new(iter.ArrayRef[iterPos]))
 	m := NewMatcher(cat, _trackOpt0)
 
 	m.Pick([]uid.UID64{e})
@@ -69,7 +69,7 @@ func TestFilterIter_EntityNotInMatcher(t *testing.T) {
 func TestFilterIter_SkipsDeletedEntity(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
 
-	_trackOpt0 := comp.Track(new(iter.Col[iterPos]))
+	_trackOpt0 := comp.Track(new(iter.ArrayRef[iterPos]))
 	var accessSpec comp.AccessSpec
 	accessSpec.Init(cc, _trackOpt0)
 	f := em.CreateFactory(accessSpec)
@@ -90,7 +90,7 @@ func TestFilterIter_SkipsDeletedEntity(t *testing.T) {
 func TestFilterIter_At(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
 
-	var pos iter.Col[iterPos]
+	var pos iter.ArrayRef[iterPos]
 	posOpt := comp.Track(&pos)
 	var accessSpec comp.AccessSpec
 	accessSpec.Init(cc, posOpt)
@@ -119,7 +119,7 @@ func TestFilterIter_At(t *testing.T) {
 func TestFilterIter_AtMutation(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
 
-	var pos iter.Col[iterPos]
+	var pos iter.ArrayRef[iterPos]
 	posOpt := comp.Track(&pos)
 	var accessSpec comp.AccessSpec
 	accessSpec.Init(cc, posOpt)
@@ -151,7 +151,7 @@ func TestFilterIter_AtMutation(t *testing.T) {
 func TestFilterIter_IdxTracksPosition(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
 
-	_trackOpt0 := comp.Track(new(iter.Col[iterPos]))
+	_trackOpt0 := comp.Track(new(iter.ArrayRef[iterPos]))
 	var accessSpec comp.AccessSpec
 	accessSpec.Init(cc, _trackOpt0)
 	f := em.CreateFactory(accessSpec)
@@ -192,8 +192,8 @@ func TestFilterIter_IdxTracksPosition(t *testing.T) {
 func TestFilterIter_MultipleComps(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
 
-	var pos iter.Col[iterPos]
-	var vel iter.Col[iterVel]
+	var pos iter.ArrayRef[iterPos]
+	var vel iter.ArrayRef[iterVel]
 	var accessSpec comp.AccessSpec
 	accessSpec.Init(cc, comp.Track(&pos), comp.Track(&vel))
 	f := em.CreateFactory(accessSpec)
@@ -222,13 +222,13 @@ func TestFilterIter_ResetOnSecondCall(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
 
 	var accessSpec comp.AccessSpec
-	accessSpec.Init(cc, comp.Track(new(iter.Col[iterPos])))
+	accessSpec.Init(cc, comp.Track(new(iter.ArrayRef[iterPos])))
 	f := em.CreateFactory(accessSpec)
 	f.Create(1)
 	f.Next()
 	e := f.IDs[0]
 
-	m := NewMatcher(cat, comp.Track(new(iter.Col[iterPos])))
+	m := NewMatcher(cat, comp.Track(new(iter.ArrayRef[iterPos])))
 	selected := []uid.UID64{e}
 
 	count := func() int {

@@ -12,8 +12,8 @@ func TestEditOpt_Add(t *testing.T) {
 	var mi comp.DefIndex
 	mi.Init()
 	var s comp.EditSpec
-	var col1 iter.Col[position]
-	var col2 iter.Col[velocity]
+	var col1 iter.ArrayRef[position]
+	var col2 iter.ArrayRef[velocity]
 
 	if err := comp.Add(&col1)(&s, &mi); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -51,7 +51,7 @@ func TestEditSpec_Init(t *testing.T) {
 		var mi comp.DefIndex
 		mi.Init()
 		var s comp.EditSpec
-		var col iter.Col[position]
+		var col iter.ArrayRef[position]
 
 		s.Init(&mi, comp.Add(&col), comp.Del[velocity]())
 
