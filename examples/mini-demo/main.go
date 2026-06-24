@@ -19,12 +19,13 @@ func main() {
 	var pos goke.Comp[Pos]
 	var vel goke.Comp[Vel]
 	var acc goke.Comp[Acc]
+
 	factory := ecs.NewFactory(&pos, &vel, &acc)
+	cursor := &factory.Cursor
 
 	factory.Create(1)
 	factory.Next()
 	entityID := factory.IDs[0]
-	cursor := &factory.Cursor
 	pos.Slice(cursor)[0] = Pos{X: 0, Y: 0}
 	vel.Slice(cursor)[0] = Vel{X: 1, Y: 1}
 	acc.Slice(cursor)[0] = Acc{X: 0.1, Y: 0.1}
