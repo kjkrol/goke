@@ -44,11 +44,16 @@ func (c *BakedTablesCatalog) Clear() {
 }
 
 func (c *BakedTablesCatalog) grow(minLen int) {
-	newCap := max(cap(c.archTableIndex)*2, minLen)
-	grown := make([]int32, minLen, newCap)
-	copy(grown, c.archTableIndex)
-	for i := len(c.archTableIndex); i < minLen; i++ {
-		grown[i] = -1
+	oldLen := len(c.archTableIndex)
+	if minLen <= cap(c.archTableIndex) {
+		c.archTableIndex = c.archTableIndex[:minLen]
+	} else {
+		newCap := max(cap(c.archTableIndex)*2, minLen)
+		grown := make([]int32, minLen, newCap)
+		copy(grown, c.archTableIndex)
+		c.archTableIndex = grown
 	}
-	c.archTableIndex = grown
+	for i := oldLen; i < minLen; i++ {
+		c.archTableIndex[i] = -1
+	}
 }

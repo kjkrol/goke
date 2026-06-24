@@ -180,3 +180,41 @@ func TestBakedTablesCatalog_GrowOnSequentialArchIDs(t *testing.T) {
 		t.Errorf("expected 3 BakedTables, got %d", len(c.BakedTables))
 	}
 }
+
+// TestBakedTablesCatalog_GrowDoesNotOverAllocate guards against a regression
+// where grow() re-allocated and doubled an already-inflated cap() on every
+// single call instead of reusing existing spare capacity. Because Add() is
+// called once per sequentially-numbered archetype ID, that bug compounded
+// into exponential growth (cap doubling on every +1 archetype), reaching
+// hundreds of millions of elements — and eventually an out-of-memory crash —
+// after only a few dozen archetypes.
+func TestBakedTablesCatalog_GrowDoesNotOverAllocate(t *testing.T) {
+	compCatalog := newDefIndex()
+	archCatalog := setupArchCatalog()
+
+	const archetypeCount = 40
+
+	var c BakedTablesCatalog
+	for i := range archetypeCount {
+		// reflect.StructOf gives each iteration a distinct reflect.Type, so
+		// each one interns as a separate component and therefore lands in
+		// its own archetype with a sequentially-assigned archetype ID.
+		fieldType := reflect.StructOf([]reflect.StructField{
+			{Name: "Marker", Type: reflect.ArrayOf(i+1, reflect.TypeFor[byte]())},
+		})
+		meta := compCatalog.Intern(fieldType)
+		archID := archCatalog.Upsert(comp.Composition{}.With(meta))
+		c.Add(&archCatalog.Archetypes[archID], []comp.ID{meta.ID})
+	}
+
+	if len(c.BakedTables) != archetypeCount {
+		t.Fatalf("expected %d BakedTables, got %d", archetypeCount, len(c.BakedTables))
+	}
+
+	// A correctly amortized grow() never needs more than a small constant
+	// multiple of the actual element count. The buggy version reached
+	// cap() in the hundreds of millions for this same input.
+	if gotCap := cap(c.archTableIndex); gotCap > archetypeCount*4 {
+		t.Errorf("archTableIndex cap = %d, want <= %d (exponential over-allocation regression)", gotCap, archetypeCount*4)
+	}
+}
