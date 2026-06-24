@@ -3,8 +3,8 @@ package colstore
 import (
 	"unsafe"
 
-	"github.com/kjkrol/goke/internal/chunk"
-	"github.com/kjkrol/goke/internal/comp"
+	"github.com/kjkrol/goke/v2/internal/chunk"
+	"github.com/kjkrol/goke/v2/internal/comp"
 )
 
 type ColDef struct {

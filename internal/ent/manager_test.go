@@ -6,9 +6,9 @@ import (
 
 	"github.com/kjkrol/uid"
 
-	"github.com/kjkrol/goke/internal/arch"
-	"github.com/kjkrol/goke/internal/comp"
-	"github.com/kjkrol/goke/internal/ent"
+	"github.com/kjkrol/goke/v2/internal/arch"
+	"github.com/kjkrol/goke/v2/internal/comp"
+	"github.com/kjkrol/goke/v2/internal/ent"
 )
 
 // Init must invoke the caller's onArchetypeCreated callback for every new

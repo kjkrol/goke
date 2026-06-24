@@ -3,7 +3,7 @@ package goke_test
 import (
 	"testing"
 
-	"github.com/kjkrol/goke"
+	"github.com/kjkrol/goke/v2"
 	"github.com/kjkrol/uid"
 	"github.com/stretchr/testify/assert"
 )

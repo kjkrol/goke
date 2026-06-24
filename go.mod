@@ -1,4 +1,4 @@
-module github.com/kjkrol/goke
+module github.com/kjkrol/goke/v2
 
 go 1.26.4
 

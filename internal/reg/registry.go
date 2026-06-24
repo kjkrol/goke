@@ -6,10 +6,10 @@ import (
 
 	"github.com/kjkrol/uid"
 
-	"github.com/kjkrol/goke/internal/arch"
-	"github.com/kjkrol/goke/internal/comp"
-	"github.com/kjkrol/goke/internal/ent"
-	"github.com/kjkrol/goke/internal/query"
+	"github.com/kjkrol/goke/v2/internal/arch"
+	"github.com/kjkrol/goke/v2/internal/comp"
+	"github.com/kjkrol/goke/v2/internal/ent"
+	"github.com/kjkrol/goke/v2/internal/query"
 )
 
 type Registry struct {

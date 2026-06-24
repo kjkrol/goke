@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/kjkrol/goke"
 	"github.com/kjkrol/goke/examples/ebiten-demo/gokebiten"
+	"github.com/kjkrol/goke/v2"
 	"github.com/kjkrol/gokg/geom"
 	"github.com/kjkrol/gokg/plane"
 )

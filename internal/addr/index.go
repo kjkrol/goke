@@ -3,8 +3,8 @@ package addr
 import (
 	"github.com/kjkrol/uid"
 
-	"github.com/kjkrol/goke/internal/arch"
-	"github.com/kjkrol/goke/internal/colstore"
+	"github.com/kjkrol/goke/v2/internal/arch"
+	"github.com/kjkrol/goke/v2/internal/colstore"
 )
 
 // Index is a flat slice keyed by the numeric index extracted from a [uid.UID64].

@@ -3,7 +3,7 @@ package ent_test
 import (
 	"testing"
 
-	"github.com/kjkrol/goke/internal/ent"
+	"github.com/kjkrol/goke/v2/internal/ent"
 )
 
 func TestDefaultConfig(t *testing.T) {

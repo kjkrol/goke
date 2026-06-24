@@ -3,7 +3,7 @@ package reg_test
 import (
 	"testing"
 
-	"github.com/kjkrol/goke/internal/reg"
+	"github.com/kjkrol/goke/v2/internal/reg"
 )
 
 type Position struct{ X, Y float64 }

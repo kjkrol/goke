@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kjkrol/goke"
+	"github.com/kjkrol/goke/v2"
 )
 
 // Benchmark_Editor_Del measures the per-entity cost of a structural remove via

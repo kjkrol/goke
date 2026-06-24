@@ -3,7 +3,7 @@ package colstore
 import (
 	"testing"
 
-	"github.com/kjkrol/goke/internal/comp"
+	"github.com/kjkrol/goke/v2/internal/comp"
 )
 
 func TestColumnIndex_SetAndGet(t *testing.T) {

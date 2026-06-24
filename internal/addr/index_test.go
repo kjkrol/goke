@@ -5,8 +5,8 @@ import (
 
 	"github.com/kjkrol/uid"
 
-	"github.com/kjkrol/goke/internal/arch"
-	"github.com/kjkrol/goke/internal/chunk"
+	"github.com/kjkrol/goke/v2/internal/arch"
+	"github.com/kjkrol/goke/v2/internal/chunk"
 )
 
 func newPool() uid.UID64Pool {

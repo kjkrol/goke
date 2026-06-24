@@ -3,7 +3,7 @@ package colstore
 import (
 	"testing"
 
-	"github.com/kjkrol/goke/internal/comp"
+	"github.com/kjkrol/goke/v2/internal/comp"
 )
 
 // RemoveAt on the last (or only) slot needs no swap, and must zero the

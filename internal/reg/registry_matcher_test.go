@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/kjkrol/goke/internal/comp"
-	"github.com/kjkrol/goke/iter"
+	"github.com/kjkrol/goke/v2/internal/comp"
+	"github.com/kjkrol/goke/v2/iter"
 )
 
 func TestRegistry_AddMatcher_MatchesExistingArchetype(t *testing.T) {

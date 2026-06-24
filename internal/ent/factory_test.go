@@ -6,8 +6,8 @@ import (
 
 	"github.com/kjkrol/uid"
 
-	"github.com/kjkrol/goke/internal/comp"
-	"github.com/kjkrol/goke/iter"
+	"github.com/kjkrol/goke/v2/internal/comp"
+	"github.com/kjkrol/goke/v2/iter"
 )
 
 func TestFactory_SingleBatchSingleChunk(t *testing.T) {

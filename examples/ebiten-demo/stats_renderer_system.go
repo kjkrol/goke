@@ -6,8 +6,8 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
-	"github.com/kjkrol/goke"
 	"github.com/kjkrol/goke/examples/ebiten-demo/gokebiten"
+	"github.com/kjkrol/goke/v2"
 )
 
 type StatsRendererSystem struct {

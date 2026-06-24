@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kjkrol/goke"
+	"github.com/kjkrol/goke/v2"
 )
 
 // --- Components ---

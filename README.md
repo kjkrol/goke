@@ -6,7 +6,7 @@
   <a href="https://go.dev">
     <img src="https://img.shields.io/badge/Go-1.26+-00ADD8?style=flat-square&logo=go" alt="Go Version">
   </a>
-  <a href="https://pkg.go.dev/github.com/kjkrol/goke">
+  <a href="https://pkg.go.dev/github.com/kjkrol/goke/v2">
     <img src="https://img.shields.io/badge/GoDoc-Reference-007d9c?style=flat-square&logo=go" alt="GoDoc">
   </a>
   <a href="https://opensource.org/licenses/MIT">
@@ -73,7 +73,7 @@ integration costs can outweigh the gains of a faster foreign implementation.
 GOKe requires **Go 1.26** or newer.
 
 ```bash
-go get github.com/kjkrol/goke
+go get github.com/kjkrol/goke/v2
 ```
 
 <a id="features"></a>
@@ -164,7 +164,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kjkrol/goke"
+	"github.com/kjkrol/goke/v2"
 )
 
 type Pos struct{ X, Y float32 }
@@ -282,6 +282,6 @@ GOKe is licensed under the MIT License. See the LICENSE [file](./LICENSE) for mo
 
 <a id="documentation"></a>
 # 📖 Documentation
-* **API Reference**: Detailed documentation and examples are available on [**pkg.go.dev**](https://pkg.go.dev/github.com/kjkrol/goke).
+* **API Reference**: Detailed documentation and examples are available on [**pkg.go.dev**](https://pkg.go.dev/github.com/kjkrol/goke/v2).
 * **Wiki & Guides**: For a step-by-step deep dive into building your first simulation, check the [**Getting Started with GOKe**](https://github.com/kjkrol/goke/wiki/Getting-Started-with-GOKe) guide.
 * **Internal Mechanics**: For a technical breakdown of the engine's core, check the `doc.go` files within the `internal` packages.

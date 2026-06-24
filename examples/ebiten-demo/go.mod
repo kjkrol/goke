@@ -4,7 +4,7 @@ go 1.26.4
 
 require (
 	github.com/hajimehoshi/ebiten/v2 v2.9.8
-	github.com/kjkrol/goke v0.0.0-00010101000000-000000000000
+	github.com/kjkrol/goke/v2 v2.0.0-00010101000000-000000000000
 	github.com/kjkrol/gokg v1.2.12
 	github.com/kjkrol/uid v0.2.1
 )
@@ -18,4 +18,4 @@ require (
 	golang.org/x/sys v0.36.0 // indirect
 )
 
-replace github.com/kjkrol/goke => ../../
+replace github.com/kjkrol/goke/v2 => ../../

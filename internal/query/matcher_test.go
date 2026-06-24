@@ -3,9 +3,9 @@ package query
 import (
 	"testing"
 
-	"github.com/kjkrol/goke/internal/comp"
-	"github.com/kjkrol/goke/internal/ent"
-	"github.com/kjkrol/goke/iter"
+	"github.com/kjkrol/goke/v2/internal/comp"
+	"github.com/kjkrol/goke/v2/internal/ent"
+	"github.com/kjkrol/goke/v2/iter"
 )
 
 func TestMatcher_Clear(t *testing.T) {

@@ -5,8 +5,8 @@ import (
 
 	"github.com/kjkrol/uid"
 
-	"github.com/kjkrol/goke/internal/comp"
-	"github.com/kjkrol/goke/iter"
+	"github.com/kjkrol/goke/v2/internal/comp"
+	"github.com/kjkrol/goke/v2/iter"
 )
 
 // newTestTable builds a Table for compDefs with a seeder that hands out

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/kjkrol/goke/iter"
+	"github.com/kjkrol/goke/v2/iter"
 )
 
 // EditSpec is the set of structural changes an Editor applies to an entity:

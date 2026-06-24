@@ -3,7 +3,7 @@ package comp
 import (
 	"reflect"
 
-	"github.com/kjkrol/goke/iter"
+	"github.com/kjkrol/goke/v2/iter"
 )
 
 // AccessOpt configures a AccessSpec's entity filter by including or excluding component types.

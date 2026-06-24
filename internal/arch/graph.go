@@ -1,6 +1,6 @@
 package arch
 
-import "github.com/kjkrol/goke/internal/comp"
+import "github.com/kjkrol/goke/v2/internal/comp"
 
 type Graph struct {
 	edgesNext [comp.MaxComponents]ID

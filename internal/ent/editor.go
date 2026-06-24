@@ -3,10 +3,10 @@ package ent
 import (
 	"github.com/kjkrol/uid"
 
-	"github.com/kjkrol/goke/internal/arch"
-	"github.com/kjkrol/goke/internal/colstore"
-	"github.com/kjkrol/goke/internal/comp"
-	"github.com/kjkrol/goke/iter"
+	"github.com/kjkrol/goke/v2/internal/arch"
+	"github.com/kjkrol/goke/v2/internal/colstore"
+	"github.com/kjkrol/goke/v2/internal/comp"
+	"github.com/kjkrol/goke/v2/iter"
 )
 
 // Editor applies a fixed set of structural changes — adding and removing

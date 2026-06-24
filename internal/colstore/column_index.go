@@ -1,6 +1,6 @@
 package colstore
 
-import "github.com/kjkrol/goke/internal/comp"
+import "github.com/kjkrol/goke/v2/internal/comp"
 
 type columnPos uint8
 

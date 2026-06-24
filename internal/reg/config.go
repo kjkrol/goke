@@ -1,8 +1,8 @@
 package reg
 
 import (
-	"github.com/kjkrol/goke/internal/ent"
-	"github.com/kjkrol/goke/internal/query"
+	"github.com/kjkrol/goke/v2/internal/ent"
+	"github.com/kjkrol/goke/v2/internal/query"
 )
 
 // Config defines the initial sizing of internal data structures.

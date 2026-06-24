@@ -3,8 +3,8 @@ package addr
 import (
 	"github.com/kjkrol/uid"
 
-	"github.com/kjkrol/goke/internal/arch"
-	"github.com/kjkrol/goke/internal/colstore"
+	"github.com/kjkrol/goke/v2/internal/arch"
+	"github.com/kjkrol/goke/v2/internal/colstore"
 )
 
 // Book is the address book: it combines entity ID lifecycle (uid pool) with

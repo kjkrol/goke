@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	"github.com/kjkrol/goke"
+	"github.com/kjkrol/goke/v2"
 	"github.com/kjkrol/gokg/geom"
 	"github.com/kjkrol/gokg/spatial"
 )

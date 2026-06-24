@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kjkrol/goke/internal/comp"
-	"github.com/kjkrol/goke/internal/ent"
-	"github.com/kjkrol/goke/internal/query"
-	"github.com/kjkrol/goke/internal/reg"
-	"github.com/kjkrol/goke/iter"
+	"github.com/kjkrol/goke/v2/internal/comp"
+	"github.com/kjkrol/goke/v2/internal/ent"
+	"github.com/kjkrol/goke/v2/internal/query"
+	"github.com/kjkrol/goke/v2/internal/reg"
+	"github.com/kjkrol/goke/v2/iter"
 	"github.com/kjkrol/uid"
 )
 

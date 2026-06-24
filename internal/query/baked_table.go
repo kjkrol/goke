@@ -1,8 +1,8 @@
 package query
 
 import (
-	"github.com/kjkrol/goke/internal/colstore"
-	"github.com/kjkrol/goke/iter"
+	"github.com/kjkrol/goke/v2/internal/colstore"
+	"github.com/kjkrol/goke/v2/iter"
 )
 
 type BakedTable struct {

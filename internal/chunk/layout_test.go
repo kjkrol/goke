@@ -3,7 +3,7 @@ package chunk
 import (
 	"testing"
 
-	"github.com/kjkrol/goke/internal/comp"
+	"github.com/kjkrol/goke/v2/internal/comp"
 )
 
 func TestLayout_Init_FitsWithinL1(t *testing.T) {

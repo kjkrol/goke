@@ -5,7 +5,7 @@ import (
 
 	"github.com/kjkrol/uid"
 
-	"github.com/kjkrol/goke/internal/orch"
+	"github.com/kjkrol/goke/v2/internal/orch"
 )
 
 // System is the interface for stateful logic units that process entity data each tick.

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kjkrol/goke"
+	"github.com/kjkrol/goke/v2"
 )
 
 type Pos struct{ X, Y float32 }

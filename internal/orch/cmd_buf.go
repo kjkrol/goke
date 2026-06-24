@@ -3,7 +3,7 @@ package orch
 import (
 	"unsafe"
 
-	"github.com/kjkrol/goke/internal/comp"
+	"github.com/kjkrol/goke/v2/internal/comp"
 	"github.com/kjkrol/uid"
 )
 

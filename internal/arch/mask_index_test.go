@@ -3,7 +3,7 @@ package arch
 import (
 	"testing"
 
-	"github.com/kjkrol/goke/internal/comp"
+	"github.com/kjkrol/goke/v2/internal/comp"
 )
 
 func TestMaskIndex_UpsertAndGet(t *testing.T) {
