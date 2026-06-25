@@ -11,6 +11,10 @@
 // are built once at initialization and updated automatically as new
 // archetypes are created.
 //
+// SeekH is Seek's per-entity fast path: it skips the archetype-change and
+// alive checks, trusting the caller to have already established the target
+// archetype via a prior Seek on the same entity batch.
+//
 // # BakedTable
 //
 // For each matching archetype, a [BakedTable] stores a pointer to the

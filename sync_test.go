@@ -40,7 +40,7 @@ func (s *WorkerSystem) Init(eng *goke.ECS) {
 func (s *WorkerSystem) Update(schedule *goke.CmdBuf, duration time.Duration) {
 	s.query.All()
 	for s.query.Next() {
-		for _, entityID := range s.query.Cursor.IDs {
+		for _, entityID := range s.query.Cursor().IDs {
 			msg := Log{Msg: "Done"}
 			goke.CmdBufAddComp(schedule, entityID, logID, msg)
 		}

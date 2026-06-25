@@ -34,14 +34,14 @@ func main() {
 	query := ecs.NewQueryBuilder(&pos, &vel, &acc).Build()
 
 	// Define the movement system using the functional registration pattern
-	cursor = &query.Cursor
+	cursor = query.Cursor()
 	movementSystem := ecs.RegSysFn(func(_ *goke.CmdBuf, _ time.Duration) {
 		query.All()
 		for query.Next() {
 			posSlice := pos.Slice(cursor)
 			velSlice := vel.Slice(cursor)
 			accSlice := acc.Slice(cursor)
-			for i := range query.Cursor.IDs {
+			for i := range cursor.IDs {
 				velSlice[i].X += accSlice[i].X
 				velSlice[i].Y += accSlice[i].Y
 				posSlice[i].X += velSlice[i].X
@@ -61,7 +61,7 @@ func main() {
 
 	lookup := ecs.NewQueryBuilder(&pos).Build()
 	if lookup.Seek(entityID) {
-		p := pos.At(&lookup.Cursor)
+		p := pos.At(lookup.Cursor())
 		fmt.Printf("Final Position: {X: %.2f, Y: %.2f}\n", p.X, p.Y)
 	}
 }

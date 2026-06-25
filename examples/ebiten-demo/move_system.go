@@ -31,9 +31,10 @@ func (s *MovementSystem) Update(_ *goke.CmdBuf, d time.Duration) {
 	dt := d.Seconds()
 	s.moveQuery.All()
 	for s.moveQuery.Next() {
-		pos := s.pos.Slice(&s.moveQuery.Cursor)
-		vel := s.vel.Slice(&s.moveQuery.Cursor)
-		for i, entityID := range s.moveQuery.Cursor.IDs {
+		cursor := s.moveQuery.Cursor()
+		pos := s.pos.Slice(cursor)
+		vel := s.vel.Slice(cursor)
+		for i, entityID := range cursor.IDs {
 			pos[i].accX += float64(vel[i].X) * dt
 			pos[i].accY += float64(vel[i].Y) * dt
 

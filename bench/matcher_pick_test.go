@@ -82,7 +82,7 @@ func Benchmark_Matcher_Pick(b *testing.B) {
 
 	// --- 1 comp ---
 	b.Run("pop=1024/subset=100/1_comp/sorted", func(b *testing.B) {
-		cursor := &matcher1.Cursor
+		cursor := matcher1.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				matcher1.Pick(sortedSubset)
@@ -93,7 +93,7 @@ func Benchmark_Matcher_Pick(b *testing.B) {
 		})
 	})
 	b.Run("pop=1024/subset=100/1_comp/random", func(b *testing.B) {
-		cursor := &matcher1.Cursor
+		cursor := matcher1.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				matcher1.Pick(randomSubset)
@@ -106,7 +106,7 @@ func Benchmark_Matcher_Pick(b *testing.B) {
 
 	// --- 2 comp ---
 	b.Run("pop=1024/subset=100/2_comp/sorted", func(b *testing.B) {
-		cursor := &matcher2.Cursor
+		cursor := matcher2.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				matcher2.Pick(sortedSubset)
@@ -117,7 +117,7 @@ func Benchmark_Matcher_Pick(b *testing.B) {
 		})
 	})
 	b.Run("pop=1024/subset=100/2_comp/random", func(b *testing.B) {
-		cursor := &matcher2.Cursor
+		cursor := matcher2.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				matcher2.Pick(randomSubset)
@@ -130,7 +130,7 @@ func Benchmark_Matcher_Pick(b *testing.B) {
 
 	// --- 3 comp ---
 	b.Run("pop=1024/subset=100/3_comp/sorted", func(b *testing.B) {
-		cursor := &matcher3.Cursor
+		cursor := matcher3.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				matcher3.Pick(sortedSubset)
@@ -142,7 +142,7 @@ func Benchmark_Matcher_Pick(b *testing.B) {
 		})
 	})
 	b.Run("pop=1024/subset=100/3_comp/random", func(b *testing.B) {
-		cursor := &matcher3.Cursor
+		cursor := matcher3.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				matcher3.Pick(randomSubset)
@@ -156,7 +156,7 @@ func Benchmark_Matcher_Pick(b *testing.B) {
 
 	// --- 4 comp ---
 	b.Run("pop=1024/subset=100/4_comp/sorted", func(b *testing.B) {
-		cursor := &matcher4.Cursor
+		cursor := matcher4.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				matcher4.Pick(sortedSubset)
@@ -168,7 +168,7 @@ func Benchmark_Matcher_Pick(b *testing.B) {
 		})
 	})
 	b.Run("pop=1024/subset=100/4_comp/random", func(b *testing.B) {
-		cursor := &matcher4.Cursor
+		cursor := matcher4.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				matcher4.Pick(randomSubset)
@@ -182,7 +182,7 @@ func Benchmark_Matcher_Pick(b *testing.B) {
 
 	// --- 5 comp ---
 	b.Run("pop=1024/subset=100/5_comp/sorted", func(b *testing.B) {
-		cursor := &matcher5.Cursor
+		cursor := matcher5.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				matcher5.Pick(sortedSubset)
@@ -195,7 +195,7 @@ func Benchmark_Matcher_Pick(b *testing.B) {
 		})
 	})
 	b.Run("pop=1024/subset=100/5_comp/random", func(b *testing.B) {
-		cursor := &matcher5.Cursor
+		cursor := matcher5.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				matcher5.Pick(randomSubset)
@@ -210,7 +210,7 @@ func Benchmark_Matcher_Pick(b *testing.B) {
 
 	// --- 6 comp ---
 	b.Run("pop=1024/subset=100/6_comp/sorted", func(b *testing.B) {
-		cursor := &matcher6.Cursor
+		cursor := matcher6.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				matcher6.Pick(sortedSubset)
@@ -223,7 +223,7 @@ func Benchmark_Matcher_Pick(b *testing.B) {
 		})
 	})
 	b.Run("pop=1024/subset=100/6_comp/random", func(b *testing.B) {
-		cursor := &matcher6.Cursor
+		cursor := matcher6.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				matcher6.Pick(randomSubset)
@@ -238,7 +238,7 @@ func Benchmark_Matcher_Pick(b *testing.B) {
 
 	// --- 7 comp ---
 	b.Run("pop=1024/subset=100/7_comp/sorted", func(b *testing.B) {
-		cursor := &matcher7.Cursor
+		cursor := matcher7.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				matcher7.Pick(sortedSubset)
@@ -252,7 +252,7 @@ func Benchmark_Matcher_Pick(b *testing.B) {
 		})
 	})
 	b.Run("pop=1024/subset=100/7_comp/random", func(b *testing.B) {
-		cursor := &matcher7.Cursor
+		cursor := matcher7.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				matcher7.Pick(randomSubset)
@@ -268,7 +268,7 @@ func Benchmark_Matcher_Pick(b *testing.B) {
 
 	// --- 8 comp ---
 	b.Run("pop=1024/subset=100/8_comp/sorted", func(b *testing.B) {
-		cursor := &matcher8.Cursor
+		cursor := matcher8.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				matcher8.Pick(sortedSubset)
@@ -282,7 +282,7 @@ func Benchmark_Matcher_Pick(b *testing.B) {
 		})
 	})
 	b.Run("pop=1024/subset=100/8_comp/random", func(b *testing.B) {
-		cursor := &matcher8.Cursor
+		cursor := matcher8.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				matcher8.Pick(randomSubset)
@@ -298,7 +298,7 @@ func Benchmark_Matcher_Pick(b *testing.B) {
 
 	// --- 9 comp ---
 	b.Run("pop=1024/subset=100/9_comp/sorted", func(b *testing.B) {
-		cursor := &matcher9.Cursor
+		cursor := matcher9.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				matcher9.Pick(sortedSubset)
@@ -313,7 +313,7 @@ func Benchmark_Matcher_Pick(b *testing.B) {
 		})
 	})
 	b.Run("pop=1024/subset=100/9_comp/random", func(b *testing.B) {
-		cursor := &matcher9.Cursor
+		cursor := matcher9.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				matcher9.Pick(randomSubset)
@@ -330,7 +330,7 @@ func Benchmark_Matcher_Pick(b *testing.B) {
 
 	// --- 10 comp ---
 	b.Run("pop=1024/subset=100/10_comp/sorted", func(b *testing.B) {
-		cursor := &matcher10.Cursor
+		cursor := matcher10.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				matcher10.Pick(sortedSubset)
@@ -345,7 +345,7 @@ func Benchmark_Matcher_Pick(b *testing.B) {
 		})
 	})
 	b.Run("pop=1024/subset=100/10_comp/random", func(b *testing.B) {
-		cursor := &matcher10.Cursor
+		cursor := matcher10.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				matcher10.Pick(randomSubset)

@@ -18,7 +18,7 @@ import (
 //     measures iteration over nothing — artificially ~2x too fast at low
 //     component counts. In-place indexing forces a real store to chunk memory.
 //
-//  2. Hoist the component slice once per chunk: `pos := col.Slice(&v.Cursor)`
+//  2. Hoist the component slice once per chunk: `pos := col.Slice(v.Cursor())`
 //     outside the inner loop, then index `pos[i]`. Range cursor.IDs so the
 //     compiler sees the same field driving both len(pos) and the loop bound; this
 //     lets it prove `i < len(pos)` and eliminate bounds checks for any number of
@@ -62,7 +62,7 @@ func Benchmark_Matcher_All(b *testing.B) {
 			count := 0
 			matcher0.All()
 			for matcher0.Next() {
-				for _, entityID := range matcher0.Cursor.IDs {
+				for _, entityID := range matcher0.Cursor().IDs {
 					_ = entityID
 					count++
 				}
@@ -81,7 +81,7 @@ func Benchmark_Matcher_All(b *testing.B) {
 	})
 
 	b.Run(fmt.Sprintf("pop=%d/1_comp", entitiesNumber), func(b *testing.B) {
-		cursor := &matcher1.Cursor
+		cursor := matcher1.Cursor()
 		fn := func() {
 			count := 0
 			matcher1.All()
@@ -107,7 +107,7 @@ func Benchmark_Matcher_All(b *testing.B) {
 	})
 
 	b.Run(fmt.Sprintf("pop=%d/2_comp", entitiesNumber), func(b *testing.B) {
-		cursor := &matcher2.Cursor
+		cursor := matcher2.Cursor()
 		fn := func() {
 			matcher2.All()
 			for matcher2.Next() {
@@ -129,7 +129,7 @@ func Benchmark_Matcher_All(b *testing.B) {
 	})
 
 	b.Run(fmt.Sprintf("pop=%d/3_comp", entitiesNumber), func(b *testing.B) {
-		cursor := &matcher3.Cursor
+		cursor := matcher3.Cursor()
 		fn := func() {
 			matcher3.All()
 			for matcher3.Next() {
@@ -153,7 +153,7 @@ func Benchmark_Matcher_All(b *testing.B) {
 	})
 
 	b.Run(fmt.Sprintf("pop=%d/4_comp", entitiesNumber), func(b *testing.B) {
-		cursor := &matcher4.Cursor
+		cursor := matcher4.Cursor()
 		fn := func() {
 			matcher4.All()
 			for matcher4.Next() {
@@ -179,7 +179,7 @@ func Benchmark_Matcher_All(b *testing.B) {
 	})
 
 	b.Run(fmt.Sprintf("pop=%d/5_comp", entitiesNumber), func(b *testing.B) {
-		cursor := &matcher5.Cursor
+		cursor := matcher5.Cursor()
 		fn := func() {
 			matcher5.All()
 			for matcher5.Next() {
@@ -207,7 +207,7 @@ func Benchmark_Matcher_All(b *testing.B) {
 	})
 
 	b.Run(fmt.Sprintf("pop=%d/6_comp", entitiesNumber), func(b *testing.B) {
-		cursor := &matcher6.Cursor
+		cursor := matcher6.Cursor()
 		fn := func() {
 			matcher6.All()
 			for matcher6.Next() {
@@ -237,7 +237,7 @@ func Benchmark_Matcher_All(b *testing.B) {
 	})
 
 	b.Run(fmt.Sprintf("pop=%d/7_comp", entitiesNumber), func(b *testing.B) {
-		cursor := &matcher7.Cursor
+		cursor := matcher7.Cursor()
 		fn := func() {
 			matcher7.All()
 			for matcher7.Next() {
@@ -269,7 +269,7 @@ func Benchmark_Matcher_All(b *testing.B) {
 	})
 
 	b.Run(fmt.Sprintf("pop=%d/8_comp", entitiesNumber), func(b *testing.B) {
-		cursor := &matcher8.Cursor
+		cursor := matcher8.Cursor()
 		fn := func() {
 			matcher8.All()
 			for matcher8.Next() {
@@ -303,7 +303,7 @@ func Benchmark_Matcher_All(b *testing.B) {
 	})
 
 	b.Run(fmt.Sprintf("pop=%d/9_comp", entitiesNumber), func(b *testing.B) {
-		cursor := &matcher9.Cursor
+		cursor := matcher9.Cursor()
 		fn := func() {
 			matcher9.All()
 			for matcher9.Next() {
@@ -339,7 +339,7 @@ func Benchmark_Matcher_All(b *testing.B) {
 	})
 
 	b.Run(fmt.Sprintf("pop=%d/10_comp", entitiesNumber), func(b *testing.B) {
-		cursor := &matcher10.Cursor
+		cursor := matcher10.Cursor()
 		fn := func() {
 			matcher10.All()
 			for matcher10.Next() {

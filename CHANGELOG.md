@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-06-25
+
+### Breaking Changes ⚠️
+* **`Query` is no longer a type alias for the internal `Matcher`** — it's now a struct defined in the public `goke` package, wrapping the internal type behind an unexported field. `query.Cursor` (field access) → `query.Cursor()` (method call); same for `query.Entity` → `query.Entity()` and `query.Idx` → `query.Idx()`.
+* **`Query.Add`/`Query.Get`/`Query.EntityIndex` removed.** These were never intended as public API — they leaked onto `Query` as a side effect of the old alias promoting an embedded internal type's methods/fields. The new wrapper only forwards the methods documented on `Query`.
+
+### Added ✨
+* **`Query.SeekH`** ("Seek homogeneous") — a per-entity fast path for `Seek`, for batches of entities already known to be alive and to share one archetype (established by a prior `Seek` call). Skips the alive check and the archetype-change check on every call. Returns `false` if an entity's archetype turns out to differ from the cached one — the `Cursor` must not be used in that case; call `Seek` for that entity instead.
+
+### Performance 🚀
+`Query`'s methods are now defined directly in the public `goke` package instead of relying on a type alias to an `internal/` type — Go never inlines `internal/` package methods into code outside the module that defines them, so under the old alias, every `Query` method call from user code was a real, non-inlined function call, no matter how small the method. Moving the method bodies into `goke` (as thin forwarders to the internal type) lets the whole call chain inline into the caller, even across a module boundary. This is most visible on per-entity hot paths: `Seek`/`SeekH` random single-entity access went from roughly 1.6x slower than a comparable Go ECS library to performance in the same class on a 1M-entity random-access benchmark. Chunk-level iteration (`Query.All`) was already amortizing per-call overhead over hundreds–thousands of entities per chunk and shows no measurable change.
+
+### Internal
+* `aliases.go` split by responsibility: `Query` + `QueryBuilder` + `Include`/`Exclude` → `query.go`; `Editor`-related types + `Del` → `editor.go` (renamed from `builders.go`); `Comp[T]`/`Trackable`/`Addable` → `comp.go`.
+* `internal/addr.Index.GetUnchecked` and `internal/query.Matcher.SeekH` added as the internal primitives backing `Query.SeekH`.
+
 ## [2.0.0] - 2026-06-23
 
 A full rewrite of the public API and the internal engine. The package-level free-function API (`goke.Tick(ecs, d)`, `goke.RegisterSystem(ecs, sys)`, ...) is replaced by methods on `*ECS`; the generated `View0`–`View10`/`Blueprint1`–`Blueprint10` API is replaced by a unified `Query`/`Factory`/`Editor` API built on typed components (`Comp[T]`); and the monolithic internal package was decomposed into focused, independently-testable internal packages.

@@ -46,7 +46,7 @@ func TestQueryBuilder_IncludeExclude(t *testing.T) {
 		found := make(map[uid.UID64]bool)
 		query.All()
 		for query.Next() {
-			for _, entityID := range query.Cursor.IDs {
+			for _, entityID := range query.Cursor().IDs {
 				found[entityID] = true
 			}
 		}
@@ -66,7 +66,7 @@ func TestQueryBuilder_IncludeExclude(t *testing.T) {
 		count := 0
 		query.All()
 		for query.Next() {
-			for _, entityID := range query.Cursor.IDs {
+			for _, entityID := range query.Cursor().IDs {
 				assert.Equal(t, eC, entityID, "Only Entity C has both position and complexComponent")
 				count++
 			}
@@ -83,7 +83,7 @@ func TestQueryBuilder_IncludeExclude(t *testing.T) {
 		var result []uid.UID64
 		query.Pick(input)
 		for query.Next() {
-			result = append(result, query.Entity)
+			result = append(result, query.Entity())
 		}
 
 		assert.Len(t, result, 2, "Should skip Entity C")
@@ -104,7 +104,7 @@ func TestQueryBuilder_IncludeExclude(t *testing.T) {
 		count := 0
 		query.All()
 		for query.Next() {
-			for _, entityID := range query.Cursor.IDs {
+			for _, entityID := range query.Cursor().IDs {
 				assert.Equal(t, eC, entityID)
 				count++
 			}
@@ -123,7 +123,7 @@ func TestQueryBuilder_IncludeExclude(t *testing.T) {
 		found := make(map[uid.UID64]bool)
 		query.All()
 		for query.Next() {
-			for _, entityID := range query.Cursor.IDs {
+			for _, entityID := range query.Cursor().IDs {
 				found[entityID] = true
 			}
 		}
@@ -147,144 +147,144 @@ func TestQueryBuilder_EmptyBuild(t *testing.T) {
 	count := 0
 	query.All()
 	for query.Next() {
-		count += len(query.Cursor.IDs)
+		count += len(query.Cursor().IDs)
 	}
 	assert.Equal(t, 3, count)
 }
 
-func TestEditorBuilder_AddComp(t *testing.T) {
+// --- Query method tests (All, Pick, Seek, SeekH, Cursor, Entity, Idx) ---
+
+func TestQuery_All_SlicesCoverAllEntities(t *testing.T) {
+	ecs := goke.New()
+	_ = goke.RegComp[Position](ecs)
+
+	var pos goke.Comp[Position]
+	factory := ecs.NewFactory(&pos)
+	factory.Create(5)
+	for factory.Next() {
+		for i := range factory.IDs {
+			pos.Slice(&factory.Cursor)[i] = Position{X: float32(i)}
+		}
+	}
+
+	query := ecs.NewQueryBuilder(&pos).Build()
+	sum := float32(0)
+	count := 0
+	query.All()
+	for query.Next() {
+		cursor := query.Cursor()
+		posSlice := pos.Slice(cursor)
+		for i := range cursor.IDs {
+			sum += posSlice[i].X
+			count++
+		}
+	}
+	assert.Equal(t, 5, count)
+	assert.Equal(t, float32(0+1+2+3+4), sum)
+}
+
+func TestQuery_Pick_EntityAndIdxMatchInput(t *testing.T) {
+	ecs := goke.New()
+	_ = goke.RegComp[Position](ecs)
+
+	var pos goke.Comp[Position]
+	factory := ecs.NewFactory(&pos)
+	factory.Create(3)
+	factory.Next()
+	ids := append([]uid.UID64{}, factory.IDs...)
+
+	query := ecs.NewQueryBuilder(&pos).Build()
+	query.Pick(ids)
+	i := 0
+	for query.Next() {
+		assert.Equal(t, ids[i], query.Entity(), "Entity() should match the input slice at Idx()")
+		assert.Equal(t, i, query.Idx())
+		i++
+	}
+	assert.Equal(t, 3, i)
+}
+
+func TestQuery_Seek_FindsEntityAndFailsForMissing(t *testing.T) {
+	ecs := goke.New()
+	_ = goke.RegComp[Position](ecs)
+
+	var pos goke.Comp[Position]
+	factory := ecs.NewFactory(&pos)
+	factory.Create(1)
+	factory.Next()
+	entityID := factory.IDs[0]
+	pos.At(&factory.Cursor).X = 42
+
+	query := ecs.NewQueryBuilder(&pos).Build()
+	if !query.Seek(entityID) {
+		t.Fatalf("expected Seek to find the entity")
+	}
+	assert.Equal(t, float32(42), pos.At(query.Cursor()).X)
+
+	if query.Seek(uid.UID64(999999)) {
+		t.Errorf("expected Seek to return false for a nonexistent entity")
+	}
+}
+
+func TestQuery_SeekH_SameArchetypeMatches(t *testing.T) {
+	ecs := goke.New()
+	_ = goke.RegComp[Position](ecs)
+
+	var pos goke.Comp[Position]
+	factory := ecs.NewFactory(&pos)
+	factory.Create(2)
+	factory.Next()
+	pos.Slice(&factory.Cursor)[0] = Position{X: 1}
+	pos.Slice(&factory.Cursor)[1] = Position{X: 2}
+	e0, e1 := factory.IDs[0], factory.IDs[1]
+
+	query := ecs.NewQueryBuilder(&pos).Build()
+	if !query.Seek(e0) {
+		t.Fatalf("expected Seek to find e0")
+	}
+	assert.Equal(t, float32(1), pos.At(query.Cursor()).X)
+
+	// e1 is alive and shares e0's archetype (both spawned from the same
+	// factory batch), so SeekH should report a match and position correctly.
+	if !query.SeekH(e1) {
+		t.Errorf("expected SeekH to report a matching archetype")
+	}
+	assert.Equal(t, float32(2), pos.At(query.Cursor()).X)
+}
+
+func TestQuery_SeekH_DifferentArchetypeReportsMismatch(t *testing.T) {
 	ecs := goke.New()
 	_ = goke.RegComp[Position](ecs)
 	_ = goke.RegComp[Velocity](ecs)
 
-	// Entity starts with only Velocity.
-	var vel goke.Comp[Velocity]
-	factory := ecs.NewFactory(&vel)
-	factory.Create(1)
-	factory.Next()
-	entityID := factory.IDs[0]
-
-	// Add Position and write its value through the editor's cursor.
-	var pos goke.Comp[Position]
-	editor := ecs.NewEditorBuilder(&pos).Build()
-	if !editor.Update(entityID) {
-		t.Fatalf("expected Update to succeed")
-	}
-	pos.At(&editor.Cursor).X = 55
-
-	val := seekComp[Position](ecs, entityID)
-	if val == nil || val.X != 55 {
-		t.Errorf("expected Position.X == 55, got %v", val)
-	}
-}
-
-func TestEditorBuilder_InvalidEntity(t *testing.T) {
-	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
-
-	var pos goke.Comp[Position]
-	editor := ecs.NewEditorBuilder(&pos).Build()
-
-	if editor.Update(uid.UID64(999)) {
-		t.Errorf("expected Update to return false for a nonexistent entity")
-	}
-}
-
-func TestEditorBuilder_Delete(t *testing.T) {
-	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
-	_ = goke.RegComp[Velocity](ecs)
-
 	var pos goke.Comp[Position]
 	var vel goke.Comp[Velocity]
-	factory := ecs.NewFactory(&pos, &vel)
-	factory.Create(1)
-	factory.Next()
-	entityID := factory.IDs[0]
 
-	editor := ecs.NewEditorBuilder().Delete(goke.Del[Velocity]()).Build()
-	if !editor.Update(entityID) {
-		t.Fatalf("expected Update to succeed")
+	// e0: Position only.
+	factory0 := ecs.NewFactory(&pos)
+	factory0.Create(1)
+	factory0.Next()
+	e0 := factory0.IDs[0]
+
+	// e1: Position + Velocity — a different archetype from e0.
+	factory1 := ecs.NewFactory(&pos, &vel)
+	factory1.Create(1)
+	factory1.Next()
+	e1 := factory1.IDs[0]
+
+	query := ecs.NewQueryBuilder(&pos).Build()
+	if !query.Seek(e0) {
+		t.Fatalf("expected Seek to find e0")
 	}
 
-	if hasComp[Velocity](ecs, entityID) {
-		t.Errorf("expected Velocity to be removed")
+	// SeekH must report the mismatch instead of silently using e0's cached
+	// table — the caller is expected to fall back to Seek(e1) instead.
+	if query.SeekH(e1) {
+		t.Errorf("expected SeekH to report a mismatch for an entity from a different archetype")
 	}
-	if p := seekComp[Position](ecs, entityID); p == nil {
-		t.Errorf("expected Position to remain")
+	if !query.Seek(e1) {
+		t.Errorf("expected the suggested fallback Seek(e1) to succeed")
 	}
-}
-
-func TestEditorBuilder_AddAndDelete(t *testing.T) {
-	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
-	_ = goke.RegComp[Velocity](ecs)
-
-	var vel goke.Comp[Velocity]
-	factory := ecs.NewFactory(&vel)
-	factory.Create(1)
-	factory.Next()
-	entityID := factory.IDs[0]
-
-	// Swap Velocity for Position in a single migration.
-	var pos goke.Comp[Position]
-	editor := ecs.NewEditorBuilder(&pos).Delete(goke.Del[Velocity]()).Build()
-	if !editor.Update(entityID) {
-		t.Fatalf("expected Update to succeed")
-	}
-	pos.At(&editor.Cursor).Y = 7
-
-	if hasComp[Velocity](ecs, entityID) {
-		t.Errorf("expected Velocity to be removed")
-	}
-	p := seekComp[Position](ecs, entityID)
-	if p == nil || p.Y != 7 {
-		t.Errorf("expected Position.Y == 7, got %v", p)
-	}
-}
-
-func TestEditorBuilder_ChainedDelete(t *testing.T) {
-	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
-	_ = goke.RegComp[Velocity](ecs)
-	_ = goke.RegComp[Discount](ecs)
-
-	var pos goke.Comp[Position]
-	var vel goke.Comp[Velocity]
-	var disc goke.Comp[Discount]
-	factory := ecs.NewFactory(&pos, &vel, &disc)
-	factory.Create(1)
-	factory.Next()
-	entityID := factory.IDs[0]
-
-	editor := ecs.NewEditorBuilder().
-		Delete(goke.Del[Velocity]()).
-		Delete(goke.Del[Discount]()).
-		Build()
-	if !editor.Update(entityID) {
-		t.Fatalf("expected Update to succeed")
-	}
-
-	if hasComp[Velocity](ecs, entityID) {
-		t.Errorf("expected Velocity to be removed")
-	}
-	if hasComp[Discount](ecs, entityID) {
-		t.Errorf("expected Discount to be removed")
-	}
-	if pos := seekComp[Position](ecs, entityID); pos == nil {
-		t.Errorf("expected Position to remain")
-	}
-}
-
-// hasComp reports whether e currently has component T, checked via the
-// Query's include mask (Pick) rather than Seek — Seek is mask-independent
-// and would happily resolve garbage offsets for a component the entity no
-// longer has, so it cannot be used to detect absence on an entity that still
-// has other components.
-func hasComp[T any](ecs *goke.ECS, e uid.UID64) bool {
-	q := ecs.NewQueryBuilder().Include(goke.Include[T]()).Build()
-	q.Pick([]uid.UID64{e})
-	return q.Next()
 }
 
 // Shared component types and helpers used by builder tests.

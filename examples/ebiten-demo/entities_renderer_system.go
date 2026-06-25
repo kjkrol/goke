@@ -61,10 +61,11 @@ func (s *EntitiesRendererSystem) Draw(screen *ebiten.Image) {
 
 	s.renderQuery.All()
 	for s.renderQuery.Next() {
-		positions := s.pos.Slice(&s.renderQuery.Cursor)
-		collisions := s.coll.Slice(&s.renderQuery.Cursor)
-		appearances := s.appearance.Slice(&s.renderQuery.Cursor)
-		for i := range s.renderQuery.Cursor.IDs {
+		cursor := s.renderQuery.Cursor()
+		positions := s.pos.Slice(cursor)
+		collisions := s.coll.Slice(cursor)
+		appearances := s.appearance.Slice(cursor)
+		for i := range cursor.IDs {
 			pos, col, app := positions[i], collisions[i], appearances[i]
 			sx0, sy0, sx1, sy1 := spriteUV(app.SpriteID)
 			r, g, b, a := s.resolveColor(app, col, now)

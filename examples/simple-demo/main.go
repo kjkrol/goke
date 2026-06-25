@@ -39,13 +39,13 @@ func main() {
 
 	// Define the Billing System to calculate discounted totals for unprocessed orders
 	query := ecs.NewQueryBuilder(&order, &discount).Exclude(goke.Exclude[Processed]()).Build()
-	cursor := &query.Cursor
+	cursor := query.Cursor()
 	billing := ecs.RegSysFn(func(schedule *goke.CmdBuf, d time.Duration) {
 		query.All()
 		for query.Next() {
 			orders := order.Slice(cursor)
 			discounts := discount.Slice(cursor)
-			for i, entityID := range query.Cursor.IDs {
+			for i, entityID := range cursor.IDs {
 				orders[i].Total = orders[i].Total * (1 - discounts[i].Percentage/100)
 				// Defer the assignment of the Processed tag to the next synchronization point
 				goke.CmdBufAddComp(schedule, entityID, processedID, Processed{})
@@ -74,7 +74,7 @@ func main() {
 	// Log the initial state before simulation begins
 	lookup := ecs.NewQueryBuilder(&order).Build()
 	if lookup.Seek(entityID) {
-		orderResult := order.At(&lookup.Cursor)
+		orderResult := order.At(lookup.Cursor())
 		fmt.Printf("Order id: %v value: %v\n", orderResult.ID, orderResult.Total)
 	}
 
@@ -82,7 +82,7 @@ func main() {
 	for !close {
 		ecs.Tick(time.Second)
 		if lookup.Seek(entityID) {
-			orderResult := order.At(&lookup.Cursor)
+			orderResult := order.At(lookup.Cursor())
 			fmt.Printf("Order id: %v value with discount: %v\n", orderResult.ID, orderResult.Total)
 		}
 	}

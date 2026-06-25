@@ -50,10 +50,11 @@ func (s *CollisionSystem) Update(sched *goke.CmdBuf, d time.Duration) {
 func (s *CollisionSystem) broadPhase(probeExpandMargin uint32) {
 	s.collisionQuery.All()
 	for s.collisionQuery.Next() {
-		posSlice := s.pos.Slice(&s.collisionQuery.Cursor)
-		velSlice := s.vel.Slice(&s.collisionQuery.Cursor)
-		collSlice := s.coll.Slice(&s.collisionQuery.Cursor)
-		for i, entityA := range s.collisionQuery.Cursor.IDs {
+		cursor := s.collisionQuery.Cursor()
+		posSlice := s.pos.Slice(cursor)
+		velSlice := s.vel.Slice(cursor)
+		collSlice := s.coll.Slice(cursor)
+		for i, entityA := range cursor.IDs {
 			p, v, c := &posSlice[i], &velSlice[i], &collSlice[i]
 
 			checkFunc := func(boxA geom.AABB[uint32], fragA plane.FragPosition) {
@@ -91,9 +92,10 @@ func (s *CollisionSystem) narrowPhase(solverIterations int) {
 
 	s.collisionQuery.Pick(s.contactsEntities)
 	for s.collisionQuery.Next() {
-		s.contactsBuffer[s.collisionQuery.Idx].PosB = s.pos.At(&s.collisionQuery.Cursor)
-		s.contactsBuffer[s.collisionQuery.Idx].VelB = s.vel.At(&s.collisionQuery.Cursor)
-		s.contactsBuffer[s.collisionQuery.Idx].ColB = s.coll.At(&s.collisionQuery.Cursor)
+		cursor, idx := s.collisionQuery.Cursor(), s.collisionQuery.Idx()
+		s.contactsBuffer[idx].PosB = s.pos.At(cursor)
+		s.contactsBuffer[idx].VelB = s.vel.At(cursor)
+		s.contactsBuffer[idx].ColB = s.coll.At(cursor)
 	}
 
 	for range solverIterations {

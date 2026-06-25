@@ -22,8 +22,6 @@ import (
 )
 
 // --- Components (Disjoint sets) ---
-type Position struct{ X, Y float32 }
-type Velocity struct{ VX, VY float32 }
 type Health struct{ Current, Max float32 }
 
 // --- PhysicsSystem: Operates only on Motion data ---
@@ -37,12 +35,12 @@ func (s *PhysicsSystem) Init(ecs *goke.ECS) {
 	s.query = ecs.NewQueryBuilder(&s.pos, &s.vel).Build()
 }
 func (s *PhysicsSystem) Update(schedule *goke.CmdBuf, d time.Duration) {
-	cursor := &s.query.Cursor
+	cursor := s.query.Cursor()
 	s.query.All()
 	for s.query.Next() {
 		pos := s.pos.Slice(cursor)
 		vel := s.vel.Slice(cursor)
-		for i := range s.query.Cursor.IDs {
+		for i := range cursor.IDs {
 			pos[i].X += vel[i].VX * float32(d.Seconds())
 			pos[i].Y += vel[i].VY * float32(d.Seconds())
 		}
@@ -61,8 +59,9 @@ func (s *HealthSystem) Init(eng *goke.ECS) {
 func (s *HealthSystem) Update(schedule *goke.CmdBuf, d time.Duration) {
 	s.query.All()
 	for s.query.Next() {
-		health := s.health.Slice(&s.query.Cursor)
-		for i := range s.query.Cursor.IDs {
+		cursor := s.query.Cursor()
+		health := s.health.Slice(cursor)
+		for i := range cursor.IDs {
 			if health[i].Current < health[i].Max {
 				health[i].Current += 1.0
 			}
@@ -117,13 +116,13 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 
 	// 4. Verification
 	query := ecs.NewQueryBuilder(&pos, &health).Build()
-	cursor := &query.Cursor
+	cursor := query.Cursor()
 	count := 0
 	query.All()
 	for query.Next() {
 		positions := pos.Slice(cursor)
 		healths := health.Slice(cursor)
-		for i := range query.Cursor.IDs {
+		for i := range cursor.IDs {
 			count++
 			if positions[i].X != 10 {
 				t.Errorf("Physics failed: expected X=10, got %f", positions[i].X)

@@ -195,7 +195,8 @@ func main() {
 
 	// Create a query — declares which components to iterate.
 	query := ecs.NewQueryBuilder(&pos, &vel, &acc).Build()
-	cursor = &query.Cursor
+	cursor = query.Cursor()
+	
 	// Register a system using the functional pattern.
 	movementSystem := ecs.RegSysFn(func(_ *goke.CmdBuf, _ time.Duration) {
 		// SoA layout: Query.All advances chunk by chunk — the inner loop
@@ -226,7 +227,7 @@ func main() {
 	// Read a single entity's component via Seek (cursor-based, typed).
 	lookup := ecs.NewQueryBuilder(&pos).Build()
 	if lookup.Seek(entityID) {
-		p := pos.At(&lookup.Cursor)
+		p := pos.At(lookup.Cursor())
 		fmt.Printf("Final Position: {X: %.2f, Y: %.2f}\n", p.X, p.Y)
 	}
 }

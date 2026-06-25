@@ -60,8 +60,9 @@ func main() {
 	vPlayers := ecs.NewQueryBuilder(&player).Build()
 	vWinners := ecs.NewQueryBuilder().Include(goke.Include[Winner]()).Build()
 
-	diceCursor := &vDice.Cursor
-	playerCursor := &vPlayers.Cursor
+	diceCursor := vDice.Cursor()
+	winnerCursor := vWinners.Cursor()
+	playerCursor := vPlayers.Cursor()
 
 	// Query for reading the dice entity's value each turn
 	diceQuery := ecs.NewQueryBuilder(&dice).Build()
@@ -73,7 +74,7 @@ func main() {
 		vDice.All()
 		for vDice.Next() {
 			diceSlice := dice.Slice(diceCursor)
-			for i := range vDice.Cursor.IDs {
+			for i := range diceCursor.IDs {
 				diceSlice[i].Value = rand.Intn(6) + 1
 			}
 		}
@@ -84,7 +85,7 @@ func main() {
 		vPlayers.All()
 		for vPlayers.Next() {
 			players := player.Slice(playerCursor)
-			for i := range vPlayers.Cursor.IDs {
+			for i := range playerCursor.IDs {
 				players[i].Bet = rand.Intn(6) + 1
 			}
 		}
@@ -98,13 +99,13 @@ func main() {
 		turnCounter++
 
 		diceQuery.Seek(diceEnt)
-		diceComp := dice.At(&diceQuery.Cursor)
+		diceComp := dice.At(diceQuery.Cursor())
 		fmt.Printf("🎲 Turn %d | Dice Result: %d\n", turnCounter, diceComp.Value)
 
 		vPlayers.All()
 		for vPlayers.Next() {
 			players := player.Slice(playerCursor)
-			for i, entityID := range vPlayers.Cursor.IDs {
+			for i, entityID := range playerCursor.IDs {
 				bet := players[i].Bet
 				fmt.Printf("   Player %d bet: %d\n", entityID, bet)
 				if bet == diceComp.Value {
@@ -120,7 +121,7 @@ func main() {
 	displayWinnerSys := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
 		vWinners.All()
 		for vWinners.Next() {
-			for _, e := range vWinners.Cursor.IDs {
+			for _, e := range winnerCursor.IDs {
 				fmt.Printf("🏆 VICTORY! Entity %d is marked as a Winner!\n", e)
 			}
 		}

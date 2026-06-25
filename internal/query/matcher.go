@@ -148,3 +148,19 @@ func (m *Matcher) Seek(entID uid.UID64) bool {
 	m.seekTable.PointCursor(&m.Cursor, entry.Pos)
 	return true
 }
+
+// SeekH (Seek homogeneous) is Seek without the per-call archetype-change
+// check and without the entity-alive check. It assumes entID is alive and
+// shares the archetype already cached by a prior Seek call on this Matcher —
+// call Seek once first to establish it, then switch to SeekH for the rest of
+// a batch known to be alive and come from that one archetype.
+//
+// Returns false if entID's archetype turns out to differ from the cached
+// one — the Cursor was positioned against the wrong table in that case and
+// must not be used; call Seek for this entity instead. Behavior is
+// undefined if entID is not alive.
+func (m *Matcher) SeekH(entID uid.UID64) bool {
+	entry := m.EntityIndex.GetUnchecked(entID)
+	m.seekTable.PointCursor(&m.Cursor, entry.Pos)
+	return entry.ArchId == m.seekLastArchID
+}

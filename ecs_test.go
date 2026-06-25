@@ -15,22 +15,7 @@ type Order struct {
 	Total float64
 }
 
-type Discount struct {
-	Percentage float64
-}
-
 type Processed struct{}
-
-// seekComp reads a single entity's component via Matcher.Seek.
-// Returns nil if the entity does not exist.
-func seekComp[T any](ecs *goke.ECS, e uid.UID64) *T {
-	var col goke.Comp[T]
-	m := ecs.NewQueryBuilder(&col).Build()
-	if !m.Seek(e) {
-		return nil
-	}
-	return col.At(&m.Cursor)
-}
 
 func TestECS_UseCase(t *testing.T) {
 	ecs := goke.New()
@@ -58,7 +43,7 @@ func TestECS_UseCase(t *testing.T) {
 	order.Slice(&factory2.Cursor)[0] = Order{ID: "ORD-002", Total: 50.0}
 
 	query1 := ecs.NewQueryBuilder(&order, &discount).Build()
-	cursor1 := &query1.Cursor
+	cursor1 := query1.Cursor()
 	processedCount := 0
 
 	billingSystem := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
@@ -66,7 +51,7 @@ func TestECS_UseCase(t *testing.T) {
 		for query1.Next() {
 			orders := order.Slice(cursor1)
 			discounts := discount.Slice(cursor1)
-			for i, entityID := range query1.Cursor.IDs {
+			for i, entityID := range cursor1.IDs {
 				processedCount++
 				orders[i].Total *= (1 - discounts[i].Percentage/100)
 				goke.CmdBufAddComp(cb, entityID, processedID, Processed{})
@@ -77,7 +62,7 @@ func TestECS_UseCase(t *testing.T) {
 	cleanerSystem := ecs.RegSysFn(func(schedule *goke.CmdBuf, d time.Duration) {
 		query2.All()
 		for query2.Next() {
-			for _, entityID := range query2.Cursor.IDs {
+			for _, entityID := range query2.Cursor().IDs {
 				schedule.RemoveEntity(entityID)
 			}
 		}
@@ -95,7 +80,7 @@ func TestECS_UseCase(t *testing.T) {
 		ctx.Sync()
 		query2.All()
 		for query2.Next() {
-			for _, entityID := range query2.Cursor.IDs {
+			for _, entityID := range query2.Cursor().IDs {
 				_ = entityID
 			}
 		}
@@ -136,7 +121,7 @@ func TestECS_Seek(t *testing.T) {
 	if !matcher.Seek(entityID) {
 		t.Fatalf("expected Seek to find the entity")
 	}
-	if got := pos.At(&matcher.Cursor); got.X != 10 {
+	if got := pos.At(matcher.Cursor()); got.X != 10 {
 		t.Errorf("wrong value: got X=%v, want 10", got.X)
 	}
 
@@ -175,10 +160,10 @@ func TestECS_Seek_AcrossArchetypes(t *testing.T) {
 	matcher := ecs.NewQueryBuilder(&pos).Build()
 
 	for i := 0; i < 3; i++ {
-		if !matcher.Seek(eA) || pos.At(&matcher.Cursor).X != 1 {
+		if !matcher.Seek(eA) || pos.At(matcher.Cursor()).X != 1 {
 			t.Fatalf("iter %d: expected eA.X == 1", i)
 		}
-		if !matcher.Seek(eB) || pos.At(&matcher.Cursor).X != 2 {
+		if !matcher.Seek(eB) || pos.At(matcher.Cursor()).X != 2 {
 			t.Fatalf("iter %d: expected eB.X == 2", i)
 		}
 	}

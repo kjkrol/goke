@@ -100,7 +100,7 @@ func Benchmark_Matcher_Seek(b *testing.B) {
 	})
 
 	b.Run("pop=1024/1_comp", func(b *testing.B) {
-		cur := &matcher1.Cursor
+		cur := matcher1.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				for _, e := range subset {
@@ -112,7 +112,7 @@ func Benchmark_Matcher_Seek(b *testing.B) {
 		})
 	})
 	b.Run("pop=1024/1_comp/random", func(b *testing.B) {
-		cur := &matcher1.Cursor
+		cur := matcher1.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				for _, e := range randomSubset {
@@ -125,7 +125,7 @@ func Benchmark_Matcher_Seek(b *testing.B) {
 	})
 
 	b.Run("pop=1024/2_comp", func(b *testing.B) {
-		cur := &matcher2.Cursor
+		cur := matcher2.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				for _, e := range subset {
@@ -137,7 +137,7 @@ func Benchmark_Matcher_Seek(b *testing.B) {
 		})
 	})
 	b.Run("pop=1024/2_comp/random", func(b *testing.B) {
-		cur := &matcher2.Cursor
+		cur := matcher2.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				for _, e := range randomSubset {
@@ -150,7 +150,7 @@ func Benchmark_Matcher_Seek(b *testing.B) {
 	})
 
 	b.Run("pop=1024/3_comp", func(b *testing.B) {
-		cur := &matcher3.Cursor
+		cur := matcher3.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				for _, e := range subset {
@@ -163,7 +163,7 @@ func Benchmark_Matcher_Seek(b *testing.B) {
 		})
 	})
 	b.Run("pop=1024/3_comp/random", func(b *testing.B) {
-		cur := &matcher3.Cursor
+		cur := matcher3.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				for _, e := range randomSubset {
@@ -177,7 +177,7 @@ func Benchmark_Matcher_Seek(b *testing.B) {
 	})
 
 	b.Run("pop=1024/4_comp", func(b *testing.B) {
-		cur := &matcher4.Cursor
+		cur := matcher4.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				for _, e := range subset {
@@ -190,7 +190,7 @@ func Benchmark_Matcher_Seek(b *testing.B) {
 		})
 	})
 	b.Run("pop=1024/4_comp/random", func(b *testing.B) {
-		cur := &matcher4.Cursor
+		cur := matcher4.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				for _, e := range randomSubset {
@@ -204,7 +204,7 @@ func Benchmark_Matcher_Seek(b *testing.B) {
 	})
 
 	b.Run("pop=1024/5_comp", func(b *testing.B) {
-		cur := &matcher5.Cursor
+		cur := matcher5.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				for _, e := range subset {
@@ -218,7 +218,7 @@ func Benchmark_Matcher_Seek(b *testing.B) {
 		})
 	})
 	b.Run("pop=1024/5_comp/random", func(b *testing.B) {
-		cur := &matcher5.Cursor
+		cur := matcher5.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				for _, e := range randomSubset {
@@ -233,7 +233,7 @@ func Benchmark_Matcher_Seek(b *testing.B) {
 	})
 
 	b.Run("pop=1024/6_comp", func(b *testing.B) {
-		cur := &matcher6.Cursor
+		cur := matcher6.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				for _, e := range subset {
@@ -247,7 +247,7 @@ func Benchmark_Matcher_Seek(b *testing.B) {
 		})
 	})
 	b.Run("pop=1024/6_comp/random", func(b *testing.B) {
-		cur := &matcher6.Cursor
+		cur := matcher6.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				for _, e := range randomSubset {
@@ -262,7 +262,7 @@ func Benchmark_Matcher_Seek(b *testing.B) {
 	})
 
 	b.Run("pop=1024/7_comp", func(b *testing.B) {
-		cur := &matcher7.Cursor
+		cur := matcher7.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				for _, e := range subset {
@@ -277,7 +277,7 @@ func Benchmark_Matcher_Seek(b *testing.B) {
 		})
 	})
 	b.Run("pop=1024/7_comp/random", func(b *testing.B) {
-		cur := &matcher7.Cursor
+		cur := matcher7.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				for _, e := range randomSubset {
@@ -293,7 +293,7 @@ func Benchmark_Matcher_Seek(b *testing.B) {
 	})
 
 	b.Run("pop=1024/8_comp", func(b *testing.B) {
-		cur := &matcher8.Cursor
+		cur := matcher8.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				for _, e := range subset {
@@ -308,7 +308,7 @@ func Benchmark_Matcher_Seek(b *testing.B) {
 		})
 	})
 	b.Run("pop=1024/8_comp/random", func(b *testing.B) {
-		cur := &matcher8.Cursor
+		cur := matcher8.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				for _, e := range randomSubset {
@@ -324,7 +324,7 @@ func Benchmark_Matcher_Seek(b *testing.B) {
 	})
 
 	b.Run("pop=1024/9_comp", func(b *testing.B) {
-		cur := &matcher9.Cursor
+		cur := matcher9.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				for _, e := range subset {
@@ -340,7 +340,7 @@ func Benchmark_Matcher_Seek(b *testing.B) {
 		})
 	})
 	b.Run("pop=1024/9_comp/random", func(b *testing.B) {
-		cur := &matcher9.Cursor
+		cur := matcher9.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				for _, e := range randomSubset {
@@ -357,7 +357,7 @@ func Benchmark_Matcher_Seek(b *testing.B) {
 	})
 
 	b.Run("pop=1024/10_comp", func(b *testing.B) {
-		cur := &matcher10.Cursor
+		cur := matcher10.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				for _, e := range subset {
@@ -373,7 +373,7 @@ func Benchmark_Matcher_Seek(b *testing.B) {
 		})
 	})
 	b.Run("pop=1024/10_comp/random", func(b *testing.B) {
-		cur := &matcher10.Cursor
+		cur := matcher10.Cursor()
 		measurePerEntity(b, filterSubsetSize, func() {
 			for b.Loop() {
 				for _, e := range randomSubset {

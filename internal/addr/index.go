@@ -21,6 +21,15 @@ func (s *Index) Reset() {
 	clear(s.entries)
 }
 
+// GetUnchecked returns the Entry for the given entity ID without validating
+// that it is alive (no bounds check, no generation check). The caller must
+// already know the entity is alive — e.g. it was returned by a prior Get on
+// this Index. Misuse silently returns a stale or zero Entry.
+func (s *Index) GetUnchecked(entityID uid.UID64) Entry {
+	index, _ := entityID.Unpack()
+	return s.entries[index]
+}
+
 // Get returns the Entry for the given entity ID, or false if the ID is invalid
 // (wrong generation) or has no registered address.
 func (s *Index) Get(entityID uid.UID64) (Entry, bool) {

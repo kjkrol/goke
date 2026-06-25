@@ -23,6 +23,10 @@
 // A mismatch means the slot was recycled and the lookup returns false.
 // The slice grows on demand; removal marks the slot with [arch.NullID].
 //
+// [Index.GetUnchecked] skips both the bounds check and the generation
+// check — for callers that already know the entity is alive (e.g. a prior
+// [Index.Get] on the same ID) and want to avoid paying for the check twice.
+//
 // # Book
 //
 // [Book] is the address book: it combines entity ID lifecycle (uid pool) with
