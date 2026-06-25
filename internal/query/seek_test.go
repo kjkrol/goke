@@ -104,3 +104,75 @@ func TestSeek_IgnoresIncludeExcludeMask(t *testing.T) {
 		t.Errorf("expected X=9, got %v", got.X)
 	}
 }
+
+// SeekH skips the archetype-change check, trusting the caller to have
+// already established the target archetype via a prior Seek on the same
+// batch. Within one archetype it must behave exactly like Seek and report a
+// match.
+func TestSeekH_SameArchetypeMatches(t *testing.T) {
+	cat, cc, em := newQueryCatalog()
+
+	var pos iter.ArrayRef[iterPos]
+	posOpt := comp.Track(&pos)
+	var accessSpec comp.AccessSpec
+	accessSpec.Init(cc, posOpt)
+	f := em.CreateFactory(accessSpec)
+	f.Create(2)
+	f.Next()
+	e0, e1 := f.IDs[0], f.IDs[1]
+	*pos.At(&f.Cursor) = iterPos{X: 1}
+	f.Cursor.Slot = 1
+	*pos.At(&f.Cursor) = iterPos{X: 2}
+
+	m := NewMatcher(cat, posOpt)
+	if !m.Seek(e0) {
+		t.Fatal("expected Seek to find e0")
+	}
+	if got := pos.At(&m.Cursor); got.X != 1 {
+		t.Errorf("expected e0.X == 1, got %v", got.X)
+	}
+
+	if !m.SeekH(e1) {
+		t.Error("expected SeekH to report a matching archetype for e1")
+	}
+	if got := pos.At(&m.Cursor); got.X != 2 {
+		t.Errorf("expected e1.X == 2, got %v", got.X)
+	}
+}
+
+// SeekH must report (not silently ignore) an archetype mismatch so the
+// caller knows to fall back to Seek.
+func TestSeekH_DifferentArchetypeReportsMismatch(t *testing.T) {
+	cat, cc, em := newQueryCatalog()
+
+	var posA iter.ArrayRef[iterPos]
+	specA := comp.AccessSpec{}
+	specA.Init(cc, comp.Track(&posA))
+	fa := em.CreateFactory(specA)
+	fa.Create(1)
+	fa.Next()
+	eA := fa.IDs[0]
+	*posA.At(&fa.Cursor) = iterPos{X: 1}
+
+	var posB iter.ArrayRef[iterPos]
+	var velB iter.ArrayRef[iterVel]
+	specB := comp.AccessSpec{}
+	specB.Init(cc, comp.Track(&posB), comp.Track(&velB))
+	fb := em.CreateFactory(specB)
+	fb.Create(1)
+	fb.Next()
+	eB := fb.IDs[0]
+
+	var pos iter.ArrayRef[iterPos]
+	m := NewMatcher(cat, comp.Track(&pos))
+
+	if !m.Seek(eA) {
+		t.Fatal("expected Seek to find eA")
+	}
+	if m.SeekH(eB) {
+		t.Error("expected SeekH to report a mismatch for an entity from a different archetype")
+	}
+	if !m.Seek(eB) {
+		t.Error("expected the suggested fallback Seek(eB) to succeed")
+	}
+}

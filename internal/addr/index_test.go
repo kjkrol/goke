@@ -180,6 +180,25 @@ func TestIndex_UpsertUnchecked(t *testing.T) {
 	}
 }
 
+func TestIndex_GetUnchecked(t *testing.T) {
+	s := newIndex(8)
+	pool := newPool()
+	e := pool.Next()
+
+	s.Upsert(e, arch.ID(2), chunk.Pos{Idx: 0, Slot: 3})
+
+	entry := s.GetUnchecked(e)
+	if entry.ArchId != arch.ID(2) {
+		t.Errorf("expected ArchId 2, got %d", entry.ArchId)
+	}
+	if entry.Pos.Idx != chunk.Idx(0) {
+		t.Errorf("expected Idx 0, got %d", entry.Pos.Idx)
+	}
+	if entry.Pos.Slot != chunk.Slot(3) {
+		t.Errorf("expected Slot 3, got %d", entry.Pos.Slot)
+	}
+}
+
 func TestIndex_Upsert_Overwrite(t *testing.T) {
 	s := newIndex(8)
 	pool := newPool()
