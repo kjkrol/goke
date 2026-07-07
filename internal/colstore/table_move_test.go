@@ -20,11 +20,12 @@ func TestTable_MoveEntityFrom_CopiesOnlySharedColumns(t *testing.T) {
 	cur := newCursor(len(srcDefs))
 	_, srcPos := src.SpawnCursor(cur, 0, 1, srcBaked)
 	entityID := cur.IDs[0]
+	srcPtr := src.ChunkPtrAt(srcPos.Idx)
 
-	*(*int64)(src.ComponentAt(srcPos, 1)) = 111
-	*(*int64)(src.ComponentAt(srcPos, 2)) = 222
+	*(*int64)(src.ComponentAt(srcPtr, srcPos.Slot, 1)) = 111
+	*(*int64)(src.ComponentAt(srcPtr, srcPos.Slot, 2)) = 222
 
-	newPos, swappedEntity, swapped := dst.MoveEntityFrom(src, entityID, srcPos)
+	newPtr, newSlot, swappedEntity, swapped := dst.MoveEntityFrom(src, entityID, srcPtr, srcPos.Slot)
 
 	if swapped {
 		t.Errorf("expected no swap (only entity in src), got swapped=%v entity=%v", swapped, swappedEntity)
@@ -36,10 +37,10 @@ func TestTable_MoveEntityFrom_CopiesOnlySharedColumns(t *testing.T) {
 		t.Errorf("expected dst to have 1 entity after the move, got Len %d", dst.Len())
 	}
 
-	if got := *(*int64)(dst.ComponentAt(newPos, 2)); got != 222 {
+	if got := *(*int64)(dst.ComponentAt(newPtr, newSlot, 2)); got != 222 {
 		t.Errorf("expected shared comp2 to be copied as 222, got %d", got)
 	}
-	ptr := dst.ComponentAt(newPos, 3)
+	ptr := dst.ComponentAt(newPtr, newSlot, 3)
 	if ptr == nil {
 		t.Fatal("expected dst's comp3 column to exist")
 	}
@@ -62,13 +63,14 @@ func TestTable_MoveEntityFrom_SwapsLastEntityIntoHole(t *testing.T) {
 	id0 := cur.IDs[0]
 	_, pos1 := src.SpawnCursor(cur, 0, 1, baked)
 	id1 := cur.IDs[0]
+	srcPtr := src.ChunkPtrAt(pos0.Idx)
 
-	*(*int64)(src.ComponentAt(pos0, 1)) = 10
-	*(*int64)(src.ComponentAt(pos1, 1)) = 20
+	*(*int64)(src.ComponentAt(srcPtr, pos0.Slot, 1)) = 10
+	*(*int64)(src.ComponentAt(srcPtr, pos1.Slot, 1)) = 20
 
 	// Move the first entity (pos0) out — the last one (id1, at pos1) must
 	// swap into pos0's hole.
-	_, swappedEntity, swapped := dst.MoveEntityFrom(src, id0, pos0)
+	_, _, swappedEntity, swapped := dst.MoveEntityFrom(src, id0, srcPtr, pos0.Slot)
 
 	if !swapped {
 		t.Fatal("expected a swap since pos0 wasn't the last slot")
@@ -79,7 +81,7 @@ func TestTable_MoveEntityFrom_SwapsLastEntityIntoHole(t *testing.T) {
 	if src.Len() != 1 {
 		t.Errorf("expected src to have 1 entity left, got %d", src.Len())
 	}
-	if got := *(*int64)(src.ComponentAt(pos0, 1)); got != 20 {
+	if got := *(*int64)(src.ComponentAt(srcPtr, pos0.Slot, 1)); got != 20 {
 		t.Errorf("expected id1's value (20) to be swapped into pos0, got %d", got)
 	}
 }

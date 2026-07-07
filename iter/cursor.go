@@ -14,3 +14,9 @@ type Cursor struct {
 	Slot    uintptr
 	IDs     []uid.UID64
 }
+
+// Set positions the cursor at (base, slot) without touching Offsets or IDs.
+func (c *Cursor) Set(base unsafe.Pointer, slot uintptr) {
+	c.Base = base
+	c.Slot = slot
+}

@@ -152,7 +152,7 @@ func TestManager_UpsertComp_Idempotent(t *testing.T) {
 	}
 
 	entryAfter, _ := m.AddressBook.Get(id)
-	if entryBefore.ArchId != entryAfter.ArchId || entryBefore.Pos != entryAfter.Pos {
+	if entryBefore.ArchId != entryAfter.ArchId || entryBefore.Ptr != entryAfter.Ptr || entryBefore.Slot != entryAfter.Slot {
 		t.Error("re-upserting an already-present component should not move the entity")
 	}
 	if got := *(*Position)(ptr2); got != (Position{X: 7, Y: 8}) {
@@ -227,7 +227,7 @@ func TestManager_RemoveComp_MigratesWithoutUnlinking(t *testing.T) {
 		t.Error("expected Position bit to survive the migration")
 	}
 
-	got := *(*Position)(m.ArchCatalog.Archetypes[entry.ArchId].Table.ComponentAt(entry.Pos, posDef.ID))
+	got := *(*Position)(m.ArchCatalog.Archetypes[entry.ArchId].Table.ComponentAt(entry.Ptr, entry.Slot, posDef.ID))
 	if got != (Position{X: 3, Y: 4}) {
 		t.Errorf("expected Position data to survive migration, got %+v", got)
 	}
@@ -275,8 +275,8 @@ func TestManager_Remove_SwapPopUpdatesDisplacedEntity(t *testing.T) {
 	}
 
 	entryLastBefore, _ := m.AddressBook.Get(ids[2])
-	if entryLastBefore.Pos.Slot != 2 {
-		t.Fatalf("setup error: expected last entity at slot 2, got %d", entryLastBefore.Pos.Slot)
+	if entryLastBefore.Slot != 2 {
+		t.Fatalf("setup error: expected last entity at slot 2, got %d", entryLastBefore.Slot)
 	}
 
 	// Remove the first entity — the last one must swap into its slot.
@@ -288,8 +288,8 @@ func TestManager_Remove_SwapPopUpdatesDisplacedEntity(t *testing.T) {
 	if !ok {
 		t.Fatal("expected the displaced entity to remain addressable")
 	}
-	if entryLastAfter.Pos.Slot != 0 {
-		t.Errorf("expected swapped entity to move to slot 0, got %d", entryLastAfter.Pos.Slot)
+	if entryLastAfter.Slot != 0 {
+		t.Errorf("expected swapped entity to move to slot 0, got %d", entryLastAfter.Slot)
 	}
 }
 
@@ -320,8 +320,8 @@ func TestManager_UpsertComp_SwapPopUpdatesDisplacedEntity(t *testing.T) {
 	if !ok {
 		t.Fatal("expected the displaced entity to remain addressable")
 	}
-	if entryLast.Pos.Slot != 0 {
-		t.Errorf("expected swapped entity to move to slot 0, got %d", entryLast.Pos.Slot)
+	if entryLast.Slot != 0 {
+		t.Errorf("expected swapped entity to move to slot 0, got %d", entryLast.Slot)
 	}
 	if entryLast.ArchId == arch.NullID {
 		t.Error("expected the displaced entity to still have a valid archetype")

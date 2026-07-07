@@ -2,11 +2,12 @@ package addr
 
 import (
 	"testing"
+	"unsafe"
 
 	"github.com/kjkrol/uid"
 
 	"github.com/kjkrol/goke/v2/internal/arch"
-	"github.com/kjkrol/goke/v2/internal/chunk"
+	"github.com/kjkrol/goke/v2/internal/colstore"
 )
 
 func newPool() uid.UID64Pool {
@@ -21,12 +22,16 @@ func newIndex(cap int) Index {
 	return idx
 }
 
+// testPtr returns a distinct non-nil unsafe.Pointer for use as a fake chunk
+// address in tests. The sentinel value is meaningful only within the test.
+func testPtr(n uintptr) unsafe.Pointer { return unsafe.Pointer(n + 1) }
+
 func TestIndex_UpsertAndGet(t *testing.T) {
 	s := newIndex(8)
 	pool := newPool()
 	e := pool.Next()
 
-	s.Upsert(e, arch.ID(2), chunk.Pos{Idx: 0, Slot: 3})
+	s.Upsert(e, arch.ID(2), testPtr(0), colstore.Slot(3))
 
 	entry, ok := s.Get(e)
 	if !ok {
@@ -35,11 +40,11 @@ func TestIndex_UpsertAndGet(t *testing.T) {
 	if entry.ArchId != arch.ID(2) {
 		t.Errorf("expected ArchId 2, got %d", entry.ArchId)
 	}
-	if entry.Pos.Idx != chunk.Idx(0) {
-		t.Errorf("expected Idx 0, got %d", entry.Pos.Idx)
+	if entry.Ptr != testPtr(0) {
+		t.Errorf("expected Ptr %v, got %v", testPtr(0), entry.Ptr)
 	}
-	if entry.Pos.Slot != chunk.Slot(3) {
-		t.Errorf("expected Slot 3, got %d", entry.Pos.Slot)
+	if entry.Slot != colstore.Slot(3) {
+		t.Errorf("expected Slot 3, got %d", entry.Slot)
 	}
 }
 
@@ -61,7 +66,7 @@ func TestIndex_GetStaleGeneration(t *testing.T) {
 	pool.Release(old)
 	current := pool.Next()
 
-	s.Upsert(old, arch.ID(2), chunk.Pos{})
+	s.Upsert(old, arch.ID(2), testPtr(0), colstore.Slot(0))
 
 	_, ok := s.Get(current)
 	if ok {
@@ -74,7 +79,7 @@ func TestIndex_Clear(t *testing.T) {
 	pool := newPool()
 	e := pool.Next()
 
-	s.Upsert(e, arch.ID(3), chunk.Pos{})
+	s.Upsert(e, arch.ID(3), testPtr(0), colstore.Slot(0))
 	s.Clear(e)
 
 	_, ok := s.Get(e)
@@ -90,7 +95,7 @@ func TestIndex_ClearIgnoresStaleGeneration(t *testing.T) {
 	pool.Release(old)
 	current := pool.Next()
 
-	s.Upsert(current, arch.ID(3), chunk.Pos{})
+	s.Upsert(current, arch.ID(3), testPtr(0), colstore.Slot(0))
 	s.Clear(old)
 
 	_, ok := s.Get(current)
@@ -108,7 +113,7 @@ func TestIndex_GrowsOnDemand(t *testing.T) {
 		e = pool.Next()
 	}
 
-	s.Upsert(e, arch.ID(1), chunk.Pos{})
+	s.Upsert(e, arch.ID(1), testPtr(0), colstore.Slot(0))
 
 	entry, ok := s.Get(e)
 	if !ok {
@@ -124,7 +129,7 @@ func TestIndex_Reset(t *testing.T) {
 	pool := newPool()
 	e := pool.Next()
 
-	s.Upsert(e, arch.ID(2), chunk.Pos{})
+	s.Upsert(e, arch.ID(2), testPtr(0), colstore.Slot(0))
 	s.Reset()
 
 	_, ok := s.Get(e)
@@ -169,13 +174,13 @@ func TestIndex_UpsertUnchecked(t *testing.T) {
 	pool := newPool()
 	e := pool.Next()
 
-	s.UpsertUnchecked(e, arch.ID(4), chunk.Pos{Idx: 1, Slot: 2})
+	s.UpsertUnchecked(e, arch.ID(4), testPtr(1), colstore.Slot(2))
 
 	entry, ok := s.Get(e)
 	if !ok {
 		t.Fatal("expected entry after UpsertUnchecked")
 	}
-	if entry.ArchId != arch.ID(4) || entry.Pos.Idx != chunk.Idx(1) || entry.Pos.Slot != chunk.Slot(2) {
+	if entry.ArchId != arch.ID(4) || entry.Ptr != testPtr(1) || entry.Slot != colstore.Slot(2) {
 		t.Errorf("expected entry to match, got %+v", entry)
 	}
 }
@@ -185,17 +190,17 @@ func TestIndex_GetUnchecked(t *testing.T) {
 	pool := newPool()
 	e := pool.Next()
 
-	s.Upsert(e, arch.ID(2), chunk.Pos{Idx: 0, Slot: 3})
+	s.Upsert(e, arch.ID(2), testPtr(0), colstore.Slot(3))
 
 	entry := s.GetUnchecked(e)
 	if entry.ArchId != arch.ID(2) {
 		t.Errorf("expected ArchId 2, got %d", entry.ArchId)
 	}
-	if entry.Pos.Idx != chunk.Idx(0) {
-		t.Errorf("expected Idx 0, got %d", entry.Pos.Idx)
+	if entry.Ptr != testPtr(0) {
+		t.Errorf("expected Ptr %v, got %v", testPtr(0), entry.Ptr)
 	}
-	if entry.Pos.Slot != chunk.Slot(3) {
-		t.Errorf("expected Slot 3, got %d", entry.Pos.Slot)
+	if entry.Slot != colstore.Slot(3) {
+		t.Errorf("expected Slot 3, got %d", entry.Slot)
 	}
 }
 
@@ -204,14 +209,14 @@ func TestIndex_Upsert_Overwrite(t *testing.T) {
 	pool := newPool()
 	e := pool.Next()
 
-	s.Upsert(e, arch.ID(1), chunk.Pos{Idx: 0, Slot: 0})
-	s.Upsert(e, arch.ID(2), chunk.Pos{Idx: 1, Slot: 5})
+	s.Upsert(e, arch.ID(1), testPtr(0), colstore.Slot(0))
+	s.Upsert(e, arch.ID(2), testPtr(1), colstore.Slot(5))
 
 	entry, ok := s.Get(e)
 	if !ok {
 		t.Fatal("expected entry after overwrite")
 	}
-	if entry.ArchId != arch.ID(2) || entry.Pos.Idx != chunk.Idx(1) || entry.Pos.Slot != chunk.Slot(5) {
+	if entry.ArchId != arch.ID(2) || entry.Ptr != testPtr(1) || entry.Slot != colstore.Slot(5) {
 		t.Errorf("expected overwritten entry, got %+v", entry)
 	}
 }

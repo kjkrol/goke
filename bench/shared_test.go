@@ -10,7 +10,7 @@ import (
 )
 
 const entitiesNumber = 1024
-const filterSubsetSize = 100
+const filterSubsetSize = 512
 
 type Pos struct{ X, Y float32 }
 type Vel struct{ X, Y float32 }

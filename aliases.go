@@ -1,8 +1,10 @@
 package goke
 
 import (
+	"github.com/kjkrol/goke/v2/internal/arch"
 	"github.com/kjkrol/goke/v2/internal/comp"
 	"github.com/kjkrol/goke/v2/internal/ent"
+	"github.com/kjkrol/goke/v2/internal/migration"
 	"github.com/kjkrol/goke/v2/internal/orch"
 	"github.com/kjkrol/goke/v2/internal/reg"
 	"github.com/kjkrol/goke/v2/iter"
@@ -19,8 +21,10 @@ type (
 
 	// Config holds initialization parameters for the ECS.
 	Config = reg.Config
+
 	// RunCtx provides methods to schedule systems sequentially or in parallel within a Plan.
 	RunCtx = orch.RunCtx
+
 	// Plan defines the execution order and concurrency of systems each tick.
 	Plan = orch.Plan
 
@@ -43,8 +47,18 @@ type (
 	// write added components' values via comp.At(&editor.Cursor).
 	Editor = ent.Editor
 
+	// Migrator applies a fixed set of structural changes to a batch of entities
+	// sharing the same source archetype. Create once via NewMigratorBuilder;
+	// call via CmdBufMassMigrate inside a system to defer bulk migration to Sync.
+	Migrator = migration.Migrator
+
 	// EditOpt configures an Editor's structural change — Add or Del a component —
 	// moving the entity to a different archetype. (Opt, by contrast, only accesses
 	// components within an entity's existing structure.)
 	EditOpt = comp.EditOpt
+
+	// ChunkCtx captures the iteration context for a single table chunk.
+	// Obtained from Query.ChunkCtx() during Query.All() iteration; passed to
+	// CmdBufMassMigrate so the Migrator can skip per-entity addr.Book lookups.
+	ChunkCtx = arch.ChunkCtx
 )

@@ -3,6 +3,7 @@ package orch
 import (
 	"unsafe"
 
+	"github.com/kjkrol/goke/v2/internal/arch"
 	"github.com/kjkrol/goke/v2/internal/comp"
 	"github.com/kjkrol/uid"
 )
@@ -28,19 +29,35 @@ type bufferedCmd struct {
 
 // -------------------------------------------------------------
 
+// BulkMigrator is satisfied by any type that can apply a bulk archetype
+// migration to a batch of entity IDs from a single source chunk.
+type BulkMigrator interface {
+	ApplyChunk(ctx arch.ChunkCtx, ids []uid.UID64)
+}
+
+type massMigrateCmd struct {
+	migrator BulkMigrator
+	ctx      arch.ChunkCtx
+	ids      []uid.UID64
+}
+
+// -------------------------------------------------------------
+
 const allocBlockSize = 4096
 
 // CmdBuf as Linear Allocator
 type CmdBuf struct {
-	cmds    []bufferedCmd
-	pages   [][]byte
-	pageIdx int
-	offset  int
+	cmds     []bufferedCmd
+	massCmds []massMigrateCmd
+	pages    [][]byte
+	pageIdx  int
+	offset   int
 }
 
 func (cb *CmdBuf) Clear() {
 	clear(cb.cmds)
 	cb.cmds = cb.cmds[:0]
+	cb.massCmds = cb.massCmds[:0]
 
 	for i := 0; i <= cb.pageIdx; i++ {
 		if i < len(cb.pages) {
@@ -97,8 +114,27 @@ func (cb *CmdBuf) RemoveEntity(entityID uid.UID64) {
 	})
 }
 
+// MassMigrate records a bulk migration of ids from a single source chunk.
+// ctx must come from Matcher.ChunkCtx() called immediately after Next() returns
+// true — it captures the chunk's ArchID, Ptr, and Idx so the Migrator can skip
+// per-entity addr.Book lookups for those fields.
+// The ids slice is copied into the buffer's page pool; the caller may reuse or
+// modify it after this call. No heap allocation once the pool pages are warm.
+func (cb *CmdBuf) MassMigrate(migrator BulkMigrator, ctx arch.ChunkCtx, ids []uid.UID64) {
+	n := len(ids)
+	if n == 0 {
+		return
+	}
+	var u uid.UID64
+	ptr := cb.reserveSpace(n*int(unsafe.Sizeof(u)), int(unsafe.Alignof(u)))
+	copied := unsafe.Slice((*uid.UID64)(ptr), n)
+	copy(copied, ids)
+	cb.massCmds = append(cb.massCmds, massMigrateCmd{migrator: migrator, ctx: ctx, ids: copied})
+}
+
 func (cb *CmdBuf) reset() {
 	cb.cmds = cb.cmds[:0]
+	cb.massCmds = cb.massCmds[:0]
 	cb.pageIdx = 0
 	cb.offset = 0
 }

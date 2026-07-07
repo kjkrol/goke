@@ -57,6 +57,13 @@ func (q *Query) Clear() { q.m.Clear() }
 // Pass it to Comp[T].Slice (All-mode) or Comp[T].At (Pick/Seek-mode).
 func (q *Query) Cursor() *iter.Cursor { return &q.m.Cursor }
 
+// ChunkCtx returns the iteration context of the chunk most recently advanced
+// to by Next() in All-mode: the archetype ID, chunk pointer, and chunk index.
+// Pass it to CmdBufMassMigrate together with ids from the current Cursor.
+// Valid only between a Next() that returned true and the following Next();
+// undefined in Pick/Seek mode.
+func (q *Query) ChunkCtx() ChunkCtx { return q.m.ChunkCtx() }
+
 // Entity returns the current entity in Pick-mode iteration.
 func (q *Query) Entity() uid.UID64 { return q.m.Entity }
 

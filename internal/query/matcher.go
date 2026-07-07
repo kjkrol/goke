@@ -145,8 +145,20 @@ func (m *Matcher) Seek(entID uid.UID64) bool {
 		m.Cursor.Offsets = offs
 		m.seekLastArchID = entry.ArchId
 	}
-	m.seekTable.PointCursor(&m.Cursor, entry.Pos)
+	m.Cursor.Set(entry.Ptr, uintptr(entry.Slot))
 	return true
+}
+
+// ChunkCtx returns the archetype ID, chunk pointer, and chunk index for the
+// chunk most recently advanced to by Next(). Call it during Query.All()
+// iteration — between a Next() that returned true and the following Next() —
+// to capture the current chunk context for CmdBuf.MassMigrate.
+func (m *Matcher) ChunkCtx() arch.ChunkCtx {
+	return arch.ChunkCtx{
+		ArchID: m.BakedTables[m.tableIdx].ArchID,
+		Ptr:    m.Cursor.Base,
+		Idx:    colstore.Idx(m.chunkIdx),
+	}
 }
 
 // SeekH (Seek homogeneous) is Seek without the per-call archetype-change
@@ -161,6 +173,6 @@ func (m *Matcher) Seek(entID uid.UID64) bool {
 // undefined if entID is not alive.
 func (m *Matcher) SeekH(entID uid.UID64) bool {
 	entry := m.EntityIndex.GetUnchecked(entID)
-	m.seekTable.PointCursor(&m.Cursor, entry.Pos)
+	m.Cursor.Set(entry.Ptr, uintptr(entry.Slot))
 	return entry.ArchId == m.seekLastArchID
 }

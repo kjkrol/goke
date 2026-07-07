@@ -51,7 +51,7 @@ func TestEditor_Update_AddComponent(t *testing.T) {
 	if !m.ArchCatalog.Archetypes[entry.ArchId].Mask().IsSet(tagDef.ID) {
 		t.Error("expected the original Tag bit to survive the add")
 	}
-	got := *(*Position)(m.ArchCatalog.Archetypes[entry.ArchId].Table.ComponentAt(entry.Pos, posDef.ID))
+	got := *(*Position)(m.ArchCatalog.Archetypes[entry.ArchId].Table.ComponentAt(entry.Ptr, entry.Slot, posDef.ID))
 	if got != (Position{X: 5, Y: 6}) {
 		t.Errorf("expected written Position{5,6}, got %+v", got)
 	}
@@ -236,13 +236,13 @@ func TestEditor_Update_AcrossDifferentTargetArchetypes(t *testing.T) {
 		velCol.At(&editor.Cursor).VX = 200
 
 		entryA, _ := m.AddressBook.Get(idA)
-		gotA := *(*Velocity)(m.ArchCatalog.Archetypes[entryA.ArchId].Table.ComponentAt(entryA.Pos, velDef.ID))
+		gotA := *(*Velocity)(m.ArchCatalog.Archetypes[entryA.ArchId].Table.ComponentAt(entryA.Ptr, entryA.Slot, velDef.ID))
 		if gotA.VX != 100 {
 			t.Errorf("iter %d: expected idA.VX == 100, got %v", i, gotA.VX)
 		}
 
 		entryB, _ := m.AddressBook.Get(idB)
-		gotB := *(*Velocity)(m.ArchCatalog.Archetypes[entryB.ArchId].Table.ComponentAt(entryB.Pos, velDef.ID))
+		gotB := *(*Velocity)(m.ArchCatalog.Archetypes[entryB.ArchId].Table.ComponentAt(entryB.Ptr, entryB.Slot, velDef.ID))
 		if gotB.VX != 200 {
 			t.Errorf("iter %d: expected idB.VX == 200, got %v", i, gotB.VX)
 		}

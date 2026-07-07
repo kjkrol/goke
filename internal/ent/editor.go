@@ -1,6 +1,8 @@
 package ent
 
 import (
+	"unsafe"
+
 	"github.com/kjkrol/uid"
 
 	"github.com/kjkrol/goke/v2/internal/arch"
@@ -59,13 +61,14 @@ func (e *Editor) Update(entityID uid.UID64) bool {
 
 	targetArchID, unlink := e.resolveTarget(entry.ArchId)
 	if unlink {
-		e.manager.removeFromArchetype(entityID, entry.ArchId, entry.Pos)
+		e.manager.removeFromArchetype(entityID, entry.ArchId, entry.Ptr, entry.Slot)
 		return true
 	}
 
-	targetPos := entry.Pos
+	targetPtr := entry.Ptr
+	targetSlot := entry.Slot
 	if targetArchID != entry.ArchId {
-		targetPos = e.manager.migrateEntity(entityID, entry.ArchId, entry.Pos, targetArchID)
+		targetPtr, targetSlot = e.manager.migrateEntity(entityID, entry.ArchId, entry.Ptr, entry.Slot, targetArchID)
 	}
 
 	// Position the cursor only when there are added columns to write into.
@@ -81,7 +84,7 @@ func (e *Editor) Update(entityID uid.UID64) bool {
 			e.Cursor.Offsets = offs
 			e.lastArch = targetArchID
 		}
-		e.table.PointCursor(&e.Cursor, targetPos)
+		e.Cursor.Set(targetPtr, uintptr(targetSlot))
 	}
 	return true
 }
@@ -110,3 +113,6 @@ func (e *Editor) resolveTarget(srcArchID arch.ID) (target arch.ID, unlink bool) 
 	}
 	return target, false
 }
+
+// Ensure unsafe import is used.
+var _ unsafe.Pointer

@@ -2,6 +2,7 @@ package addr
 
 import (
 	"testing"
+	"unsafe"
 
 	"github.com/kjkrol/uid"
 
@@ -9,12 +10,16 @@ import (
 	"github.com/kjkrol/goke/v2/internal/colstore"
 )
 
+// fakePtr returns a distinct non-nil unsafe.Pointer for use as a fake chunk address in tests.
+func fakePtr(n uintptr) unsafe.Pointer { return unsafe.Pointer(n + 1) }
+
 func TestBook_SeedAndGet(t *testing.T) {
 	var b Book
 	b.Init(8, 8)
 
 	dst := make([]uid.UID64, 3)
-	b.Seed(dst, arch.ID(5), colstore.Pos{Idx: 0, Slot: 0})
+	ptr := fakePtr(0)
+	b.Seed(dst, arch.ID(5), ptr, colstore.Slot(0))
 
 	for i, id := range dst {
 		entry, ok := b.Get(id)
@@ -24,8 +29,11 @@ func TestBook_SeedAndGet(t *testing.T) {
 		if entry.ArchId != arch.ID(5) {
 			t.Errorf("id %d: expected ArchId 5, got %d", i, entry.ArchId)
 		}
-		if entry.Pos.Slot != colstore.Slot(i) {
-			t.Errorf("id %d: expected Slot %d, got %d", i, i, entry.Pos.Slot)
+		if entry.Slot != colstore.Slot(i) {
+			t.Errorf("id %d: expected Slot %d, got %d", i, i, entry.Slot)
+		}
+		if entry.Ptr != ptr {
+			t.Errorf("id %d: expected Ptr %v, got %v", i, ptr, entry.Ptr)
 		}
 	}
 }
@@ -37,7 +45,7 @@ func TestBook_SeedGrowsIndexCapacity(t *testing.T) {
 	b.Init(2, 2)
 
 	dst := make([]uid.UID64, 10)
-	b.Seed(dst, arch.ID(1), colstore.Pos{})
+	b.Seed(dst, arch.ID(1), fakePtr(0), colstore.Slot(0))
 
 	for i, id := range dst {
 		if _, ok := b.Get(id); !ok {
@@ -50,15 +58,16 @@ func TestBook_Move(t *testing.T) {
 	var b Book
 	b.Init(8, 8)
 	dst := make([]uid.UID64, 1)
-	b.Seed(dst, arch.ID(1), colstore.Pos{})
+	b.Seed(dst, arch.ID(1), fakePtr(0), colstore.Slot(0))
 
-	b.Move(dst[0], arch.ID(2), colstore.Pos{Idx: 3, Slot: 4})
+	movePtr := fakePtr(3)
+	b.Move(dst[0], arch.ID(2), movePtr, colstore.Slot(4))
 
 	entry, ok := b.Get(dst[0])
 	if !ok {
 		t.Fatal("expected entry after Move")
 	}
-	if entry.ArchId != arch.ID(2) || entry.Pos.Idx != colstore.Idx(3) || entry.Pos.Slot != colstore.Slot(4) {
+	if entry.ArchId != arch.ID(2) || entry.Ptr != movePtr || entry.Slot != colstore.Slot(4) {
 		t.Errorf("expected updated address, got %+v", entry)
 	}
 }
@@ -67,7 +76,7 @@ func TestBook_Delete(t *testing.T) {
 	var b Book
 	b.Init(8, 8)
 	dst := make([]uid.UID64, 1)
-	b.Seed(dst, arch.ID(1), colstore.Pos{})
+	b.Seed(dst, arch.ID(1), fakePtr(0), colstore.Slot(0))
 	deletedID := dst[0]
 
 	b.Delete(deletedID)
@@ -78,7 +87,7 @@ func TestBook_Delete(t *testing.T) {
 
 	// The recycled index must be reusable, with an incremented generation.
 	dst2 := make([]uid.UID64, 1)
-	b.Seed(dst2, arch.ID(2), colstore.Pos{})
+	b.Seed(dst2, arch.ID(2), fakePtr(0), colstore.Slot(0))
 	if dst2[0].Index() != deletedID.Index() {
 		t.Errorf("expected recycled index %d to be reused, got %d", deletedID.Index(), dst2[0].Index())
 	}
@@ -91,11 +100,45 @@ func TestBook_Reset(t *testing.T) {
 	var b Book
 	b.Init(8, 8)
 	dst := make([]uid.UID64, 1)
-	b.Seed(dst, arch.ID(1), colstore.Pos{})
+	b.Seed(dst, arch.ID(1), fakePtr(0), colstore.Slot(0))
 
 	b.Reset()
 
 	if _, ok := b.Get(dst[0]); ok {
 		t.Error("expected no entry after Reset")
+	}
+}
+
+func TestBook_MoveUnchecked(t *testing.T) {
+	var b Book
+	b.Init(8, 8)
+
+	dst := make([]uid.UID64, 3)
+	b.Seed(dst, arch.ID(1), fakePtr(0), colstore.Slot(0))
+
+	want := []struct {
+		archID arch.ID
+		ptr    unsafe.Pointer
+		slot   colstore.Slot
+	}{
+		{arch.ID(2), fakePtr(1), 10},
+		{arch.ID(3), fakePtr(2), 20},
+		{arch.ID(4), fakePtr(3), 30},
+	}
+	for i, w := range want {
+		b.MoveUnchecked(dst[i], w.archID, w.ptr, w.slot)
+	}
+
+	for i, w := range want {
+		entry, ok := b.Get(dst[i])
+		if !ok {
+			t.Fatalf("entity %d missing after MoveUnchecked", i)
+		}
+		if entry.ArchId != w.archID {
+			t.Errorf("entity %d: ArchId = %d; want %d", i, entry.ArchId, w.archID)
+		}
+		if entry.Ptr != w.ptr || entry.Slot != w.slot {
+			t.Errorf("entity %d: Ptr=%v Slot=%d; want Ptr=%v Slot=%d", i, entry.Ptr, entry.Slot, w.ptr, w.slot)
+		}
 	}
 }

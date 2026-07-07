@@ -1,6 +1,8 @@
 package addr
 
 import (
+	"unsafe"
+
 	"github.com/kjkrol/uid"
 
 	"github.com/kjkrol/goke/v2/internal/arch"
@@ -28,12 +30,13 @@ func (b *Book) Reset() {
 }
 
 // Seed allocates len(dst) entity IDs from the pool and registers their initial
-// addresses in the Index. Intended for use as a colstore IDSeeder callback.
-func (b *Book) Seed(dst []uid.UID64, archID arch.ID, pos colstore.Pos) {
+// addresses in the Index. ptr is the chunk's backing memory pointer; slot is
+// the starting slot index within that chunk.
+func (b *Book) Seed(dst []uid.UID64, archID arch.ID, ptr unsafe.Pointer, startSlot colstore.Slot) {
 	b.pool.NextN(dst)
 	b.Index.EnsureCap(b.pool.PeekNextIndex())
 	for i, id := range dst {
-		b.Index.UpsertUnchecked(id, archID, colstore.Pos{Idx: pos.Idx, Slot: pos.Slot + colstore.Slot(i)})
+		b.Index.UpsertUnchecked(id, archID, ptr, startSlot+colstore.Slot(i))
 	}
 }
 
@@ -44,9 +47,16 @@ func (b *Book) Get(id uid.UID64) (Entry, bool) {
 }
 
 // Move updates the stored address for the given entity ID.
-// Called after archetype migration to record the entity's new position.
-func (b *Book) Move(id uid.UID64, archID arch.ID, pos colstore.Pos) {
-	b.Index.Upsert(id, archID, pos)
+// ptr is the chunk's backing memory pointer; slot is the entity's slot within that chunk.
+func (b *Book) Move(id uid.UID64, archID arch.ID, ptr unsafe.Pointer, slot colstore.Slot) {
+	b.Index.Upsert(id, archID, ptr, slot)
+}
+
+// MoveUnchecked updates the stored address for an entity that is known to
+// already exist in the Index — no capacity check, no generation check.
+// Bulk-migration hot path: called once per moved entity.
+func (b *Book) MoveUnchecked(id uid.UID64, archID arch.ID, ptr unsafe.Pointer, slot colstore.Slot) {
+	b.Index.UpsertUnchecked(id, archID, ptr, slot)
 }
 
 // Delete clears the entity's address entry and recycles its ID back to the pool.

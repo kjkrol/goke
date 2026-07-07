@@ -9,20 +9,26 @@ import (
 	"github.com/kjkrol/goke/v2/internal/arch"
 	"github.com/kjkrol/goke/v2/internal/comp"
 	"github.com/kjkrol/goke/v2/internal/ent"
+	"github.com/kjkrol/goke/v2/internal/migration"
 	"github.com/kjkrol/goke/v2/internal/query"
 )
 
 type Registry struct {
-	EntityManager  ent.Manager
-	CompDefIndex   comp.DefIndex
-	MatcherCatalog query.Catalog
+	EntityManager   ent.Manager
+	CompDefIndex    comp.DefIndex
+	MatcherCatalog  query.Catalog
+	MigratorCatalog migration.Catalog
 }
 
 func (r *Registry) Init(cfg Config) {
 	validateConst()
 	r.CompDefIndex.Init()
+	r.MigratorCatalog.Init(&r.EntityManager.ArchCatalog)
 	r.MatcherCatalog.Init(&r.CompDefIndex, &r.EntityManager.AddressBook.Index, &r.EntityManager.ArchCatalog, cfg.Matcher)
-	r.EntityManager.Init(cfg.Entity, r.MatcherCatalog.OnArchetypeCreated)
+	r.EntityManager.Init(cfg.Entity, func(a *arch.Archetype) {
+		r.MatcherCatalog.OnArchetypeCreated(a)
+		r.MigratorCatalog.OnArchetypeCreated(a)
+	})
 }
 
 func (r *Registry) RegComp(compType reflect.Type) comp.ID {
@@ -68,10 +74,19 @@ func (r *Registry) CreateEditor(opts ...comp.EditOpt) *ent.Editor {
 	return r.EntityManager.CreateEditor(spec)
 }
 
+func (r *Registry) CreateMigrator(opts ...comp.EditOpt) *migration.Migrator {
+	var spec comp.EditSpec
+	spec.Init(&r.CompDefIndex, opts...)
+	m := migration.New(&r.EntityManager.AddressBook, &r.EntityManager.ArchCatalog, spec)
+	r.MigratorCatalog.Add(m)
+	return m
+}
+
 func (r *Registry) Reset() {
 	r.EntityManager.Reset()
 	r.CompDefIndex.Reset()
 	r.MatcherCatalog.Reset()
+	r.MigratorCatalog.Reset()
 }
 
 func validateConst() {

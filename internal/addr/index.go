@@ -1,6 +1,8 @@
 package addr
 
 import (
+	"unsafe"
+
 	"github.com/kjkrol/uid"
 
 	"github.com/kjkrol/goke/v2/internal/arch"
@@ -34,9 +36,6 @@ func (s *Index) GetUnchecked(entityID uid.UID64) Entry {
 // (wrong generation) or has no registered address.
 func (s *Index) Get(entityID uid.UID64) (Entry, bool) {
 	index, gen := entityID.Unpack()
-	// Unsigned compare (matching the index's own width) lets the compiler
-	// prove the subsequent s.entries[index] access in-bounds and elide its
-	// runtime bounds check.
 	if uint(index) >= uint(len(s.entries)) {
 		return Entry{}, false
 	}
@@ -47,15 +46,12 @@ func (s *Index) Get(entityID uid.UID64) (Entry, bool) {
 	return e, true
 }
 
-func (s *Index) Upsert(entityID uid.UID64, archId arch.ID, pos colstore.Pos) {
+func (s *Index) Upsert(entityID uid.UID64, archId arch.ID, ptr unsafe.Pointer, slot colstore.Slot) {
 	index, gen := entityID.Unpack()
-	// len, not cap: s.entries is only ever replaced via grow's make([]Entry,
-	// newCap) (never re-sliced), so len == cap always — but the BCE prover
-	// reasons about len for the write below, not cap.
 	if uint(index) >= uint(len(s.entries)) {
 		s.grow(index + 1)
 	}
-	s.entries[index] = Entry{ArchId: archId, Pos: pos, Gen: gen}
+	s.entries[index] = Entry{ArchId: archId, Ptr: ptr, Slot: slot, Gen: gen}
 }
 
 func (s *Index) Clear(entityID uid.UID64) {
@@ -74,9 +70,9 @@ func (s *Index) EnsureCap(minLen uint32) {
 	}
 }
 
-func (s *Index) UpsertUnchecked(entityID uid.UID64, archId arch.ID, pos colstore.Pos) {
+func (s *Index) UpsertUnchecked(entityID uid.UID64, archId arch.ID, ptr unsafe.Pointer, slot colstore.Slot) {
 	index, gen := entityID.Unpack()
-	s.entries[index] = Entry{ArchId: archId, Pos: pos, Gen: gen}
+	s.entries[index] = Entry{ArchId: archId, Ptr: ptr, Slot: slot, Gen: gen}
 }
 
 func (s *Index) grow(minLen uint32) {

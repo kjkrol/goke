@@ -2,6 +2,7 @@ package colstore
 
 import (
 	"testing"
+	"unsafe"
 
 	"github.com/kjkrol/uid"
 
@@ -16,7 +17,7 @@ func newTestTable(t *testing.T, compDefs []comp.Def) *Table {
 	var tbl Table
 	tbl.Init(compDefs)
 	next := uint64(1)
-	tbl.SetIDSeeder(func(dst []uid.UID64, pos Pos) {
+	tbl.SetIDSeeder(func(dst []uid.UID64, _ unsafe.Pointer, _ Slot) {
 		for i := range dst {
 			dst[i] = uid.UID64(next)
 			next++

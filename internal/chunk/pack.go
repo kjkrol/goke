@@ -27,6 +27,8 @@ func (g *Pack) Init(layout Layout) {
 
 func (g *Pack) Len() uint32 { return g.len }
 
+func (g *Pack) NumChunks() Idx { return Idx(len(g.chunks)) }
+
 func (g *Pack) ChunkPtr(idx Idx) unsafe.Pointer {
 	return g.chunks[idx].Ptr
 }
@@ -67,6 +69,12 @@ func (g *Pack) Extend(idx Idx, n int) (base unsafe.Pointer, startSlot Slot) {
 func (g *Pack) FreeSlot(idx Idx) {
 	g.chunks[idx].Len--
 	g.len--
+}
+
+// FreeSlots releases n slots from the tail of chunk idx.
+func (g *Pack) FreeSlots(idx Idx, n int) {
+	g.chunks[idx].Len -= Slot(n)
+	g.len -= uint32(n)
 }
 
 // NextNonEmptyChunk scans chunks starting at from and returns the first one
@@ -151,6 +159,33 @@ func (g *Pack) ResolveTail() (Idx, Slot) {
 
 	tail := &g.chunks[tailIdx]
 	return Idx(tailIdx), Slot(tail.Len - 1)
+}
+
+// SwapChunks exchanges the metadata (Ptr and Len) of chunks a and b. O(1).
+// Used by Defragmenter to relocate a live chunk into a vacated slot without
+// copying any entity data.
+func (g *Pack) SwapChunks(a, b Idx) {
+	g.chunks[a], g.chunks[b] = g.chunks[b], g.chunks[a]
+}
+
+// BulkFreeChunk marks chunk idx as empty: subtracts its Len from the total
+// entity count and zeroes the Len field. The backing memory is retained until
+// trimTrailing reclaims it. Call only when the chunk is being vacated as a
+// unit (e.g. after SwapChunks moves its live data elsewhere).
+func (g *Pack) BulkFreeChunk(idx Idx) {
+	g.len -= uint32(g.chunks[idx].Len)
+	g.chunks[idx].Len = 0
+}
+
+// ChunkIdxByPtr returns the index of the chunk whose Ptr equals ptr.
+// Linear scan over chunks; intended for rare paths (Editor-style single-entity ops).
+func (g *Pack) ChunkIdxByPtr(ptr unsafe.Pointer) Idx {
+	for i, ch := range g.chunks {
+		if ch.Ptr == ptr {
+			return Idx(i)
+		}
+	}
+	panic("chunk: ptr not found in pack")
 }
 
 func (g *Pack) Purge() {

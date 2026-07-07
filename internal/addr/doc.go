@@ -32,10 +32,11 @@
 // [Book] is the address book: it combines entity ID lifecycle (uid pool) with
 // the [Index] into a single owner.
 //
-//   - [Book.Seed]   — allocates a batch of IDs and registers their initial addresses
-//   - [Book.Get]    — looks up the Entry for a given ID
-//   - [Book.Move]   — updates the stored address after archetype migration
-//   - [Book.Delete] — clears the address entry and recycles the ID
+//   - [Book.Seed]          — allocates a batch of IDs and registers their initial addresses
+//   - [Book.Get]           — looks up the Entry for a given ID
+//   - [Book.Move]          — updates the stored address after archetype migration
+//   - [Book.MoveUnchecked] — same, without capacity/generation checks (bulk hot path)
+//   - [Book.Delete]        — clears the address entry and recycles the ID
 //
 // [Book.Index] is exported as a standalone read-only address index,
 // separate from the ID pool.

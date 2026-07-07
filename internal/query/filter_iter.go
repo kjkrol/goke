@@ -22,7 +22,7 @@ func (m *Matcher) nextPick() bool {
 			continue
 		}
 		m.Entity = e
-		m.bt.PointCursor(&m.Cursor, link.Pos) // per entity: chunk base + slot only
+		m.Cursor.Set(link.Ptr, uintptr(link.Slot)) // per entity: chunk base + slot only
 		return true
 	}
 	return false

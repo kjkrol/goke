@@ -46,7 +46,7 @@ func TestTable_Purge(t *testing.T) {
 	baked := tbl.BakeColumns(defs)
 	cur := newCursor(1)
 	_, pos := tbl.SpawnCursor(cur, 0, 1, baked)
-	tbl.RemoveAt(pos)
+	tbl.RemoveAt(tbl.ChunkPtrAt(pos.Idx), pos.Slot)
 
 	tbl.Purge()
 
