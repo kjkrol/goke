@@ -229,6 +229,40 @@ func TestTable_CompactHoles_TailIsHole_SkippedBeforeFill(t *testing.T) {
 	}
 }
 
+func TestTable_Compact_ScatteredHoles_VacatedTailZeroed(t *testing.T) {
+	// Scattered (non-contiguous) holes take the two-pointer path with deferred
+	// block zeroing. After Compact the vacated tail slots must be fully zeroed —
+	// the "freed slot = zeroed" invariant is restored before returning.
+	defs := []comp.Def{{ID: 1, Size: 8, Align: 8}}
+	tbl := newTestTable(t, defs)
+	baked := tbl.BakeColumns(defs)
+	cur := newCursor(1)
+	tbl.SpawnCursor(cur, 0, 5, baked)
+
+	ptr0 := tbl.ChunkPtrAt(0)
+	// Fill the component column with non-zero data in every slot.
+	for s := range Slot(5) {
+		*(*uint64)(tbl.ComponentAt(ptr0, s, 1)) = 0xDEADBEEF
+	}
+
+	holes := []SlotRef{{Ptr: ptr0, Idx: 0, Slot: 1}, {Ptr: ptr0, Idx: 0, Slot: 3}}
+	var d Defragmenter
+	d.Compact(tbl, holes)
+
+	if tbl.Len() != 3 {
+		t.Fatalf("expected Len 3, got %d", tbl.Len())
+	}
+	// Slots 3 and 4 are the vacated tail — both columns must be zero.
+	for s := Slot(3); s < 5; s++ {
+		if got := *(*uint64)(tbl.ComponentAt(ptr0, s, 1)); got != 0 {
+			t.Errorf("slot %d: component not zeroed after compaction, got %#x", s, got)
+		}
+		if got := *(*uid.UID64)(tbl.columns[entityColumnPos].At(ptr0, s)); got != 0 {
+			t.Errorf("slot %d: entity ID not zeroed after compaction, got %v", s, got)
+		}
+	}
+}
+
 func TestTable_CompactHoles_AllHoles_EmptyTable(t *testing.T) {
 	defs := []comp.Def{{ID: 1, Size: 8, Align: 8}}
 	tbl := newTestTable(t, defs)

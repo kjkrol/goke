@@ -40,6 +40,7 @@ func (d *Defragmenter) Compact(t *Table, holes []SlotRef) []SlotMove {
 	if len(holes) == 0 {
 		return nil
 	}
+	t.version++
 	chunkCap := int(t.chunkPack.Layout.ChunkCap)
 	d.scratch.moves = d.scratch.moves[:0]
 
@@ -195,8 +196,14 @@ func (d *Defragmenter) compactChunkThenSlot(t *Table, holes []SlotRef, chunkCap 
 
 // compactSlots fills partial holes, preferring the contiguous block fast path
 // and falling back to the sorted two-pointer algorithm: for each hole
-// (ascending flat index) the tail entity moves into the hole, and the vacated
-// tail slot is zeroed and freed.
+// (ascending flat index) the tail entity moves into the hole and the vacated
+// tail slot is freed.
+//
+// Zeroing of vacated slots is deferred: the tail retreats monotonically, so
+// the vacated region is a contiguous suffix — fully drained chunks are
+// block-zeroed when the tail crosses out of them, and the final chunk's
+// vacated range once after the loop. Freed slots hold stale bytes only inside
+// this function; the "freed slot = zeroed" invariant is restored on return.
 func (d *Defragmenter) compactSlots(t *Table, holes []SlotRef, chunkCap int) {
 	n := len(holes)
 	if n == 0 {
@@ -241,15 +248,19 @@ func (d *Defragmenter) compactSlots(t *Table, holes []SlotRef, chunkCap int) {
 	tSlot := int(ts)
 	tailF := ti*chunkCap + tSlot
 	tPtr := t.chunkPack.ChunkPtr(Idx(ti))
+	enterLen := tSlot + 1 // occupied length of the current tail chunk on entry
 
 	freeHead := func() {
 		t.chunkPack.FreeSlot(Idx(ti))
 		if tSlot > 0 {
 			tSlot--
 		} else if ti > 0 {
+			// Leaving a fully drained chunk: block-zero its former occupied range.
+			t.zeroRange(tPtr, 0, enterLen)
 			ti--
 			tSlot = int(t.chunkPack.ChunkLen(Idx(ti))) - 1
 			tPtr = t.chunkPack.ChunkPtr(Idx(ti))
+			enterLen = tSlot + 1
 		}
 		tailF = ti*chunkCap + tSlot
 	}
@@ -258,12 +269,10 @@ func (d *Defragmenter) compactSlots(t *Table, holes []SlotRef, chunkCap int) {
 	var holePtr unsafe.Pointer
 	for _, hf := range hFlats {
 		for tailF > hf && isHole(tailF) {
-			t.zeroSlot(tPtr, Slot(tSlot))
 			freeHead()
 		}
 		if tailF <= hf {
 			if tailF == hf {
-				t.zeroSlot(tPtr, Slot(tSlot))
 				freeHead()
 			}
 			break
@@ -275,13 +284,17 @@ func (d *Defragmenter) compactSlots(t *Table, holes []SlotRef, chunkCap int) {
 		holeSlot := Slot(hf % chunkCap)
 		movedID := *(*uid.UID64)(t.columns[entityColumnPos].At(tPtr, Slot(tSlot)))
 		t.swapCopy(holePtr, holeSlot, tPtr, Slot(tSlot))
-		t.zeroSlot(tPtr, Slot(tSlot))
 		freeHead()
 		d.scratch.moves = append(d.scratch.moves, SlotMove{
 			ID:      movedID,
 			NewPtr:  holePtr,
 			NewSlot: holeSlot,
 		})
+	}
+
+	// Block-zero the vacated suffix of the final tail chunk.
+	if newLen := int(t.chunkPack.ChunkLen(Idx(ti))); enterLen > newLen {
+		t.zeroRange(tPtr, Slot(newLen), enterLen-newLen)
 	}
 }
 

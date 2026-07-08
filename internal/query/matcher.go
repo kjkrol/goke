@@ -154,10 +154,12 @@ func (m *Matcher) Seek(entID uid.UID64) bool {
 // iteration — between a Next() that returned true and the following Next() —
 // to capture the current chunk context for CmdBuf.MassMigrate.
 func (m *Matcher) ChunkCtx() arch.ChunkCtx {
+	bt := &m.BakedTables[m.tableIdx]
 	return arch.ChunkCtx{
-		ArchID: m.BakedTables[m.tableIdx].ArchID,
+		ArchID: bt.ArchID,
 		Ptr:    m.Cursor.Base,
 		Idx:    colstore.Idx(m.chunkIdx),
+		Ver:    bt.Table.Version(),
 	}
 }
 

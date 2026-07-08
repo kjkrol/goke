@@ -116,8 +116,14 @@ func (cb *CmdBuf) RemoveEntity(entityID uid.UID64) {
 
 // MassMigrate records a bulk migration of ids from a single source chunk.
 // ctx must come from Matcher.ChunkCtx() called immediately after Next() returns
-// true — it captures the chunk's ArchID, Ptr, and Idx so the Migrator can skip
-// per-entity addr.Book lookups for those fields.
+// true — it captures the chunk's ArchID, Ptr, Idx, and structural version so
+// the Migrator can skip per-entity addr.Book lookups.
+//
+// When ids is the chunk's Cursor.IDs (or a prefix of it), ctx.Prefix is set:
+// ids[i] is known to live at slot i. The check relies on the entity ID column
+// sitting at chunk offset 0 (see chunk.Layout.Init), so &ids[0] == ctx.Ptr
+// identifies a leading window of the entity column.
+//
 // The ids slice is copied into the buffer's page pool; the caller may reuse or
 // modify it after this call. No heap allocation once the pool pages are warm.
 func (cb *CmdBuf) MassMigrate(migrator BulkMigrator, ctx arch.ChunkCtx, ids []uid.UID64) {
@@ -125,6 +131,7 @@ func (cb *CmdBuf) MassMigrate(migrator BulkMigrator, ctx arch.ChunkCtx, ids []ui
 	if n == 0 {
 		return
 	}
+	ctx.Prefix = unsafe.Pointer(&ids[0]) == ctx.Ptr
 	var u uid.UID64
 	ptr := cb.reserveSpace(n*int(unsafe.Sizeof(u)), int(unsafe.Alignof(u)))
 	copied := unsafe.Slice((*uid.UID64)(ptr), n)

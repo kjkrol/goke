@@ -36,7 +36,17 @@ type Table struct {
 	columns    []ColDef
 	compColIdx columnIndex
 	seedIDs    IDSeeder
+
+	// version counts structural changes that remove or relocate existing
+	// entities (RemoveAt, compaction). Appends do not bump it — they never
+	// invalidate the (slot, liveness) state of entities already stored.
+	// Captured in arch.ChunkCtx to let deferred bulk migration skip per-entity
+	// address-book validation when the table is untouched since capture.
+	version uint32
 }
+
+// Version returns the table's structural-change counter.
+func (t *Table) Version() uint32 { return t.version }
 
 // --- Initialization ---
 
@@ -199,6 +209,7 @@ func (t *Table) Purge() {
 // table dense. Returns the ID that moved into (ptr, slot) and true if a swap
 // occurred, or (0, false) if that slot was already the last one.
 func (t *Table) RemoveAt(ptr unsafe.Pointer, slot Slot) (uid.UID64, bool) {
+	t.version++
 	lastChunkIdx, lastSlot := t.chunkPack.ResolveTail()
 	lastPtr := t.chunkPack.ChunkPtr(lastChunkIdx)
 
@@ -217,6 +228,7 @@ func (t *Table) RemoveAt(ptr unsafe.Pointer, slot Slot) (uid.UID64, bool) {
 }
 
 func (t *Table) Clear() {
+	t.version++
 	t.chunkPack.Clear()
 	t.columns = nil
 	t.compColIdx.Reset()

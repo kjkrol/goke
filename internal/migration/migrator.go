@@ -1,6 +1,8 @@
 package migration
 
 import (
+	"unsafe"
+
 	"github.com/kjkrol/uid"
 
 	"github.com/kjkrol/goke/v2/internal/addr"
@@ -72,26 +74,59 @@ func (m *Migrator) OnNewArchetype(srcArchID arch.ID) {
 }
 
 // ApplyChunk migrates ids from the single source chunk described by ctx.
-// ctx must come from Matcher.ChunkCtx() — it provides ArchID, Ptr, and Idx
-// directly, so addr.Book is consulted only for liveness and Slot per entity.
-// This is the hot path: one Compact call per chunk, direct index writes,
-// zero per-entity archetype or pointer lookups beyond the Slot.
+// ctx must come from Matcher.ChunkCtx() — it provides ArchID, Ptr, Idx, and
+// the source table's structural version at capture time.
+//
+// When the version still matches, the table saw no removals or relocations
+// since capture, so every id is alive at its captured position and addr.Book
+// validation is skipped: with ctx.Prefix the slots are synthesized outright
+// (zero index reads); otherwise a single unchecked read per id fetches the
+// Slot. On a version mismatch every id is revalidated — entities that died
+// or left ctx's archetype are skipped, and positions come from the address
+// book instead of ctx.
 func (m *Migrator) ApplyChunk(ctx arch.ChunkCtx, ids []uid.UID64) {
 	n := len(ids)
 	if n == 0 {
 		return
 	}
-	m.scratch.ids = growTo(m.scratch.ids, n)
+	srcTable := &m.archCatalog.Archetypes[ctx.ArchID].Table
 	m.scratch.slotRefs = growTo(m.scratch.slotRefs, n)
 
+	if ctx.Ver == srcTable.Version() {
+		if ctx.Prefix {
+			for i := range n {
+				m.scratch.slotRefs[i] = colstore.SlotRef{Ptr: ctx.Ptr, Idx: ctx.Idx, Slot: colstore.Slot(i)}
+			}
+		} else {
+			for i, id := range ids {
+				m.scratch.slotRefs[i] = colstore.SlotRef{
+					Ptr:  ctx.Ptr,
+					Idx:  ctx.Idx,
+					Slot: m.addrBook.Index.GetUnchecked(id).Slot,
+				}
+			}
+		}
+		m.applyGroup(ctx.ArchID, ids, m.scratch.slotRefs[:n])
+		return
+	}
+
+	// Slow path: an earlier command in this Sync (or an immediate Editor call
+	// after capture) mutated the table, so captured positions may be stale.
+	m.scratch.ids = growTo(m.scratch.ids, n)
+	var lastPtr unsafe.Pointer
+	var lastIdx colstore.Idx
 	valid := 0
 	for _, id := range ids {
 		entry, ok := m.addrBook.Get(id)
-		if !ok {
+		if !ok || entry.ArchId != ctx.ArchID {
 			continue
 		}
+		if entry.Ptr != lastPtr {
+			lastPtr = entry.Ptr
+			lastIdx = srcTable.ChunkIdxByPtr(lastPtr)
+		}
 		m.scratch.ids[valid] = id
-		m.scratch.slotRefs[valid] = colstore.SlotRef{Ptr: ctx.Ptr, Idx: ctx.Idx, Slot: entry.Slot}
+		m.scratch.slotRefs[valid] = colstore.SlotRef{Ptr: entry.Ptr, Idx: lastIdx, Slot: entry.Slot}
 		valid++
 	}
 	if valid == 0 {
