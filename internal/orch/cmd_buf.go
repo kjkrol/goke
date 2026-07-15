@@ -3,12 +3,10 @@ package orch
 import (
 	"unsafe"
 
-	"github.com/kjkrol/goke/v2/internal/arch"
+	"github.com/kjkrol/goke/v2/internal/bulk"
 	"github.com/kjkrol/goke/v2/internal/comp"
 	"github.com/kjkrol/uid"
 )
-
-// -------------------------------------------------------------
 
 // cmdType represents the kind of deferred operation on an entity
 type cmdType int
@@ -27,25 +25,16 @@ type bufferedCmd struct {
 	dataPtr  unsafe.Pointer
 }
 
-// -------------------------------------------------------------
-
-// BulkMigrator is satisfied by any type that can apply a bulk archetype
-// migration to a batch of entity IDs from a single source chunk.
-type BulkMigrator interface {
-	ApplyChunk(ctx arch.ChunkCtx, ids []uid.UID64)
-}
-
 type massMigrateCmd struct {
-	migrator BulkMigrator
-	ctx      arch.ChunkCtx
+	migrator bulk.Migrator
+	snap     bulk.ChunkSnapshot
 	ids      []uid.UID64
 }
 
-// -------------------------------------------------------------
-
 const allocBlockSize = 4096
 
-// CmdBuf as Linear Allocator
+// CmdBuf queues deferred commands, backing their payloads with a linear
+// page allocator so registration never heap-allocates once warm.
 type CmdBuf struct {
 	cmds     []bufferedCmd
 	massCmds []massMigrateCmd
@@ -76,7 +65,7 @@ func NewCmdBuf() *CmdBuf {
 	}
 }
 
-// AddComp safely copies component data into the buffer's pool
+// AddComp queues an add-component command, copying value into the page pool.
 func AddComp[T any](cb *CmdBuf, entityID uid.UID64, compID comp.ID, value T) {
 	size := int(unsafe.Sizeof(value))
 
@@ -114,29 +103,20 @@ func (cb *CmdBuf) RemoveEntity(entityID uid.UID64) {
 	})
 }
 
-// MassMigrate records a bulk migration of ids from a single source chunk.
-// ctx must come from Matcher.ChunkCtx() called immediately after Next() returns
-// true — it captures the chunk's ArchID, Ptr, Idx, and structural version so
-// the Migrator can skip per-entity addr.Book lookups.
-//
-// When ids is the chunk's Cursor.IDs (or a prefix of it), ctx.Prefix is set:
-// ids[i] is known to live at slot i. The check relies on the entity ID column
-// sitting at chunk offset 0 (see chunk.Layout.Init), so &ids[0] == ctx.Ptr
-// identifies a leading window of the entity column.
-//
-// The ids slice is copied into the buffer's page pool; the caller may reuse or
-// modify it after this call. No heap allocation once the pool pages are warm.
-func (cb *CmdBuf) MassMigrate(migrator BulkMigrator, ctx arch.ChunkCtx, ids []uid.UID64) {
+// MassMigrate records a bulk migration of ids from the chunk described by
+// snap, setting snap.SlotAligned when ids is a leading window of the chunk's
+// entity column. ids is copied into the page pool — the caller may reuse it.
+func (cb *CmdBuf) MassMigrate(migrator bulk.Migrator, snap bulk.ChunkSnapshot, ids []uid.UID64) {
 	n := len(ids)
 	if n == 0 {
 		return
 	}
-	ctx.Prefix = unsafe.Pointer(&ids[0]) == ctx.Ptr
+	snap.SlotAligned = unsafe.Pointer(&ids[0]) == snap.ChunkPtr
 	var u uid.UID64
 	ptr := cb.reserveSpace(n*int(unsafe.Sizeof(u)), int(unsafe.Alignof(u)))
 	copied := unsafe.Slice((*uid.UID64)(ptr), n)
 	copy(copied, ids)
-	cb.massCmds = append(cb.massCmds, massMigrateCmd{migrator: migrator, ctx: ctx, ids: copied})
+	cb.massCmds = append(cb.massCmds, massMigrateCmd{migrator: migrator, snap: snap, ids: copied})
 }
 
 func (cb *CmdBuf) reset() {
@@ -146,8 +126,7 @@ func (cb *CmdBuf) reset() {
 	cb.offset = 0
 }
 
-// reserveSpace ensures there is enough contiguous memory in the pages
-// and returns a pointer to the start of the reserved block.
+// reserveSpace returns a pointer to a contiguous block from the page pool.
 func (cb *CmdBuf) reserveSpace(size int, align int) unsafe.Pointer {
 	cb.offset = (cb.offset + align - 1) &^ (align - 1)
 

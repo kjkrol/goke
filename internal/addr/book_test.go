@@ -10,8 +10,12 @@ import (
 	"github.com/kjkrol/goke/v2/internal/colstore"
 )
 
+// fakeChunks backs fakePtr with real memory — fabricating pointers from
+// integers is invalid for the GC and flagged by vet's unsafeptr check.
+var fakeChunks [4]byte
+
 // fakePtr returns a distinct non-nil unsafe.Pointer for use as a fake chunk address in tests.
-func fakePtr(n uintptr) unsafe.Pointer { return unsafe.Pointer(n + 1) }
+func fakePtr(n uintptr) unsafe.Pointer { return unsafe.Pointer(&fakeChunks[n]) }
 
 func TestBook_SeedAndGet(t *testing.T) {
 	var b Book
@@ -26,14 +30,14 @@ func TestBook_SeedAndGet(t *testing.T) {
 		if !ok {
 			t.Fatalf("expected entry for seeded id %d", i)
 		}
-		if entry.ArchId != arch.ID(5) {
-			t.Errorf("id %d: expected ArchId 5, got %d", i, entry.ArchId)
+		if entry.ArchID != arch.ID(5) {
+			t.Errorf("id %d: expected ArchID 5, got %d", i, entry.ArchID)
 		}
 		if entry.Slot != colstore.Slot(i) {
 			t.Errorf("id %d: expected Slot %d, got %d", i, i, entry.Slot)
 		}
-		if entry.Ptr != ptr {
-			t.Errorf("id %d: expected Ptr %v, got %v", i, ptr, entry.Ptr)
+		if entry.ChunkPtr != ptr {
+			t.Errorf("id %d: expected Ptr %v, got %v", i, ptr, entry.ChunkPtr)
 		}
 	}
 }
@@ -67,7 +71,7 @@ func TestBook_Move(t *testing.T) {
 	if !ok {
 		t.Fatal("expected entry after Move")
 	}
-	if entry.ArchId != arch.ID(2) || entry.Ptr != movePtr || entry.Slot != colstore.Slot(4) {
+	if entry.ArchID != arch.ID(2) || entry.ChunkPtr != movePtr || entry.Slot != colstore.Slot(4) {
 		t.Errorf("expected updated address, got %+v", entry)
 	}
 }
@@ -134,11 +138,11 @@ func TestBook_MoveUnchecked(t *testing.T) {
 		if !ok {
 			t.Fatalf("entity %d missing after MoveUnchecked", i)
 		}
-		if entry.ArchId != w.archID {
-			t.Errorf("entity %d: ArchId = %d; want %d", i, entry.ArchId, w.archID)
+		if entry.ArchID != w.archID {
+			t.Errorf("entity %d: ArchID = %d; want %d", i, entry.ArchID, w.archID)
 		}
-		if entry.Ptr != w.ptr || entry.Slot != w.slot {
-			t.Errorf("entity %d: Ptr=%v Slot=%d; want Ptr=%v Slot=%d", i, entry.Ptr, entry.Slot, w.ptr, w.slot)
+		if entry.ChunkPtr != w.ptr || entry.Slot != w.slot {
+			t.Errorf("entity %d: Ptr=%v Slot=%d; want Ptr=%v Slot=%d", i, entry.ChunkPtr, entry.Slot, w.ptr, w.slot)
 		}
 	}
 }

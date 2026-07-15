@@ -4,9 +4,10 @@
 //
 // [Entry] is the full storage address of an entity:
 //
-//   - ArchId      — the archetype the entity belongs to
-//   - Pos         — the [colstore.Pos] (ChunkIdx + ChunkSlot) within that archetype's table
-//   - Generation  — guards against stale access after an ID is recycled
+//   - ArchID    — the archetype the entity belongs to
+//   - ChunkPtr  — base address of the chunk holding the entity (stable across SwapChunks)
+//   - Slot      — the entity's slot within that chunk
+//   - Gen       — guards against stale access after an ID is recycled
 //
 // # Index
 //
@@ -17,7 +18,7 @@
 //	                            │
 //	                       Index[index]
 //	                            │
-//	                   Entry { ArchId, Pos, Generation }
+//	                   Entry { ArchID, ChunkPtr, Slot, Gen }
 //
 // On every read the stored Generation is compared against the requested one.
 // A mismatch means the slot was recycled and the lookup returns false.

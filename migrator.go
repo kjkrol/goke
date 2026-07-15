@@ -31,10 +31,10 @@ func (b *MigratorBuilder) Build() *Migrator {
 }
 
 // CmdBufMassMigrate records a bulk migration of ids from a single source chunk.
-// Call inside a system's Update after Query.All() + Next(): obtain ctx from
-// Query.ChunkCtx(), pass the ids you want to migrate from cursor.IDs.
+// Call inside a system's Update after Query.All() + Next(): obtain snap from
+// Query.ChunkSnapshot(), pass the ids you want to migrate from cursor.IDs.
 // Applied at the next Sync point: one CompactHoles per chunk, one batch
 // addr.Book update, zero per-entity archetype or pointer lookups beyond Slot.
-func CmdBufMassMigrate(cb *CmdBuf, migrator *Migrator, ctx ChunkCtx, ids []uid.UID64) {
-	cb.MassMigrate(migrator, ctx, ids)
+func CmdBufMassMigrate(cb *CmdBuf, migrator *Migrator, snap ChunkSnapshot, ids []uid.UID64) {
+	cb.MassMigrate(migrator, snap, ids)
 }

@@ -9,11 +9,9 @@ import (
 	"github.com/kjkrol/goke/v2/internal/colstore"
 )
 
-// Book is the address book: it combines entity ID lifecycle (uid pool) with
-// the address [Index] into a single owner.
-//
-// [Book.Index] is exported so that the query layer can hold a [*Index] pointer
-// for read-only entity lookups without access to the pool.
+// Book is the address book: entity ID lifecycle (uid pool) plus the address
+// [Index] under a single owner. [Book.Index] is exported so the query layer
+// can hold a read-only [*Index] without access to the pool.
 type Book struct {
 	pool  uid.UID64Pool
 	Index Index
@@ -29,9 +27,8 @@ func (b *Book) Reset() {
 	b.Index.Reset()
 }
 
-// Seed allocates len(dst) entity IDs from the pool and registers their initial
-// addresses in the Index. ptr is the chunk's backing memory pointer; slot is
-// the starting slot index within that chunk.
+// Seed allocates len(dst) entity IDs from the pool and registers their
+// addresses: consecutive slots in ptr's chunk starting at startSlot.
 func (b *Book) Seed(dst []uid.UID64, archID arch.ID, ptr unsafe.Pointer, startSlot colstore.Slot) {
 	b.pool.NextN(dst)
 	b.Index.EnsureCap(b.pool.PeekNextIndex())
@@ -40,21 +37,16 @@ func (b *Book) Seed(dst []uid.UID64, archID arch.ID, ptr unsafe.Pointer, startSl
 	}
 }
 
-// Get looks up the Entry for the given entity ID.
-// Returns false if the ID is invalid (wrong generation) or has no registered address.
 func (b *Book) Get(id uid.UID64) (Entry, bool) {
 	return b.Index.Get(id)
 }
 
-// Move updates the stored address for the given entity ID.
-// ptr is the chunk's backing memory pointer; slot is the entity's slot within that chunk.
 func (b *Book) Move(id uid.UID64, archID arch.ID, ptr unsafe.Pointer, slot colstore.Slot) {
 	b.Index.Upsert(id, archID, ptr, slot)
 }
 
-// MoveUnchecked updates the stored address for an entity that is known to
-// already exist in the Index — no capacity check, no generation check.
-// Bulk-migration hot path: called once per moved entity.
+// MoveUnchecked is Move minus the capacity and generation checks; id must
+// already exist in the Index. Bulk-migration hot path.
 func (b *Book) MoveUnchecked(id uid.UID64, archID arch.ID, ptr unsafe.Pointer, slot colstore.Slot) {
 	b.Index.UpsertUnchecked(id, archID, ptr, slot)
 }

@@ -116,3 +116,12 @@ func measurePerEntity(b *testing.B, batchSize int, benchLoop func()) {
 	// b.ReportMetric(allocBytes/totalEntities, "B/ent")
 	// b.ReportMetric(allocs/totalEntities, "allocs/ent")
 }
+
+// benchOrders are the two entity-order variants structural benchmarks run in:
+// sorted iterates entities in creation order, random reshuffles them before
+// every iteration (outside the timer).
+var benchOrders = []string{"sorted", "random"}
+
+func shuffleIDs(r *rand.Rand, ids []uid.UID64) {
+	r.Shuffle(len(ids), func(i, j int) { ids[i], ids[j] = ids[j], ids[i] })
+}

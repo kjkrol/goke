@@ -48,10 +48,10 @@ func TestEditor_Update_AddComponent(t *testing.T) {
 	posCol.At(&editor.Cursor).Y = 6
 
 	entry, _ := m.AddressBook.Get(id)
-	if !m.ArchCatalog.Archetypes[entry.ArchId].Mask().IsSet(tagDef.ID) {
+	if !m.ArchCatalog.Archetypes[entry.ArchID].Mask().IsSet(tagDef.ID) {
 		t.Error("expected the original Tag bit to survive the add")
 	}
-	got := *(*Position)(m.ArchCatalog.Archetypes[entry.ArchId].Table.ComponentAt(entry.Ptr, entry.Slot, posDef.ID))
+	got := *(*Position)(m.ArchCatalog.Archetypes[entry.ArchID].Table.ComponentAt(entry.ChunkPtr, entry.Slot, posDef.ID))
 	if got != (Position{X: 5, Y: 6}) {
 		t.Errorf("expected written Position{5,6}, got %+v", got)
 	}
@@ -84,10 +84,10 @@ func TestEditor_Update_RemoveComponent(t *testing.T) {
 	if !ok {
 		t.Fatal("expected entity to survive (Position remains)")
 	}
-	if m.ArchCatalog.Archetypes[entry.ArchId].Mask().IsSet(velDef.ID) {
+	if m.ArchCatalog.Archetypes[entry.ArchID].Mask().IsSet(velDef.ID) {
 		t.Error("expected Velocity bit to be cleared")
 	}
-	if !m.ArchCatalog.Archetypes[entry.ArchId].Mask().IsSet(posDef.ID) {
+	if !m.ArchCatalog.Archetypes[entry.ArchID].Mask().IsSet(posDef.ID) {
 		t.Error("expected Position bit to survive")
 	}
 }
@@ -120,10 +120,10 @@ func TestEditor_Update_AddAndRemoveTogether(t *testing.T) {
 	if !ok {
 		t.Fatal("expected entity to survive (Velocity remains)")
 	}
-	if m.ArchCatalog.Archetypes[entry.ArchId].Mask().IsSet(posDef.ID) {
+	if m.ArchCatalog.Archetypes[entry.ArchID].Mask().IsSet(posDef.ID) {
 		t.Error("expected Position bit to be cleared")
 	}
-	if !m.ArchCatalog.Archetypes[entry.ArchId].Mask().IsSet(velDef.ID) {
+	if !m.ArchCatalog.Archetypes[entry.ArchID].Mask().IsSet(velDef.ID) {
 		t.Error("expected Velocity bit to be set")
 	}
 }
@@ -185,7 +185,7 @@ func TestEditor_Update_DelOnlyEditorWorks(t *testing.T) {
 	if !ok {
 		t.Fatal("expected entity to survive")
 	}
-	if m.ArchCatalog.Archetypes[entry.ArchId].Mask().IsSet(velDef.ID) {
+	if m.ArchCatalog.Archetypes[entry.ArchID].Mask().IsSet(velDef.ID) {
 		t.Error("expected Velocity to stay removed")
 	}
 }
@@ -236,13 +236,13 @@ func TestEditor_Update_AcrossDifferentTargetArchetypes(t *testing.T) {
 		velCol.At(&editor.Cursor).VX = 200
 
 		entryA, _ := m.AddressBook.Get(idA)
-		gotA := *(*Velocity)(m.ArchCatalog.Archetypes[entryA.ArchId].Table.ComponentAt(entryA.Ptr, entryA.Slot, velDef.ID))
+		gotA := *(*Velocity)(m.ArchCatalog.Archetypes[entryA.ArchID].Table.ComponentAt(entryA.ChunkPtr, entryA.Slot, velDef.ID))
 		if gotA.VX != 100 {
 			t.Errorf("iter %d: expected idA.VX == 100, got %v", i, gotA.VX)
 		}
 
 		entryB, _ := m.AddressBook.Get(idB)
-		gotB := *(*Velocity)(m.ArchCatalog.Archetypes[entryB.ArchId].Table.ComponentAt(entryB.Ptr, entryB.Slot, velDef.ID))
+		gotB := *(*Velocity)(m.ArchCatalog.Archetypes[entryB.ArchID].Table.ComponentAt(entryB.ChunkPtr, entryB.Slot, velDef.ID))
 		if gotB.VX != 200 {
 			t.Errorf("iter %d: expected idB.VX == 200, got %v", i, gotB.VX)
 		}

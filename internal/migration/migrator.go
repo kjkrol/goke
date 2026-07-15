@@ -7,143 +7,144 @@ import (
 
 	"github.com/kjkrol/goke/v2/internal/addr"
 	"github.com/kjkrol/goke/v2/internal/arch"
+	"github.com/kjkrol/goke/v2/internal/bulk"
 	"github.com/kjkrol/goke/v2/internal/colstore"
 	"github.com/kjkrol/goke/v2/internal/comp"
 )
 
-// Migrator applies a fixed set of structural changes — adding and removing
-// components — to a batch of entities in a single bulk archetype migration.
-//
-// Unlike ent.Editor, which migrates one entity at a time with immediate
-// swap-and-pop compaction, Migrator defers compaction until the full batch
-// is known, enabling block-level column copies and direct per-entity
-// address-index writes with no intermediate buffering.
+// unresolvedID marks a dst entry whose destination archetype has not been
+// resolved yet; it can never collide with a real ID (all are < arch.MaxID).
+const unresolvedID = arch.MaxID
+
+// Migrator applies a fixed set of component adds/removes to whole batches of
+// entities. Unlike ent.Editor (one entity at a time, immediate swap-and-pop),
+// it defers compaction until the full batch is known, enabling block column
+// copies and a single address-index pass per batch.
 type Migrator struct {
 	spec        comp.EditSpec
 	addrBook    *addr.Book
 	archCatalog *arch.Catalog
-	dst         [arch.MaxID]arch.ID // srcArch → dstArch; NullID = unlink (no components left)
 
-	// defrag owns the scratch buffers for CompactHoles; embedded by value so
-	// its memory lives in the same heap allocation as Migrator.
-	defrag colstore.Defragmenter
+	// dst memoizes srcArch → dstArch; NullID = unlink (no components left).
+	// Resolved lazily on first use — once per source archetype, amortized
+	// over whole chunk batches.
+	dst [arch.MaxID]arch.ID
 
-	// scratch holds pre-allocated working memory reused across ApplyChunk calls.
-	// All slices grow lazily and never shrink; no GC pressure after warm-up.
+	defrag colstore.Defragmenter // by value: shares Migrator's heap allocation
+
+	// scratch is reused across Migrate calls; grows lazily, never shrinks.
 	scratch struct {
 		ids      []uid.UID64
 		slotRefs []colstore.SlotRef
+		dstRuns  []dstChunkRun
 	}
 }
 
-// New creates a Migrator and pre-computes the destination archetype for every
-// archetype that already exists in catalog. Future archetypes are registered
-// via OnNewArchetype, typically called by migration.Catalog on behalf of
-// arch.Catalog's onArchetypeCreated hook.
+// dstChunkRun records where one destination chunk's batch landed, letting the
+// address-book pass recompute every position arithmetically — no per-entity buffer.
+type dstChunkRun struct {
+	ptr       unsafe.Pointer
+	startSlot colstore.Slot
+	n         int
+}
+
 func New(book *addr.Book, catalog *arch.Catalog, spec comp.EditSpec) *Migrator {
 	m := &Migrator{spec: spec, addrBook: book, archCatalog: catalog}
-	for archID := arch.RootID; archID < catalog.Len(); archID++ {
-		m.OnNewArchetype(archID)
+	for i := range m.dst {
+		m.dst[i] = unresolvedID
 	}
 	return m
 }
 
-// OnNewArchetype pre-computes and stores the destination archetype for srcArchID.
-// Called eagerly when a new archetype is added to the catalog so that ApplyChunk
-// needs no graph traversal on the hot path.
-func (m *Migrator) OnNewArchetype(srcArchID arch.ID) {
-	target := srcArchID
+// resolve computes and memoizes the destination archetype for srcArchID by
+// jumping straight to the target composition — no edge-graph waypoints, so
+// coexisting wide migrators cannot cross-multiply intermediate archetypes.
+func (m *Migrator) resolve(srcArchID arch.ID) arch.ID {
+	set := m.archCatalog.Archetypes[srcArchID].Composition()
 	for i := range m.spec.AddDefs {
 		d := m.spec.AddDefs[i]
-		if !m.archCatalog.Archetypes[target].Mask().IsSet(d.ID) {
-			target = m.archCatalog.EnsureEdgeNext(d, target)
+		if !set.Mask.IsSet(d.ID) {
+			set = set.With(d)
 		}
 	}
 	for i := range m.spec.DelDefs {
-		d := m.spec.DelDefs[i]
-		if m.archCatalog.Archetypes[target].Mask().IsSet(d.ID) {
-			next, shouldUnlink := m.archCatalog.EnsureEdgePrev(d, target)
-			if shouldUnlink {
-				m.dst[srcArchID] = arch.NullID
-				return
-			}
-			target = next
-		}
+		set = set.Without(m.spec.DelDefs[i].ID)
+	}
+	target := arch.NullID
+	if !set.Mask.IsEmpty() {
+		target = m.archCatalog.Upsert(set)
 	}
 	m.dst[srcArchID] = target
+	return target
 }
 
-// ApplyChunk migrates ids from the single source chunk described by ctx.
-// ctx must come from Matcher.ChunkCtx() — it provides ArchID, Ptr, Idx, and
-// the source table's structural version at capture time.
-//
-// When the version still matches, the table saw no removals or relocations
-// since capture, so every id is alive at its captured position and addr.Book
-// validation is skipped: with ctx.Prefix the slots are synthesized outright
-// (zero index reads); otherwise a single unchecked read per id fetches the
-// Slot. On a version mismatch every id is revalidated — entities that died
-// or left ctx's archetype are skipped, and positions come from the address
-// book instead of ctx.
-func (m *Migrator) ApplyChunk(ctx arch.ChunkCtx, ids []uid.UID64) {
+// Migrate moves ids out of the single source chunk described by snap.
+// While snap.TableVer still matches, every id is alive at its captured
+// position: SlotAligned synthesizes the slots outright, otherwise one
+// unchecked Slot read per id suffices. On a version mismatch every id is
+// revalidated against the address book; dead or relocated-away ids are skipped.
+func (m *Migrator) Migrate(snap bulk.ChunkSnapshot, ids []uid.UID64) {
 	n := len(ids)
 	if n == 0 {
 		return
 	}
-	srcTable := &m.archCatalog.Archetypes[ctx.ArchID].Table
+	srcTable := &m.archCatalog.Archetypes[snap.ArchID].Table
 	m.scratch.slotRefs = growTo(m.scratch.slotRefs, n)
 
-	if ctx.Ver == srcTable.Version() {
-		if ctx.Prefix {
+	if snap.TableVer == srcTable.Version() {
+		if snap.SlotAligned {
 			for i := range n {
-				m.scratch.slotRefs[i] = colstore.SlotRef{Ptr: ctx.Ptr, Idx: ctx.Idx, Slot: colstore.Slot(i)}
+				m.scratch.slotRefs[i] = colstore.SlotRef{Ptr: snap.ChunkPtr, Idx: snap.ChunkIdx, Slot: colstore.Slot(i)}
 			}
 		} else {
 			for i, id := range ids {
 				m.scratch.slotRefs[i] = colstore.SlotRef{
-					Ptr:  ctx.Ptr,
-					Idx:  ctx.Idx,
+					Ptr:  snap.ChunkPtr,
+					Idx:  snap.ChunkIdx,
 					Slot: m.addrBook.Index.GetUnchecked(id).Slot,
 				}
 			}
 		}
-		m.applyGroup(ctx.ArchID, ids, m.scratch.slotRefs[:n])
+		m.applyGroup(snap.ArchID, ids, m.scratch.slotRefs[:n])
 		return
 	}
 
-	// Slow path: an earlier command in this Sync (or an immediate Editor call
-	// after capture) mutated the table, so captured positions may be stale.
+	// Version mismatch: something mutated the table since capture.
 	m.scratch.ids = growTo(m.scratch.ids, n)
 	var lastPtr unsafe.Pointer
 	var lastIdx colstore.Idx
 	valid := 0
 	for _, id := range ids {
 		entry, ok := m.addrBook.Get(id)
-		if !ok || entry.ArchId != ctx.ArchID {
+		if !ok || entry.ArchID != snap.ArchID {
 			continue
 		}
-		if entry.Ptr != lastPtr {
-			lastPtr = entry.Ptr
+		if entry.ChunkPtr != lastPtr {
+			lastPtr = entry.ChunkPtr
 			lastIdx = srcTable.ChunkIdxByPtr(lastPtr)
 		}
 		m.scratch.ids[valid] = id
-		m.scratch.slotRefs[valid] = colstore.SlotRef{Ptr: entry.Ptr, Idx: lastIdx, Slot: entry.Slot}
+		m.scratch.slotRefs[valid] = colstore.SlotRef{Ptr: entry.ChunkPtr, Idx: lastIdx, Slot: entry.Slot}
 		valid++
 	}
 	if valid == 0 {
 		return
 	}
-	m.applyGroup(ctx.ArchID, m.scratch.ids[:valid], m.scratch.slotRefs[:valid])
+	m.applyGroup(snap.ArchID, m.scratch.ids[:valid], m.scratch.slotRefs[:valid])
 }
 
-// applyGroup migrates all ids from srcArchID to the resolved destination
-// archetype. ids and slotRefs are pre-collected with Idx already set (no
-// further addr.Book reads). Index updates are written directly as entities
-// are copied — no intermediate buffer: destination slots are final at copy
-// time (ReserveSlots pre-allocated them, and compaction only relocates
-// survivors inside the source table).
+// applyGroup migrates ids to the pre-resolved destination in two phases —
+// bytes first (block copies, then source compaction), address book second in
+// one homogeneous pass — so streaming copies and scattered index writes never
+// interleave. Destination positions are final at copy time, so the second
+// phase replays them arithmetically from dstRuns; source relocations come
+// from the compaction's SlotMove list.
 func (m *Migrator) applyGroup(srcArchID arch.ID, ids []uid.UID64, slotRefs []colstore.SlotRef) {
 	n := len(ids)
 	dstArchID := m.dst[srcArchID]
+	if dstArchID == unresolvedID {
+		dstArchID = m.resolve(srcArchID)
+	}
 	if dstArchID == arch.NullID {
 		m.removeAll(srcArchID, ids, slotRefs)
 		return
@@ -154,6 +155,7 @@ func (m *Migrator) applyGroup(srcArchID arch.ID, ids []uid.UID64, slotRefs []col
 
 	firstIdx, firstAvailable, chunkCap := dstTable.ReserveSlots(n)
 
+	m.scratch.dstRuns = m.scratch.dstRuns[:0]
 	dstChunkIdx := firstIdx
 	available := firstAvailable
 	remaining := n
@@ -162,10 +164,10 @@ func (m *Migrator) applyGroup(srcArchID arch.ID, ids []uid.UID64, slotRefs []col
 	for remaining > 0 {
 		batchN := min(remaining, available)
 		dstPtr, startSlot := dstTable.AllocSlots(dstChunkIdx, batchN)
+		m.scratch.dstRuns = append(m.scratch.dstRuns, dstChunkRun{ptr: dstPtr, startSlot: startSlot, n: batchN})
 
-		// Copy in maximal contiguous runs: ids captured from Query.All() come in
-		// chunk order, so consecutive slotRefs usually form one ascending slot
-		// range — each run costs one CopyMemory per column instead of per slot.
+		// Ids arrive in chunk order, so slotRefs form long ascending runs —
+		// each run costs one CopyMemory per column instead of per slot.
 		i := 0
 		for i < batchN {
 			base := slotRefs[ei]
@@ -179,9 +181,6 @@ func (m *Migrator) applyGroup(srcArchID arch.ID, ids []uid.UID64, slotRefs []col
 			dstSlot := startSlot + colstore.Slot(i)
 			dstTable.CopyRangeFrom(srcTable, base.Ptr, base.Slot, dstPtr, dstSlot, run)
 			dstTable.SetEntityRange(dstPtr, dstSlot, ids[ei:ei+run])
-			for k := range run {
-				m.addrBook.MoveUnchecked(ids[ei+k], dstArchID, dstPtr, dstSlot+colstore.Slot(k))
-			}
 
 			i += run
 			ei += run
@@ -195,13 +194,21 @@ func (m *Migrator) applyGroup(srcArchID arch.ID, ids []uid.UID64, slotRefs []col
 	dstTable.ReleaseSlots()
 
 	srcMoves := m.defrag.Compact(srcTable, slotRefs)
+
+	ei = 0
+	for _, r := range m.scratch.dstRuns {
+		for k := range r.n {
+			m.addrBook.MoveUnchecked(ids[ei+k], dstArchID, r.ptr, r.startSlot+colstore.Slot(k))
+		}
+		ei += r.n
+	}
 	for _, sm := range srcMoves {
 		m.addrBook.MoveUnchecked(sm.ID, srcArchID, sm.NewPtr, sm.NewSlot)
 	}
 }
 
-// removeAll removes all entities from their source archetype and recycles IDs.
-// Used when the migration spec leaves entities with no components.
+// removeAll removes the entities outright and recycles their IDs — the
+// unlink case, where the spec leaves no components.
 func (m *Migrator) removeAll(srcArchID arch.ID, ids []uid.UID64, srcPositions []colstore.SlotRef) {
 	srcTable := &m.archCatalog.Archetypes[srcArchID].Table
 	for i, id := range ids {
@@ -214,8 +221,7 @@ func (m *Migrator) removeAll(srcArchID arch.ID, ids []uid.UID64, srcPositions []
 	}
 }
 
-// growTo returns s resized to exactly n elements, reallocating only when
-// the current capacity is insufficient. The slice never shrinks.
+// growTo returns s resized to n elements, reallocating only when needed.
 func growTo[T any](s []T, n int) []T {
 	if cap(s) >= n {
 		return s[:n]

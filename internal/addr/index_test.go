@@ -24,7 +24,7 @@ func newIndex(cap int) Index {
 
 // testPtr returns a distinct non-nil unsafe.Pointer for use as a fake chunk
 // address in tests. The sentinel value is meaningful only within the test.
-func testPtr(n uintptr) unsafe.Pointer { return unsafe.Pointer(n + 1) }
+func testPtr(n uintptr) unsafe.Pointer { return unsafe.Pointer(&fakeChunks[n]) }
 
 func TestIndex_UpsertAndGet(t *testing.T) {
 	s := newIndex(8)
@@ -37,11 +37,11 @@ func TestIndex_UpsertAndGet(t *testing.T) {
 	if !ok {
 		t.Fatal("expected entry to be found")
 	}
-	if entry.ArchId != arch.ID(2) {
-		t.Errorf("expected ArchId 2, got %d", entry.ArchId)
+	if entry.ArchID != arch.ID(2) {
+		t.Errorf("expected ArchID 2, got %d", entry.ArchID)
 	}
-	if entry.Ptr != testPtr(0) {
-		t.Errorf("expected Ptr %v, got %v", testPtr(0), entry.Ptr)
+	if entry.ChunkPtr != testPtr(0) {
+		t.Errorf("expected Ptr %v, got %v", testPtr(0), entry.ChunkPtr)
 	}
 	if entry.Slot != colstore.Slot(3) {
 		t.Errorf("expected Slot 3, got %d", entry.Slot)
@@ -119,8 +119,8 @@ func TestIndex_GrowsOnDemand(t *testing.T) {
 	if !ok {
 		t.Fatal("expected entry after grow")
 	}
-	if entry.ArchId != arch.ID(1) {
-		t.Errorf("expected ArchId 1, got %d", entry.ArchId)
+	if entry.ArchID != arch.ID(1) {
+		t.Errorf("expected ArchID 1, got %d", entry.ArchID)
 	}
 }
 
@@ -180,7 +180,7 @@ func TestIndex_UpsertUnchecked(t *testing.T) {
 	if !ok {
 		t.Fatal("expected entry after UpsertUnchecked")
 	}
-	if entry.ArchId != arch.ID(4) || entry.Ptr != testPtr(1) || entry.Slot != colstore.Slot(2) {
+	if entry.ArchID != arch.ID(4) || entry.ChunkPtr != testPtr(1) || entry.Slot != colstore.Slot(2) {
 		t.Errorf("expected entry to match, got %+v", entry)
 	}
 }
@@ -193,11 +193,11 @@ func TestIndex_GetUnchecked(t *testing.T) {
 	s.Upsert(e, arch.ID(2), testPtr(0), colstore.Slot(3))
 
 	entry := s.GetUnchecked(e)
-	if entry.ArchId != arch.ID(2) {
-		t.Errorf("expected ArchId 2, got %d", entry.ArchId)
+	if entry.ArchID != arch.ID(2) {
+		t.Errorf("expected ArchID 2, got %d", entry.ArchID)
 	}
-	if entry.Ptr != testPtr(0) {
-		t.Errorf("expected Ptr %v, got %v", testPtr(0), entry.Ptr)
+	if entry.ChunkPtr != testPtr(0) {
+		t.Errorf("expected Ptr %v, got %v", testPtr(0), entry.ChunkPtr)
 	}
 	if entry.Slot != colstore.Slot(3) {
 		t.Errorf("expected Slot 3, got %d", entry.Slot)
@@ -216,7 +216,7 @@ func TestIndex_Upsert_Overwrite(t *testing.T) {
 	if !ok {
 		t.Fatal("expected entry after overwrite")
 	}
-	if entry.ArchId != arch.ID(2) || entry.Ptr != testPtr(1) || entry.Slot != colstore.Slot(5) {
+	if entry.ArchID != arch.ID(2) || entry.ChunkPtr != testPtr(1) || entry.Slot != colstore.Slot(5) {
 		t.Errorf("expected overwritten entry, got %+v", entry)
 	}
 }

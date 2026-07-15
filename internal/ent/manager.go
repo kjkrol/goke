@@ -39,7 +39,7 @@ func (m *Manager) Remove(id uid.UID64) bool {
 	if !ok {
 		return false
 	}
-	m.removeFromArchetype(id, entry.ArchId, entry.Ptr, entry.Slot)
+	m.removeFromArchetype(id, entry.ArchID, entry.ChunkPtr, entry.Slot)
 	return true
 }
 
@@ -60,13 +60,13 @@ func (m *Manager) UpsertComp(entityID uid.UID64, compDef comp.Def) (unsafe.Point
 		return nil, errInvalidEntity
 	}
 
-	targetArchID := entry.ArchId
-	targetPtr := entry.Ptr
+	targetArchID := entry.ArchID
+	targetPtr := entry.ChunkPtr
 	targetSlot := entry.Slot
 
-	if !m.ArchCatalog.Archetypes[entry.ArchId].Mask().IsSet(compDef.ID) {
-		targetArchID = m.ArchCatalog.EnsureEdgeNext(compDef, entry.ArchId)
-		targetPtr, targetSlot = m.migrateEntity(entityID, entry.ArchId, entry.Ptr, entry.Slot, targetArchID)
+	if !m.ArchCatalog.Archetypes[entry.ArchID].Mask().IsSet(compDef.ID) {
+		targetArchID = m.ArchCatalog.EnsureEdgeNext(compDef, entry.ArchID)
+		targetPtr, targetSlot = m.migrateEntity(entityID, entry.ArchID, entry.ChunkPtr, entry.Slot, targetArchID)
 	}
 
 	if compDef.Size == 0 {
@@ -85,17 +85,17 @@ func (m *Manager) RemoveComp(entityID uid.UID64, compDef comp.Def) error {
 		return errInvalidEntity
 	}
 
-	if !m.ArchCatalog.Archetypes[entry.ArchId].Mask().IsSet(compDef.ID) {
+	if !m.ArchCatalog.Archetypes[entry.ArchID].Mask().IsSet(compDef.ID) {
 		return nil
 	}
 
-	targetArchID, shouldUnlink := m.ArchCatalog.EnsureEdgePrev(compDef, entry.ArchId)
+	targetArchID, shouldUnlink := m.ArchCatalog.EnsureEdgePrev(compDef, entry.ArchID)
 	if shouldUnlink {
-		m.removeFromArchetype(entityID, entry.ArchId, entry.Ptr, entry.Slot)
+		m.removeFromArchetype(entityID, entry.ArchID, entry.ChunkPtr, entry.Slot)
 		return nil
 	}
 
-	m.migrateEntity(entityID, entry.ArchId, entry.Ptr, entry.Slot, targetArchID)
+	m.migrateEntity(entityID, entry.ArchID, entry.ChunkPtr, entry.Slot, targetArchID)
 	return nil
 }
 

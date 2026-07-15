@@ -16,12 +16,13 @@ import (
 // Layer 2   chunk              (→ comp)
 // Layer 3   colstore           (→ comp, chunk, iter)
 // Layer 4   arch               (→ comp, colstore)
-// Layer 4+  orch               (→ arch, comp)  — BulkMigrator uses arch.ChunkCtx
 // Layer 5   addr               (→ arch, colstore)
+//           bulk               (→ arch, colstore)
 // Layer 6   ent                (→ addr, arch, colstore, comp, iter)
-//           migration          (→ addr, arch, colstore, comp)
-// Layer 7   query              (→ addr, arch, colstore, comp, iter)
-// Layer 8   reg                (→ ent, arch, comp, migration, query)
+//           migration          (→ addr, arch, bulk, colstore, comp)
+// Layer 7   query              (→ addr, arch, bulk, colstore, comp, iter)
+// Layer 8   orch               (→ bulk, comp)
+//           reg                (→ ent, arch, comp, migration, query)
 //
 // github.com/kjkrol/uid is an external module; listed explicitly per package.
 
@@ -40,8 +41,13 @@ var depRules = map[string][]string{
 		uidPkg,
 	},
 	"internal/orch": {
-		module + "/internal/arch",
+		module + "/internal/bulk",
 		module + "/internal/comp",
+		uidPkg,
+	},
+	"internal/bulk": {
+		module + "/internal/arch",
+		module + "/internal/colstore",
 		uidPkg,
 	},
 	"internal/colstore": {
@@ -71,6 +77,7 @@ var depRules = map[string][]string{
 	"internal/migration": {
 		module + "/internal/addr",
 		module + "/internal/arch",
+		module + "/internal/bulk",
 		module + "/internal/colstore",
 		module + "/internal/comp",
 		uidPkg,
@@ -78,6 +85,7 @@ var depRules = map[string][]string{
 	"internal/query": {
 		module + "/internal/addr",
 		module + "/internal/arch",
+		module + "/internal/bulk",
 		module + "/internal/colstore",
 		module + "/internal/comp",
 		module + "/iter",

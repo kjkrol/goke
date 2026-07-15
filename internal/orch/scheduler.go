@@ -94,7 +94,7 @@ func (s *Scheduler) Sync() error {
 
 func (s *Scheduler) applyBufferCmds(cb *CmdBuf) error {
 	for _, cmd := range cb.massCmds {
-		cmd.migrator.ApplyChunk(cmd.ctx, cmd.ids)
+		cmd.migrator.Migrate(cmd.snap, cmd.ids)
 	}
 	for _, cmd := range cb.cmds {
 		target := cmd.entityID

@@ -1,7 +1,7 @@
 package goke
 
 import (
-	"github.com/kjkrol/goke/v2/internal/arch"
+	"github.com/kjkrol/goke/v2/internal/bulk"
 	"github.com/kjkrol/goke/v2/internal/comp"
 	"github.com/kjkrol/goke/v2/internal/ent"
 	"github.com/kjkrol/goke/v2/internal/migration"
@@ -57,8 +57,8 @@ type (
 	// components within an entity's existing structure.)
 	EditOpt = comp.EditOpt
 
-	// ChunkCtx captures the iteration context for a single table chunk.
-	// Obtained from Query.ChunkCtx() during Query.All() iteration; passed to
-	// CmdBufMassMigrate so the Migrator can skip per-entity addr.Book lookups.
-	ChunkCtx = arch.ChunkCtx
+	// ChunkSnapshot is a point-in-time capture of a single table chunk.
+	// Obtained from Query.ChunkSnapshot() during Query.All() iteration; passed
+	// to CmdBufMassMigrate so the Migrator can skip per-entity addr.Book lookups.
+	ChunkSnapshot = bulk.ChunkSnapshot
 )

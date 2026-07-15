@@ -7,8 +7,22 @@ import (
 	"github.com/kjkrol/uid"
 )
 
-// CompactScratch holds all working buffers used by Defragmenter.
-// Slices grow lazily and never shrink; zero allocations after warm-up.
+// SlotRef identifies an entity slot by chunk memory pointer and slot; valid
+// across SwapChunks, unlike Pos. Idx is the chunk's Pack position at capture time.
+type SlotRef struct {
+	Ptr  unsafe.Pointer
+	Idx  Idx
+	Slot Slot
+}
+
+// SlotMove records an entity relocated within a table during compaction.
+type SlotMove struct {
+	ID      uid.UID64
+	NewPtr  unsafe.Pointer
+	NewSlot Slot
+}
+
+// CompactScratch holds Defragmenter's working buffers; grows lazily, never shrinks.
 type CompactScratch struct {
 	flats       []int
 	chunkCounts []int
@@ -25,17 +39,14 @@ const (
 )
 
 // Defragmenter fills the holes left by bulk entity migration, choosing the
-// cheapest compaction strategy via a single decision switch.
-// Embed by value inside long-lived callers (e.g. Migrator) to reuse scratch
-// buffers across calls.
+// cheapest compaction strategy per call. Embed by value in long-lived callers.
 type Defragmenter struct {
 	scratch CompactScratch
 }
 
-// Compact fills holes in t and returns SlotMoves for addr.Book updates.
-// holes contains source positions vacated by entities already copied to dst;
-// it need not be sorted. The returned slice is backed by internal scratch and
-// must be consumed before the next Compact call. holes may be reordered in place.
+// Compact fills holes in t and returns the resulting relocations. holes need
+// not be sorted and may be reordered in place; the returned slice is scratch-
+// backed and must be consumed before the next Compact call.
 func (d *Defragmenter) Compact(t *Table, holes []SlotRef) []SlotMove {
 	if len(holes) == 0 {
 		return nil
@@ -56,11 +67,7 @@ func (d *Defragmenter) Compact(t *Table, holes []SlotRef) []SlotMove {
 	return d.scratch.moves
 }
 
-// classify determines the compaction strategy.
-// modeAllMigrate is checked first (O(1) comparison).
-// Then holes are scanned twice using the pre-filled h.Idx to find the
-// highest-indexed chunk and count holes per chunk; modeChunkSwap is returned
-// if any chunk is entirely holes.
+// classify picks the compaction mode; fills scratch.chunkCounts as a side effect.
 func (d *Defragmenter) classify(t *Table, holes []SlotRef, chunkCap int) compactMode {
 	n := len(holes)
 	if uint32(n) == t.chunkPack.Len() {
@@ -96,9 +103,8 @@ func (d *Defragmenter) classify(t *Table, holes []SlotRef, chunkCap int) compact
 	return modeSlotLevel
 }
 
-// compactAllMigrate handles the case where every entity in t is leaving.
-// Each occupied chunk is zeroed with one ZeroMemory per column and freed
-// whole; no entity needs to relocate.
+// compactAllMigrate zeroes and frees whole chunks — every entity is leaving,
+// nothing relocates.
 func (d *Defragmenter) compactAllMigrate(t *Table) {
 	for idx := Idx(0); idx < t.chunkPack.NumChunks(); idx++ {
 		n := int(t.chunkPack.ChunkLen(idx))
@@ -110,21 +116,14 @@ func (d *Defragmenter) compactAllMigrate(t *Table) {
 	}
 }
 
-// compactChunkThenSlot handles the case where at least one entire chunk is vacated.
-//
-// Phase A (chunk-level two-pointer): each full-hole chunk is paired with the
-// rightmost non-full-hole chunk. SwapChunks relocates the live chunk without
-// copying any component bytes. Because addr.Book stores chunk memory pointers
-// (not indices), the swapped entities' book entries remain valid with no updates.
-// After each swap, h.Idx in partialHoles is updated to reflect the new position.
-//
-// Phase B (slot-level): residual partial holes are filled using the standard
-// sort + two-pointer algorithm.
+// compactChunkThenSlot handles ≥1 fully vacated chunk: phase A swaps live
+// chunks into full-hole positions via SwapChunks — no byte copies, and no
+// address-book updates since the book stores chunk pointers, not indices —
+// then phase B slot-compacts the residual partial holes.
 func (d *Defragmenter) compactChunkThenSlot(t *Table, holes []SlotRef, chunkCap int) {
 	numChunks := len(d.scratch.chunkCounts)
 
-	// Partition holes[] in-place: drop full-chunk entries (freed in Phase A),
-	// keep partial-chunk entries for Phase B.
+	// Partition in place: full-chunk holes are freed by phase A, the rest go to phase B.
 	write := 0
 	for _, h := range holes {
 		if d.scratch.chunkCounts[int(h.Idx)] != chunkCap {
@@ -134,11 +133,8 @@ func (d *Defragmenter) compactChunkThenSlot(t *Table, holes []SlotRef, chunkCap 
 	}
 	partialHoles := holes[:write]
 
-	// Phase A: chunk-level two-pointer.
-	// No entity ID reads. No addr.Book updates — ptrs remain valid after SwapChunks.
-	// Every freed full-hole chunk is block-zeroed first, upholding the invariant
-	// that freed slots are zeroed (chunk memory is reused by later allocations,
-	// and columns absent in a migration source are never overwritten).
+	// Freed chunks are block-zeroed first: the memory is reused by later
+	// allocations, and freed slots must uphold the "freed slot = zeroed" invariant.
 	zeroFree := func(idx Idx) {
 		t.zeroRange(t.chunkPack.ChunkPtr(idx), 0, chunkCap)
 		t.chunkPack.BulkFreeChunk(idx)
@@ -148,7 +144,6 @@ func (d *Defragmenter) compactChunkThenSlot(t *Table, holes []SlotRef, chunkCap 
 	rightIdx := numChunks - 1
 
 	for leftIdx < rightIdx {
-		// Retreat right past trailing full-hole chunks — free them directly.
 		for rightIdx > leftIdx && d.scratch.chunkCounts[rightIdx] == chunkCap {
 			zeroFree(Idx(rightIdx))
 			rightIdx--
@@ -157,7 +152,6 @@ func (d *Defragmenter) compactChunkThenSlot(t *Table, holes []SlotRef, chunkCap 
 			break
 		}
 
-		// Advance left to the next full-hole chunk.
 		for leftIdx < rightIdx && d.scratch.chunkCounts[leftIdx] != chunkCap {
 			leftIdx++
 		}
@@ -165,15 +159,10 @@ func (d *Defragmenter) compactChunkThenSlot(t *Table, holes []SlotRef, chunkCap 
 			break
 		}
 
-		// leftIdx is full-hole; rightIdx is non-full-hole (live).
-		// Swap chunk metadata: leftIdx receives rightIdx's data, no byte copies.
+		// leftIdx is full-hole, rightIdx is live: swap metadata, no byte copies.
 		t.chunkPack.SwapChunks(Idx(leftIdx), Idx(rightIdx))
-
-		// Free the now-vacated right position and propagate hole count.
 		zeroFree(Idx(rightIdx))
 		d.scratch.chunkCounts[leftIdx] = d.scratch.chunkCounts[rightIdx]
-
-		// Update Idx for partial holes that were in the swapped-in chunk.
 		for i := range partialHoles {
 			if partialHoles[i].Idx == Idx(rightIdx) {
 				partialHoles[i].Idx = Idx(leftIdx)
@@ -184,26 +173,19 @@ func (d *Defragmenter) compactChunkThenSlot(t *Table, holes []SlotRef, chunkCap 
 		rightIdx--
 	}
 
-	// If both pointers converged on the same full-hole chunk with no live partner, free it.
+	// Pointers may converge on a full-hole chunk with no live partner left.
 	if leftIdx == rightIdx && leftIdx < numChunks &&
 		d.scratch.chunkCounts[leftIdx] == chunkCap {
 		zeroFree(Idx(leftIdx))
 	}
 
-	// Phase B: slot-level compaction for residual partial holes.
 	d.compactSlots(t, partialHoles, chunkCap)
 }
 
-// compactSlots fills partial holes, preferring the contiguous block fast path
-// and falling back to the sorted two-pointer algorithm: for each hole
-// (ascending flat index) the tail entity moves into the hole and the vacated
-// tail slot is freed.
-//
-// Zeroing of vacated slots is deferred: the tail retreats monotonically, so
-// the vacated region is a contiguous suffix — fully drained chunks are
-// block-zeroed when the tail crosses out of them, and the final chunk's
-// vacated range once after the loop. Freed slots hold stale bytes only inside
-// this function; the "freed slot = zeroed" invariant is restored on return.
+// compactSlots fills partial holes: contiguous block fast path first, else
+// sorted two-pointer (tail entity moves into each ascending hole). Zeroing of
+// the vacated tail is deferred and done in blocks — the "freed slot = zeroed"
+// invariant is violated only inside this function and restored on return.
 func (d *Defragmenter) compactSlots(t *Table, holes []SlotRef, chunkCap int) {
 	n := len(holes)
 	if n == 0 {
@@ -226,8 +208,7 @@ func (d *Defragmenter) compactSlots(t *Table, holes []SlotRef, chunkCap int) {
 		sort.Ints(hFlats)
 	}
 
-	// Hole-membership bitmap indexed by flat slot — O(1) isHole instead of a
-	// binary search on every tail retreat (64 slots per uint64 word).
+	// Hole-membership bitmap: O(1) isHole on every tail retreat.
 	maxFlat := hFlats[n-1]
 	words := maxFlat>>6 + 1
 	if cap(d.scratch.holeBits) < words {
@@ -255,7 +236,7 @@ func (d *Defragmenter) compactSlots(t *Table, holes []SlotRef, chunkCap int) {
 		if tSlot > 0 {
 			tSlot--
 		} else if ti > 0 {
-			// Leaving a fully drained chunk: block-zero its former occupied range.
+			// Tail leaves a fully drained chunk — block-zero it now.
 			t.zeroRange(tPtr, 0, enterLen)
 			ti--
 			tSlot = int(t.chunkPack.ChunkLen(Idx(ti))) - 1
@@ -292,19 +273,15 @@ func (d *Defragmenter) compactSlots(t *Table, holes []SlotRef, chunkCap int) {
 		})
 	}
 
-	// Block-zero the vacated suffix of the final tail chunk.
+	// Zero the vacated suffix of the final tail chunk.
 	if newLen := int(t.chunkPack.ChunkLen(Idx(ti))); enterLen > newLen {
 		t.zeroRange(tPtr, Slot(newLen), enterLen-newLen)
 	}
 }
 
-// compactSlotsContiguous handles the dominant bulk-migration shape: all holes
-// form one ascending contiguous slot range inside the pack's tail chunk (the
-// natural result of migrating a consecutive run captured from Query.All()).
-// The surviving block above the holes shifts down with one CopyMemory per
-// column and the vacated tail range is zeroed with one ZeroMemory per column —
-// no per-slot work. Returns false (leaving t untouched) when the holes don't
-// match this shape.
+// compactSlotsContiguous handles the dominant shape — all holes form one
+// ascending contiguous range in the tail chunk — with one block shift and one
+// block zero, no per-slot work. Returns false (t untouched) otherwise.
 func (d *Defragmenter) compactSlotsContiguous(t *Table, holes []SlotRef) bool {
 	first := holes[0]
 	n := len(holes)
@@ -313,8 +290,7 @@ func (d *Defragmenter) compactSlotsContiguous(t *Table, holes []SlotRef) bool {
 			return false
 		}
 	}
-	// Survivors above the hole range must live in the same chunk, i.e. the
-	// hole chunk is the pack's tail chunk.
+	// The hole chunk must be the pack's tail chunk.
 	tailIdx, _ := t.chunkPack.ResolveTail()
 	if tailIdx != first.Idx {
 		return false
@@ -324,10 +300,8 @@ func (d *Defragmenter) compactSlotsContiguous(t *Table, holes []SlotRef) bool {
 	holeEnd := int(first.Slot) + n
 	moveN := chunkLen - holeEnd
 
-	// The block shift relocates every survivor above the holes (moveN book
-	// updates); the two-pointer fallback relocates one entity per hole (n book
-	// updates). Shift only when it doesn't lose on addr.Book traffic — for a
-	// small hole range deep in the chunk the fallback is cheaper.
+	// Cost gate: the shift relocates moveN survivors, the fallback relocates
+	// one entity per hole — shift only when it wins on address-book traffic.
 	if moveN > n {
 		return false
 	}

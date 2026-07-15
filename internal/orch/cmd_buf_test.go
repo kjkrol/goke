@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kjkrol/goke/v2/internal/arch"
+	"github.com/kjkrol/goke/v2/internal/bulk"
 	"github.com/kjkrol/goke/v2/internal/comp"
 	"github.com/kjkrol/goke/v2/internal/ent"
 	"github.com/kjkrol/goke/v2/internal/query"
@@ -141,7 +141,7 @@ type stubMigrator struct {
 	got        []uid.UID64
 }
 
-func (s *stubMigrator) ApplyChunk(_ arch.ChunkCtx, ids []uid.UID64) {
+func (s *stubMigrator) Migrate(_ bulk.ChunkSnapshot, ids []uid.UID64) {
 	s.applyCalls++
 	s.got = append(s.got, ids...)
 }
@@ -150,7 +150,7 @@ func TestCmdBuf_MassMigrate_QueuesCommand(t *testing.T) {
 	cb := NewCmdBuf()
 	m := &stubMigrator{}
 
-	cb.MassMigrate(m, arch.ChunkCtx{}, []uid.UID64{1, 2, 3})
+	cb.MassMigrate(m, bulk.ChunkSnapshot{}, []uid.UID64{1, 2, 3})
 
 	if len(cb.massCmds) != 1 {
 		t.Fatalf("expected 1 massMigrateCmd, got %d", len(cb.massCmds))
@@ -165,7 +165,7 @@ func TestCmdBuf_MassMigrate_CopiesIDs(t *testing.T) {
 	m := &stubMigrator{}
 	ids := []uid.UID64{10, 20, 30}
 
-	cb.MassMigrate(m, arch.ChunkCtx{}, ids)
+	cb.MassMigrate(m, bulk.ChunkSnapshot{}, ids)
 	ids[0] = 99
 
 	if cb.massCmds[0].ids[0] != 10 {
@@ -177,8 +177,8 @@ func TestCmdBuf_MassMigrate_Empty_NoCommand(t *testing.T) {
 	cb := NewCmdBuf()
 	m := &stubMigrator{}
 
-	cb.MassMigrate(m, arch.ChunkCtx{}, nil)
-	cb.MassMigrate(m, arch.ChunkCtx{}, []uid.UID64{})
+	cb.MassMigrate(m, bulk.ChunkSnapshot{}, nil)
+	cb.MassMigrate(m, bulk.ChunkSnapshot{}, []uid.UID64{})
 
 	if len(cb.massCmds) != 0 {
 		t.Errorf("expected no commands for empty id slices, got %d", len(cb.massCmds))
@@ -188,7 +188,7 @@ func TestCmdBuf_MassMigrate_Empty_NoCommand(t *testing.T) {
 func TestCmdBuf_Clear_ResetsMassCmds(t *testing.T) {
 	cb := NewCmdBuf()
 	m := &stubMigrator{}
-	cb.MassMigrate(m, arch.ChunkCtx{}, []uid.UID64{1, 2})
+	cb.MassMigrate(m, bulk.ChunkSnapshot{}, []uid.UID64{1, 2})
 
 	cb.Clear()
 
@@ -198,17 +198,17 @@ func TestCmdBuf_Clear_ResetsMassCmds(t *testing.T) {
 }
 
 type massMigrateTestSystem struct {
-	migrator BulkMigrator
+	migrator bulk.Migrator
 	batches  [][]uid.UID64
 }
 
 func (s *massMigrateTestSystem) Update(cb *CmdBuf, d time.Duration) {
 	for _, batch := range s.batches {
-		cb.MassMigrate(s.migrator, arch.ChunkCtx{}, batch)
+		cb.MassMigrate(s.migrator, bulk.ChunkSnapshot{}, batch)
 	}
 }
 
-func newMassMigrateSystem(m BulkMigrator, batches ...[]uid.UID64) *massMigrateTestSystem {
+func newMassMigrateSystem(m bulk.Migrator, batches ...[]uid.UID64) *massMigrateTestSystem {
 	return &massMigrateTestSystem{migrator: m, batches: batches}
 }
 
@@ -237,7 +237,7 @@ func TestScheduler_Sync_AppliesMassMigrateCmds(t *testing.T) {
 }
 
 func TestScheduler_Sync_EachChunkAppliedSeparately(t *testing.T) {
-	// Two MassMigrate calls (two chunks) result in two separate ApplyChunk calls.
+	// Two MassMigrate calls (two chunks) result in two separate Migrate calls.
 	var registry reg.Registry
 	registry.Init(reg.Config{
 		Entity:  ent.Config{Cap: 10, FreeCap: 10},
@@ -257,7 +257,7 @@ func TestScheduler_Sync_EachChunkAppliedSeparately(t *testing.T) {
 		t.Fatalf("Sync failed: %v", err)
 	}
 	if m.applyCalls != 2 {
-		t.Errorf("expected ApplyChunk called twice (one per chunk), got %d", m.applyCalls)
+		t.Errorf("expected Migrate called twice (one per chunk), got %d", m.applyCalls)
 	}
 	if len(m.got) != 5 {
 		t.Errorf("expected 5 ids total across both calls, got %d", len(m.got))
@@ -266,14 +266,14 @@ func TestScheduler_Sync_EachChunkAppliedSeparately(t *testing.T) {
 
 func TestScheduler_Sync_TwoDistinctMigrators_PerChunkApply(t *testing.T) {
 	// Three MassMigrate calls: mA twice, mB once. Each call maps to one chunk,
-	// so mA gets two ApplyChunk calls and mB gets one — no merging.
+	// so mA gets two Migrate calls and mB gets one — no merging.
 	mA := &stubMigrator{}
 	mB := &stubMigrator{}
 
 	cb := NewCmdBuf()
-	cb.MassMigrate(mA, arch.ChunkCtx{}, []uid.UID64{1, 2})
-	cb.MassMigrate(mB, arch.ChunkCtx{}, []uid.UID64{3})
-	cb.MassMigrate(mA, arch.ChunkCtx{}, []uid.UID64{4, 5})
+	cb.MassMigrate(mA, bulk.ChunkSnapshot{}, []uid.UID64{1, 2})
+	cb.MassMigrate(mB, bulk.ChunkSnapshot{}, []uid.UID64{3})
+	cb.MassMigrate(mA, bulk.ChunkSnapshot{}, []uid.UID64{4, 5})
 
 	var registry reg.Registry
 	registry.Init(reg.Config{
@@ -286,13 +286,13 @@ func TestScheduler_Sync_TwoDistinctMigrators_PerChunkApply(t *testing.T) {
 	}
 
 	if mA.applyCalls != 2 {
-		t.Errorf("mA: expected 2 ApplyChunk calls (one per chunk), got %d", mA.applyCalls)
+		t.Errorf("mA: expected 2 Migrate calls (one per chunk), got %d", mA.applyCalls)
 	}
 	if len(mA.got) != 4 {
 		t.Errorf("mA: expected 4 ids total, got %d", len(mA.got))
 	}
 	if mB.applyCalls != 1 {
-		t.Errorf("mB: expected 1 ApplyChunk call, got %d", mB.applyCalls)
+		t.Errorf("mB: expected 1 Migrate call, got %d", mB.applyCalls)
 	}
 	if len(mB.got) != 1 {
 		t.Errorf("mB: expected 1 id, got %d", len(mB.got))

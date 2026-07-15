@@ -92,6 +92,7 @@ go get github.com/kjkrol/goke/v2
 | **Type-safe component API** | Fully generic — no reflection, no interface boxing, no runtime type assertions |
 | **Built-in scheduler** | Declarative `Plan` wires systems into an execution graph — a full ECS runtime, not just a component store |
 | **Command Buffer** | Structural changes during iteration are queued and flushed at explicit `Sync()` points — enables safe `RunParallel` |
+| **Bulk archetype migration** | `Migrator` applies add/remove component specs to whole chunks at `Sync()` — block memory copies and deferred compaction instead of per-entity moves |
 
 > 💡 **See the Performance & Scalability section below for benchmark results validated from 2¹⁰ to 2²⁰ entities.**
 
@@ -249,11 +250,13 @@ GOKe is an archetype-based ECS built around data-oriented design principles. The
 | [`internal/colstore`](internal/colstore/doc.go) | Column-oriented storage for a single archetype — manages component columns over `chunk.Pack` chunks, resolves component IDs to memory locations in O(1) |
 | [`internal/arch`](internal/arch/doc.go) | Archetype identity, archetype graph, and SoA table storage — creates archetypes on demand and caches structural transitions as graph edges |
 | [`internal/addr`](internal/addr/doc.go) | Entity address book — manages entity ID lifecycle (uid pool) and maps each ID to its current storage address (`Entry`) via a flat index in O(1); generation check guards against stale references |
+| [`internal/bulk`](internal/bulk/doc.go) | Bulk-operation contract — `ChunkSnapshot` (point-in-time chunk address, guarded by the source table's structural version) and the `Migrator` interface; the shared vocabulary of chunk-level batch commands |
 | [`internal/ent`](internal/ent/doc.go) | Entity lifecycle — delegates ID allocation and address tracking to `addr.Book`, manages component migration (add/remove moves entity to a new archetype), and batch entity creation via `Factory` |
+| [`internal/migration`](internal/migration/doc.go) | Bulk archetype migration — applies a fixed add/remove component spec to whole batches of entities chunk by chunk: block column copies, deferred hole compaction, direct address-book updates |
 | [`internal/query`](internal/query/doc.go) | Query layer: `Matcher` bakes component masks into precomputed per-archetype offsets, enabling zero-allocation bulk iteration (`All`), per-entity subset iteration (`Pick`), and O(1) single-entity access (`Seek`) |
 | [`internal/orch`](internal/orch/doc.go) | Plan-based task orchestrator: sequential/parallel execution, deferred mutations via command buffers |
 | [`internal/reg`](internal/reg/doc.go) | Top-level world registry — wires together all subsystems and exposes the unified API for entity and component management |
-| [`goke`](doc.go) (public) | The package you import. `ECS` wires `reg.Registry` + `orch.Scheduler`; `Comp[T]` gives typed access to a component; `NewFactory`/`NewQueryBuilder`/`NewEditorBuilder` are the only construction paths for `Factory`/`Query`/`Editor`; `System`/`SystemFn`/`CmdBuf` round out the scheduling API |
+| [`goke`](doc.go) (public) | The package you import. `ECS` wires `reg.Registry` + `orch.Scheduler`; `Comp[T]` gives typed access to a component; `NewFactory`/`NewQueryBuilder`/`NewEditorBuilder`/`NewMigratorBuilder` are the only construction paths for `Factory`/`Query`/`Editor`/`Migrator`; `System`/`SystemFn`/`CmdBuf` round out the scheduling API |
 
 <a id="roadmap"></a>
 # 🗺️ Roadmap

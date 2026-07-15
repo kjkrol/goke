@@ -19,13 +19,11 @@ type Idx = chunk.Idx
 // Slot is the index of an entity slot within a chunk.
 type Slot = chunk.Slot
 
-// IDSeeder fills dst with valid entity IDs starting at (ptr, slot) and performs
-// any associated bookkeeping (e.g. index registration). It is set once per
-// archetype via SetIDSeeder.
+// IDSeeder fills dst with valid entity IDs starting at (ptr, slot), including
+// any bookkeeping such as index registration.
 type IDSeeder func(dst []uid.UID64, ptr unsafe.Pointer, slot Slot)
 
-// ColBake holds the layout info needed to fill a cursor for a tracked column.
-// Obtained via BakeColumns; passed to SpawnCursor.
+// ColBake is a tracked column's pre-computed layout, for cursor filling.
 type ColBake struct {
 	Offset   uintptr
 	CompSize uintptr
@@ -38,14 +36,11 @@ type Table struct {
 	seedIDs    IDSeeder
 
 	// version counts structural changes that remove or relocate existing
-	// entities (RemoveAt, compaction). Appends do not bump it — they never
-	// invalidate the (slot, liveness) state of entities already stored.
-	// Captured in arch.ChunkCtx to let deferred bulk migration skip per-entity
-	// address-book validation when the table is untouched since capture.
+	// entities (RemoveAt, compaction); appends never invalidate stored
+	// entities, so they don't bump it. Captured in bulk.ChunkSnapshot.
 	version uint32
 }
 
-// Version returns the table's structural-change counter.
 func (t *Table) Version() uint32 { return t.version }
 
 // --- Initialization ---
@@ -79,8 +74,7 @@ func (t *Table) Init(compDefs []comp.Def) {
 
 // --- Bake ---
 
-// BakeColumns returns a ColBake slice for the given component defs,
-// pre-computing offset and size for each tracked column.
+// BakeColumns pre-computes offset and size for each tracked column.
 func (t *Table) BakeColumns(defs []comp.Def) []ColBake {
 	result := make([]ColBake, len(defs))
 	for i, def := range defs {
@@ -91,7 +85,6 @@ func (t *Table) BakeColumns(defs []comp.Def) []ColBake {
 	return result
 }
 
-// BakeOffsets returns a uintptr slice with the base offset of each tracked column.
 func (t *Table) BakeOffsets(ids []comp.ID) []uintptr {
 	offsets := make([]uintptr, len(ids))
 	for i, id := range ids {
@@ -106,8 +99,7 @@ func (t *Table) BakeOffsets(ids []comp.ID) []uintptr {
 
 func (t *Table) Len() uint32 { return t.chunkPack.Len() }
 
-// ComponentAt returns an unsafe.Pointer to the component with the given id
-// at (ptr, slot), or nil if the component is not tracked by this table.
+// ComponentAt returns a pointer to component id at (ptr, slot); nil if untracked.
 func (t *Table) ComponentAt(ptr unsafe.Pointer, slot Slot, id comp.ID) unsafe.Pointer {
 	col := t.getColumn(id)
 	if col == nil {
@@ -116,19 +108,16 @@ func (t *Table) ComponentAt(ptr unsafe.Pointer, slot Slot, id comp.ID) unsafe.Po
 	return col.At(ptr, slot)
 }
 
-// ChunkPtrAt returns the backing memory pointer for chunk at idx.
 func (t *Table) ChunkPtrAt(idx Idx) unsafe.Pointer {
 	return t.chunkPack.ChunkPtr(idx)
 }
 
-// ChunkIdxByPtr returns the chunk index whose backing pointer equals ptr.
 func (t *Table) ChunkIdxByPtr(ptr unsafe.Pointer) Idx {
 	return t.chunkPack.ChunkIdxByPtr(ptr)
 }
 
-// FillCursorNext advances to the next non-empty chunk starting at from,
-// filling cur with its base pointer, offsets, and entity ID slice.
-// Returns the chunk index and false when no more chunks remain.
+// FillCursorNext fills cur with the next non-empty chunk at or after from;
+// returns its index, or false when no chunks remain.
 func (t *Table) FillCursorNext(cur *iter.Cursor, from int, offsets []uintptr) (int, bool) {
 	idx, _, _, ok := t.chunkPack.NextNonEmptyChunk(from)
 	if !ok {
@@ -143,19 +132,46 @@ func (t *Table) FillCursorNext(cur *iter.Cursor, from int, offsets []uintptr) (i
 
 // --- Write ---
 
-// MoveEntityFrom moves entityID from src at (srcPtr, srcSlot) into this table.
-// It allocates a slot, writes the entity ID, copies matching component columns
-// from src, then swap-removes the source slot.
-// Returns the new chunk pointer, new slot, the entity displaced by the swap,
-// and whether a swap occurred.
-func (dst *Table) MoveEntityFrom(src *Table, entityID uid.UID64, srcPtr unsafe.Pointer, srcSlot Slot) (newPtr unsafe.Pointer, newSlot Slot, swappedEntity uid.UID64, swapped bool) {
-	newPos := dst.chunkPack.AllocSlot()
-	newPtr = dst.chunkPack.ChunkPtr(newPos.Idx)
-	newSlot = newPos.Slot
-	*(*uid.UID64)(dst.columns[entityColumnPos].At(newPtr, newSlot)) = entityID
+// AllocSlots extends chunk idx by n slots without seeding entity IDs;
+// returns the chunk base pointer and the starting slot of the new range.
+func (t *Table) AllocSlots(idx Idx, n int) (unsafe.Pointer, Slot) {
+	return t.chunkPack.Extend(idx, n)
+}
 
-	for i := firstDataColumnPos; int(i) < len(dst.columns); i++ {
-		dstCol := &dst.columns[i]
+func (t *Table) SetEntityRange(ptr unsafe.Pointer, slot Slot, ids []uid.UID64) {
+	dst := unsafe.Slice((*uid.UID64)(t.columns[entityColumnPos].At(ptr, slot)), len(ids))
+	copy(dst, ids)
+}
+
+// CopyRangeFrom copies n consecutive slots' component columns from src,
+// one CopyMemory per matched column; components absent in src are skipped.
+// The entity ID column is not touched — call SetEntityRange separately.
+func (t *Table) CopyRangeFrom(src *Table, srcPtr unsafe.Pointer, srcSlot Slot, dstPtr unsafe.Pointer, dstSlot Slot, n int) {
+	for i := firstDataColumnPos; int(i) < len(t.columns); i++ {
+		dstCol := &t.columns[i]
+		srcCol := src.getColumn(dstCol.CompID)
+		if srcCol == nil {
+			continue
+		}
+		chunk.CopyMemory(
+			dstCol.At(dstPtr, dstSlot),
+			srcCol.At(srcPtr, srcSlot),
+			uintptr(n)*dstCol.CompSize,
+		)
+	}
+}
+
+// MoveEntityFrom moves entityID from src into a freshly allocated slot here,
+// copying matching columns, then swap-removes the source slot. Returns the new
+// position plus the entity displaced by the swap, if any.
+func (t *Table) MoveEntityFrom(src *Table, entityID uid.UID64, srcPtr unsafe.Pointer, srcSlot Slot) (newPtr unsafe.Pointer, newSlot Slot, swappedEntity uid.UID64, swapped bool) {
+	newPos := t.chunkPack.AllocSlot()
+	newPtr = t.chunkPack.ChunkPtr(newPos.Idx)
+	newSlot = newPos.Slot
+	*(*uid.UID64)(t.columns[entityColumnPos].At(newPtr, newSlot)) = entityID
+
+	for i := firstDataColumnPos; int(i) < len(t.columns); i++ {
+		dstCol := &t.columns[i]
 		srcCol := src.getColumn(dstCol.CompID)
 		if srcCol == nil {
 			continue
@@ -171,9 +187,8 @@ func (dst *Table) MoveEntityFrom(src *Table, entityID uid.UID64, srcPtr unsafe.P
 	return
 }
 
-// SpawnCursor allocates n entity slots starting at idx, invokes the IDSeeder,
-// and fills cur with the base pointer and per-column offsets adjusted for the
-// starting slot.
+// SpawnCursor allocates and seeds n entity slots in chunk idx, filling cur
+// with offsets adjusted for the starting slot.
 func (t *Table) SpawnCursor(cur *iter.Cursor, idx Idx, n int, colBakes []ColBake) ([]uid.UID64, Pos) {
 	base, slot, ids := t.spawnEntitySlice(idx, n)
 	cur.Base = base
@@ -184,9 +199,8 @@ func (t *Table) SpawnCursor(cur *iter.Cursor, idx Idx, n int, colBakes []ColBake
 	return ids, Pos{Idx: idx, Slot: slot}
 }
 
-// ReserveSlots ensures enough chunks exist for count entities and returns the first
-// chunk index, the number of slots available in that first chunk, and the
-// capacity of each subsequent chunk.
+// ReserveSlots ensures capacity for count entities; returns the first chunk
+// index, slots available there, and the capacity of each subsequent chunk.
 func (t *Table) ReserveSlots(count int) (firstIdx Idx, firstAvailable int, chunkCap int) {
 	idx, avail := t.chunkPack.ReserveSlots(count)
 	return idx, avail, int(t.chunkPack.Layout.ChunkCap)
@@ -197,17 +211,14 @@ func (t *Table) ReleaseSlots() {
 	t.chunkPack.Reserved = 0
 }
 
-// Purge releases all trailing empty chunks, including the one spare chunk
-// normally kept for reuse after a table drains to zero rows. Call it when
-// the table is not expected to be repopulated soon, to give its memory back
-// immediately instead of waiting for natural reuse.
+// Purge releases all trailing empty chunks, including the spare kept for
+// reuse — for tables not expected to repopulate soon.
 func (t *Table) Purge() {
 	t.chunkPack.Purge()
 }
 
-// RemoveAt removes the slot at (ptr, slot) using swap-and-pop to keep the
-// table dense. Returns the ID that moved into (ptr, slot) and true if a swap
-// occurred, or (0, false) if that slot was already the last one.
+// RemoveAt swap-and-pops the slot at (ptr, slot); returns the ID that moved
+// into it, or (0, false) if it was already the tail.
 func (t *Table) RemoveAt(ptr unsafe.Pointer, slot Slot) (uid.UID64, bool) {
 	t.version++
 	lastChunkIdx, lastSlot := t.chunkPack.ResolveTail()
@@ -266,9 +277,8 @@ func (t *Table) zeroRange(chunkPtr unsafe.Pointer, slot chunk.Slot, n int) {
 	}
 }
 
-// moveRange copies n consecutive slots from srcSlot to dstSlot within the chunk
-// at chunkPtr — one CopyMemory per column, entity ID column included. The ranges
-// may overlap; CopyMemory has memmove semantics.
+// moveRange copies n slots from srcSlot to dstSlot within one chunk, entity
+// column included; ranges may overlap (memmove semantics).
 func (t *Table) moveRange(chunkPtr unsafe.Pointer, dstSlot, srcSlot chunk.Slot, n int) {
 	for i := range t.columns {
 		col := &t.columns[i]

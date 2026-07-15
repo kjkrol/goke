@@ -7,14 +7,12 @@ import (
 	"github.com/kjkrol/goke/v2/internal/colstore"
 )
 
-// Entry is the full storage address of an entity: which archetype table it
-// belongs to, its slot within that table's chunk memory, and the generation
-// that guards against stale access after the ID is recycled.
-// Ptr points directly to the chunk's backing memory; it remains valid across
-// SwapChunks operations, which is why Idx is not stored.
+// Entry is the full storage address of an entity; Gen guards against stale
+// access after ID recycling. ChunkPtr addresses the chunk's backing memory
+// directly and stays valid across SwapChunks — hence no chunk index is stored.
 type Entry struct {
-	ArchId arch.ID
-	Ptr    unsafe.Pointer
-	Slot   colstore.Slot
-	Gen    uint32
+	ArchID   arch.ID
+	ChunkPtr unsafe.Pointer
+	Slot     colstore.Slot
+	Gen      uint32
 }

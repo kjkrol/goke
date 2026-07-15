@@ -2,19 +2,23 @@
 //
 // It is the batch counterpart of [ent.Editor]: where Editor migrates one entity
 // at a time with immediate swap-and-pop compaction, [Migrator] defers compaction
-// until the full batch is known, enabling block-level column copies and direct
-// per-entity address-index writes with no intermediate buffering.
+// until the full batch is known, enabling block-level column copies and a
+// single homogeneous pass of address-index updates per batch.
 //
 // # Migrator
 //
 // [Migrator] applies a fixed set of structural changes — adding and removing
 // components — to a batch of entities that all share the same source archetype.
-// The destination archetype is pre-computed eagerly for every source archetype
-// when it is added to the catalog, so no graph traversal happens on the hot path.
+// The destination archetype is resolved lazily on the first migration from a
+// given source and memoized in a flat array: the target composition is computed
+// directly from masks, creating no intermediate edge-graph archetypes, so
+// coexisting migrators cannot cross-multiply the archetype catalog.
 //
-//  1. Look up source → destination archetype (O(1) array read).
-//  2. Copy component data in contiguous runs from source columns to destination
-//     columns, updating the address book as entities land.
-//  3. Compact the source archetype knowing all hole positions upfront, updating
-//     the address book for relocated survivors.
+//  1. Look up source → destination archetype (O(1) array read, resolved once).
+//  2. Move bytes: copy component data in contiguous runs from source columns
+//     to destination columns, then compact the source archetype knowing all
+//     hole positions upfront.
+//  3. Update the address book in one pass: destination positions recomputed
+//     arithmetically from per-chunk geometry, relocated survivors from the
+//     compaction's move list.
 package migration

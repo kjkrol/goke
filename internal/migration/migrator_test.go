@@ -6,7 +6,7 @@ import (
 
 	"github.com/kjkrol/uid"
 
-	"github.com/kjkrol/goke/v2/internal/arch"
+	"github.com/kjkrol/goke/v2/internal/bulk"
 	"github.com/kjkrol/goke/v2/internal/comp"
 	"github.com/kjkrol/goke/v2/internal/ent"
 	"github.com/kjkrol/goke/v2/internal/migration"
@@ -40,8 +40,8 @@ func spawnAll(m *ent.Manager, spec comp.AccessSpec, n int) []uid.UID64 {
 	return ids
 }
 
-// applyByChunks groups consecutive ids by their current (ArchId, Ptr) and calls
-// ApplyChunk once per group — mirroring how ids arrive from Query.All()
+// applyByChunks groups consecutive ids by their current (ArchID, Ptr) and calls
+// Migrate once per group — mirroring how ids arrive from Query.All()
 // iteration in production, where each MassMigrate command covers one chunk.
 func applyByChunks(m *ent.Manager, mig *migration.Migrator, ids []uid.UID64) {
 	for start := 0; start < len(ids); {
@@ -53,23 +53,23 @@ func applyByChunks(m *ent.Manager, mig *migration.Migrator, ids []uid.UID64) {
 		end := start + 1
 		for end < len(ids) {
 			next, ok := m.AddressBook.Get(ids[end])
-			if !ok || next.ArchId != entry.ArchId || next.Ptr != entry.Ptr {
+			if !ok || next.ArchID != entry.ArchID || next.ChunkPtr != entry.ChunkPtr {
 				break
 			}
 			end++
 		}
-		tbl := &m.ArchCatalog.Archetypes[entry.ArchId].Table
-		ctx := arch.ChunkCtx{
-			ArchID: entry.ArchId,
-			Ptr:    entry.Ptr,
-			Idx:    tbl.ChunkIdxByPtr(entry.Ptr),
+		tbl := &m.ArchCatalog.Archetypes[entry.ArchID].Table
+		snap := bulk.ChunkSnapshot{
+			ArchID:   entry.ArchID,
+			ChunkPtr: entry.ChunkPtr,
+			ChunkIdx: tbl.ChunkIdxByPtr(entry.ChunkPtr),
 		}
-		mig.ApplyChunk(ctx, ids[start:end])
+		mig.Migrate(snap, ids[start:end])
 		start = end
 	}
 }
 
-func TestMigrator_ApplyChunk_Empty_IsNoOp(t *testing.T) {
+func TestMigrator_Migrate_Empty_IsNoOp(t *testing.T) {
 	m := newMgr()
 	var mi comp.DefIndex
 	mi.Init()
@@ -83,17 +83,17 @@ func TestMigrator_ApplyChunk_Empty_IsNoOp(t *testing.T) {
 	editSpec.Init(&mi, comp.Add(new(iter.ArrayRef[mVelocity])))
 	migrator := migration.New(&m.AddressBook, &m.ArchCatalog, editSpec)
 
-	migrator.ApplyChunk(arch.ChunkCtx{}, nil)
-	migrator.ApplyChunk(arch.ChunkCtx{}, []uid.UID64{})
+	migrator.Migrate(bulk.ChunkSnapshot{}, nil)
+	migrator.Migrate(bulk.ChunkSnapshot{}, []uid.UID64{})
 
 	for _, id := range ids {
 		if _, ok := m.AddressBook.Get(id); !ok {
-			t.Errorf("entity %v disappeared after no-op ApplyChunk", id)
+			t.Errorf("entity %v disappeared after no-op Migrate", id)
 		}
 	}
 }
 
-func TestMigrator_ApplyChunk_AddComponent(t *testing.T) {
+func TestMigrator_Migrate_AddComponent(t *testing.T) {
 	m := newMgr()
 	var mi comp.DefIndex
 	mi.Init()
@@ -104,7 +104,7 @@ func TestMigrator_ApplyChunk_AddComponent(t *testing.T) {
 	ids := spawnAll(m, accessSpec, 3)
 
 	entry0, _ := m.AddressBook.Get(ids[0])
-	srcArchID := entry0.ArchId
+	srcArchID := entry0.ArchID
 
 	var editSpec comp.EditSpec
 	editSpec.Init(&mi, comp.Add(new(iter.ArrayRef[mVelocity])))
@@ -115,12 +115,12 @@ func TestMigrator_ApplyChunk_AddComponent(t *testing.T) {
 	for _, id := range ids {
 		entry, ok := m.AddressBook.Get(id)
 		if !ok {
-			t.Fatalf("entity %v missing after ApplyChunk", id)
+			t.Fatalf("entity %v missing after Migrate", id)
 		}
-		if entry.ArchId == srcArchID {
+		if entry.ArchID == srcArchID {
 			t.Errorf("entity %v still in src archetype", id)
 		}
-		mask := m.ArchCatalog.Archetypes[entry.ArchId].Mask()
+		mask := m.ArchCatalog.Archetypes[entry.ArchID].Mask()
 		if !mask.IsSet(posDef.ID) {
 			t.Errorf("entity %v: Pos missing after add-Vel migration", id)
 		}
@@ -133,7 +133,7 @@ func TestMigrator_ApplyChunk_AddComponent(t *testing.T) {
 	}
 }
 
-func TestMigrator_ApplyChunk_RemoveComponent(t *testing.T) {
+func TestMigrator_Migrate_RemoveComponent(t *testing.T) {
 	m := newMgr()
 	var mi comp.DefIndex
 	mi.Init()
@@ -145,7 +145,7 @@ func TestMigrator_ApplyChunk_RemoveComponent(t *testing.T) {
 	ids := spawnAll(m, accessSpec, 2)
 
 	entry0, _ := m.AddressBook.Get(ids[0])
-	srcArchID := entry0.ArchId
+	srcArchID := entry0.ArchID
 
 	var editSpec comp.EditSpec
 	editSpec.Init(&mi, comp.Del[mVelocity]())
@@ -156,9 +156,9 @@ func TestMigrator_ApplyChunk_RemoveComponent(t *testing.T) {
 	for _, id := range ids {
 		entry, ok := m.AddressBook.Get(id)
 		if !ok {
-			t.Fatalf("entity %v missing after ApplyChunk", id)
+			t.Fatalf("entity %v missing after Migrate", id)
 		}
-		mask := m.ArchCatalog.Archetypes[entry.ArchId].Mask()
+		mask := m.ArchCatalog.Archetypes[entry.ArchID].Mask()
 		if !mask.IsSet(posDef.ID) {
 			t.Errorf("entity %v: Pos incorrectly removed", id)
 		}
@@ -171,7 +171,7 @@ func TestMigrator_ApplyChunk_RemoveComponent(t *testing.T) {
 	}
 }
 
-func TestMigrator_ApplyChunk_Unlink_RemovesEntitiesFromBook(t *testing.T) {
+func TestMigrator_Migrate_Unlink_RemovesEntitiesFromBook(t *testing.T) {
 	// Removing the only component must delete the entities from the address book.
 	m := newMgr()
 	var mi comp.DefIndex
@@ -195,7 +195,7 @@ func TestMigrator_ApplyChunk_Unlink_RemovesEntitiesFromBook(t *testing.T) {
 	}
 }
 
-func TestMigrator_ApplyChunk_AddAndRemove(t *testing.T) {
+func TestMigrator_Migrate_AddAndRemove(t *testing.T) {
 	// Add Vel, remove Pos → entities end up in a {Vel}-only archetype.
 	m := newMgr()
 	var mi comp.DefIndex
@@ -217,7 +217,7 @@ func TestMigrator_ApplyChunk_AddAndRemove(t *testing.T) {
 		if !ok {
 			t.Fatalf("entity %v missing after add+remove migration", id)
 		}
-		mask := m.ArchCatalog.Archetypes[entry.ArchId].Mask()
+		mask := m.ArchCatalog.Archetypes[entry.ArchID].Mask()
 		if mask.IsSet(posDef.ID) {
 			t.Errorf("entity %v: Pos should have been removed", id)
 		}
@@ -227,7 +227,7 @@ func TestMigrator_ApplyChunk_AddAndRemove(t *testing.T) {
 	}
 }
 
-func TestMigrator_ApplyChunk_DataPreserved(t *testing.T) {
+func TestMigrator_Migrate_DataPreserved(t *testing.T) {
 	// Component values present before migration must be readable at the new position.
 	m := newMgr()
 	var mi comp.DefIndex
@@ -240,7 +240,7 @@ func TestMigrator_ApplyChunk_DataPreserved(t *testing.T) {
 
 	entry0, _ := m.AddressBook.Get(ids[0])
 	want := mPosition{X: 3.14, Y: 2.71}
-	*(*mPosition)(m.ArchCatalog.Archetypes[entry0.ArchId].Table.ComponentAt(entry0.Ptr, entry0.Slot, posDef.ID)) = want
+	*(*mPosition)(m.ArchCatalog.Archetypes[entry0.ArchID].Table.ComponentAt(entry0.ChunkPtr, entry0.Slot, posDef.ID)) = want
 
 	var editSpec comp.EditSpec
 	editSpec.Init(&mi, comp.Add(new(iter.ArrayRef[mVelocity])))
@@ -249,13 +249,13 @@ func TestMigrator_ApplyChunk_DataPreserved(t *testing.T) {
 	applyByChunks(m, migrator, ids)
 
 	entryNew, _ := m.AddressBook.Get(ids[0])
-	got := *(*mPosition)(m.ArchCatalog.Archetypes[entryNew.ArchId].Table.ComponentAt(entryNew.Ptr, entryNew.Slot, posDef.ID))
+	got := *(*mPosition)(m.ArchCatalog.Archetypes[entryNew.ArchID].Table.ComponentAt(entryNew.ChunkPtr, entryNew.Slot, posDef.ID))
 	if got != want {
 		t.Errorf("Pos after migration: got %+v, want %+v", got, want)
 	}
 }
 
-func TestMigrator_ApplyChunk_SrcCompaction_RemainingEntitiesConsistent(t *testing.T) {
+func TestMigrator_Migrate_SrcCompaction_RemainingEntitiesConsistent(t *testing.T) {
 	// Spawn 5 entities, migrate 3 (at slots 0, 2, 4).
 	// The 2 remaining entities' addr.Book entries must match the compacted table state.
 	m := newMgr()
@@ -268,7 +268,7 @@ func TestMigrator_ApplyChunk_SrcCompaction_RemainingEntitiesConsistent(t *testin
 	ids := spawnAll(m, accessSpec, 5) // ids[0..4] seeded at slots 0..4
 
 	entry0, _ := m.AddressBook.Get(ids[0])
-	srcArchID := entry0.ArchId
+	srcArchID := entry0.ArchID
 
 	var editSpec comp.EditSpec
 	editSpec.Init(&mi, comp.Add(new(iter.ArrayRef[mVelocity])))
@@ -285,8 +285,8 @@ func TestMigrator_ApplyChunk_SrcCompaction_RemainingEntitiesConsistent(t *testin
 	if !ok {
 		t.Fatal("ids[1] missing from addr.Book after compaction")
 	}
-	if entryE2.ArchId != srcArchID {
-		t.Errorf("ids[1]: ArchId = %d; expected srcArch %d", entryE2.ArchId, srcArchID)
+	if entryE2.ArchID != srcArchID {
+		t.Errorf("ids[1]: ArchID = %d; expected srcArch %d", entryE2.ArchID, srcArchID)
 	}
 
 	// ids[3] was moved to fill a hole; verify it's still accessible in srcArch.
@@ -294,17 +294,17 @@ func TestMigrator_ApplyChunk_SrcCompaction_RemainingEntitiesConsistent(t *testin
 	if !ok2 {
 		t.Fatal("ids[3] missing from addr.Book after compaction")
 	}
-	if entryE4.ArchId != srcArchID {
-		t.Errorf("ids[3]: ArchId = %d; expected srcArch %d", entryE4.ArchId, srcArchID)
+	if entryE4.ArchID != srcArchID {
+		t.Errorf("ids[3]: ArchID = %d; expected srcArch %d", entryE4.ArchID, srcArchID)
 	}
 	// The two surviving entities must be at distinct positions.
-	if entryE2.Ptr == entryE4.Ptr && entryE2.Slot == entryE4.Slot {
-		t.Errorf("ids[1] and ids[3] share the same position ptr=%v slot=%d after compaction", entryE2.Ptr, entryE2.Slot)
+	if entryE2.ChunkPtr == entryE4.ChunkPtr && entryE2.Slot == entryE4.Slot {
+		t.Errorf("ids[1] and ids[3] share the same position ptr=%v slot=%d after compaction", entryE2.ChunkPtr, entryE2.Slot)
 	}
 }
 
-func TestMigrator_ApplyChunk_TwoBatches_SameDstArch(t *testing.T) {
-	// Two sequential ApplyChunk calls for the same source archetype must land
+func TestMigrator_Migrate_TwoBatches_SameDstArch(t *testing.T) {
+	// Two sequential Migrate calls for the same source archetype must land
 	// entities in the same destination archetype (dst is precomputed per srcArch).
 	m := newMgr()
 	var mi comp.DefIndex
@@ -326,13 +326,13 @@ func TestMigrator_ApplyChunk_TwoBatches_SameDstArch(t *testing.T) {
 
 	entry1, _ := m.AddressBook.Get(ids1[0])
 	entry2, _ := m.AddressBook.Get(ids2[0])
-	if entry1.ArchId != entry2.ArchId {
-		t.Errorf("expected same dstArch for both batches; got %d and %d", entry1.ArchId, entry2.ArchId)
+	if entry1.ArchID != entry2.ArchID {
+		t.Errorf("expected same dstArch for both batches; got %d and %d", entry1.ArchID, entry2.ArchID)
 	}
 }
 
-func TestMigrator_ApplyChunk_PrefixFastPath(t *testing.T) {
-	// Ver match + Prefix: slots are synthesized (0..n-1) with zero addr.Book
+func TestMigrator_Migrate_SlotAlignedFastPath(t *testing.T) {
+	// TableVer match + SlotAligned: slots are synthesized (0..n-1) with zero addr.Book
 	// reads. Entities must land in the destination archetype with data intact.
 	m := newMgr()
 	var mi comp.DefIndex
@@ -344,28 +344,28 @@ func TestMigrator_ApplyChunk_PrefixFastPath(t *testing.T) {
 	ids := spawnAll(m, accessSpec, 4)
 
 	entry0, _ := m.AddressBook.Get(ids[0])
-	srcArchID := entry0.ArchId
+	srcArchID := entry0.ArchID
 	srcTable := &m.ArchCatalog.Archetypes[srcArchID].Table
 
 	var editSpec comp.EditSpec
 	editSpec.Init(&mi, comp.Add(new(iter.ArrayRef[mVelocity])))
 	migrator := migration.New(&m.AddressBook, &m.ArchCatalog, editSpec)
 
-	ctx := arch.ChunkCtx{
-		ArchID: srcArchID,
-		Ptr:    entry0.Ptr,
-		Idx:    srcTable.ChunkIdxByPtr(entry0.Ptr),
-		Ver:    srcTable.Version(),
-		Prefix: true,
+	snap := bulk.ChunkSnapshot{
+		ArchID:      srcArchID,
+		ChunkPtr:    entry0.ChunkPtr,
+		ChunkIdx:    srcTable.ChunkIdxByPtr(entry0.ChunkPtr),
+		TableVer:    srcTable.Version(),
+		SlotAligned: true,
 	}
-	migrator.ApplyChunk(ctx, ids)
+	migrator.Migrate(snap, ids)
 
 	for _, id := range ids {
 		entry, ok := m.AddressBook.Get(id)
 		if !ok {
 			t.Fatalf("entity %v missing after prefix fast-path migration", id)
 		}
-		if !m.ArchCatalog.Archetypes[entry.ArchId].Mask().IsSet(velDef.ID) {
+		if !m.ArchCatalog.Archetypes[entry.ArchID].Mask().IsSet(velDef.ID) {
 			t.Errorf("entity %v: Vel missing after migration", id)
 		}
 	}
@@ -374,7 +374,7 @@ func TestMigrator_ApplyChunk_PrefixFastPath(t *testing.T) {
 	}
 }
 
-func TestMigrator_ApplyChunk_StaleVersion_RevalidatesEntities(t *testing.T) {
+func TestMigrator_Migrate_StaleVersion_RevalidatesEntities(t *testing.T) {
 	// A structural change between capture and apply (version bump) forces the
 	// slow path: dead entities are skipped, survivors migrate from their
 	// current (possibly relocated) positions.
@@ -389,27 +389,27 @@ func TestMigrator_ApplyChunk_StaleVersion_RevalidatesEntities(t *testing.T) {
 	ids := spawnAll(m, accessSpec, 4)
 
 	entry0, _ := m.AddressBook.Get(ids[0])
-	srcArchID := entry0.ArchId
+	srcArchID := entry0.ArchID
 	srcTable := &m.ArchCatalog.Archetypes[srcArchID].Table
 
 	var editSpec comp.EditSpec
 	editSpec.Init(&mi, comp.Add(new(iter.ArrayRef[mVelocity])))
 	migrator := migration.New(&m.AddressBook, &m.ArchCatalog, editSpec)
 
-	// Capture ctx, then mutate the table: remove ids[1] (bumps version and
+	// Capture snap, then mutate the table: remove ids[1] (bumps version and
 	// relocates the tail entity into its slot).
-	ctx := arch.ChunkCtx{
-		ArchID: srcArchID,
-		Ptr:    entry0.Ptr,
-		Idx:    srcTable.ChunkIdxByPtr(entry0.Ptr),
-		Ver:    srcTable.Version(),
-		Prefix: true,
+	snap := bulk.ChunkSnapshot{
+		ArchID:      srcArchID,
+		ChunkPtr:    entry0.ChunkPtr,
+		ChunkIdx:    srcTable.ChunkIdxByPtr(entry0.ChunkPtr),
+		TableVer:    srcTable.Version(),
+		SlotAligned: true,
 	}
 	if !m.Remove(ids[1]) {
 		t.Fatal("failed to remove ids[1]")
 	}
 
-	migrator.ApplyChunk(ctx, ids)
+	migrator.Migrate(snap, ids)
 
 	if _, ok := m.AddressBook.Get(ids[1]); ok {
 		t.Error("ids[1] was removed before apply; must not resurface")
@@ -419,7 +419,7 @@ func TestMigrator_ApplyChunk_StaleVersion_RevalidatesEntities(t *testing.T) {
 		if !ok {
 			t.Fatalf("entity %v missing after stale-version migration", id)
 		}
-		if entry.ArchId == srcArchID {
+		if entry.ArchID == srcArchID {
 			t.Errorf("entity %v still in src archetype", id)
 		}
 	}
@@ -428,9 +428,9 @@ func TestMigrator_ApplyChunk_StaleVersion_RevalidatesEntities(t *testing.T) {
 	}
 }
 
-func TestMigrator_ApplyChunk_MultiSrcArch_PerChunkCalls(t *testing.T) {
+func TestMigrator_Migrate_MultiSrcArch_PerChunkCalls(t *testing.T) {
 	// Entities from two different source archetypes migrate correctly when
-	// each chunk is applied by its own ApplyChunk call — as the CmdBuf does
+	// each chunk is applied by its own Migrate call — as the CmdBuf does
 	// with one MassMigrate command per Query.All() chunk.
 	m := newMgr()
 	var mi comp.DefIndex
@@ -450,8 +450,8 @@ func TestMigrator_ApplyChunk_MultiSrcArch_PerChunkCalls(t *testing.T) {
 
 	entryX, _ := m.AddressBook.Get(idsPos[0])
 	entryY, _ := m.AddressBook.Get(idsPosVel[0])
-	srcArchX := entryX.ArchId
-	srcArchY := entryY.ArchId
+	srcArchX := entryX.ArchID
+	srcArchY := entryY.ArchID
 
 	// Migrator adds mTag to every entity regardless of source archetype.
 	tagCol := new(iter.ArrayRef[mTag])
@@ -461,7 +461,7 @@ func TestMigrator_ApplyChunk_MultiSrcArch_PerChunkCalls(t *testing.T) {
 	migrator := migration.New(&m.AddressBook, &m.ArchCatalog, editSpec)
 
 	// Interleaved ids from both archetypes; applyByChunks splits them into
-	// per-(arch, chunk) ApplyChunk calls.
+	// per-(arch, chunk) Migrate calls.
 	mixed := []uid.UID64{idsPos[0], idsPosVel[0], idsPos[1], idsPosVel[1], idsPos[2]}
 	applyByChunks(m, migrator, mixed)
 
@@ -471,10 +471,10 @@ func TestMigrator_ApplyChunk_MultiSrcArch_PerChunkCalls(t *testing.T) {
 		if !ok {
 			t.Fatalf("idsPos entity %v missing after migration", id)
 		}
-		if e.ArchId == srcArchX {
+		if e.ArchID == srcArchX {
 			t.Errorf("idsPos entity %v still in srcArchX", id)
 		}
-		if !m.ArchCatalog.Archetypes[e.ArchId].Mask().IsSet(tagDef.ID) {
+		if !m.ArchCatalog.Archetypes[e.ArchID].Mask().IsSet(tagDef.ID) {
 			t.Errorf("idsPos entity %v: Tag missing after migration", id)
 		}
 	}
@@ -483,10 +483,10 @@ func TestMigrator_ApplyChunk_MultiSrcArch_PerChunkCalls(t *testing.T) {
 		if !ok {
 			t.Fatalf("idsPosVel entity %v missing after migration", id)
 		}
-		if e.ArchId == srcArchY {
+		if e.ArchID == srcArchY {
 			t.Errorf("idsPosVel entity %v still in srcArchY", id)
 		}
-		if !m.ArchCatalog.Archetypes[e.ArchId].Mask().IsSet(tagDef.ID) {
+		if !m.ArchCatalog.Archetypes[e.ArchID].Mask().IsSet(tagDef.ID) {
 			t.Errorf("idsPosVel entity %v: Tag missing after migration", id)
 		}
 	}
@@ -496,5 +496,75 @@ func TestMigrator_ApplyChunk_MultiSrcArch_PerChunkCalls(t *testing.T) {
 	}
 	if got := m.ArchCatalog.Archetypes[srcArchY].Table.Len(); got != 0 {
 		t.Errorf("srcArchY Table.Len = %d; expected 0", got)
+	}
+}
+
+func TestMigrator_LazyResolve_NoArchetypeExplosion(t *testing.T) {
+	// Two coexisting migrators whose adds are each other's dels must not
+	// materialize intermediate archetypes: destinations are resolved lazily,
+	// straight by target mask, only for source archetypes actually migrated.
+	m := newMgr()
+	var mi comp.DefIndex
+	mi.Init()
+	posDef, _ := internDefs(&mi)
+
+	var accessSpec comp.AccessSpec
+	_ = accessSpec.Comp(posDef)
+	ids := spawnAll(m, accessSpec, 4)
+
+	var fwdSpec, revSpec comp.EditSpec
+	fwdSpec.Init(&mi, comp.Add(new(iter.ArrayRef[mVelocity])), comp.Add(new(iter.ArrayRef[mTag])), comp.Del[mPosition]())
+	revSpec.Init(&mi, comp.Add(new(iter.ArrayRef[mPosition])), comp.Del[mVelocity](), comp.Del[mTag]())
+
+	before := m.ArchCatalog.Len()
+	fwd := migration.New(&m.AddressBook, &m.ArchCatalog, fwdSpec)
+	rev := migration.New(&m.AddressBook, &m.ArchCatalog, revSpec)
+	if got := m.ArchCatalog.Len(); got != before {
+		t.Fatalf("constructing migrators created %d archetypes; expected none", got-before)
+	}
+
+	applyByChunks(m, fwd, ids)
+	applyByChunks(m, rev, ids)
+	applyByChunks(m, fwd, ids)
+
+	if got := m.ArchCatalog.Len() - before; got != 1 {
+		t.Errorf("expected exactly 1 new archetype (the fwd target), got %d", got)
+	}
+	for _, id := range ids {
+		if _, ok := m.AddressBook.Get(id); !ok {
+			t.Fatalf("entity %v lost during fwd/rev/fwd cycle", id)
+		}
+	}
+}
+
+func TestMigrator_SourceArchetypeCreatedAfterConstruction(t *testing.T) {
+	// A Migrator has no registered set of source archetypes: dst is resolved
+	// lazily per source, so an archetype born after the Migrator was built
+	// migrates just like a pre-existing one.
+	m := newMgr()
+	var mi comp.DefIndex
+	mi.Init()
+	posDef, velDef := internDefs(&mi)
+
+	var editSpec comp.EditSpec
+	editSpec.Init(&mi, comp.Add(new(iter.ArrayRef[mVelocity])))
+	migrator := migration.New(&m.AddressBook, &m.ArchCatalog, editSpec)
+
+	// The source archetype {Pos} comes into existence only now.
+	var accessSpec comp.AccessSpec
+	_ = accessSpec.Comp(posDef)
+	ids := spawnAll(m, accessSpec, 3)
+
+	applyByChunks(m, migrator, ids)
+
+	for _, id := range ids {
+		entry, ok := m.AddressBook.Get(id)
+		if !ok {
+			t.Fatalf("entity %v missing after migration from a late-born archetype", id)
+		}
+		mask := m.ArchCatalog.Archetypes[entry.ArchID].Mask()
+		if !mask.IsSet(velDef.ID) || !mask.IsSet(posDef.ID) {
+			t.Errorf("entity %v: expected {Pos, Vel} archetype after migration", id)
+		}
 	}
 }

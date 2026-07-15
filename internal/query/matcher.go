@@ -5,6 +5,7 @@ import (
 
 	"github.com/kjkrol/goke/v2/internal/addr"
 	"github.com/kjkrol/goke/v2/internal/arch"
+	"github.com/kjkrol/goke/v2/internal/bulk"
 	"github.com/kjkrol/goke/v2/internal/colstore"
 	"github.com/kjkrol/goke/v2/internal/comp"
 	"github.com/kjkrol/goke/v2/iter"
@@ -89,28 +90,22 @@ func (m *Matcher) BakeIfMatch(archetype *arch.Archetype) {
 	}
 }
 
-// All prepares the Matcher for full chunk iteration and returns m.
-// Call Next() to advance through matched entity chunks; read component slices
-// with Slice[T]. The Matcher holds iteration state directly — do not call All
-// concurrently on the same Matcher.
+// All starts full chunk iteration over matched archetypes; advance with Next.
 func (m *Matcher) All() *Matcher {
 	m.mode = modeAll
 	m.allIter = allIter{chunkIdx: -1}
 	return m
 }
 
-// Pick prepares the Matcher to iterate over the given entities and returns m.
-// Call Next() to advance; read component pointers with At[T]. Entities that do
-// not match the Matcher's mask are skipped. The Matcher holds iteration state
-// directly — do not call Pick concurrently on the same Matcher.
+// Pick starts iteration over the given entities, skipping those that do not
+// match the mask; advance with Next.
 func (m *Matcher) Pick(selected []uid.UID64) *Matcher {
 	m.mode = modePick
 	m.filterIter = filterIter{selected: selected, lastArchID: arch.NullID}
 	return m
 }
 
-// Next advances the iterator one step. Returns false when exhausted.
-// The current mode (set by All or Pick) determines which iteration path runs.
+// Next advances the current All/Pick iteration; returns false when exhausted.
 func (m *Matcher) Next() bool {
 	switch m.mode {
 	case modeAll:
@@ -121,60 +116,46 @@ func (m *Matcher) Next() bool {
 	return false
 }
 
-// Seek positions the Cursor at entID's storage slot, independent of the
-// Matcher's include/exclude mask — the caller is trusted to know the entity
-// carries the tracked components. Returns false if the entity does not exist
-// or has been recycled.
-//
-// Consecutive Seeks that resolve to the same archetype reuse the cached table
-// and column offsets, updating only the cursor's chunk and slot. Looping Seek
-// over a set of entities from one archetype therefore resolves the archetype
-// just once.
+// Seek positions the Cursor at entID's storage slot, bypassing the mask;
+// returns false if the entity does not exist. Consecutive Seeks into the
+// same archetype reuse the cached table and column offsets.
 func (m *Matcher) Seek(entID uid.UID64) bool {
 	entry, ok := m.EntityIndex.Get(entID)
 	if !ok {
 		return false
 	}
-	if entry.ArchId != m.seekLastArchID {
-		m.seekTable = &m.archCatalog.Archetypes[entry.ArchId].Table
-		offs := m.seekOffsets[entry.ArchId]
+	if entry.ArchID != m.seekLastArchID {
+		m.seekTable = &m.archCatalog.Archetypes[entry.ArchID].Table
+		offs := m.seekOffsets[entry.ArchID]
 		if offs == nil {
 			offs = m.seekTable.BakeOffsets(m.compIDs)
-			m.seekOffsets[entry.ArchId] = offs
+			m.seekOffsets[entry.ArchID] = offs
 		}
 		m.Cursor.Offsets = offs
-		m.seekLastArchID = entry.ArchId
+		m.seekLastArchID = entry.ArchID
 	}
-	m.Cursor.Set(entry.Ptr, uintptr(entry.Slot))
+	m.Cursor.Set(entry.ChunkPtr, uintptr(entry.Slot))
 	return true
 }
 
-// ChunkCtx returns the archetype ID, chunk pointer, and chunk index for the
-// chunk most recently advanced to by Next(). Call it during Query.All()
-// iteration — between a Next() that returned true and the following Next() —
-// to capture the current chunk context for CmdBuf.MassMigrate.
-func (m *Matcher) ChunkCtx() arch.ChunkCtx {
+// ChunkSnapshot captures the chunk most recently advanced to by Next in All
+// mode, for use with CmdBuf.MassMigrate.
+func (m *Matcher) ChunkSnapshot() bulk.ChunkSnapshot {
 	bt := &m.BakedTables[m.tableIdx]
-	return arch.ChunkCtx{
-		ArchID: bt.ArchID,
-		Ptr:    m.Cursor.Base,
-		Idx:    colstore.Idx(m.chunkIdx),
-		Ver:    bt.Table.Version(),
+	return bulk.ChunkSnapshot{
+		ArchID:   bt.ArchID,
+		ChunkPtr: m.Cursor.Base,
+		ChunkIdx: colstore.Idx(m.chunkIdx),
+		TableVer: bt.Table.Version(),
 	}
 }
 
-// SeekH (Seek homogeneous) is Seek without the per-call archetype-change
-// check and without the entity-alive check. It assumes entID is alive and
-// shares the archetype already cached by a prior Seek call on this Matcher —
-// call Seek once first to establish it, then switch to SeekH for the rest of
-// a batch known to be alive and come from that one archetype.
-//
-// Returns false if entID's archetype turns out to differ from the cached
-// one — the Cursor was positioned against the wrong table in that case and
-// must not be used; call Seek for this entity instead. Behavior is
-// undefined if entID is not alive.
+// SeekH (Seek homogeneous) is Seek minus the alive and archetype-change
+// checks: it assumes entID is alive and in the archetype cached by a prior
+// Seek. Returns false when the archetype differs — the Cursor is then
+// invalid; fall back to Seek. Undefined if entID is not alive.
 func (m *Matcher) SeekH(entID uid.UID64) bool {
 	entry := m.EntityIndex.GetUnchecked(entID)
-	m.Cursor.Set(entry.Ptr, uintptr(entry.Slot))
-	return entry.ArchId == m.seekLastArchID
+	m.Cursor.Set(entry.ChunkPtr, uintptr(entry.Slot))
+	return entry.ArchID == m.seekLastArchID
 }

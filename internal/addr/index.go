@@ -40,7 +40,7 @@ func (s *Index) Get(entityID uid.UID64) (Entry, bool) {
 		return Entry{}, false
 	}
 	e := s.entries[index]
-	if e.ArchId == arch.NullID || e.Gen != gen {
+	if e.ArchID == arch.NullID || e.Gen != gen {
 		return Entry{}, false
 	}
 	return e, true
@@ -51,7 +51,7 @@ func (s *Index) Upsert(entityID uid.UID64, archId arch.ID, ptr unsafe.Pointer, s
 	if uint(index) >= uint(len(s.entries)) {
 		s.grow(index + 1)
 	}
-	s.entries[index] = Entry{ArchId: archId, Ptr: ptr, Slot: slot, Gen: gen}
+	s.entries[index] = Entry{ArchID: archId, ChunkPtr: ptr, Slot: slot, Gen: gen}
 }
 
 func (s *Index) Clear(entityID uid.UID64) {
@@ -60,7 +60,7 @@ func (s *Index) Clear(entityID uid.UID64) {
 		return
 	}
 	if s.entries[index].Gen == gen {
-		s.entries[index] = Entry{ArchId: arch.NullID}
+		s.entries[index] = Entry{ArchID: arch.NullID}
 	}
 }
 
@@ -72,7 +72,7 @@ func (s *Index) EnsureCap(minLen uint32) {
 
 func (s *Index) UpsertUnchecked(entityID uid.UID64, archId arch.ID, ptr unsafe.Pointer, slot colstore.Slot) {
 	index, gen := entityID.Unpack()
-	s.entries[index] = Entry{ArchId: archId, Ptr: ptr, Slot: slot, Gen: gen}
+	s.entries[index] = Entry{ArchID: archId, ChunkPtr: ptr, Slot: slot, Gen: gen}
 }
 
 func (s *Index) grow(minLen uint32) {

@@ -9,29 +9,6 @@ import (
 	"github.com/kjkrol/uid"
 )
 
-// populatePos creates count entities carrying only {Pos}.
-func populatePos(ecs *goke.ECS, count int) []uid.UID64 {
-	factory := ecs.NewFactory(new(goke.Comp[Pos]))
-	var ids []uid.UID64
-	factory.Create(count)
-	for factory.Next() {
-		ids = append(ids, factory.IDs...)
-	}
-	return ids
-}
-
-// populatePosTag creates count entities carrying {Pos, Tag}.
-// Tag is zero-size so it cannot be a factory column; entities are created with
-// {Pos} first and then promoted to {Pos, Tag} via an Editor (setup only).
-func populatePosTag(ecs *goke.ECS, count int) []uid.UID64 {
-	ids := populatePos(ecs, count)
-	addTag := ecs.NewEditorBuilder(new(goke.Comp[Tag])).Build()
-	for _, id := range ids {
-		addTag.Update(id)
-	}
-	return ids
-}
-
 // enqueueSubset returns a system that iterates q chunk by chunk and registers
 // one MassMigrate command per chunk until limit entities are covered.
 // Registration only — the migration itself runs at the plan's Sync point.
@@ -44,7 +21,7 @@ func enqueueSubset(q *goke.Query, mig *goke.Migrator, limit int) goke.SystemFn {
 			if rem := limit - taken; len(ids) > rem {
 				ids = ids[:rem]
 			}
-			goke.CmdBufMassMigrate(cb, mig, q.ChunkCtx(), ids)
+			goke.CmdBufMassMigrate(cb, mig, q.ChunkSnapshot(), ids)
 			taken += len(ids)
 		}
 	}
@@ -56,7 +33,7 @@ func enqueueAll(q *goke.Query, mig *goke.Migrator) goke.SystemFn {
 	return func(cb *goke.CmdBuf, _ time.Duration) {
 		q.All()
 		for q.Next() {
-			goke.CmdBufMassMigrate(cb, mig, q.ChunkCtx(), q.Cursor().IDs)
+			goke.CmdBufMassMigrate(cb, mig, q.ChunkSnapshot(), q.Cursor().IDs)
 		}
 	}
 }
@@ -76,7 +53,7 @@ func randPickMask(pop, k int, seed uint64) []bool {
 // enqueueScattered returns a system that registers MassMigrate commands for a
 // randomly scattered subset: pick[i] decides whether the i-th matched entity
 // (in chunk iteration order) is included. Scattered picks from one chunk still
-// share that chunk's ChunkCtx, so each chunk contributes one command — but the
+// share that chunk's ChunkSnapshot, so each chunk contributes one command — but the
 // resulting holes are non-contiguous, exercising the slot-level compaction path.
 func enqueueScattered(q *goke.Query, mig *goke.Migrator, pick []bool) goke.SystemFn {
 	buf := make([]uid.UID64, 0, len(pick))
@@ -92,13 +69,13 @@ func enqueueScattered(q *goke.Query, mig *goke.Migrator, pick []bool) goke.Syste
 				}
 				pos++
 			}
-			goke.CmdBufMassMigrate(cb, mig, q.ChunkCtx(), buf)
+			goke.CmdBufMassMigrate(cb, mig, q.ChunkSnapshot(), buf)
 		}
 	}
 }
 
 // timedMigrationPlan runs migSys and times only its Sync — the per-chunk
-// ApplyChunk work. The restoreSys tick (counter-migration back to the initial
+// Migrate work. The restoreSys tick (counter-migration back to the initial
 // archetype) runs entirely outside the timer.
 func timedMigrationPlan(b *testing.B, migSys, restoreSys goke.System) goke.Plan {
 	return func(ctx goke.RunCtx, d time.Duration) {
@@ -110,5 +87,39 @@ func timedMigrationPlan(b *testing.B, migSys, restoreSys goke.System) goke.Plan 
 		ctx.Run(restoreSys, d)
 		_ = ctx.Sync()
 		b.StartTimer()
+	}
+}
+
+// runMigratorLeaf runs one Migrator benchmark leaf in both entity orders:
+// sorted enqueues a contiguous prefix of the matched chunks, random a
+// scattered pick (skipped when subset == pop, where the two are identical:
+// the whole population migrates either way). setup rebuilds the world after
+// ecs.Reset and returns the timed forward wiring plus the untimed restore
+// system; only the Sync executing the forward migration is timed.
+func runMigratorLeaf(b *testing.B, ecs *goke.ECS, name string, subset int,
+	setup func() (migrateQ *goke.Query, fwd *goke.Migrator, restore goke.System)) {
+
+	run := func(order string, mkSys func(*goke.Query, *goke.Migrator) goke.SystemFn) {
+		b.Run(name+"/"+order, func(b *testing.B) {
+			ecs.Reset()
+			migrateQ, fwd, restoreSys := setup()
+			migSys := ecs.RegSysFn(mkSys(migrateQ, fwd))
+			ecs.SetPlan(timedMigrationPlan(b, migSys, restoreSys))
+			measurePerEntity(b, subset, func() {
+				for b.Loop() {
+					ecs.Tick(0)
+				}
+			})
+		})
+	}
+
+	run("sorted", func(q *goke.Query, m *goke.Migrator) goke.SystemFn {
+		return enqueueSubset(q, m, subset)
+	})
+	if subset < entitiesNumber {
+		pick := randPickMask(entitiesNumber, subset, 42)
+		run("random", func(q *goke.Query, m *goke.Migrator) goke.SystemFn {
+			return enqueueScattered(q, m, pick)
+		})
 	}
 }
