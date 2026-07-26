@@ -149,6 +149,12 @@ func (m *Migrator) applyGroup(srcArchID arch.ID, ids []uid.UID64, slotRefs []col
 		m.removeAll(srcArchID, ids, slotRefs)
 		return
 	}
+	if dstArchID == srcArchID {
+		// Every AddDef was already present and no DelDef matched anything —
+		// net composition is unchanged. Entities stay exactly where they
+		// are: nothing to copy, no address-book update, no compaction.
+		return
+	}
 
 	srcTable := &m.archCatalog.Archetypes[srcArchID].Table
 	dstTable := &m.archCatalog.Archetypes[dstArchID].Table

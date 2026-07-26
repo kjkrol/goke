@@ -133,6 +133,61 @@ func TestMigrator_Migrate_AddComponent(t *testing.T) {
 	}
 }
 
+func TestMigrator_Migrate_AddAlreadyPresentComponent_IsNoOp(t *testing.T) {
+	// Migrator's AddDefs names a component every source entity already has:
+	// dst resolves to the same archetype as src, so applyGroup must return
+	// immediately — no copy, no compaction, no address-book update.
+	m := newMgr()
+	var mi comp.DefIndex
+	mi.Init()
+	posDef, velDef := internDefs(&mi)
+
+	var accessSpec comp.AccessSpec
+	_ = accessSpec.Comp(posDef)
+	_ = accessSpec.Comp(velDef)
+	ids := spawnAll(m, accessSpec, 3) // already {Pos, Vel}
+
+	entry0Before, _ := m.AddressBook.Get(ids[0])
+	srcArchID := entry0Before.ArchID
+	want := mPosition{X: 3.14, Y: 2.71}
+	*(*mPosition)(m.ArchCatalog.Archetypes[srcArchID].Table.ComponentAt(entry0Before.ChunkPtr, entry0Before.Slot, posDef.ID)) = want
+
+	var editSpec comp.EditSpec
+	editSpec.Init(&mi, comp.Add(new(iter.ArrayRef[mVelocity]))) // Vel already present on every source entity
+	migrator := migration.New(&m.AddressBook, &m.ArchCatalog, editSpec)
+
+	applyByChunks(m, migrator, ids)
+
+	entry0After, ok := m.AddressBook.Get(ids[0])
+	if !ok {
+		t.Fatalf("entity %v missing after no-op migration", ids[0])
+	}
+	if entry0After.ArchID != srcArchID {
+		t.Errorf("ArchID changed from %d to %d; expected untouched", srcArchID, entry0After.ArchID)
+	}
+	if entry0After.ChunkPtr != entry0Before.ChunkPtr || entry0After.Slot != entry0Before.Slot {
+		t.Errorf("position moved from (%v,%d) to (%v,%d); expected untouched",
+			entry0Before.ChunkPtr, entry0Before.Slot, entry0After.ChunkPtr, entry0After.Slot)
+	}
+	for _, id := range ids[1:] {
+		entry, ok := m.AddressBook.Get(id)
+		if !ok {
+			t.Fatalf("entity %v missing after no-op migration", id)
+		}
+		if entry.ArchID != srcArchID {
+			t.Errorf("entity %v: ArchID changed from %d to %d; expected untouched", id, srcArchID, entry.ArchID)
+		}
+	}
+
+	got := *(*mPosition)(m.ArchCatalog.Archetypes[srcArchID].Table.ComponentAt(entry0Before.ChunkPtr, entry0Before.Slot, posDef.ID))
+	if got != want {
+		t.Errorf("Pos after no-op migration: got %+v, want %+v", got, want)
+	}
+	if got := m.ArchCatalog.Archetypes[srcArchID].Table.Len(); got != 3 {
+		t.Errorf("src Table.Len = %d after no-op migration; expected 3 (unchanged)", got)
+	}
+}
+
 func TestMigrator_Migrate_RemoveComponent(t *testing.T) {
 	m := newMgr()
 	var mi comp.DefIndex

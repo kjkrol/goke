@@ -74,13 +74,7 @@ func (d *Defragmenter) classify(t *Table, holes []SlotRef, chunkCap int) compact
 		return modeAllMigrate
 	}
 
-	maxIdx := Idx(0)
-	for _, h := range holes {
-		if h.Idx > maxIdx {
-			maxIdx = h.Idx
-		}
-	}
-	numChunks := int(maxIdx) + 1
+	numChunks := int(t.chunkPack.NumChunks())
 
 	if cap(d.scratch.chunkCounts) < numChunks {
 		d.scratch.chunkCounts = make([]int, numChunks)
@@ -104,7 +98,7 @@ func (d *Defragmenter) classify(t *Table, holes []SlotRef, chunkCap int) compact
 }
 
 // compactAllMigrate zeroes and frees whole chunks — every entity is leaving,
-// nothing relocates.
+
 func (d *Defragmenter) compactAllMigrate(t *Table) {
 	for idx := Idx(0); idx < t.chunkPack.NumChunks(); idx++ {
 		n := int(t.chunkPack.ChunkLen(idx))
@@ -114,6 +108,7 @@ func (d *Defragmenter) compactAllMigrate(t *Table) {
 		t.zeroRange(t.chunkPack.ChunkPtr(idx), 0, n)
 		t.chunkPack.BulkFreeChunk(idx)
 	}
+	t.chunkPack.ResolveTail()
 }
 
 // compactChunkThenSlot handles ≥1 fully vacated chunk: phase A swaps live
@@ -239,6 +234,9 @@ func (d *Defragmenter) compactSlots(t *Table, holes []SlotRef, chunkCap int) {
 			// Tail leaves a fully drained chunk — block-zero it now.
 			t.zeroRange(tPtr, 0, enterLen)
 			ti--
+			for ti > 0 && t.chunkPack.ChunkLen(Idx(ti)) == 0 {
+				ti--
+			}
 			tSlot = int(t.chunkPack.ChunkLen(Idx(ti))) - 1
 			tPtr = t.chunkPack.ChunkPtr(Idx(ti))
 			enterLen = tSlot + 1

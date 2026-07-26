@@ -1,4 +1,4 @@
-package gokebiten
+package control
 
 import (
 	"image"
@@ -6,37 +6,31 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-// Typy akcji dla zdarzeń dyskretnych
 type KeyAction int
 
 const (
-	ActionPress   KeyAction = iota // Moment wciśnięcia
-	ActionRelease                  // Moment puszczenia
+	ActionPress KeyAction = iota
+	ActionRelease
 )
 
-// Zdarzenie naciśnięcia/puszczenia klawisza
 type KeyEvent struct {
 	Key    ebiten.Key
 	Action KeyAction
 }
 
-// Zdarzenie interakcji myszy
 type ClickEvent struct {
 	Pos    image.Point
 	Button ebiten.MouseButton
 	Action KeyAction
 }
 
-// Struktura przechowująca pełny obraz klatki (Snapshot)
 type InputEvents struct {
-	// --- STAN CIĄGŁY (Aktualizowany co klatkę) ---
 	MousePos    image.Point
 	CursorDelta image.Point
 	Modifiers   struct {
 		Shift, Ctrl, Alt bool
 	}
 
-	// --- ZDARZENIA CHWILOWE (Czyszczone po zakończeniu wszystkich kroków fizyki) ---
 	ClickQueue  []ClickEvent
 	KeyEvents   []KeyEvent
 	ScrollDelta float64
