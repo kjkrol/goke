@@ -28,7 +28,7 @@ func (s Composition) Without(compID ID) Composition {
 		return s
 	}
 	newMask := s.Mask.Clear(compID)
-	newMetas := make([]Def, 0, len(s.Defs)-1)
+	newMetas := make([]Def, 0, len(s.Defs))
 	for _, m := range s.Defs {
 		if m.ID != compID {
 			newMetas = append(newMetas, m)

@@ -14,6 +14,7 @@ type BakedTablesCatalog struct {
 // compIDs defines which component columns are precomputed for iteration.
 func (c *BakedTablesCatalog) Add(archetype *arch.Archetype, compIDs []comp.ID) {
 	c.BakedTables = append(c.BakedTables, BakedTable{
+		ArchID:      archetype.Id,
 		Table:       &archetype.Table,
 		CompOffsets: archetype.Table.BakeOffsets(compIDs),
 	})

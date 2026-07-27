@@ -12,14 +12,8 @@ import (
 // Editor applies a fixed set of structural changes — adding and removing
 // components — to an entity in a single archetype migration, then positions
 // Cursor so the added components' values can be written via ArrayRef.At.
-//
 // Migration cost scales with the width of the source and destination
-// archetypes, not with how many components the edit changes: vacating the
-// source row touches every column the source tracks, and the copy into the
-// destination row touches every column already shared with the source.
-// Removing a few components from a wide archetype therefore costs about as
-// much as removing many; adding components onto a narrow one stays cheap
-// regardless of how many are added.
+// archetypes, not with how many components the edit changes.
 type Editor struct {
 	Cursor   iter.Cursor
 	manager  *Manager
@@ -46,30 +40,28 @@ func (m *Manager) CreateEditor(spec comp.EditSpec) *Editor {
 	return e
 }
 
-// Update migrates entityID to the archetype composed from its current
-// components plus the added and minus the removed ones — in a single move — then
-// positions Cursor so the added components' values can be written via ArrayRef.At.
-// Returns false if the entity does not exist. If the edit would leave the entity
-// with no components, it is removed entirely.
+// Update applies the edit to entityID in a single migration and positions
+// Cursor over the added columns. Returns false if the entity does not exist;
+// an edit that leaves no components removes the entity entirely.
 func (e *Editor) Update(entityID uid.UID64) bool {
 	entry, ok := e.manager.AddressBook.Get(entityID)
 	if !ok {
 		return false
 	}
 
-	targetArchID, unlink := e.resolveTarget(entry.ArchId)
+	targetArchID, unlink := e.resolveTarget(entry.ArchID)
 	if unlink {
-		e.manager.removeFromArchetype(entityID, entry.ArchId, entry.Pos)
+		e.manager.removeFromArchetype(entityID, entry.ArchID, entry.ChunkPtr, entry.Slot)
 		return true
 	}
 
-	targetPos := entry.Pos
-	if targetArchID != entry.ArchId {
-		targetPos = e.manager.migrateEntity(entityID, entry.ArchId, entry.Pos, targetArchID)
+	targetPtr := entry.ChunkPtr
+	targetSlot := entry.Slot
+	if targetArchID != entry.ArchID {
+		targetPtr, targetSlot = e.manager.migrateEntity(entityID, entry.ArchID, entry.ChunkPtr, entry.Slot, targetArchID)
 	}
 
-	// Position the cursor only when there are added columns to write into.
-	// A remove-only Editor has nothing to write, so it skips this entirely.
+	// A remove-only Editor has nothing to write into — skip cursor setup.
 	if len(e.addIDs) > 0 {
 		if targetArchID != e.lastArch {
 			e.table = &e.manager.ArchCatalog.Archetypes[targetArchID].Table
@@ -81,7 +73,7 @@ func (e *Editor) Update(entityID uid.UID64) bool {
 			e.Cursor.Offsets = offs
 			e.lastArch = targetArchID
 		}
-		e.table.PointCursor(&e.Cursor, targetPos)
+		e.Cursor.Set(targetPtr, uintptr(targetSlot))
 	}
 	return true
 }

@@ -11,15 +11,18 @@ import (
 // Each entry defines the exact set of non-stdlib imports a package is allowed to have.
 // Any import not listed here will cause the test to fail.
 //
-// Layer 0   iter          (→ uid)
-// Layer 1   comp          (→ iter)
-// Layer 2   chunk, orch   (→ comp)
-// Layer 3   colstore      (→ comp, chunk, iter)
-// Layer 4   arch          (→ comp, colstore)
-// Layer 5   addr          (→ arch, colstore)
-// Layer 6   ent           (→ addr, arch, colstore, comp, iter)
-// Layer 7   query         (→ addr, arch, colstore, comp, iter)
-// Layer 8   reg           (→ ent, arch, comp, query)
+// Layer 0   iter               (→ uid)
+// Layer 1   comp               (→ iter)
+// Layer 2   chunk              (→ comp)
+// Layer 3   colstore           (→ comp, chunk, iter)
+// Layer 4   arch               (→ comp, colstore)
+// Layer 5   addr               (→ arch, colstore)
+//           bulk               (→ arch, colstore)
+// Layer 6   ent                (→ addr, arch, colstore, comp, iter)
+//           migration          (→ addr, arch, bulk, colstore, comp)
+// Layer 7   query              (→ addr, arch, bulk, colstore, comp, iter)
+// Layer 8   orch               (→ bulk, comp)
+//           reg                (→ ent, arch, comp, migration, query)
 //
 // github.com/kjkrol/uid is an external module; listed explicitly per package.
 
@@ -38,7 +41,13 @@ var depRules = map[string][]string{
 		uidPkg,
 	},
 	"internal/orch": {
+		module + "/internal/bulk",
 		module + "/internal/comp",
+		uidPkg,
+	},
+	"internal/bulk": {
+		module + "/internal/arch",
+		module + "/internal/colstore",
 		uidPkg,
 	},
 	"internal/colstore": {
@@ -65,9 +74,18 @@ var depRules = map[string][]string{
 		module + "/iter",
 		uidPkg,
 	},
+	"internal/migration": {
+		module + "/internal/addr",
+		module + "/internal/arch",
+		module + "/internal/bulk",
+		module + "/internal/colstore",
+		module + "/internal/comp",
+		uidPkg,
+	},
 	"internal/query": {
 		module + "/internal/addr",
 		module + "/internal/arch",
+		module + "/internal/bulk",
 		module + "/internal/colstore",
 		module + "/internal/comp",
 		module + "/iter",
@@ -77,6 +95,7 @@ var depRules = map[string][]string{
 		module + "/internal/arch",
 		module + "/internal/comp",
 		module + "/internal/ent",
+		module + "/internal/migration",
 		module + "/internal/query",
 		uidPkg,
 	},

@@ -3,11 +3,10 @@ package orch
 import (
 	"unsafe"
 
+	"github.com/kjkrol/goke/v2/internal/bulk"
 	"github.com/kjkrol/goke/v2/internal/comp"
 	"github.com/kjkrol/uid"
 )
-
-// -------------------------------------------------------------
 
 // cmdType represents the kind of deferred operation on an entity
 type cmdType int
@@ -26,21 +25,28 @@ type bufferedCmd struct {
 	dataPtr  unsafe.Pointer
 }
 
-// -------------------------------------------------------------
+type massMigrateCmd struct {
+	migrator bulk.Migrator
+	snap     bulk.ChunkSnapshot
+	ids      []uid.UID64
+}
 
 const allocBlockSize = 4096
 
-// CmdBuf as Linear Allocator
+// CmdBuf queues deferred commands, backing their payloads with a linear
+// page allocator so registration never heap-allocates once warm.
 type CmdBuf struct {
-	cmds    []bufferedCmd
-	pages   [][]byte
-	pageIdx int
-	offset  int
+	cmds     []bufferedCmd
+	massCmds []massMigrateCmd
+	pages    [][]byte
+	pageIdx  int
+	offset   int
 }
 
 func (cb *CmdBuf) Clear() {
 	clear(cb.cmds)
 	cb.cmds = cb.cmds[:0]
+	cb.massCmds = cb.massCmds[:0]
 
 	for i := 0; i <= cb.pageIdx; i++ {
 		if i < len(cb.pages) {
@@ -59,7 +65,7 @@ func NewCmdBuf() *CmdBuf {
 	}
 }
 
-// AddComp safely copies component data into the buffer's pool
+// AddComp queues an add-component command, copying value into the page pool.
 func AddComp[T any](cb *CmdBuf, entityID uid.UID64, compID comp.ID, value T) {
 	size := int(unsafe.Sizeof(value))
 
@@ -97,14 +103,30 @@ func (cb *CmdBuf) RemoveEntity(entityID uid.UID64) {
 	})
 }
 
+// MassMigrate records a bulk migration of ids from the chunk described by
+// snap, setting snap.SlotAligned when ids is a leading window of the chunk's
+// entity column. ids is copied into the page pool — the caller may reuse it.
+func (cb *CmdBuf) MassMigrate(migrator bulk.Migrator, snap bulk.ChunkSnapshot, ids []uid.UID64) {
+	n := len(ids)
+	if n == 0 {
+		return
+	}
+	snap.SlotAligned = unsafe.Pointer(&ids[0]) == snap.ChunkPtr
+	var u uid.UID64
+	ptr := cb.reserveSpace(n*int(unsafe.Sizeof(u)), int(unsafe.Alignof(u)))
+	copied := unsafe.Slice((*uid.UID64)(ptr), n)
+	copy(copied, ids)
+	cb.massCmds = append(cb.massCmds, massMigrateCmd{migrator: migrator, snap: snap, ids: copied})
+}
+
 func (cb *CmdBuf) reset() {
 	cb.cmds = cb.cmds[:0]
+	cb.massCmds = cb.massCmds[:0]
 	cb.pageIdx = 0
 	cb.offset = 0
 }
 
-// reserveSpace ensures there is enough contiguous memory in the pages
-// and returns a pointer to the start of the reserved block.
+// reserveSpace returns a pointer to a contiguous block from the page pool.
 func (cb *CmdBuf) reserveSpace(size int, align int) unsafe.Pointer {
 	cb.offset = (cb.offset + align - 1) &^ (align - 1)
 

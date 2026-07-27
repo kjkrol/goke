@@ -51,17 +51,18 @@ func TestTable_ComponentAt(t *testing.T) {
 
 	cur := newCursor(1)
 	_, pos := tbl.SpawnCursor(cur, 0, 1, baked)
+	chunkPtr := tbl.ChunkPtrAt(pos.Idx)
 
-	ptr := tbl.ComponentAt(pos, 1)
+	ptr := tbl.ComponentAt(chunkPtr, pos.Slot, 1)
 	if ptr == nil {
 		t.Fatal("expected non-nil pointer for tracked component")
 	}
 	*(*int64)(ptr) = 42
-	if got := *(*int64)(tbl.ComponentAt(pos, 1)); got != 42 {
+	if got := *(*int64)(tbl.ComponentAt(chunkPtr, pos.Slot, 1)); got != 42 {
 		t.Errorf("expected 42, got %d", got)
 	}
 
-	if tbl.ComponentAt(pos, 99) != nil {
+	if tbl.ComponentAt(chunkPtr, pos.Slot, 99) != nil {
 		t.Error("expected nil pointer for an untracked component ID")
 	}
 }

@@ -3,6 +3,7 @@ package query
 import (
 	"reflect"
 	"testing"
+	"unsafe"
 
 	"github.com/kjkrol/uid"
 
@@ -23,7 +24,7 @@ func setupBakedTable(t *testing.T) (*BakedTable, arch.ID) {
 	ac.Init(func(*arch.Archetype) {})
 	archID := ac.Upsert(comp.Composition{}.With(posMeta))
 	a := &ac.Archetypes[archID]
-	a.Table.SetIDSeeder(func(dst []uid.UID64, _ colstore.Pos) { dst[0] = uid.UID64(1) })
+	a.Table.SetIDSeeder(func(dst []uid.UID64, _ unsafe.Pointer, _ colstore.Slot) { dst[0] = uid.UID64(1) })
 	idx, _, _ := a.Table.ReserveSlots(1)
 	var cur iter.Cursor
 	a.Table.SpawnCursor(&cur, idx, 1, nil)

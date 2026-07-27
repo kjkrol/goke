@@ -82,7 +82,7 @@ func (s *Scheduler) RunParallel(d time.Duration, runnables ...Runnable) {
 
 func (s *Scheduler) Sync() error {
 	for _, cb := range s.buffers {
-		if len(cb.cmds) > 0 {
+		if len(cb.cmds) > 0 || len(cb.massCmds) > 0 {
 			err := s.applyBufferCmds(cb)
 			if err != nil {
 				return err
@@ -93,6 +93,9 @@ func (s *Scheduler) Sync() error {
 }
 
 func (s *Scheduler) applyBufferCmds(cb *CmdBuf) error {
+	for _, cmd := range cb.massCmds {
+		cmd.migrator.Migrate(cmd.snap, cmd.ids)
+	}
 	for _, cmd := range cb.cmds {
 		target := cmd.entityID
 

@@ -1,17 +1,17 @@
 package addr
 
 import (
+	"unsafe"
+
 	"github.com/kjkrol/uid"
 
 	"github.com/kjkrol/goke/v2/internal/arch"
 	"github.com/kjkrol/goke/v2/internal/colstore"
 )
 
-// Book is the address book: it combines entity ID lifecycle (uid pool) with
-// the address [Index] into a single owner.
-//
-// [Book.Index] is exported so that the query layer can hold a [*Index] pointer
-// for read-only entity lookups without access to the pool.
+// Book is the address book: entity ID lifecycle (uid pool) plus the address
+// [Index] under a single owner. [Book.Index] is exported so the query layer
+// can hold a read-only [*Index] without access to the pool.
 type Book struct {
 	pool  uid.UID64Pool
 	Index Index
@@ -27,26 +27,28 @@ func (b *Book) Reset() {
 	b.Index.Reset()
 }
 
-// Seed allocates len(dst) entity IDs from the pool and registers their initial
-// addresses in the Index. Intended for use as a colstore IDSeeder callback.
-func (b *Book) Seed(dst []uid.UID64, archID arch.ID, pos colstore.Pos) {
+// Seed allocates len(dst) entity IDs from the pool and registers their
+// addresses: consecutive slots in ptr's chunk starting at startSlot.
+func (b *Book) Seed(dst []uid.UID64, archID arch.ID, ptr unsafe.Pointer, startSlot colstore.Slot) {
 	b.pool.NextN(dst)
 	b.Index.EnsureCap(b.pool.PeekNextIndex())
 	for i, id := range dst {
-		b.Index.UpsertUnchecked(id, archID, colstore.Pos{Idx: pos.Idx, Slot: pos.Slot + colstore.Slot(i)})
+		b.Index.UpsertUnchecked(id, archID, ptr, startSlot+colstore.Slot(i))
 	}
 }
 
-// Get looks up the Entry for the given entity ID.
-// Returns false if the ID is invalid (wrong generation) or has no registered address.
 func (b *Book) Get(id uid.UID64) (Entry, bool) {
 	return b.Index.Get(id)
 }
 
-// Move updates the stored address for the given entity ID.
-// Called after archetype migration to record the entity's new position.
-func (b *Book) Move(id uid.UID64, archID arch.ID, pos colstore.Pos) {
-	b.Index.Upsert(id, archID, pos)
+func (b *Book) Move(id uid.UID64, archID arch.ID, ptr unsafe.Pointer, slot colstore.Slot) {
+	b.Index.Upsert(id, archID, ptr, slot)
+}
+
+// MoveUnchecked is Move minus the capacity and generation checks; id must
+// already exist in the Index. Bulk-migration hot path.
+func (b *Book) MoveUnchecked(id uid.UID64, archID arch.ID, ptr unsafe.Pointer, slot colstore.Slot) {
+	b.Index.UpsertUnchecked(id, archID, ptr, slot)
 }
 
 // Delete clears the entity's address entry and recycles its ID back to the pool.

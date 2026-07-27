@@ -42,6 +42,11 @@
 //     To maintain state consistency during system updates, modifications to the
 //     world (like adding components or removing entities) are buffered via
 //     the CmdBuf and applied during explicit synchronization points (Sync).
+//     Structural changes can also be applied in bulk: a [Migrator] (built via
+//     [ECS.NewMigratorBuilder]) migrates whole chunks captured during
+//     Query.All iteration — [Query.ChunkSnapshot] plus [CmdBufMassMigrate]
+//     queue the batch, and Sync executes it with block column copies and
+//     deferred compaction instead of per-entity moves.
 //
 //  6. Type-Safe Queries & Cache-Optimized Iteration:
 //     Data retrieval is handled through [Query] obtained via [ECS.NewQueryBuilder].
@@ -77,25 +82,31 @@
 // The internal packages form a strict acyclic dependency graph. Each layer
 // may only import packages from layers below it:
 //
-//	Layer 0   iter     — column-access primitives: Cursor, ArrayRef[T]
-//	Layer 1   comp     — shared primitives: ID, Def, Mask, AccessSpec, DefIndex  (→ iter)
-//	Layer 2   chunk    — cache-aligned chunked memory layout     (→ comp)
-//	Layer 2   orch     — scheduler, plans, command buffers       (→ comp)
-//	Layer 3   colstore — column-oriented storage                 (→ comp, chunk, iter)
-//	Layer 4   arch     — archetype ID, Mask, graph               (→ comp, colstore)
-//	Layer 5   addr     — entity address book: Entry, Index, Book (→ arch, colstore)
-//	Layer 6   ent      — entity lifecycle, Manager, Factory, Editor (→ addr, arch, colstore, comp, iter)
-//	Layer 7   query    — query layer, matcher baking             (→ addr, arch, colstore, comp, iter)
-//	Layer 8   reg      — top-level Registry                      (→ ent, arch, comp, query)
+//	Layer 0   iter      — column-access primitives: Cursor, ArrayRef[T]
+//	Layer 1   comp      — shared primitives: ID, Def, Mask, AccessSpec, DefIndex  (→ iter)
+//	Layer 2   chunk     — cache-aligned chunked memory layout      (→ comp)
+//	Layer 3   colstore  — column-oriented storage                  (→ comp, chunk, iter)
+//	Layer 4   arch      — archetype ID, Mask, graph                (→ comp, colstore)
+//	Layer 5   addr      — entity address book: Entry, Index, Book  (→ arch, colstore)
+//	          bulk      — bulk-operation contract: ChunkSnapshot, Migrator  (→ arch, colstore)
+//	Layer 6   ent       — entity lifecycle, Manager, Factory, Editor  (→ addr, arch, colstore, comp, iter)
+//	          migration — bulk archetype migration                 (→ addr, arch, bulk, colstore, comp)
+//	Layer 7   query     — query layer, matcher baking              (→ addr, arch, bulk, colstore, comp, iter)
+//	Layer 8   orch      — scheduler, plans, command buffers        (→ bulk, comp)
+//	          reg       — top-level Registry                       (→ ent, arch, comp, migration, query)
 //
-// Expressed as a directed graph (arrow = "is imported by"):
+// Expressed as a directed graph (arrow = "is imported by"; migration and
+// query are drawn twice — each is fed by both addr and bulk):
 //
-//	iter ──► comp ──► chunk ──► colstore ──► arch ──► addr ──► ent ──► reg
-//	           └──► orch                                │                ▲
-//	                                                    └──► query ──────┘
+//	iter ──► comp ──► chunk ──► colstore ──► arch ──┬─► addr ──┬─► ent ───────┬─► reg
+//	                                                 │          ├─► migration ─┤
+//	                                                 │          └─► query ─────┘
+//	                                                 └─► bulk ──┬─► migration
+//	                                                            ├─► query
+//	                                                            └─► orch
 //
-// [github.com/kjkrol/uid] is an external module used across layers (chunk, orch, colstore,
-// arch, addr, ent, query, reg) for 64-bit generational entity identifiers.
+// [github.com/kjkrol/uid] is an external module used across the stack for
+// 64-bit generational entity identifiers.
 //
 // orch and reg are fully independent of each other. The top-level goke
 // package is the only place that wires them together, passing a pointer to

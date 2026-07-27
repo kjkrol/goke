@@ -30,6 +30,9 @@ func TestInitArchetype(t *testing.T) {
 	if a.Len() != 0 {
 		t.Error("Archetype.Len should mirror the table's row count")
 	}
+	if got := a.Composition(); got.Mask != set.Mask {
+		t.Errorf("expected Composition() to return the set passed to Init, got mask %v want %v", got.Mask, set.Mask)
+	}
 }
 
 func TestArchetype_Reset(t *testing.T) {

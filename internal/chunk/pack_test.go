@@ -55,6 +55,85 @@ func TestPack_Len(t *testing.T) {
 	}
 }
 
+func TestPack_NumChunks(t *testing.T) {
+	g := newTestPack(t)
+	if got := g.NumChunks(); got != 1 {
+		t.Errorf("expected NumChunks 1 after Init, got %d", got)
+	}
+	g.AddChunks(2)
+	if got := g.NumChunks(); got != 3 {
+		t.Errorf("expected NumChunks 3 after AddChunks(2), got %d", got)
+	}
+}
+
+func TestPack_FreeSlots(t *testing.T) {
+	g := newTestPack(t)
+	g.Extend(0, 5)
+	if got := g.Len(); got != 5 {
+		t.Fatalf("expected Len 5 after Extend, got %d", got)
+	}
+	g.FreeSlots(0, 3)
+	if got := g.ChunkLen(0); got != 2 {
+		t.Errorf("expected ChunkLen 2 after FreeSlots(0,3), got %d", got)
+	}
+	if got := g.Len(); got != 2 {
+		t.Errorf("expected Len 2 after FreeSlots(0,3), got %d", got)
+	}
+}
+
+func TestPack_SwapChunks(t *testing.T) {
+	g := newTestPack(t)
+	g.Extend(0, 3)
+	g.AddChunks(1)
+	g.Extend(1, 5)
+
+	ptr0Before := g.ChunkPtr(0)
+	ptr1Before := g.ChunkPtr(1)
+
+	g.SwapChunks(0, 1)
+
+	if g.ChunkPtr(0) != ptr1Before || g.ChunkLen(0) != 5 {
+		t.Errorf("expected chunk 0 to now hold the old chunk 1 (ptr=%v len=5), got ptr=%v len=%d",
+			ptr1Before, g.ChunkPtr(0), g.ChunkLen(0))
+	}
+	if g.ChunkPtr(1) != ptr0Before || g.ChunkLen(1) != 3 {
+		t.Errorf("expected chunk 1 to now hold the old chunk 0 (ptr=%v len=3), got ptr=%v len=%d",
+			ptr0Before, g.ChunkPtr(1), g.ChunkLen(1))
+	}
+}
+
+func TestPack_BulkFreeChunk(t *testing.T) {
+	g := newTestPack(t)
+	g.Extend(0, 4)
+	if got := g.Len(); got != 4 {
+		t.Fatalf("expected Len 4, got %d", got)
+	}
+	g.BulkFreeChunk(0)
+	if got := g.ChunkLen(0); got != 0 {
+		t.Errorf("expected ChunkLen 0 after BulkFreeChunk, got %d", got)
+	}
+	if got := g.Len(); got != 0 {
+		t.Errorf("expected Len 0 after BulkFreeChunk, got %d", got)
+	}
+}
+
+func TestPack_ChunkIdxByPtr(t *testing.T) {
+	g := newTestPack(t)
+	g.AddChunks(2)
+
+	ptr1 := g.ChunkPtr(1)
+	if got := g.ChunkIdxByPtr(ptr1); got != 1 {
+		t.Errorf("expected ChunkIdxByPtr to return 1, got %d", got)
+	}
+
+	defer func() {
+		if recover() == nil {
+			t.Error("expected ChunkIdxByPtr to panic for an unknown pointer")
+		}
+	}()
+	g.ChunkIdxByPtr(nil)
+}
+
 func TestPack_NextNonEmptyChunk(t *testing.T) {
 	g := newTestPack(t)
 	cap := int(g.Layout.ChunkCap)

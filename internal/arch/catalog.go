@@ -2,6 +2,7 @@ package arch
 
 import (
 	"fmt"
+	"unsafe"
 
 	"github.com/kjkrol/uid"
 
@@ -35,18 +36,16 @@ func (r *Catalog) Upsert(set comp.Composition) ID {
 	return archID
 }
 
-// RemoveEntity swap-removes the entity at (archID, pos) from its archetype's table.
-// Returns the entity displaced by the swap and whether a swap occurred.
-// The displaced entity moves to pos — the caller must update the entity index accordingly.
-func (r *Catalog) RemoveEntity(archID ID, pos colstore.Pos) (uid.UID64, bool) {
-	return r.Archetypes[archID].Table.RemoveAt(pos)
+// RemoveEntity swap-removes the entity at (archID, ptr, slot). The displaced
+// entity moves to (ptr, slot) — the caller must update the entity index.
+func (r *Catalog) RemoveEntity(archID ID, ptr unsafe.Pointer, slot colstore.Slot) (uid.UID64, bool) {
+	return r.Archetypes[archID].Table.RemoveAt(ptr, slot)
 }
 
-// MigrateEntity moves entityID from (srcArchID, srcPos) to dstArchID.
-// Returns the new storage position, the entity displaced by swap-remove in the source table,
-// and whether a swap occurred. The displaced entity moves to srcPos.
-func (r *Catalog) MigrateEntity(entityID uid.UID64, srcArchID ID, srcPos colstore.Pos, dstArchID ID) (colstore.Pos, uid.UID64, bool) {
-	return r.Archetypes[dstArchID].Table.MoveEntityFrom(&r.Archetypes[srcArchID].Table, entityID, srcPos)
+// MigrateEntity moves entityID from (srcArchID, srcPtr, srcSlot) to dstArchID;
+// the entity displaced by the source swap-remove moves to (srcPtr, srcSlot).
+func (r *Catalog) MigrateEntity(entityID uid.UID64, srcArchID ID, srcPtr unsafe.Pointer, srcSlot colstore.Slot, dstArchID ID) (unsafe.Pointer, colstore.Slot, uid.UID64, bool) {
+	return r.Archetypes[dstArchID].Table.MoveEntityFrom(&r.Archetypes[srcArchID].Table, entityID, srcPtr, srcSlot)
 }
 
 // EnsureEdgeNext returns the archetype ID reached by adding compDef to archID.
@@ -62,9 +61,8 @@ func (r *Catalog) EnsureEdgeNext(compDef comp.Def, archID ID) ID {
 	return nextArchID
 }
 
-// EnsureEdgePrev returns the archetype ID reached by removing compDef from archID.
-// shouldUnlink is true when the resulting composition has an empty mask — the caller
-// should remove the entity entirely rather than migrate it.
+// EnsureEdgePrev returns the archetype reached by removing compDef from archID;
+// shouldUnlink means the result is empty and the entity should be removed instead.
 func (r *Catalog) EnsureEdgePrev(compDef comp.Def, archID ID) (targetID ID, shouldUnlink bool) {
 	archetype := &r.Archetypes[archID]
 	compID := compDef.ID

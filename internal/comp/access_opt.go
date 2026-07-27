@@ -9,7 +9,6 @@ import (
 // AccessOpt configures a AccessSpec's entity filter by including or excluding component types.
 type AccessOpt func(*AccessSpec, *DefIndex) error
 
-// Include adds a required component type T to the AccessSpec's filter.
 func Include[T any]() AccessOpt {
 	return func(s *AccessSpec, mi *DefIndex) error {
 		compDef := mi.Intern(reflect.TypeFor[T]())
@@ -17,10 +16,8 @@ func Include[T any]() AccessOpt {
 	}
 }
 
-// Track returns a AccessOpt that registers T as a tracked data column and
-// sets col.Idx to its position. Pass col.Slice or col.At to access data.
-// The same opt may be reused across multiple views as long as T occupies the
-// same track position in each.
+// Track registers T as a tracked data column and sets col.Idx to its position;
+// reusable across views as long as T keeps the same track position.
 func Track[T any](col *iter.ArrayRef[T]) AccessOpt {
 	return func(s *AccessSpec, mi *DefIndex) error {
 		col.Idx = len(s.CompInfos)
@@ -29,7 +26,6 @@ func Track[T any](col *iter.ArrayRef[T]) AccessOpt {
 	}
 }
 
-// Exclude adds an exclusion for component type T to the AccessSpec's filter.
 func Exclude[T any]() AccessOpt {
 	return func(s *AccessSpec, mi *DefIndex) error {
 		compDef := mi.Intern(reflect.TypeFor[T]())

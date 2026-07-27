@@ -30,6 +30,9 @@ func (l *Layout) Init(compDefs []comp.Def) {
 		offsets := make([]uintptr, len(compDefs)+1)
 		currentOffset := uintptr(0)
 
+		// The entity ID column always sits at chunk offset 0 — orch.CmdBuf's
+		// MassMigrate relies on this to detect positional id windows by
+		// comparing the ids slice base pointer with the chunk pointer.
 		entityAlign := unsafe.Alignof(uid.UID64(0))
 		currentOffset = alignUp(currentOffset, entityAlign)
 		offsets[0] = currentOffset

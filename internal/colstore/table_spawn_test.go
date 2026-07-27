@@ -31,7 +31,7 @@ func TestTable_SpawnCursor(t *testing.T) {
 	}
 }
 
-func TestTable_FillCursorNextAndPointCursor(t *testing.T) {
+func TestTable_FillCursorNextAndCursorSet(t *testing.T) {
 	defs := []comp.Def{{ID: 1, Size: 8, Align: 8}}
 	tbl := newTestTable(t, defs)
 	baked := tbl.BakeColumns(defs)
@@ -50,17 +50,17 @@ func TestTable_FillCursorNextAndPointCursor(t *testing.T) {
 		t.Errorf("expected cursor IDs %v to match spawned IDs %v", cur.IDs, ids)
 	}
 
-	// PointCursor repositions Base/Slot without touching Offsets.
+	// Cursor.Set repositions Base/Slot without touching Offsets.
 	cur.Offsets = nil
-	tbl.PointCursor(cur, pos)
+	cur.Set(tbl.ChunkPtrAt(pos.Idx), uintptr(pos.Slot))
 	if cur.Base == nil {
-		t.Error("expected PointCursor to set a non-nil Base")
+		t.Error("expected Cursor.Set to set a non-nil Base")
 	}
 	if cur.Slot != uintptr(pos.Slot) {
 		t.Errorf("expected Slot %d, got %d", pos.Slot, cur.Slot)
 	}
 	if cur.Offsets != nil {
-		t.Error("expected PointCursor to leave Offsets untouched")
+		t.Error("expected Cursor.Set to leave Offsets untouched")
 	}
 
 	// Nothing exists past the only chunk.

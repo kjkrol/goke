@@ -37,7 +37,6 @@ func Add[T any](col *iter.ArrayRef[T]) EditOpt {
 	}
 }
 
-// Del registers T as a component to remove.
 func Del[T any]() EditOpt {
 	return func(s *EditSpec, mi *DefIndex) error {
 		s.DelDefs = append(s.DelDefs, mi.Intern(reflect.TypeFor[T]()))

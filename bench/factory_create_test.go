@@ -10,7 +10,7 @@ import (
 func Benchmark_Factory_Create(b *testing.B) {
 	ecs := setupECS()
 
-	b.Run(fmt.Sprintf("pop=%d/1_comp", entitiesNumber), func(b *testing.B) {
+	b.Run(fmt.Sprintf("pop=%d/comp=1", entitiesNumber), func(b *testing.B) {
 		ecs.Reset()
 		var c1 goke.Comp[Pos]
 		factory := ecs.NewFactory(&c1)
@@ -31,7 +31,7 @@ func Benchmark_Factory_Create(b *testing.B) {
 		})
 	})
 
-	b.Run(fmt.Sprintf("pop=%d/2_comp", entitiesNumber), func(b *testing.B) {
+	b.Run(fmt.Sprintf("pop=%d/comp=2", entitiesNumber), func(b *testing.B) {
 		ecs.Reset()
 		var c1 goke.Comp[Pos]
 		var c2 goke.Comp[Vel]
@@ -55,7 +55,7 @@ func Benchmark_Factory_Create(b *testing.B) {
 		})
 	})
 
-	b.Run(fmt.Sprintf("pop=%d/3_comp", entitiesNumber), func(b *testing.B) {
+	b.Run(fmt.Sprintf("pop=%d/comp=3", entitiesNumber), func(b *testing.B) {
 		ecs.Reset()
 		var c1 goke.Comp[Pos]
 		var c2 goke.Comp[Vel]
@@ -82,7 +82,7 @@ func Benchmark_Factory_Create(b *testing.B) {
 		})
 	})
 
-	b.Run(fmt.Sprintf("pop=%d/4_comp", entitiesNumber), func(b *testing.B) {
+	b.Run(fmt.Sprintf("pop=%d/comp=4", entitiesNumber), func(b *testing.B) {
 		ecs.Reset()
 		var c1 goke.Comp[Pos]
 		var c2 goke.Comp[Vel]
@@ -112,7 +112,7 @@ func Benchmark_Factory_Create(b *testing.B) {
 		})
 	})
 
-	b.Run(fmt.Sprintf("pop=%d/5_comp", entitiesNumber), func(b *testing.B) {
+	b.Run(fmt.Sprintf("pop=%d/comp=5", entitiesNumber), func(b *testing.B) {
 		ecs.Reset()
 		var c1 goke.Comp[Pos]
 		var c2 goke.Comp[Vel]
@@ -145,7 +145,7 @@ func Benchmark_Factory_Create(b *testing.B) {
 		})
 	})
 
-	b.Run(fmt.Sprintf("pop=%d/6_comp", entitiesNumber), func(b *testing.B) {
+	b.Run(fmt.Sprintf("pop=%d/comp=6", entitiesNumber), func(b *testing.B) {
 		ecs.Reset()
 		var c1 goke.Comp[Pos]
 		var c2 goke.Comp[Vel]
@@ -181,7 +181,7 @@ func Benchmark_Factory_Create(b *testing.B) {
 		})
 	})
 
-	b.Run(fmt.Sprintf("pop=%d/7_comp", entitiesNumber), func(b *testing.B) {
+	b.Run(fmt.Sprintf("pop=%d/comp=7", entitiesNumber), func(b *testing.B) {
 		ecs.Reset()
 		var c1 goke.Comp[Pos]
 		var c2 goke.Comp[Vel]
@@ -220,7 +220,7 @@ func Benchmark_Factory_Create(b *testing.B) {
 		})
 	})
 
-	b.Run(fmt.Sprintf("pop=%d/8_comp", entitiesNumber), func(b *testing.B) {
+	b.Run(fmt.Sprintf("pop=%d/comp=8", entitiesNumber), func(b *testing.B) {
 		ecs.Reset()
 		var c1 goke.Comp[Pos]
 		var c2 goke.Comp[Vel]
@@ -262,7 +262,7 @@ func Benchmark_Factory_Create(b *testing.B) {
 		})
 	})
 
-	b.Run(fmt.Sprintf("pop=%d/9_comp", entitiesNumber), func(b *testing.B) {
+	b.Run(fmt.Sprintf("pop=%d/comp=9", entitiesNumber), func(b *testing.B) {
 		ecs.Reset()
 		var c1 goke.Comp[Pos]
 		var c2 goke.Comp[Vel]
@@ -307,7 +307,7 @@ func Benchmark_Factory_Create(b *testing.B) {
 		})
 	})
 
-	b.Run(fmt.Sprintf("pop=%d/10_comp", entitiesNumber), func(b *testing.B) {
+	b.Run(fmt.Sprintf("pop=%d/comp=10", entitiesNumber), func(b *testing.B) {
 		ecs.Reset()
 		var c1 goke.Comp[Pos]
 		var c2 goke.Comp[Vel]

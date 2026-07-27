@@ -1,23 +1,20 @@
-package main
+package control
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
-	"github.com/kjkrol/goke/examples/ebiten-demo/gokebiten"
 )
 
-type DesktopInputAdapter struct{}
+type DesktopAdapter struct{}
 
-func (a *DesktopInputAdapter) Capture(e *gokebiten.InputEvents) {
-	// 1. Klawiatura
+func (a *DesktopAdapter) Capture(e *InputEvents) {
 	for _, k := range inpututil.AppendJustPressedKeys(nil) {
-		e.AddKeyEvent(k, gokebiten.ActionPress)
+		e.AddKeyEvent(k, ActionPress)
 	}
 	for _, k := range inpututil.AppendJustReleasedKeys(nil) {
-		e.AddKeyEvent(k, gokebiten.ActionRelease)
+		e.AddKeyEvent(k, ActionRelease)
 	}
 
-	// 2. Mysz
 	currX, currY := ebiten.CursorPosition()
 	e.CursorDelta.X = currX - e.MousePos.X
 	e.CursorDelta.Y = currY - e.MousePos.Y
@@ -25,13 +22,12 @@ func (a *DesktopInputAdapter) Capture(e *gokebiten.InputEvents) {
 	e.MousePos.Y = currY
 
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-		e.AddClickEvent(currX, currY, ebiten.MouseButtonLeft, gokebiten.ActionPress)
+		e.AddClickEvent(currX, currY, ebiten.MouseButtonLeft, ActionPress)
 	}
 	if inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) {
-		e.AddClickEvent(currX, currY, ebiten.MouseButtonLeft, gokebiten.ActionRelease)
+		e.AddClickEvent(currX, currY, ebiten.MouseButtonLeft, ActionRelease)
 	}
 
-	// 3. Modyfikatory
 	e.Modifiers.Shift = ebiten.IsKeyPressed(ebiten.KeyShift)
 	e.Modifiers.Ctrl = ebiten.IsKeyPressed(ebiten.KeyControl)
 }

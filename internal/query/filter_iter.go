@@ -11,9 +11,9 @@ func (m *Matcher) nextPick() bool {
 		if !ok {
 			continue
 		}
-		if link.ArchId != m.lastArchID {
-			m.bt = m.Get(link.ArchId)
-			m.lastArchID = link.ArchId
+		if link.ArchID != m.lastArchID {
+			m.bt = m.Get(link.ArchID)
+			m.lastArchID = link.ArchID
 			if m.bt != nil {
 				m.Cursor.Offsets = m.bt.CompOffsets // set once per archetype change
 			}
@@ -22,7 +22,7 @@ func (m *Matcher) nextPick() bool {
 			continue
 		}
 		m.Entity = e
-		m.bt.PointCursor(&m.Cursor, link.Pos) // per entity: chunk base + slot only
+		m.Cursor.Set(link.ChunkPtr, uintptr(link.Slot)) // per entity: chunk base + slot only
 		return true
 	}
 	return false

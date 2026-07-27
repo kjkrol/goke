@@ -3,10 +3,12 @@ package arch
 import (
 	"reflect"
 	"testing"
+	"unsafe"
 
 	"github.com/kjkrol/uid"
 
 	"github.com/kjkrol/goke/v2/internal/chunk"
+	"github.com/kjkrol/goke/v2/internal/colstore"
 	"github.com/kjkrol/goke/v2/internal/comp"
 	"github.com/kjkrol/goke/v2/iter"
 )
@@ -38,7 +40,7 @@ func testMetas() (pos, vel comp.Def) {
 // layer up).
 func spawnEntity(t *testing.T, archetype *Archetype, id uid.UID64) chunk.Pos {
 	t.Helper()
-	archetype.Table.SetIDSeeder(func(dst []uid.UID64, _ chunk.Pos) { dst[0] = id })
+	archetype.Table.SetIDSeeder(func(dst []uid.UID64, _ unsafe.Pointer, _ colstore.Slot) { dst[0] = id })
 	idx, _, _ := archetype.Table.ReserveSlots(1)
 	var cur iter.Cursor
 	_, pos := archetype.Table.SpawnCursor(&cur, idx, 1, nil)
@@ -206,7 +208,8 @@ func TestCatalog_RemoveEntity_SwapPop(t *testing.T) {
 	}
 
 	// Remove e1 (not the last slot) — e2 must swap into its slot.
-	swappedEntity, swapped := cat.RemoveEntity(archID, pos1)
+	ptr1 := archetype.Table.ChunkPtrAt(pos1.Idx)
+	swappedEntity, swapped := cat.RemoveEntity(archID, ptr1, pos1.Slot)
 
 	if !swapped {
 		t.Fatal("expected a swap since the removed slot wasn't the last one")
@@ -224,8 +227,9 @@ func TestCatalog_RemoveEntity_LastSlotNoSwap(t *testing.T) {
 
 	e0 := uid.UID64(1)
 	pos0 := spawnEntity(t, archetype, e0)
+	ptr0 := archetype.Table.ChunkPtrAt(pos0.Idx)
 
-	_, swapped := cat.RemoveEntity(archID, pos0)
+	_, swapped := cat.RemoveEntity(archID, ptr0, pos0.Slot)
 	if swapped {
 		t.Error("expected no swap when removing the only/last entity")
 	}
@@ -242,9 +246,10 @@ func TestCatalog_MigrateEntity_MovesDataAndSwapsSource(t *testing.T) {
 	pos0 := spawnEntity(t, srcArch, e0)
 	spawnEntity(t, srcArch, e1)
 
-	*(*position)(srcArch.Table.ComponentAt(pos0, posDef.ID)) = position{x: 9, y: 9}
+	srcPtr0 := srcArch.Table.ChunkPtrAt(pos0.Idx)
+	*(*position)(srcArch.Table.ComponentAt(srcPtr0, pos0.Slot, posDef.ID)) = position{x: 9, y: 9}
 
-	newPos, swappedEntity, swapped := cat.MigrateEntity(e0, srcArchID, pos0, dstArchID)
+	newPtr, newSlot, swappedEntity, swapped := cat.MigrateEntity(e0, srcArchID, srcPtr0, pos0.Slot, dstArchID)
 
 	if !swapped {
 		t.Fatal("expected e1 to swap into e0's old slot in the source table")
@@ -254,7 +259,7 @@ func TestCatalog_MigrateEntity_MovesDataAndSwapsSource(t *testing.T) {
 	}
 
 	dstArch := &cat.Archetypes[dstArchID]
-	got := *(*position)(dstArch.Table.ComponentAt(newPos, posDef.ID))
+	got := *(*position)(dstArch.Table.ComponentAt(newPtr, newSlot, posDef.ID))
 	if got != (position{x: 9, y: 9}) {
 		t.Errorf("expected migrated Position data to survive, got %+v", got)
 	}

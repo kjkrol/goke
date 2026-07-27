@@ -22,6 +22,8 @@ type Archetype struct {
 
 func (a *Archetype) Mask() comp.Mask { return a.set.Mask }
 
+func (a *Archetype) Composition() comp.Composition { return a.set }
+
 func (a *Archetype) Reset() {
 	a.Table.Clear()
 	if a.graph != nil {

@@ -23,8 +23,8 @@ func (m *Manager) Init(cfg Config, onArchetypeCreated func(*arch.Archetype)) {
 	m.AddressBook.Init(cfg.Cap, cfg.FreeCap)
 	m.ArchCatalog.Init(func(a *arch.Archetype) {
 		archID := a.Id
-		a.Table.SetIDSeeder(func(dst []uid.UID64, pos colstore.Pos) {
-			m.AddressBook.Seed(dst, archID, pos)
+		a.Table.SetIDSeeder(func(dst []uid.UID64, ptr unsafe.Pointer, slot colstore.Slot) {
+			m.AddressBook.Seed(dst, archID, ptr, slot)
 		})
 		if onArchetypeCreated != nil {
 			onArchetypeCreated(a)
@@ -39,7 +39,7 @@ func (m *Manager) Remove(id uid.UID64) bool {
 	if !ok {
 		return false
 	}
-	m.removeFromArchetype(id, entry.ArchId, entry.Pos)
+	m.removeFromArchetype(id, entry.ArchID, entry.ChunkPtr, entry.Slot)
 	return true
 }
 
@@ -60,19 +60,20 @@ func (m *Manager) UpsertComp(entityID uid.UID64, compDef comp.Def) (unsafe.Point
 		return nil, errInvalidEntity
 	}
 
-	targetArchID := entry.ArchId
-	targetPos := entry.Pos
+	targetArchID := entry.ArchID
+	targetPtr := entry.ChunkPtr
+	targetSlot := entry.Slot
 
-	if !m.ArchCatalog.Archetypes[entry.ArchId].Mask().IsSet(compDef.ID) {
-		targetArchID = m.ArchCatalog.EnsureEdgeNext(compDef, entry.ArchId)
-		targetPos = m.migrateEntity(entityID, entry.ArchId, entry.Pos, targetArchID)
+	if !m.ArchCatalog.Archetypes[entry.ArchID].Mask().IsSet(compDef.ID) {
+		targetArchID = m.ArchCatalog.EnsureEdgeNext(compDef, entry.ArchID)
+		targetPtr, targetSlot = m.migrateEntity(entityID, entry.ArchID, entry.ChunkPtr, entry.Slot, targetArchID)
 	}
 
 	if compDef.Size == 0 {
 		return nil, nil
 	}
 
-	return m.ArchCatalog.Archetypes[targetArchID].Table.ComponentAt(targetPos, compDef.ID), nil
+	return m.ArchCatalog.Archetypes[targetArchID].Table.ComponentAt(targetPtr, targetSlot, compDef.ID), nil
 }
 
 // RemoveComp removes the given component from the entity, migrating it to the
@@ -84,17 +85,17 @@ func (m *Manager) RemoveComp(entityID uid.UID64, compDef comp.Def) error {
 		return errInvalidEntity
 	}
 
-	if !m.ArchCatalog.Archetypes[entry.ArchId].Mask().IsSet(compDef.ID) {
+	if !m.ArchCatalog.Archetypes[entry.ArchID].Mask().IsSet(compDef.ID) {
 		return nil
 	}
 
-	targetArchID, shouldUnlink := m.ArchCatalog.EnsureEdgePrev(compDef, entry.ArchId)
+	targetArchID, shouldUnlink := m.ArchCatalog.EnsureEdgePrev(compDef, entry.ArchID)
 	if shouldUnlink {
-		m.removeFromArchetype(entityID, entry.ArchId, entry.Pos)
+		m.removeFromArchetype(entityID, entry.ArchID, entry.ChunkPtr, entry.Slot)
 		return nil
 	}
 
-	m.migrateEntity(entityID, entry.ArchId, entry.Pos, targetArchID)
+	m.migrateEntity(entityID, entry.ArchID, entry.ChunkPtr, entry.Slot, targetArchID)
 	return nil
 }
 
@@ -104,19 +105,19 @@ func (m *Manager) Reset() {
 	m.AddressBook.Reset()
 }
 
-func (m *Manager) removeFromArchetype(id uid.UID64, archID arch.ID, pos colstore.Pos) {
-	swappedEntity, swapped := m.ArchCatalog.RemoveEntity(archID, pos)
+func (m *Manager) removeFromArchetype(id uid.UID64, archID arch.ID, ptr unsafe.Pointer, slot colstore.Slot) {
+	swappedEntity, swapped := m.ArchCatalog.RemoveEntity(archID, ptr, slot)
 	if swapped {
-		m.AddressBook.Move(swappedEntity, archID, pos)
+		m.AddressBook.Move(swappedEntity, archID, ptr, slot)
 	}
 	m.AddressBook.Delete(id)
 }
 
-func (m *Manager) migrateEntity(id uid.UID64, srcArchID arch.ID, srcPos colstore.Pos, dstArchID arch.ID) colstore.Pos {
-	newPos, swappedEntity, swapped := m.ArchCatalog.MigrateEntity(id, srcArchID, srcPos, dstArchID)
+func (m *Manager) migrateEntity(id uid.UID64, srcArchID arch.ID, srcPtr unsafe.Pointer, srcSlot colstore.Slot, dstArchID arch.ID) (unsafe.Pointer, colstore.Slot) {
+	newPtr, newSlot, swappedEntityID, swapped := m.ArchCatalog.MigrateEntity(id, srcArchID, srcPtr, srcSlot, dstArchID)
 	if swapped {
-		m.AddressBook.Move(swappedEntity, srcArchID, srcPos)
+		m.AddressBook.Move(swappedEntityID, srcArchID, srcPtr, srcSlot)
 	}
-	m.AddressBook.Move(id, dstArchID, newPos)
-	return newPos
+	m.AddressBook.Move(id, dstArchID, newPtr, newSlot)
+	return newPtr, newSlot
 }

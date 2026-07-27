@@ -57,7 +57,7 @@ func Benchmark_Matcher_All(b *testing.B) {
 	matcher10 := ecs.NewQueryBuilder(&pos, &vel, &acc, &t04, &t05, &t06, &t07, &t08, &t09, &t10).Build()
 
 	var GlobalCount int
-	b.Run(fmt.Sprintf("pop=%d/0_comp", entitiesNumber), func(b *testing.B) {
+	b.Run(fmt.Sprintf("pop=%d/comp=0", entitiesNumber), func(b *testing.B) {
 		fn := func() {
 			count := 0
 			matcher0.All()
@@ -80,7 +80,7 @@ func Benchmark_Matcher_All(b *testing.B) {
 		}
 	})
 
-	b.Run(fmt.Sprintf("pop=%d/1_comp", entitiesNumber), func(b *testing.B) {
+	b.Run(fmt.Sprintf("pop=%d/comp=1", entitiesNumber), func(b *testing.B) {
 		cursor := matcher1.Cursor()
 		fn := func() {
 			count := 0
@@ -106,7 +106,7 @@ func Benchmark_Matcher_All(b *testing.B) {
 		}
 	})
 
-	b.Run(fmt.Sprintf("pop=%d/2_comp", entitiesNumber), func(b *testing.B) {
+	b.Run(fmt.Sprintf("pop=%d/comp=2", entitiesNumber), func(b *testing.B) {
 		cursor := matcher2.Cursor()
 		fn := func() {
 			matcher2.All()
@@ -128,7 +128,7 @@ func Benchmark_Matcher_All(b *testing.B) {
 		})
 	})
 
-	b.Run(fmt.Sprintf("pop=%d/3_comp", entitiesNumber), func(b *testing.B) {
+	b.Run(fmt.Sprintf("pop=%d/comp=3", entitiesNumber), func(b *testing.B) {
 		cursor := matcher3.Cursor()
 		fn := func() {
 			matcher3.All()
@@ -152,7 +152,7 @@ func Benchmark_Matcher_All(b *testing.B) {
 		})
 	})
 
-	b.Run(fmt.Sprintf("pop=%d/4_comp", entitiesNumber), func(b *testing.B) {
+	b.Run(fmt.Sprintf("pop=%d/comp=4", entitiesNumber), func(b *testing.B) {
 		cursor := matcher4.Cursor()
 		fn := func() {
 			matcher4.All()
@@ -178,7 +178,7 @@ func Benchmark_Matcher_All(b *testing.B) {
 		})
 	})
 
-	b.Run(fmt.Sprintf("pop=%d/5_comp", entitiesNumber), func(b *testing.B) {
+	b.Run(fmt.Sprintf("pop=%d/comp=5", entitiesNumber), func(b *testing.B) {
 		cursor := matcher5.Cursor()
 		fn := func() {
 			matcher5.All()
@@ -206,7 +206,7 @@ func Benchmark_Matcher_All(b *testing.B) {
 		})
 	})
 
-	b.Run(fmt.Sprintf("pop=%d/6_comp", entitiesNumber), func(b *testing.B) {
+	b.Run(fmt.Sprintf("pop=%d/comp=6", entitiesNumber), func(b *testing.B) {
 		cursor := matcher6.Cursor()
 		fn := func() {
 			matcher6.All()
@@ -236,7 +236,7 @@ func Benchmark_Matcher_All(b *testing.B) {
 		})
 	})
 
-	b.Run(fmt.Sprintf("pop=%d/7_comp", entitiesNumber), func(b *testing.B) {
+	b.Run(fmt.Sprintf("pop=%d/comp=7", entitiesNumber), func(b *testing.B) {
 		cursor := matcher7.Cursor()
 		fn := func() {
 			matcher7.All()
@@ -268,7 +268,7 @@ func Benchmark_Matcher_All(b *testing.B) {
 		})
 	})
 
-	b.Run(fmt.Sprintf("pop=%d/8_comp", entitiesNumber), func(b *testing.B) {
+	b.Run(fmt.Sprintf("pop=%d/comp=8", entitiesNumber), func(b *testing.B) {
 		cursor := matcher8.Cursor()
 		fn := func() {
 			matcher8.All()
@@ -302,7 +302,7 @@ func Benchmark_Matcher_All(b *testing.B) {
 		})
 	})
 
-	b.Run(fmt.Sprintf("pop=%d/9_comp", entitiesNumber), func(b *testing.B) {
+	b.Run(fmt.Sprintf("pop=%d/comp=9", entitiesNumber), func(b *testing.B) {
 		cursor := matcher9.Cursor()
 		fn := func() {
 			matcher9.All()
@@ -338,7 +338,7 @@ func Benchmark_Matcher_All(b *testing.B) {
 		})
 	})
 
-	b.Run(fmt.Sprintf("pop=%d/10_comp", entitiesNumber), func(b *testing.B) {
+	b.Run(fmt.Sprintf("pop=%d/comp=10", entitiesNumber), func(b *testing.B) {
 		cursor := matcher10.Cursor()
 		fn := func() {
 			matcher10.All()
