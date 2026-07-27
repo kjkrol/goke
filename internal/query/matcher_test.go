@@ -52,6 +52,38 @@ func TestMatcher_AllAfterClear(t *testing.T) {
 	}
 }
 
+func TestMatcher_ChunkSnapshot(t *testing.T) {
+	cat, cc, em := newQueryCatalog()
+
+	var accessSpec comp.AccessSpec
+	accessSpec.Init(cc, comp.Track(new(iter.ArrayRef[iterPos])))
+	f := em.CreateFactory(accessSpec)
+	f.Create(2)
+	f.Next()
+
+	m := NewMatcher(cat, comp.Track(new(iter.ArrayRef[iterPos])))
+	m.All()
+	if !m.Next() {
+		t.Fatal("expected at least one chunk to iterate")
+	}
+
+	snap := m.ChunkSnapshot()
+
+	bt := &m.BakedTables[m.tableIdx]
+	if snap.ArchID != bt.ArchID {
+		t.Errorf("expected ArchID %v, got %v", bt.ArchID, snap.ArchID)
+	}
+	if snap.ChunkPtr != m.Cursor.Base {
+		t.Errorf("expected ChunkPtr to match Cursor.Base %v, got %v", m.Cursor.Base, snap.ChunkPtr)
+	}
+	if int(snap.ChunkIdx) != m.chunkIdx {
+		t.Errorf("expected ChunkIdx %d, got %d", m.chunkIdx, snap.ChunkIdx)
+	}
+	if snap.TableVer != bt.Table.Version() {
+		t.Errorf("expected TableVer %d, got %d", bt.Table.Version(), snap.TableVer)
+	}
+}
+
 func TestMatcher_InitPanicsOnConflict(t *testing.T) {
 	cat, _, _ := newQueryCatalog()
 

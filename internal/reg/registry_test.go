@@ -6,6 +6,7 @@ import (
 
 	"github.com/kjkrol/uid"
 
+	"github.com/kjkrol/goke/v2/internal/bulk"
 	"github.com/kjkrol/goke/v2/internal/comp"
 	"github.com/kjkrol/goke/v2/internal/ent"
 	"github.com/kjkrol/goke/v2/internal/query"
@@ -157,6 +158,46 @@ func TestRegistry_CreateEditor(t *testing.T) {
 
 	if got := *vel.At(&editor.Cursor); got.VX != 5 {
 		t.Errorf("expected written VX 5, got %v", got)
+	}
+}
+
+func TestRegistry_CreateMigrator(t *testing.T) {
+	r := newRegistry(t)
+	r.RegComp(reflect.TypeFor[Position]())
+	r.RegComp(reflect.TypeFor[Velocity]())
+
+	var pos iter.ArrayRef[Position]
+	factory := r.CreateFactory(comp.Add(&pos))
+	factory.Create(2)
+	var ids []uid.UID64
+	for factory.Next() {
+		ids = append(ids, factory.IDs...)
+	}
+
+	entry0, ok := r.EntityManager.AddressBook.Get(ids[0])
+	if !ok {
+		t.Fatal("expected entity to be present in AddressBook")
+	}
+	srcTable := &r.EntityManager.ArchCatalog.Archetypes[entry0.ArchID].Table
+
+	var vel iter.ArrayRef[Velocity]
+	migrator := r.CreateMigrator(comp.Add(&vel))
+
+	snap := bulk.ChunkSnapshot{
+		ArchID:      entry0.ArchID,
+		ChunkPtr:    entry0.ChunkPtr,
+		ChunkIdx:    srcTable.ChunkIdxByPtr(entry0.ChunkPtr),
+		TableVer:    srcTable.Version(),
+		SlotAligned: true,
+	}
+	migrator.Migrate(snap, ids)
+
+	entryAfter, ok := r.EntityManager.AddressBook.Get(ids[0])
+	if !ok {
+		t.Fatal("entity missing after migration")
+	}
+	if entryAfter.ArchID == entry0.ArchID {
+		t.Error("expected entity to move to a new archetype after Migrate")
 	}
 }
 
