@@ -84,7 +84,11 @@ func (r *Registry) Reset() {
 }
 
 func validateConst() {
-	if arch.HashSize == 0 || (arch.HashSize&(arch.HashSize-1)) != 0 {
+	if !isPowerOfTwo(arch.HashSize) {
 		panic("CRITICAL: HashSize must be a power of 2!")
 	}
+}
+
+func isPowerOfTwo(n uint64) bool {
+	return n > 0 && n&(n-1) == 0
 }

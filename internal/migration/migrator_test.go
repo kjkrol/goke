@@ -483,6 +483,48 @@ func TestMigrator_Migrate_StaleVersion_RevalidatesEntities(t *testing.T) {
 	}
 }
 
+func TestMigrator_Migrate_StaleVersion_AllEntitiesDead_NoOp(t *testing.T) {
+	// Every id captured in the snapshot is removed before Migrate runs — the
+	// version bump forces the stale-path revalidation, which finds none of
+	// them alive. valid stays 0, and Migrate must return without applying
+	// anything (no panic, no address-book or table side effects).
+	m := newMgr()
+	var mi comp.DefIndex
+	mi.Init()
+	posDef, _ := internDefs(&mi)
+
+	var accessSpec comp.AccessSpec
+	_ = accessSpec.Comp(posDef)
+	ids := spawnAll(m, accessSpec, 3)
+
+	entry0, _ := m.AddressBook.Get(ids[0])
+	srcArchID := entry0.ArchID
+	srcTable := &m.ArchCatalog.Archetypes[srcArchID].Table
+
+	var editSpec comp.EditSpec
+	editSpec.Init(&mi, comp.Add(new(iter.ArrayRef[mVelocity])))
+	migrator := migration.New(&m.AddressBook, &m.ArchCatalog, editSpec)
+
+	snap := bulk.ChunkSnapshot{
+		ArchID:      srcArchID,
+		ChunkPtr:    entry0.ChunkPtr,
+		ChunkIdx:    srcTable.ChunkIdxByPtr(entry0.ChunkPtr),
+		TableVer:    srcTable.Version(),
+		SlotAligned: true,
+	}
+	for _, id := range ids {
+		if !m.Remove(id) {
+			t.Fatalf("failed to remove %v", id)
+		}
+	}
+
+	migrator.Migrate(snap, ids)
+
+	if got := srcTable.Len(); got != 0 {
+		t.Errorf("src Table.Len = %d; expected 0", got)
+	}
+}
+
 func TestMigrator_Migrate_MultiSrcArch_PerChunkCalls(t *testing.T) {
 	// Entities from two different source archetypes migrate correctly when
 	// each chunk is applied by its own Migrate call — as the CmdBuf does

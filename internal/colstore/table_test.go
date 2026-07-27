@@ -61,6 +61,42 @@ func TestTable_LenTracking(t *testing.T) {
 	}
 }
 
+func TestTable_Version_BumpsOnCompact(t *testing.T) {
+	defs := []comp.Def{{ID: 1, Size: 8, Align: 8}}
+	tbl := newTestTable(t, defs)
+	baked := tbl.BakeColumns(defs)
+	cur := newCursor(1)
+	tbl.SpawnCursor(cur, 0, 3, baked)
+
+	before := tbl.Version()
+
+	ptr0 := tbl.ChunkPtrAt(0)
+	var d Defragmenter
+	d.Compact(tbl, []SlotRef{{Ptr: ptr0, Idx: 0, Slot: 0}})
+
+	if tbl.Version() != before+1 {
+		t.Errorf("expected Version to bump by 1 after Compact, got %d (was %d)", tbl.Version(), before)
+	}
+}
+
+func TestTable_ChunkIdxByPtr(t *testing.T) {
+	defs := []comp.Def{{ID: 1, Size: 8, Align: 8}}
+	tbl := newTestTable(t, defs)
+	baked := tbl.BakeColumns(defs)
+	chunkCap := int(tbl.chunkPack.Layout.ChunkCap)
+
+	cur := newCursor(1)
+	tbl.SpawnCursor(cur, 0, chunkCap, baked)
+	tbl.chunkPack.AddChunks(1)
+	cur2 := newCursor(1)
+	tbl.SpawnCursor(cur2, 1, 2, baked)
+
+	ptr1 := tbl.ChunkPtrAt(1)
+	if got := tbl.ChunkIdxByPtr(ptr1); got != 1 {
+		t.Errorf("expected ChunkIdxByPtr to return 1, got %d", got)
+	}
+}
+
 // --- AllocSlots ---
 
 func TestTable_AllocSlots_DoesNotSeedIDs(t *testing.T) {
