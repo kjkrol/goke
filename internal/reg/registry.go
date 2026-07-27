@@ -20,7 +20,7 @@ type Registry struct {
 }
 
 func (r *Registry) Init(cfg Config) {
-	validateConst()
+	validateConst(arch.HashSize)
 	r.CompDefIndex.Init()
 	r.MatcherCatalog.Init(&r.CompDefIndex, &r.EntityManager.AddressBook.Index, &r.EntityManager.ArchCatalog, cfg.Matcher)
 	r.EntityManager.Init(cfg.Entity, func(a *arch.Archetype) {
@@ -83,8 +83,8 @@ func (r *Registry) Reset() {
 	r.MatcherCatalog.Reset()
 }
 
-func validateConst() {
-	if !isPowerOfTwo(arch.HashSize) {
+func validateConst(hashSize uint64) {
+	if !isPowerOfTwo(hashSize) {
 		panic("CRITICAL: HashSize must be a power of 2!")
 	}
 }

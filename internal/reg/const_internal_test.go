@@ -22,11 +22,20 @@ func TestIsPowerOfTwo(t *testing.T) {
 	}
 }
 
-func TestValidateConst_DoesNotPanicForRealHashSize(t *testing.T) {
+func TestValidateConst_PowerOfTwo_DoesNotPanic(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil {
-			t.Errorf("validateConst() panicked unexpectedly: %v", r)
+			t.Errorf("validateConst(64) panicked unexpectedly: %v", r)
 		}
 	}()
-	validateConst()
+	validateConst(64)
+}
+
+func TestValidateConst_NotPowerOfTwo_Panics(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected validateConst(6) to panic")
+		}
+	}()
+	validateConst(6)
 }
