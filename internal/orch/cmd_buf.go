@@ -31,22 +31,31 @@ type massMigrateCmd struct {
 	ids      []uid.UID64
 }
 
+type massMigrateValueCmd struct {
+	migrator bulk.ValueMigrator
+	snap     bulk.ChunkSnapshot
+	ids      []uid.UID64
+	payload  unsafe.Pointer
+}
+
 const allocBlockSize = 4096
 
 // CmdBuf queues deferred commands, backing their payloads with a linear
 // page allocator so registration never heap-allocates once warm.
 type CmdBuf struct {
-	cmds     []bufferedCmd
-	massCmds []massMigrateCmd
-	pages    [][]byte
-	pageIdx  int
-	offset   int
+	cmds          []bufferedCmd
+	massCmds      []massMigrateCmd
+	massValueCmds []massMigrateValueCmd
+	pages         [][]byte
+	pageIdx       int
+	offset        int
 }
 
 func (cb *CmdBuf) Clear() {
 	clear(cb.cmds)
 	cb.cmds = cb.cmds[:0]
 	cb.massCmds = cb.massCmds[:0]
+	cb.massValueCmds = cb.massValueCmds[:0]
 
 	for i := 0; i <= cb.pageIdx; i++ {
 		if i < len(cb.pages) {
@@ -119,9 +128,37 @@ func (cb *CmdBuf) MassMigrate(migrator bulk.Migrator, snap bulk.ChunkSnapshot, i
 	cb.massCmds = append(cb.massCmds, massMigrateCmd{migrator: migrator, snap: snap, ids: copied})
 }
 
+// MassMigrateInit records a bulk migration like MassMigrate, additionally
+// reserving n*elemSize bytes (aligned to align) in the page pool for the
+// caller to fill with per-id values for the migrator's added component — the
+// returned pointer is uninitialized, written into by the caller, and read
+// back at Sync when migrator.MigrateWithValue runs.
+func (cb *CmdBuf) MassMigrateInit(migrator bulk.ValueMigrator, snap bulk.ChunkSnapshot, ids []uid.UID64, elemSize, align uintptr) unsafe.Pointer {
+	n := len(ids)
+	if n == 0 {
+		return nil
+	}
+	snap.SlotAligned = unsafe.Pointer(&ids[0]) == snap.ChunkPtr
+	var u uid.UID64
+	idPtr := cb.reserveSpace(n*int(unsafe.Sizeof(u)), int(unsafe.Alignof(u)))
+	copiedIDs := unsafe.Slice((*uid.UID64)(idPtr), n)
+	copy(copiedIDs, ids)
+
+	var payloadPtr unsafe.Pointer
+	if elemSize > 0 {
+		payloadPtr = cb.reserveSpace(n*int(elemSize), int(align))
+	}
+
+	cb.massValueCmds = append(cb.massValueCmds, massMigrateValueCmd{
+		migrator: migrator, snap: snap, ids: copiedIDs, payload: payloadPtr,
+	})
+	return payloadPtr
+}
+
 func (cb *CmdBuf) reset() {
 	cb.cmds = cb.cmds[:0]
 	cb.massCmds = cb.massCmds[:0]
+	cb.massValueCmds = cb.massValueCmds[:0]
 	cb.pageIdx = 0
 	cb.offset = 0
 }

@@ -27,3 +27,11 @@ type ChunkSnapshot struct {
 type Migrator interface {
 	Migrate(snap ChunkSnapshot, ids []uid.UID64)
 }
+
+// ValueMigrator is satisfied by any type that can apply a bulk archetype
+// migration to a batch of entity IDs from a single source chunk, writing
+// payload (n elements of a caller-known type, one per id) into the newly
+// added column as part of the same migration.
+type ValueMigrator interface {
+	MigrateWithValue(snap ChunkSnapshot, ids []uid.UID64, payload unsafe.Pointer)
+}

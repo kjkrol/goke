@@ -56,24 +56,9 @@ func New(book *addr.Book, catalog *arch.Catalog, spec comp.EditSpec) *Migrator {
 	return m
 }
 
-// resolve computes and memoizes the destination archetype for srcArchID by
-// jumping straight to the target composition — no edge-graph waypoints, so
-// coexisting wide migrators cannot cross-multiply intermediate archetypes.
+// resolve computes and memoizes the destination archetype for srcArchID.
 func (m *Migrator) resolve(srcArchID arch.ID) arch.ID {
-	set := m.archCatalog.Archetypes[srcArchID].Composition()
-	for i := range m.spec.AddDefs {
-		d := m.spec.AddDefs[i]
-		if !set.Mask.IsSet(d.ID) {
-			set = set.With(d)
-		}
-	}
-	for i := range m.spec.DelDefs {
-		set = set.Without(m.spec.DelDefs[i].ID)
-	}
-	target := arch.NullID
-	if !set.Mask.IsEmpty() {
-		target = m.archCatalog.Upsert(set)
-	}
+	target := resolveDst(m.archCatalog, m.spec, srcArchID)
 	m.dst[srcArchID] = target
 	return target
 }
@@ -84,7 +69,7 @@ func (m *Migrator) Migrate(snap bulk.ChunkSnapshot, ids []uid.UID64) {
 		return
 	}
 	srcTable := &m.archCatalog.Archetypes[snap.ArchID].Table
-	validIDs, slotRefs := resolveSlotRefs(m.addrBook, srcTable, snap, ids, &m.scratch.ids, &m.scratch.slotRefs)
+	validIDs, slotRefs := resolveSlotRefs(m.addrBook, srcTable, snap, ids, &m.scratch.ids, &m.scratch.slotRefs, nil)
 	if len(validIDs) == 0 {
 		return
 	}

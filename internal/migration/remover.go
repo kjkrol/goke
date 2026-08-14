@@ -37,7 +37,7 @@ func (r *Remover) Migrate(snap bulk.ChunkSnapshot, ids []uid.UID64) {
 		return
 	}
 	srcTable := &r.archCatalog.Archetypes[snap.ArchID].Table
-	validIDs, slotRefs := resolveSlotRefs(r.addrBook, srcTable, snap, ids, &r.scratch.ids, &r.scratch.slotRefs)
+	validIDs, slotRefs := resolveSlotRefs(r.addrBook, srcTable, snap, ids, &r.scratch.ids, &r.scratch.slotRefs, nil)
 	if len(validIDs) == 0 {
 		return
 	}
