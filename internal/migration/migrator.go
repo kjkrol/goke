@@ -79,58 +79,16 @@ func (m *Migrator) resolve(srcArchID arch.ID) arch.ID {
 }
 
 // Migrate moves ids out of the single source chunk described by snap.
-// While snap.TableVer still matches, every id is alive at its captured
-// position: SlotAligned synthesizes the slots outright, otherwise one
-// unchecked Slot read per id suffices. On a version mismatch every id is
-// revalidated against the address book; dead or relocated-away ids are skipped.
 func (m *Migrator) Migrate(snap bulk.ChunkSnapshot, ids []uid.UID64) {
-	n := len(ids)
-	if n == 0 {
+	if len(ids) == 0 {
 		return
 	}
 	srcTable := &m.archCatalog.Archetypes[snap.ArchID].Table
-	m.scratch.slotRefs = growTo(m.scratch.slotRefs, n)
-
-	if snap.TableVer == srcTable.Version() {
-		if snap.SlotAligned {
-			for i := range n {
-				m.scratch.slotRefs[i] = colstore.SlotRef{Ptr: snap.ChunkPtr, Idx: snap.ChunkIdx, Slot: colstore.Slot(i)}
-			}
-		} else {
-			for i, id := range ids {
-				m.scratch.slotRefs[i] = colstore.SlotRef{
-					Ptr:  snap.ChunkPtr,
-					Idx:  snap.ChunkIdx,
-					Slot: m.addrBook.Index.GetUnchecked(id).Slot,
-				}
-			}
-		}
-		m.applyGroup(snap.ArchID, ids, m.scratch.slotRefs[:n])
+	validIDs, slotRefs := resolveSlotRefs(m.addrBook, srcTable, snap, ids, &m.scratch.ids, &m.scratch.slotRefs)
+	if len(validIDs) == 0 {
 		return
 	}
-
-	// Version mismatch: something mutated the table since capture.
-	m.scratch.ids = growTo(m.scratch.ids, n)
-	var lastPtr unsafe.Pointer
-	var lastIdx colstore.Idx
-	valid := 0
-	for _, id := range ids {
-		entry, ok := m.addrBook.Get(id)
-		if !ok || entry.ArchID != snap.ArchID {
-			continue
-		}
-		if entry.ChunkPtr != lastPtr {
-			lastPtr = entry.ChunkPtr
-			lastIdx = srcTable.ChunkIdxByPtr(lastPtr)
-		}
-		m.scratch.ids[valid] = id
-		m.scratch.slotRefs[valid] = colstore.SlotRef{Ptr: entry.ChunkPtr, Idx: lastIdx, Slot: entry.Slot}
-		valid++
-	}
-	if valid == 0 {
-		return
-	}
-	m.applyGroup(snap.ArchID, m.scratch.ids[:valid], m.scratch.slotRefs[:valid])
+	m.applyGroup(snap.ArchID, validIDs, slotRefs)
 }
 
 // applyGroup migrates ids to the pre-resolved destination in two phases —
@@ -141,12 +99,14 @@ func (m *Migrator) Migrate(snap bulk.ChunkSnapshot, ids []uid.UID64) {
 // from the compaction's SlotMove list.
 func (m *Migrator) applyGroup(srcArchID arch.ID, ids []uid.UID64, slotRefs []colstore.SlotRef) {
 	n := len(ids)
+	srcTable := &m.archCatalog.Archetypes[srcArchID].Table
+
 	dstArchID := m.dst[srcArchID]
 	if dstArchID == unresolvedID {
 		dstArchID = m.resolve(srcArchID)
 	}
 	if dstArchID == arch.NullID {
-		m.removeAll(srcArchID, ids, slotRefs)
+		removeBatch(m.addrBook, &m.defrag, srcArchID, srcTable, ids, slotRefs)
 		return
 	}
 	if dstArchID == srcArchID {
@@ -156,7 +116,6 @@ func (m *Migrator) applyGroup(srcArchID arch.ID, ids []uid.UID64, slotRefs []col
 		return
 	}
 
-	srcTable := &m.archCatalog.Archetypes[srcArchID].Table
 	dstTable := &m.archCatalog.Archetypes[dstArchID].Table
 
 	firstIdx, firstAvailable, chunkCap := dstTable.ReserveSlots(n)
@@ -211,26 +170,4 @@ func (m *Migrator) applyGroup(srcArchID arch.ID, ids []uid.UID64, slotRefs []col
 	for _, sm := range srcMoves {
 		m.addrBook.MoveUnchecked(sm.ID, srcArchID, sm.NewPtr, sm.NewSlot)
 	}
-}
-
-// removeAll removes the entities outright and recycles their IDs — the
-// unlink case, where the spec leaves no components.
-func (m *Migrator) removeAll(srcArchID arch.ID, ids []uid.UID64, srcPositions []colstore.SlotRef) {
-	srcTable := &m.archCatalog.Archetypes[srcArchID].Table
-	for i, id := range ids {
-		src := srcPositions[i]
-		swapped, didSwap := srcTable.RemoveAt(src.Ptr, src.Slot)
-		if didSwap {
-			m.addrBook.Move(swapped, srcArchID, src.Ptr, src.Slot)
-		}
-		m.addrBook.Delete(id)
-	}
-}
-
-// growTo returns s resized to n elements, reallocating only when needed.
-func growTo[T any](s []T, n int) []T {
-	if cap(s) >= n {
-		return s[:n]
-	}
-	return make([]T, n)
 }

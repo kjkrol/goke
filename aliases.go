@@ -52,6 +52,12 @@ type (
 	// call via CmdBufMassMigrate inside a system to defer bulk migration to Sync.
 	Migrator = migration.Migrator
 
+	// Remover bulk-removes whole entities from a batch sharing the same source
+	// archetype, compacting the source table in one batched pass instead of a
+	// per-entity swap-and-pop. Create once via NewRemover; call via
+	// CmdBufMassRemove inside a system to defer bulk removal to Sync.
+	Remover = migration.Remover
+
 	// EditOpt configures an Editor's structural change — Add or Del a component —
 	// moving the entity to a different archetype. (Opt, by contrast, only accesses
 	// components within an entity's existing structure.)

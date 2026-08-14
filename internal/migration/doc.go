@@ -1,24 +1,35 @@
-// Package migration implements bulk archetype migration for batches of entities.
+// Package migration implements bulk archetype migration for batches of
+// entities, sharing one hard contract between [Migrator] and [Remover]:
 //
-// It is the batch counterpart of [ent.Editor]: where Editor migrates one entity
-// at a time with immediate swap-and-pop compaction, [Migrator] defers compaction
-// until the full batch is known, enabling block-level column copies and a
-// single homogeneous pass of address-index updates per batch.
+// Callers must pass ids in chunk-iteration order — one call per chunk, ids
+// as returned by Query.Next()/Cursor().IDs. Every efficiency gain below
+// depends on it; passing ids in arbitrary order silently degrades both
+// types to per-entity cost with no error raised.
+//
+// That contract buys three things, in resolveSlotRefs and
+// Defragmenter.Compact (both shared code, used by Migrator and Remover
+// alike):
+//
+//  1. The SlotAligned fast path skips addr.Book entirely — it assumes the
+//     batch is the *whole* unchanged chunk and synthesizes slot = 0..n-1.
+//  2. The slow path (source table changed since snapshot) still amortizes:
+//     consecutive ids sharing a chunk reuse one ChunkIdxByPtr lookup instead
+//     of paying it per entity.
+//  3. Compact receives slot-ordered holes, so it can detect contiguous runs
+//     and take modeAllMigrate/modeChunkSwap instead of the per-slot
+//     modeSlotLevel fallback.
 //
 // # Migrator
 //
-// [Migrator] applies a fixed set of structural changes — adding and removing
-// components — to a batch of entities that all share the same source archetype.
-// The destination archetype is resolved lazily on the first migration from a
-// given source and memoized in a flat array: the target composition is computed
-// directly from masks, creating no intermediate edge-graph archetypes, so
-// coexisting migrators cannot cross-multiply the archetype catalog.
+// Applies a fixed set of component adds/removes to a batch sharing one
+// source archetype. The destination archetype is resolved once per source
+// (O(1) array read after that) and memoized — computed directly from masks,
+// so it never creates intermediate edge-graph archetypes.
 //
-//  1. Look up source → destination archetype (O(1) array read, resolved once).
-//  2. Move bytes: copy component data in contiguous runs from source columns
-//     to destination columns, then compact the source archetype knowing all
-//     hole positions upfront.
-//  3. Update the address book in one pass: destination positions recomputed
-//     arithmetically from per-chunk geometry, relocated survivors from the
-//     compaction's move list.
+// # Remover
+//
+// Migrator's removal-only counterpart: no destination archetype, so no
+// bytes move. It reuses Migrator's id resolution and compaction step
+// (resolveSlotRefs, removeBatch) — the same code that backs Migrator's own
+// full-unlink case (every component removed).
 package migration

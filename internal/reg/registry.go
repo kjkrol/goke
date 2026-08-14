@@ -77,6 +77,10 @@ func (r *Registry) CreateMigrator(opts ...comp.EditOpt) *migration.Migrator {
 	return migration.New(&r.EntityManager.AddressBook, &r.EntityManager.ArchCatalog, spec)
 }
 
+func (r *Registry) CreateRemover() *migration.Remover {
+	return migration.NewRemover(&r.EntityManager.AddressBook, &r.EntityManager.ArchCatalog)
+}
+
 func (r *Registry) Reset() {
 	r.EntityManager.Reset()
 	r.CompDefIndex.Reset()
