@@ -3,6 +3,7 @@ package reg_test
 import (
 	"reflect"
 	"testing"
+	"unsafe"
 
 	"github.com/kjkrol/uid"
 
@@ -199,6 +200,99 @@ func TestRegistry_CreateMigrator(t *testing.T) {
 	if entryAfter.ArchID == entry0.ArchID {
 		t.Error("expected entity to move to a new archetype after Migrate")
 	}
+}
+
+func TestRegistry_CreateRemover(t *testing.T) {
+	r := newRegistry(t)
+	r.RegComp(reflect.TypeFor[Position]())
+
+	var pos iter.ArrayRef[Position]
+	factory := r.CreateFactory(comp.Add(&pos))
+	factory.Create(2)
+	var ids []uid.UID64
+	for factory.Next() {
+		ids = append(ids, factory.IDs...)
+	}
+
+	entry0, ok := r.EntityManager.AddressBook.Get(ids[0])
+	if !ok {
+		t.Fatal("expected entity to be present in AddressBook")
+	}
+	srcTable := &r.EntityManager.ArchCatalog.Archetypes[entry0.ArchID].Table
+
+	remover := r.CreateRemover()
+
+	snap := bulk.ChunkSnapshot{
+		ArchID:      entry0.ArchID,
+		ChunkPtr:    entry0.ChunkPtr,
+		ChunkIdx:    srcTable.ChunkIdxByPtr(entry0.ChunkPtr),
+		TableVer:    srcTable.Version(),
+		SlotAligned: true,
+	}
+	remover.Migrate(snap, ids)
+
+	for _, id := range ids {
+		if _, ok := r.EntityManager.AddressBook.Get(id); ok {
+			t.Errorf("entity %v: expected removed by Remover, still present", id)
+		}
+	}
+}
+
+func TestRegistry_CreateValueMigrator(t *testing.T) {
+	r := newRegistry(t)
+	r.RegComp(reflect.TypeFor[Position]())
+	r.RegComp(reflect.TypeFor[Velocity]())
+
+	var pos iter.ArrayRef[Position]
+	factory := r.CreateFactory(comp.Add(&pos))
+	factory.Create(2)
+	var ids []uid.UID64
+	for factory.Next() {
+		ids = append(ids, factory.IDs...)
+	}
+
+	entry0, ok := r.EntityManager.AddressBook.Get(ids[0])
+	if !ok {
+		t.Fatal("expected entity to be present in AddressBook")
+	}
+	srcTable := &r.EntityManager.ArchCatalog.Archetypes[entry0.ArchID].Table
+
+	var vel iter.ArrayRef[Velocity]
+	vm := r.CreateValueMigrator(comp.Add(&vel))
+
+	if got := vm.ValueType(); got != reflect.TypeFor[Velocity]() {
+		t.Errorf("ValueType() = %v; want %v", got, reflect.TypeFor[Velocity]())
+	}
+
+	snap := bulk.ChunkSnapshot{
+		ArchID:      entry0.ArchID,
+		ChunkPtr:    entry0.ChunkPtr,
+		ChunkIdx:    srcTable.ChunkIdxByPtr(entry0.ChunkPtr),
+		TableVer:    srcTable.Version(),
+		SlotAligned: true,
+	}
+	values := []Velocity{{VX: 1, VY: 1}, {VX: 2, VY: 2}}
+	vm.MigrateWithValue(snap, ids, unsafe.Pointer(unsafe.SliceData(values)))
+
+	entryAfter, ok := r.EntityManager.AddressBook.Get(ids[0])
+	if !ok {
+		t.Fatal("entity missing after MigrateWithValue")
+	}
+	if entryAfter.ArchID == entry0.ArchID {
+		t.Error("expected entity to move to a new archetype after MigrateWithValue")
+	}
+}
+
+func TestRegistry_CreateValueMigrator_PanicsOnNotExactlyOneAdd(t *testing.T) {
+	r := newRegistry(t)
+	r.RegComp(reflect.TypeFor[Position]())
+
+	defer func() {
+		if recover() == nil {
+			t.Fatal("expected panic when no component is added")
+		}
+	}()
+	r.CreateValueMigrator()
 }
 
 func TestRegistry_Reset(t *testing.T) {
