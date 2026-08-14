@@ -58,6 +58,12 @@ type (
 	// CmdBufMassRemove inside a system to defer bulk removal to Sync.
 	Remover = migration.Remover
 
+	// ValueMigrator is Migrator's value-carrying counterpart: it adds exactly
+	// one component and lets the caller write a per-entity value for it,
+	// computed at enqueue time and applied at Sync alongside the migration.
+	// Create once via NewValueMigratorBuilder; call via CmdBufMassMigrateInit.
+	ValueMigrator = migration.ValueMigrator
+
 	// EditOpt configures an Editor's structural change — Add or Del a component —
 	// moving the entity to a different archetype. (Opt, by contrast, only accesses
 	// components within an entity's existing structure.)

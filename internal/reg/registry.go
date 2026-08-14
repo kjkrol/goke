@@ -81,6 +81,15 @@ func (r *Registry) CreateRemover() *migration.Remover {
 	return migration.NewRemover(&r.EntityManager.AddressBook, &r.EntityManager.ArchCatalog)
 }
 
+func (r *Registry) CreateValueMigrator(opts ...comp.EditOpt) *migration.ValueMigrator {
+	var spec comp.EditSpec
+	spec.Init(&r.CompDefIndex, opts...)
+	if len(spec.AddDefs) != 1 {
+		panic("goke: ValueMigrator requires exactly one added component")
+	}
+	return migration.NewValueMigrator(&r.EntityManager.AddressBook, &r.EntityManager.ArchCatalog, spec)
+}
+
 func (r *Registry) Reset() {
 	r.EntityManager.Reset()
 	r.CompDefIndex.Reset()
