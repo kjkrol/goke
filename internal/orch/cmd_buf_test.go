@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/kjkrol/goke/v2/internal/bulk"
 	"github.com/kjkrol/goke/v2/internal/comp"
@@ -194,6 +195,131 @@ func TestCmdBuf_Clear_ResetsMassCmds(t *testing.T) {
 
 	if len(cb.massCmds) != 0 {
 		t.Errorf("expected massCmds empty after Clear, got %d", len(cb.massCmds))
+	}
+}
+
+// --- MassMigrateInit ---
+
+type stubValueMigrator struct {
+	applyCalls int
+	got        []uid.UID64
+	gotPayload unsafe.Pointer
+}
+
+func (s *stubValueMigrator) MigrateWithValue(_ bulk.ChunkSnapshot, ids []uid.UID64, payload unsafe.Pointer) {
+	s.applyCalls++
+	s.got = append(s.got, ids...)
+	s.gotPayload = payload
+}
+
+func TestCmdBuf_MassMigrateInit_QueuesCommand(t *testing.T) {
+	cb := NewCmdBuf()
+	m := &stubValueMigrator{}
+
+	ptr := cb.MassMigrateInit(m, bulk.ChunkSnapshot{}, []uid.UID64{1, 2, 3}, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0)))
+
+	if len(cb.massValueCmds) != 1 {
+		t.Fatalf("expected 1 massMigrateValueCmd, got %d", len(cb.massValueCmds))
+	}
+	if len(cb.massValueCmds[0].ids) != 3 {
+		t.Errorf("expected 3 ids in queued cmd, got %d", len(cb.massValueCmds[0].ids))
+	}
+	if ptr == nil {
+		t.Error("expected a non-nil reserved payload pointer for a positive elemSize")
+	}
+	if cb.massValueCmds[0].payload != ptr {
+		t.Error("queued cmd's payload must be the same pointer returned to the caller")
+	}
+}
+
+func TestCmdBuf_MassMigrateInit_CopiesIDs(t *testing.T) {
+	cb := NewCmdBuf()
+	m := &stubValueMigrator{}
+	ids := []uid.UID64{10, 20, 30}
+
+	cb.MassMigrateInit(m, bulk.ChunkSnapshot{}, ids, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0)))
+	ids[0] = 99
+
+	if cb.massValueCmds[0].ids[0] != 10 {
+		t.Errorf("MassMigrateInit must copy ids; mutated original changed queued value to %v", cb.massValueCmds[0].ids[0])
+	}
+}
+
+func TestCmdBuf_MassMigrateInit_Empty_NoCommand(t *testing.T) {
+	cb := NewCmdBuf()
+	m := &stubValueMigrator{}
+
+	if ptr := cb.MassMigrateInit(m, bulk.ChunkSnapshot{}, nil, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0))); ptr != nil {
+		t.Error("expected nil payload pointer for a nil id slice")
+	}
+	cb.MassMigrateInit(m, bulk.ChunkSnapshot{}, []uid.UID64{}, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0)))
+
+	if len(cb.massValueCmds) != 0 {
+		t.Errorf("expected no commands for empty id slices, got %d", len(cb.massValueCmds))
+	}
+}
+
+func TestCmdBuf_MassMigrateInit_ZeroElemSize_NoPayloadReserved(t *testing.T) {
+	cb := NewCmdBuf()
+	m := &stubValueMigrator{}
+
+	ptr := cb.MassMigrateInit(m, bulk.ChunkSnapshot{}, []uid.UID64{1, 2}, 0, 1)
+
+	if ptr != nil {
+		t.Error("expected nil payload pointer when elemSize is 0 (zero-sized added component)")
+	}
+	if len(cb.massValueCmds) != 1 {
+		t.Fatalf("expected the command to still be queued (ids matter even with no payload), got %d", len(cb.massValueCmds))
+	}
+}
+
+func TestCmdBuf_Clear_ResetsMassValueCmds(t *testing.T) {
+	cb := NewCmdBuf()
+	m := &stubValueMigrator{}
+	cb.MassMigrateInit(m, bulk.ChunkSnapshot{}, []uid.UID64{1, 2}, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0)))
+
+	cb.Clear()
+
+	if len(cb.massValueCmds) != 0 {
+		t.Errorf("expected massValueCmds empty after Clear, got %d", len(cb.massValueCmds))
+	}
+}
+
+type massMigrateInitTestSystem struct {
+	migrator bulk.ValueMigrator
+	batches  [][]uid.UID64
+}
+
+func (s *massMigrateInitTestSystem) Update(cb *CmdBuf, d time.Duration) {
+	for _, batch := range s.batches {
+		cb.MassMigrateInit(s.migrator, bulk.ChunkSnapshot{}, batch, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0)))
+	}
+}
+
+func TestScheduler_Sync_AppliesMassMigrateInitCmds(t *testing.T) {
+	var registry reg.Registry
+	registry.Init(reg.Config{
+		Entity:  ent.Config{Cap: 10, FreeCap: 10},
+		Matcher: query.Config{Cap: 4},
+	})
+	sched := NewScheduler(&registry)
+
+	m := &stubValueMigrator{}
+	sys := &massMigrateInitTestSystem{migrator: m, batches: [][]uid.UID64{{1, 2, 3}}}
+	sched.Register(sys)
+	sched.Run(sys, 0)
+
+	if err := sched.Sync(); err != nil {
+		t.Fatalf("Sync failed: %v", err)
+	}
+	if m.applyCalls != 1 {
+		t.Errorf("expected MigrateWithValue called once, got %d", m.applyCalls)
+	}
+	if len(m.got) != 3 {
+		t.Errorf("expected 3 ids passed to MigrateWithValue, got %d", len(m.got))
+	}
+	if m.gotPayload == nil {
+		t.Error("expected a non-nil payload pointer to reach MigrateWithValue")
 	}
 }
 
