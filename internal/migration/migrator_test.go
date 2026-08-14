@@ -43,7 +43,7 @@ func spawnAll(m *ent.Manager, spec comp.AccessSpec, n int) []uid.UID64 {
 // applyByChunks groups consecutive ids by their current (ArchID, Ptr) and calls
 // Migrate once per group — mirroring how ids arrive from Query.All()
 // iteration in production, where each MassMigrate command covers one chunk.
-func applyByChunks(m *ent.Manager, mig *migration.Migrator, ids []uid.UID64) {
+func applyByChunks(m *ent.Manager, mig bulk.Migrator, ids []uid.UID64) {
 	for start := 0; start < len(ids); {
 		entry, ok := m.AddressBook.Get(ids[start])
 		if !ok {
@@ -247,6 +247,57 @@ func TestMigrator_Migrate_Unlink_RemovesEntitiesFromBook(t *testing.T) {
 		if _, ok := m.AddressBook.Get(id); ok {
 			t.Errorf("entity %v should be unlinked but still exists in addr.Book", id)
 		}
+	}
+}
+
+func TestMigrator_Migrate_Unlink_PartialRemoval_SurvivorsConsistent(t *testing.T) {
+	// Unlinking only some of a chunk's entities (not the whole table) must
+	// batch-compact the source table correctly, leaving survivors addressable
+	// at consistent, distinct positions — the shape removeAll used to handle
+	// via a per-id RemoveAt loop, now via a single Defragmenter.Compact call.
+	m := newMgr()
+	var mi comp.DefIndex
+	mi.Init()
+	posDef, _ := internDefs(&mi)
+
+	var accessSpec comp.AccessSpec
+	_ = accessSpec.Comp(posDef)
+	ids := spawnAll(m, accessSpec, 5) // ids[0..4] seeded at slots 0..4
+
+	entry0, _ := m.AddressBook.Get(ids[0])
+	srcArchID := entry0.ArchID
+
+	var editSpec comp.EditSpec
+	editSpec.Init(&mi, comp.Del[mPosition]())
+	migrator := migration.New(&m.AddressBook, &m.ArchCatalog, editSpec)
+
+	applyByChunks(m, migrator, []uid.UID64{ids[0], ids[2], ids[4]})
+
+	if got := m.ArchCatalog.Archetypes[srcArchID].Table.Len(); got != 2 {
+		t.Errorf("src Table.Len = %d; expected 2", got)
+	}
+	for _, id := range []uid.UID64{ids[0], ids[2], ids[4]} {
+		if _, ok := m.AddressBook.Get(id); ok {
+			t.Errorf("entity %v should be unlinked but still exists in addr.Book", id)
+		}
+	}
+
+	entry1, ok1 := m.AddressBook.Get(ids[1])
+	if !ok1 {
+		t.Fatal("ids[1] missing from addr.Book after partial unlink")
+	}
+	if entry1.ArchID != srcArchID {
+		t.Errorf("ids[1]: ArchID = %d; expected srcArch %d", entry1.ArchID, srcArchID)
+	}
+	entry3, ok3 := m.AddressBook.Get(ids[3])
+	if !ok3 {
+		t.Fatal("ids[3] missing from addr.Book after partial unlink")
+	}
+	if entry3.ArchID != srcArchID {
+		t.Errorf("ids[3]: ArchID = %d; expected srcArch %d", entry3.ArchID, srcArchID)
+	}
+	if entry1.ChunkPtr == entry3.ChunkPtr && entry1.Slot == entry3.Slot {
+		t.Errorf("ids[1] and ids[3] share the same position ptr=%v slot=%d after compaction", entry1.ChunkPtr, entry1.Slot)
 	}
 }
 
