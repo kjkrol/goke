@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/kjkrol/goke/v2/internal/comp"
+	"github.com/kjkrol/goke/v3/internal/comp"
 )
 
 func newDefIndex() comp.DefIndex {

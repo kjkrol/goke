@@ -1,7 +1,7 @@
 package bench_test
 
 import (
-	"github.com/kjkrol/goke/v2"
+	"github.com/kjkrol/goke/v3"
 )
 
 type Tag1 struct{}

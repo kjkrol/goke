@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/kjkrol/goke/v2/internal/comp"
-	"github.com/kjkrol/goke/v2/iter"
+	"github.com/kjkrol/goke/v3/internal/comp"
+	"github.com/kjkrol/goke/v3/iter"
 )
 
 func TestEditOpt_Add(t *testing.T) {

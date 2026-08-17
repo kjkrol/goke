@@ -6,7 +6,7 @@
   <a href="https://go.dev">
     <img src="https://img.shields.io/badge/Go-1.26+-00ADD8?style=flat-square&logo=go" alt="Go Version">
   </a>
-  <a href="https://pkg.go.dev/github.com/kjkrol/goke/v2">
+  <a href="https://pkg.go.dev/github.com/kjkrol/goke/v3">
     <img src="https://img.shields.io/badge/GoDoc-Reference-007d9c?style=flat-square&logo=go" alt="GoDoc">
   </a>
   <a href="https://opensource.org/licenses/MIT">
@@ -73,7 +73,7 @@ integration costs can outweigh the gains of a faster foreign implementation.
 GOKe requires **Go 1.26** or newer.
 
 ```bash
-go get github.com/kjkrol/goke/v2
+go get github.com/kjkrol/goke/v3
 ```
 
 <a id="features"></a>
@@ -131,7 +131,8 @@ make bench
 
 # Real-World Example
 
-The following demo showcases a simple collision simulation built with GOKe and Ebitengine.
+The following demo showcases a simple collision simulation built with GOKe and Ebitengine, via
+the [**gokebiten**](https://github.com/kjkrol/gokebiten) companion repository.
 
 It simulates thousands of moving AABBs while maintaining a fixed 120 TPS update loop using archetype-based storage, cache-friendly iteration, and parallel systems.
 
@@ -152,7 +153,7 @@ It simulates thousands of moving AABBs while maintaining a fixed 120 TPS update 
   </thead>
 </table>
 
-> Source code: [examples/ebiten-demo](examples/ebiten-demo/main.go)
+> Source code: [gokebiten/examples/collision-demo](https://github.com/kjkrol/gokebiten/tree/main/examples/collision-demo)
 
 <a id="example"></a>
 # Example
@@ -165,7 +166,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kjkrol/goke/v2"
+	"github.com/kjkrol/goke/v3"
 	"github.com/kjkrol/uid"
 )
 
@@ -281,7 +282,6 @@ GOKe is an archetype-based ECS built around data-oriented design principles. The
 # 🗺️ Roadmap
 Current development focus and planned improvements:
 
-* **Ebitengine Integration:** Dedicated helpers for seamless state synchronization between GOKe systems and Ebitengine's loop — partially prototyped in the [ebiten-demo](./examples/ebiten-demo/main.go), with the goal of extracting it into a separate companion repository.
 * **Entity Relations via Tags:** Extend the Tag system to model relationships between entities (parent-child, links, ownership, ...) — adding relational semantics on top of the existing archetype-mask machinery, without sacrificing the zero-allocation hot loop.
 
 > **Live Feature Tracker**
@@ -305,6 +305,6 @@ GOKe is licensed under the MIT License. See the LICENSE [file](./LICENSE) for mo
 
 <a id="documentation"></a>
 # 📖 Documentation
-* **API Reference**: Detailed documentation and examples are available on [**pkg.go.dev**](https://pkg.go.dev/github.com/kjkrol/goke/v2).
+* **API Reference**: Detailed documentation and examples are available on [**pkg.go.dev**](https://pkg.go.dev/github.com/kjkrol/goke/v3).
 * **Wiki & Guides**: For a step-by-step deep dive into building your first simulation, check the [**Getting Started with GOKe**](https://github.com/kjkrol/goke/wiki/Getting-Started-with-GOKe) guide.
 * **Internal Mechanics**: For a technical breakdown of the engine's core, check the `doc.go` files within the `internal` packages.

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kjkrol/goke/v2"
+	"github.com/kjkrol/goke/v3"
 )
 
 // Benchmark_Remover_Remove is the bulk counterpart of Benchmark_Remove: the

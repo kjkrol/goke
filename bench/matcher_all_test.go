@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kjkrol/goke/v2"
+	"github.com/kjkrol/goke/v3"
 )
 
 // Benchmark_Matcher_All measures full chunk iteration via Matcher.All()/Next(),

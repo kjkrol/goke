@@ -5,9 +5,9 @@ import (
 
 	"github.com/kjkrol/uid"
 
-	"github.com/kjkrol/goke/v2/internal/bulk"
-	"github.com/kjkrol/goke/v2/internal/comp"
-	"github.com/kjkrol/goke/v2/internal/ent"
+	"github.com/kjkrol/goke/v3/internal/bulk"
+	"github.com/kjkrol/goke/v3/internal/comp"
+	"github.com/kjkrol/goke/v3/internal/ent"
 )
 
 func TestRemover_Migrate_Empty_IsNoOp(t *testing.T) {

@@ -11,8 +11,9 @@
   * Coordination of multiple systems.
   * Concurrent execution using `RunParallel`.
   * Handling structural changes via **Command Buffer** and explicit **Sync points**.
-* [**Ebiten Demo**](./ebiten-demo/main.go) – **Graphics Integration & Spatial Physics**:
-  * Real-time rendering using [Ebitengine](https://github.com/kjkrol/gokg).
-  * High-performance spatial management using [GOKg](https://github.com/kjkrol/gokg).
-  * Custom physics pipeline: **Velocity Inversion** is processed strictly before **Position Compensation** to ensure boundary stability.
-  * **Note**: Run `make` inside the example directory to fetch dependencies and start the demo.
+
+For a full graphics/physics integration example — real-time rendering via
+[Ebitengine](https://ebitengine.org/), spatial management via [GOKg](https://github.com/kjkrol/gokg),
+collision detection and resolution — see the companion repository
+[**gokebiten**](https://github.com/kjkrol/gokebiten) and its
+[collision-demo](https://github.com/kjkrol/gokebiten/tree/main/examples/collision-demo).

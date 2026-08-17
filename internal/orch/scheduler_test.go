@@ -10,8 +10,8 @@ import (
 
 	"github.com/kjkrol/uid"
 
-	"github.com/kjkrol/goke/v2/internal/bulk"
-	"github.com/kjkrol/goke/v2/internal/comp"
+	"github.com/kjkrol/goke/v3/internal/bulk"
+	"github.com/kjkrol/goke/v3/internal/comp"
 )
 
 // mockMutator is a controllable Mutator for testing Scheduler/CmdBuf

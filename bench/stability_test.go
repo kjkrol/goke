@@ -3,7 +3,7 @@ package bench_test
 import (
 	"testing"
 
-	"github.com/kjkrol/goke/v2"
+	"github.com/kjkrol/goke/v3"
 	"github.com/kjkrol/uid"
 )
 

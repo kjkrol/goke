@@ -3,10 +3,10 @@ package goke
 import (
 	"github.com/kjkrol/uid"
 
-	"github.com/kjkrol/goke/v2/internal/bulk"
-	"github.com/kjkrol/goke/v2/internal/comp"
-	"github.com/kjkrol/goke/v2/internal/query"
-	"github.com/kjkrol/goke/v2/iter"
+	"github.com/kjkrol/goke/v3/internal/bulk"
+	"github.com/kjkrol/goke/v3/internal/comp"
+	"github.com/kjkrol/goke/v3/internal/query"
+	"github.com/kjkrol/goke/v3/iter"
 )
 
 // Query matches entities by component mask and provides three access
@@ -142,7 +142,7 @@ func (b *MigrateBuf) Commit(op bulk.Migrator) {
 
 // CommitRemove queues whole-entity removal for every id staged since
 // BeginMigrate, using the shared Remover — no object to build or pass, same
-// as cb.Remove.
+// as cb.RemoveOne.
 func (b *MigrateBuf) CommitRemove() {
 	b.cb.raw.CommitReserved(b.cb.raw.Remover(), b.snap, b.ids)
 }

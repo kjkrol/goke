@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kjkrol/goke/v2"
+	"github.com/kjkrol/goke/v3"
 )
 
 // Benchmark_ValueEditor_Add is the value-carrying counterpart of

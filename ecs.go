@@ -6,8 +6,8 @@ import (
 
 	"github.com/kjkrol/uid"
 
-	"github.com/kjkrol/goke/v2/internal/orch"
-	"github.com/kjkrol/goke/v2/internal/reg"
+	"github.com/kjkrol/goke/v3/internal/orch"
+	"github.com/kjkrol/goke/v3/internal/reg"
 )
 
 var _ orch.Mutator = (*reg.Registry)(nil)

@@ -7,12 +7,12 @@ import (
 
 	"github.com/kjkrol/uid"
 
-	"github.com/kjkrol/goke/v2/internal/bulk"
-	"github.com/kjkrol/goke/v2/internal/comp"
-	"github.com/kjkrol/goke/v2/internal/ent"
-	"github.com/kjkrol/goke/v2/internal/query"
-	"github.com/kjkrol/goke/v2/internal/reg"
-	"github.com/kjkrol/goke/v2/iter"
+	"github.com/kjkrol/goke/v3/internal/bulk"
+	"github.com/kjkrol/goke/v3/internal/comp"
+	"github.com/kjkrol/goke/v3/internal/ent"
+	"github.com/kjkrol/goke/v3/internal/query"
+	"github.com/kjkrol/goke/v3/internal/reg"
+	"github.com/kjkrol/goke/v3/iter"
 )
 
 func TestDefaultConfig(t *testing.T) {

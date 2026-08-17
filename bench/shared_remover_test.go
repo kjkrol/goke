@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kjkrol/goke/v2"
+	"github.com/kjkrol/goke/v3"
 )
 
 // enqueueRemoveSubset returns a system that iterates q chunk by chunk and

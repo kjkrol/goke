@@ -8,7 +8,7 @@ import (
 
 	"github.com/kjkrol/uid"
 
-	"github.com/kjkrol/goke/v2/internal/comp"
+	"github.com/kjkrol/goke/v3/internal/comp"
 )
 
 // TestLayout_CacheSetConflictsDuringIteration simulates the iteration

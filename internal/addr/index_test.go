@@ -6,8 +6,8 @@ import (
 
 	"github.com/kjkrol/uid"
 
-	"github.com/kjkrol/goke/v2/internal/arch"
-	"github.com/kjkrol/goke/v2/internal/colstore"
+	"github.com/kjkrol/goke/v3/internal/arch"
+	"github.com/kjkrol/goke/v3/internal/colstore"
 )
 
 func newPool() uid.UID64Pool {

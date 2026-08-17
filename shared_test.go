@@ -1,7 +1,7 @@
 package goke_test
 
 import (
-	"github.com/kjkrol/goke/v2"
+	"github.com/kjkrol/goke/v3"
 	"github.com/kjkrol/uid"
 )
 

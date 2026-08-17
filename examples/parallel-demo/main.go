@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/kjkrol/goke/v2"
+	"github.com/kjkrol/goke/v3"
 	"github.com/kjkrol/uid"
 )
 

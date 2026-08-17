@@ -3,10 +3,10 @@ package ent
 import (
 	"github.com/kjkrol/uid"
 
-	"github.com/kjkrol/goke/v2/internal/arch"
-	"github.com/kjkrol/goke/v2/internal/colstore"
-	"github.com/kjkrol/goke/v2/internal/comp"
-	"github.com/kjkrol/goke/v2/iter"
+	"github.com/kjkrol/goke/v3/internal/arch"
+	"github.com/kjkrol/goke/v3/internal/colstore"
+	"github.com/kjkrol/goke/v3/internal/comp"
+	"github.com/kjkrol/goke/v3/iter"
 )
 
 // Factory bulk-spawns entities for a single archetype using a chunk-based iterator.

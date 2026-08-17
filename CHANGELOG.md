@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-08-17
+
+### Breaking Changes ⚠️
+* **Module path changed to `github.com/kjkrol/goke/v3`** (required by Go modules for a breaking major release). Update your import: `import "github.com/kjkrol/goke/v3"`, and `go get github.com/kjkrol/goke/v3`.
+* **`Query`, `Editor`, `ValueEditor`, and `Factory` can no longer be constructed directly on `*ECS`.** `ECS.NewQueryBuilder`/`ECS.NewFactory`/`ECS.NewEditorBuilder`/`ECS.NewValueEditorBuilder` are all removed. Construction now flows exclusively through systems:
+  * `SysInit` — passed to `System.Init`, or obtained via the new one-time `ecs.Setup` — is the only way to get `NewQueryBuilder`/`NewFactory`.
+  * `Editor`/`ValueEditor` are built from an already-obtained `*Query` instead: `ecs.NewEditorBuilder(comps...)` → `query.NewEditorBuilder(comps...)` (same for `NewValueEditorBuilder`). This reflects that both apply to the entities `query` matches.
+  * Using an already-built `Query`/`Factory`/`Editor`/`ValueEditor` (`.All`/`.Seek`/`.Create`/`.Next`/etc.) is unaffected — the restriction is on construction, not use.
+* **`System.Init` signature changed**: `Init(*ECS)` → `Init(*SysInit)`.
+* **`SystemFn` is no longer a bare function type.** `type SystemFn func(*CmdBuf, time.Duration)` is now a struct — `SystemFn{OnInit func(*SysInit), OnUpdate func(*CmdBuf, time.Duration)}` — set as a composite literal instead of a function value, and implementing `System` directly. **`ECS.RegSysFn` is removed**; register a functional system with `ecs.RegSys(goke.SystemFn{OnUpdate: fn})` instead — one registration entry point for both stateful and functional systems.
+* **`Editor`'s semantics changed from immediate, single-entity mutation to deferred, batch mutation.** The `NewEditorBuilder(comps...).Delete(...).Build()` → apply-per-entity pattern from 2.x is gone. `Editor` (built via `query.NewEditorBuilder(comps...).Remove(...).Build()`) now migrates whole chunks captured during `Query.All` iteration in one pass: stage ids via `query.BeginMigrate(cb)`/`MigrateBuf.Add(id)`, then `MigrateBuf.Commit(editor)` — the batch applies at the next `Sync`, with block column copies and deferred hole compaction instead of per-entity moves.
+* **`Del[T]()` renamed to `Remove[T]()`** as the verb for structural removal, matching `EditorBuilder.Remove(...)`.
+
+### Added ✨
+* **`ECS.Setup(systems ...System)`** — runs each given system exactly once, in order: `Init`, then `Update`, then `Sync`, fully applying one system's effects (including deferred structural changes) before the next one's `Init` runs. The sanctioned way to do one-time world seeding — a later system in the list can query and edit entities spawned by an earlier one. Callable only once per `ECS` lifetime; `Reset` starts a new one and allows another `Setup` call.
+* **`Remover`** — bulk, whole-entity removal sharing `Editor`'s batch mechanism: `query.BeginMigrate(cb)`/`MigrateBuf.Add(id)`/`MigrateBuf.CommitRemove()`. No object to build — the shared instance is wired in automatically.
+* **`ValueEditor`** — `Editor`'s value-carrying counterpart: adds exactly one component and lets the caller write a per-entity value for it (`CmdBufAddCompValue`), computed during the same `Query.All` iteration that stages the batch.
+* **`Factory.SpawnAll(count) []uid.UID64`** — spawns `count` entities in one call, driving `Create`/`Next` internally, for callers that only need the resulting IDs.
+* **`SysInit.ECS()`** — an escape hatch back to `*ECS` from inside `Init`, for calling `RegComp` lazily (idempotent, safe to call repeatedly) where a component type is only known at first use rather than registered upfront.
+
+### Removed
+* **`examples/ebiten-demo`** — the Ebitengine integration layer (the `gokebiten` package: `Game`, `Resources`, input handling, kinematics, collision detection/resolution, rendering) and its collision-simulation demo have moved to their own repository, [**gokebiten**](https://github.com/kjkrol/gokebiten) (demo at `examples/collision-demo`), so the integration can evolve and version independently of goke's core. See the Real-World Example section of the README.
+
+### Internal
+* `internal/migration` merged into `internal/ent` — `Editor`/`Remover`/`ValueEditor` now live alongside `Manager`/`Factory` in one package. The two were always siblings at the same dependency layer with zero type-level coupling between them, so this is a pure consolidation.
+
 ## [2.1.0] - 2026-06-25
 
 ### Breaking Changes ⚠️

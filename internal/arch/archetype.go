@@ -1,8 +1,8 @@
 package arch
 
 import (
-	"github.com/kjkrol/goke/v2/internal/colstore"
-	"github.com/kjkrol/goke/v2/internal/comp"
+	"github.com/kjkrol/goke/v3/internal/colstore"
+	"github.com/kjkrol/goke/v3/internal/comp"
 )
 
 type ID uint16

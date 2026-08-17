@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/kjkrol/goke/v2/internal/arch"
-	"github.com/kjkrol/goke/v2/internal/comp"
+	"github.com/kjkrol/goke/v3/internal/arch"
+	"github.com/kjkrol/goke/v3/internal/comp"
 )
 
 type (

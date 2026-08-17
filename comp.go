@@ -1,8 +1,8 @@
 package goke
 
 import (
-	"github.com/kjkrol/goke/v2/internal/comp"
-	"github.com/kjkrol/goke/v2/iter"
+	"github.com/kjkrol/goke/v3/internal/comp"
+	"github.com/kjkrol/goke/v3/iter"
 )
 
 // Comp gives typed read/write access to a component's value, and declares

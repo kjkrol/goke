@@ -4,7 +4,7 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/kjkrol/goke/v2/internal/chunk"
+	"github.com/kjkrol/goke/v3/internal/chunk"
 )
 
 func TestColumn_Base(t *testing.T) {

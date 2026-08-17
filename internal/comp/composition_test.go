@@ -3,7 +3,7 @@ package comp_test
 import (
 	"testing"
 
-	"github.com/kjkrol/goke/v2/internal/comp"
+	"github.com/kjkrol/goke/v3/internal/comp"
 )
 
 func TestComposition_With(t *testing.T) {

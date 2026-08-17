@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kjkrol/goke/v2"
+	"github.com/kjkrol/goke/v3"
 )
 
 // --- Components (Disjoint sets) ---

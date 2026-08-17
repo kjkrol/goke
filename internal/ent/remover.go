@@ -3,10 +3,10 @@ package ent
 import (
 	"github.com/kjkrol/uid"
 
-	"github.com/kjkrol/goke/v2/internal/addr"
-	"github.com/kjkrol/goke/v2/internal/arch"
-	"github.com/kjkrol/goke/v2/internal/bulk"
-	"github.com/kjkrol/goke/v2/internal/colstore"
+	"github.com/kjkrol/goke/v3/internal/addr"
+	"github.com/kjkrol/goke/v3/internal/arch"
+	"github.com/kjkrol/goke/v3/internal/bulk"
+	"github.com/kjkrol/goke/v3/internal/colstore"
 )
 
 // Remover removes whole entities in bulk from a batch sharing the same

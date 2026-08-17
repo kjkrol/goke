@@ -3,7 +3,7 @@ package goke
 import (
 	"github.com/kjkrol/uid"
 
-	"github.com/kjkrol/goke/v2/internal/orch"
+	"github.com/kjkrol/goke/v3/internal/orch"
 )
 
 // CmdBuf queues deferred structural changes during a tick, applied at the

@@ -25,7 +25,7 @@ import (
 //
 // github.com/kjkrol/uid is an external module; listed explicitly per package.
 
-const module = "github.com/kjkrol/goke/v2"
+const module = "github.com/kjkrol/goke/v3"
 const uidPkg = "github.com/kjkrol/uid"
 
 var depRules = map[string][]string{

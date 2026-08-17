@@ -3,7 +3,7 @@ package goke
 import (
 	"time"
 
-	"github.com/kjkrol/goke/v2/internal/orch"
+	"github.com/kjkrol/goke/v3/internal/orch"
 )
 
 // Runnable is an opaque handle returned by RegSys — pass it to

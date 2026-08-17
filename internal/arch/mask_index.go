@@ -1,6 +1,6 @@
 package arch
 
-import "github.com/kjkrol/goke/v2/internal/comp"
+import "github.com/kjkrol/goke/v3/internal/comp"
 
 const (
 	// HashSize is 2×MaxID (load factor ≤50%) and must stay a power of 2 —
