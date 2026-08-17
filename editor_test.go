@@ -9,26 +9,32 @@ import (
 )
 
 // TestEditorBuilder_AddComponent exercises the public Editor API end to
-// end: NewEditorBuilder(comps...).Build(), applied via Query.BeginMigrate
-// inside a system's Update, applied at Sync.
+// end: query.NewEditorBuilder(comps...).Build(), applied via
+// Query.BeginMigrate inside a system's Update, applied at Sync.
 func TestEditorBuilder_AddComponent(t *testing.T) {
 	ecs := goke.New()
 	_ = goke.RegComp[Position](ecs)
 	_ = goke.RegComp[Velocity](ecs)
 
 	var pos goke.Comp[Position]
-	factory := ecs.NewFactory(&pos)
-	factory.Create(2)
-	var ids []uid.UID64
-	for factory.Next() {
-		ids = append(ids, factory.IDs...)
-	}
-
 	var vel goke.Comp[Velocity]
-	query := ecs.NewQueryBuilder(&pos).Exclude(goke.Exclude[Velocity]()).Build()
-	addVel := ecs.NewEditorBuilder(&vel).Build()
+	var ids []uid.UID64
+	var query *goke.Query
+	var addVel *goke.Editor
+	var velQuery *goke.Query
+	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+		factory := si.NewFactory(&pos)
+		factory.Create(2)
+		for factory.Next() {
+			ids = append(ids, factory.IDs...)
+		}
 
-	sys := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
+		query = si.NewQueryBuilder(&pos).Exclude(goke.Exclude[Velocity]()).Build()
+		addVel = query.NewEditorBuilder(&vel).Build()
+		velQuery = si.NewQueryBuilder().Include(goke.Include[Velocity]()).Build()
+	}})
+
+	sys := ecs.RegSys(goke.SystemFn{OnUpdate: func(cb *goke.CmdBuf, d time.Duration) {
 		query.All()
 		for query.Next() {
 			cursor := query.Cursor()
@@ -41,7 +47,7 @@ func TestEditorBuilder_AddComponent(t *testing.T) {
 			}
 			buf.Commit(addVel)
 		}
-	})
+	}})
 	ecs.SetPlan(func(s goke.RunCtx, d time.Duration) {
 		s.Run(sys, d)
 		s.Sync()
@@ -50,14 +56,14 @@ func TestEditorBuilder_AddComponent(t *testing.T) {
 	ecs.Tick(time.Millisecond)
 
 	for _, id := range ids {
-		if !hasComp[Velocity](ecs, id) {
+		if !hasComp(velQuery, id) {
 			t.Errorf("entity %v: expected Velocity added via Editor", id)
 		}
 	}
 }
 
 // TestEditorBuilder_RemoveComponent exercises the Remove side: an Editor
-// built via NewEditorBuilder().Remove(...).Build() removes a component
+// built via query.NewEditorBuilder().Remove(...).Build() removes a component
 // from every matched entity.
 func TestEditorBuilder_RemoveComponent(t *testing.T) {
 	ecs := goke.New()
@@ -66,17 +72,24 @@ func TestEditorBuilder_RemoveComponent(t *testing.T) {
 
 	var pos goke.Comp[Position]
 	var vel goke.Comp[Velocity]
-	factory := ecs.NewFactory(&pos, &vel)
-	factory.Create(2)
 	var ids []uid.UID64
-	for factory.Next() {
-		ids = append(ids, factory.IDs...)
-	}
+	var query *goke.Query
+	var removeVel *goke.Editor
+	var velQuery, posQuery *goke.Query
+	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+		factory := si.NewFactory(&pos, &vel)
+		factory.Create(2)
+		for factory.Next() {
+			ids = append(ids, factory.IDs...)
+		}
 
-	query := ecs.NewQueryBuilder(&pos, &vel).Build()
-	removeVel := ecs.NewEditorBuilder().Remove(goke.Remove[Velocity]()).Build()
+		query = si.NewQueryBuilder(&pos, &vel).Build()
+		removeVel = query.NewEditorBuilder().Remove(goke.Remove[Velocity]()).Build()
+		velQuery = si.NewQueryBuilder().Include(goke.Include[Velocity]()).Build()
+		posQuery = si.NewQueryBuilder().Include(goke.Include[Position]()).Build()
+	}})
 
-	sys := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
+	sys := ecs.RegSys(goke.SystemFn{OnUpdate: func(cb *goke.CmdBuf, d time.Duration) {
 		query.All()
 		for query.Next() {
 			cursor := query.Cursor()
@@ -89,7 +102,7 @@ func TestEditorBuilder_RemoveComponent(t *testing.T) {
 			}
 			buf.Commit(removeVel)
 		}
-	})
+	}})
 	ecs.SetPlan(func(s goke.RunCtx, d time.Duration) {
 		s.Run(sys, d)
 		s.Sync()
@@ -98,10 +111,10 @@ func TestEditorBuilder_RemoveComponent(t *testing.T) {
 	ecs.Tick(time.Millisecond)
 
 	for _, id := range ids {
-		if hasComp[Velocity](ecs, id) {
+		if hasComp(velQuery, id) {
 			t.Errorf("entity %v: expected Velocity removed via Editor", id)
 		}
-		if !hasComp[Position](ecs, id) {
+		if !hasComp(posQuery, id) {
 			t.Errorf("entity %v: expected Position to remain", id)
 		}
 	}

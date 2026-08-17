@@ -37,65 +37,65 @@ func setupEditECS() *goke.ECS {
 	return ecs
 }
 
-func populateN(ecs *goke.ECS, count, n int) []uid.UID64 {
+func populateN(si *goke.SysInit, count, n int) []uid.UID64 {
 	var ids []uid.UID64
 	switch n {
 	case 1:
-		f := ecs.NewFactory(new(goke.Comp[Base]), new(goke.Comp[Pos]))
+		f := si.NewFactory(new(goke.Comp[Base]), new(goke.Comp[Pos]))
 		f.Create(count)
 		for f.Next() {
 			ids = append(ids, f.IDs...)
 		}
 	case 2:
-		f := ecs.NewFactory(new(goke.Comp[Base]), new(goke.Comp[Pos]), new(goke.Comp[Vel]))
+		f := si.NewFactory(new(goke.Comp[Base]), new(goke.Comp[Pos]), new(goke.Comp[Vel]))
 		f.Create(count)
 		for f.Next() {
 			ids = append(ids, f.IDs...)
 		}
 	case 3:
-		f := ecs.NewFactory(new(goke.Comp[Base]), new(goke.Comp[Pos]), new(goke.Comp[Vel]), new(goke.Comp[Acc]))
+		f := si.NewFactory(new(goke.Comp[Base]), new(goke.Comp[Pos]), new(goke.Comp[Vel]), new(goke.Comp[Acc]))
 		f.Create(count)
 		for f.Next() {
 			ids = append(ids, f.IDs...)
 		}
 	case 4:
-		f := ecs.NewFactory(new(goke.Comp[Base]), new(goke.Comp[Pos]), new(goke.Comp[Vel]), new(goke.Comp[Acc]), new(goke.Comp[T04]))
+		f := si.NewFactory(new(goke.Comp[Base]), new(goke.Comp[Pos]), new(goke.Comp[Vel]), new(goke.Comp[Acc]), new(goke.Comp[T04]))
 		f.Create(count)
 		for f.Next() {
 			ids = append(ids, f.IDs...)
 		}
 	case 5:
-		f := ecs.NewFactory(new(goke.Comp[Base]), new(goke.Comp[Pos]), new(goke.Comp[Vel]), new(goke.Comp[Acc]), new(goke.Comp[T04]), new(goke.Comp[T05]))
+		f := si.NewFactory(new(goke.Comp[Base]), new(goke.Comp[Pos]), new(goke.Comp[Vel]), new(goke.Comp[Acc]), new(goke.Comp[T04]), new(goke.Comp[T05]))
 		f.Create(count)
 		for f.Next() {
 			ids = append(ids, f.IDs...)
 		}
 	case 6:
-		f := ecs.NewFactory(new(goke.Comp[Base]), new(goke.Comp[Pos]), new(goke.Comp[Vel]), new(goke.Comp[Acc]), new(goke.Comp[T04]), new(goke.Comp[T05]), new(goke.Comp[T06]))
+		f := si.NewFactory(new(goke.Comp[Base]), new(goke.Comp[Pos]), new(goke.Comp[Vel]), new(goke.Comp[Acc]), new(goke.Comp[T04]), new(goke.Comp[T05]), new(goke.Comp[T06]))
 		f.Create(count)
 		for f.Next() {
 			ids = append(ids, f.IDs...)
 		}
 	case 7:
-		f := ecs.NewFactory(new(goke.Comp[Base]), new(goke.Comp[Pos]), new(goke.Comp[Vel]), new(goke.Comp[Acc]), new(goke.Comp[T04]), new(goke.Comp[T05]), new(goke.Comp[T06]), new(goke.Comp[T07]))
+		f := si.NewFactory(new(goke.Comp[Base]), new(goke.Comp[Pos]), new(goke.Comp[Vel]), new(goke.Comp[Acc]), new(goke.Comp[T04]), new(goke.Comp[T05]), new(goke.Comp[T06]), new(goke.Comp[T07]))
 		f.Create(count)
 		for f.Next() {
 			ids = append(ids, f.IDs...)
 		}
 	case 8:
-		f := ecs.NewFactory(new(goke.Comp[Base]), new(goke.Comp[Pos]), new(goke.Comp[Vel]), new(goke.Comp[Acc]), new(goke.Comp[T04]), new(goke.Comp[T05]), new(goke.Comp[T06]), new(goke.Comp[T07]), new(goke.Comp[T08]))
+		f := si.NewFactory(new(goke.Comp[Base]), new(goke.Comp[Pos]), new(goke.Comp[Vel]), new(goke.Comp[Acc]), new(goke.Comp[T04]), new(goke.Comp[T05]), new(goke.Comp[T06]), new(goke.Comp[T07]), new(goke.Comp[T08]))
 		f.Create(count)
 		for f.Next() {
 			ids = append(ids, f.IDs...)
 		}
 	case 9:
-		f := ecs.NewFactory(new(goke.Comp[Base]), new(goke.Comp[Pos]), new(goke.Comp[Vel]), new(goke.Comp[Acc]), new(goke.Comp[T04]), new(goke.Comp[T05]), new(goke.Comp[T06]), new(goke.Comp[T07]), new(goke.Comp[T08]), new(goke.Comp[T09]))
+		f := si.NewFactory(new(goke.Comp[Base]), new(goke.Comp[Pos]), new(goke.Comp[Vel]), new(goke.Comp[Acc]), new(goke.Comp[T04]), new(goke.Comp[T05]), new(goke.Comp[T06]), new(goke.Comp[T07]), new(goke.Comp[T08]), new(goke.Comp[T09]))
 		f.Create(count)
 		for f.Next() {
 			ids = append(ids, f.IDs...)
 		}
 	case 10:
-		f := ecs.NewFactory(new(goke.Comp[Base]), new(goke.Comp[Pos]), new(goke.Comp[Vel]), new(goke.Comp[Acc]), new(goke.Comp[T04]), new(goke.Comp[T05]), new(goke.Comp[T06]), new(goke.Comp[T07]), new(goke.Comp[T08]), new(goke.Comp[T09]), new(goke.Comp[T10]))
+		f := si.NewFactory(new(goke.Comp[Base]), new(goke.Comp[Pos]), new(goke.Comp[Vel]), new(goke.Comp[Acc]), new(goke.Comp[T04]), new(goke.Comp[T05]), new(goke.Comp[T06]), new(goke.Comp[T07]), new(goke.Comp[T08]), new(goke.Comp[T09]), new(goke.Comp[T10]))
 		f.Create(count)
 		for f.Next() {
 			ids = append(ids, f.IDs...)
@@ -142,12 +142,16 @@ func Benchmark_Editor_Mix(b *testing.B) {
 				fmt.Sprintf("pop=%d/subset=%d/comp=%d/swap=%d", entitiesNumber, subset, n+1, n),
 				subset,
 				func() (*goke.Query, *goke.Editor, goke.Runnable) {
-					populateN(ecs, entitiesNumber, n)
-					fwd := ecs.NewEditorBuilder(addE[:n]...).Remove(delComps[:n]...).Build()
-					rev := ecs.NewEditorBuilder(addComps[:n]...).Remove(delE[:n]...).Build()
-					migrateQ := ecs.NewQueryBuilder().Include(goke.Include[Pos]()).Build()
-					restoreQ := ecs.NewQueryBuilder().Include(goke.Include[E01]()).Build()
-					return migrateQ, fwd, ecs.RegSysFn(enqueueAll(restoreQ, rev))
+					var migrateQ, restoreQ *goke.Query
+					var fwd, rev *goke.Editor
+					ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+						populateN(si, entitiesNumber, n)
+						migrateQ = si.NewQueryBuilder().Include(goke.Include[Pos]()).Build()
+						restoreQ = si.NewQueryBuilder().Include(goke.Include[E01]()).Build()
+						fwd = migrateQ.NewEditorBuilder(addE[:n]...).Remove(delComps[:n]...).Build()
+						rev = restoreQ.NewEditorBuilder(addComps[:n]...).Remove(delE[:n]...).Build()
+					}})
+					return migrateQ, fwd, ecs.RegSys(enqueueAll(restoreQ, rev))
 				})
 		}
 	}

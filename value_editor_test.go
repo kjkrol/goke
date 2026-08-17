@@ -9,7 +9,7 @@ import (
 )
 
 // TestValueEditorBuilder_WritesPerEntityValue exercises the public
-// ValueEditor API end to end: NewValueEditorBuilder(comp).Build(),
+// ValueEditor API end to end: query.NewValueEditorBuilder(comp).Build(),
 // CmdBufAddCompValue called from inside a system's Update using
 // Query.ChunkSnapshot, values written into the returned slice, applied at
 // Sync — then read back afterward via a normal Query.
@@ -19,19 +19,25 @@ func TestValueEditorBuilder_WritesPerEntityValue(t *testing.T) {
 	_ = goke.RegComp[Velocity](ecs)
 
 	var pos goke.Comp[Position]
-	factory := ecs.NewFactory(&pos)
-	factory.Create(3)
-	var ids []uid.UID64
-	for factory.Next() {
-		ids = append(ids, factory.IDs...)
-	}
-
 	var vel goke.Comp[Velocity]
-	query := ecs.NewQueryBuilder(&pos).Exclude(goke.Exclude[Velocity]()).Build()
-	vm := ecs.NewValueEditorBuilder(&vel).Build()
+	var ids []uid.UID64
+	var query *goke.Query
+	var vm *goke.ValueEditor
+	var verifyQ *goke.Query
+	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+		factory := si.NewFactory(&pos)
+		factory.Create(3)
+		for factory.Next() {
+			ids = append(ids, factory.IDs...)
+		}
+
+		query = si.NewQueryBuilder(&pos).Exclude(goke.Exclude[Velocity]()).Build()
+		vm = query.NewValueEditorBuilder(&vel).Build()
+		verifyQ = si.NewQueryBuilder(&pos, &vel).Build()
+	}})
 
 	want := map[uid.UID64]Velocity{}
-	sys := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
+	sys := ecs.RegSys(goke.SystemFn{OnUpdate: func(cb *goke.CmdBuf, d time.Duration) {
 		query.All()
 		for query.Next() {
 			cursor := query.Cursor()
@@ -46,7 +52,7 @@ func TestValueEditorBuilder_WritesPerEntityValue(t *testing.T) {
 				want[id] = v
 			}
 		}
-	})
+	}})
 	ecs.SetPlan(func(s goke.RunCtx, d time.Duration) {
 		s.Run(sys, d)
 		s.Sync()
@@ -54,7 +60,6 @@ func TestValueEditorBuilder_WritesPerEntityValue(t *testing.T) {
 
 	ecs.Tick(time.Millisecond)
 
-	verifyQ := ecs.NewQueryBuilder(&pos, &vel).Build()
 	verifyQ.All()
 	got := map[uid.UID64]Velocity{}
 	for verifyQ.Next() {
@@ -91,19 +96,26 @@ func TestValueEditorBuilder_RemoveComponent(t *testing.T) {
 
 	var pos goke.Comp[Position]
 	var disc goke.Comp[Discount]
-	factory := ecs.NewFactory(&pos, &disc)
-	factory.Create(2)
-	var ids []uid.UID64
-	for factory.Next() {
-		ids = append(ids, factory.IDs...)
-	}
-
 	var vel goke.Comp[Velocity]
-	query := ecs.NewQueryBuilder(&pos, &disc).Build()
-	vm := ecs.NewValueEditorBuilder(&vel).Remove(goke.Remove[Discount]()).Build()
+	var ids []uid.UID64
+	var query *goke.Query
+	var vm *goke.ValueEditor
+	var discQuery, velQuery *goke.Query
+	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+		factory := si.NewFactory(&pos, &disc)
+		factory.Create(2)
+		for factory.Next() {
+			ids = append(ids, factory.IDs...)
+		}
+
+		query = si.NewQueryBuilder(&pos, &disc).Build()
+		vm = query.NewValueEditorBuilder(&vel).Remove(goke.Remove[Discount]()).Build()
+		discQuery = si.NewQueryBuilder().Include(goke.Include[Discount]()).Build()
+		velQuery = si.NewQueryBuilder().Include(goke.Include[Velocity]()).Build()
+	}})
 
 	want := map[uid.UID64]Velocity{}
-	sys := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
+	sys := ecs.RegSys(goke.SystemFn{OnUpdate: func(cb *goke.CmdBuf, d time.Duration) {
 		query.All()
 		for query.Next() {
 			cursor := query.Cursor()
@@ -118,7 +130,7 @@ func TestValueEditorBuilder_RemoveComponent(t *testing.T) {
 				want[id] = v
 			}
 		}
-	})
+	}})
 	ecs.SetPlan(func(s goke.RunCtx, d time.Duration) {
 		s.Run(sys, d)
 		s.Sync()
@@ -127,10 +139,10 @@ func TestValueEditorBuilder_RemoveComponent(t *testing.T) {
 	ecs.Tick(time.Millisecond)
 
 	for _, id := range ids {
-		if hasComp[Discount](ecs, id) {
+		if hasComp(discQuery, id) {
 			t.Errorf("entity %v: expected Discount removed via ValueEditor", id)
 		}
-		if !hasComp[Velocity](ecs, id) {
+		if !hasComp(velQuery, id) {
 			t.Errorf("entity %v: expected Velocity added via ValueEditor", id)
 		}
 	}
@@ -146,16 +158,20 @@ func TestValueEditorBuilder_MismatchedType_Panics(t *testing.T) {
 	_ = goke.RegComp[Velocity](ecs)
 
 	var pos goke.Comp[Position]
-	factory := ecs.NewFactory(&pos)
-	factory.Create(1)
-	for factory.Next() {
-	}
-
 	var vel goke.Comp[Velocity]
-	vm := ecs.NewValueEditorBuilder(&vel).Build()
-	query := ecs.NewQueryBuilder(&pos).Build()
+	var vm *goke.ValueEditor
+	var query *goke.Query
+	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+		factory := si.NewFactory(&pos)
+		factory.Create(1)
+		for factory.Next() {
+		}
 
-	sys := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
+		query = si.NewQueryBuilder(&pos).Build()
+		vm = query.NewValueEditorBuilder(&vel).Build()
+	}})
+
+	sys := ecs.RegSys(goke.SystemFn{OnUpdate: func(cb *goke.CmdBuf, d time.Duration) {
 		query.All()
 		for query.Next() {
 			cursor := query.Cursor()
@@ -165,7 +181,7 @@ func TestValueEditorBuilder_MismatchedType_Panics(t *testing.T) {
 			// pos does not match vm's own added component (Velocity) — must panic.
 			goke.CmdBufAddCompValue(cb, vm, &pos, query.ChunkSnapshot(), cursor.IDs)
 		}
-	})
+	}})
 	ecs.SetPlan(func(s goke.RunCtx, d time.Duration) {
 		s.Run(sys, d)
 		s.Sync()

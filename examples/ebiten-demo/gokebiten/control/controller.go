@@ -22,7 +22,7 @@ func (c *DefaultController) SetHandler(handler EventHandler) { c.handler = handl
 
 func (c *DefaultController) Capture(e *InputEvents) { c.adapter.Capture(e) }
 
-func (c *DefaultController) Init(*goke.ECS) {}
+func (c *DefaultController) Init(*goke.SysInit) {}
 
 func (c *DefaultController) Update(_ *goke.CmdBuf, _ time.Duration) {
 	if c.handler != nil {

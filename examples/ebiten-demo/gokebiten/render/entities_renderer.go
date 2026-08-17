@@ -30,8 +30,8 @@ func NewEntitiesRenderer(atlas AtlasSource, camera *Camera, exclude ...goke.Opt)
 	return &EntitiesRenderer{batch: newSpriteBatch(atlas, camera), exclude: exclude}
 }
 
-func (s *EntitiesRenderer) Init(ecs *goke.ECS) {
-	b := ecs.NewQueryBuilder(&s.pos, &s.appearance)
+func (s *EntitiesRenderer) Init(si *goke.SysInit) {
+	b := si.NewQueryBuilder(&s.pos, &s.appearance)
 	if len(s.exclude) > 0 {
 		b = b.Exclude(s.exclude...)
 	}

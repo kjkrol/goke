@@ -33,8 +33,8 @@ type WorkerSystem struct {
 	query *goke.Query
 }
 
-func (s *WorkerSystem) Init(eng *goke.ECS) {
-	s.query = eng.NewQueryBuilder().Include(goke.Include[Task]()).Build()
+func (s *WorkerSystem) Init(si *goke.SysInit) {
+	s.query = si.NewQueryBuilder().Include(goke.Include[Task]()).Build()
 }
 
 func (s *WorkerSystem) Update(schedule *goke.CmdBuf, duration time.Duration) {
@@ -52,8 +52,8 @@ type LoggerSystem struct {
 	Found bool
 }
 
-func (s *LoggerSystem) Init(eng *goke.ECS) {
-	s.query = eng.NewQueryBuilder().Include(goke.Include[Log]()).Build()
+func (s *LoggerSystem) Init(si *goke.SysInit) {
+	s.query = si.NewQueryBuilder().Include(goke.Include[Log]()).Build()
 }
 
 func (s *LoggerSystem) Update(schedule *goke.CmdBuf, duration time.Duration) {
@@ -80,10 +80,12 @@ func TestECS_SystemInteractions(t *testing.T) {
 		setupComponents(ecs)
 
 		var task goke.Comp[Task]
-		factory := ecs.NewFactory(&task)
-		factory.Create(1)
-		factory.Next()
-		task.Slice(&factory.Cursor)[0] = Task{Completed: false}
+		ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+			factory := si.NewFactory(&task)
+			factory.Create(1)
+			factory.Next()
+			task.Slice(&factory.Cursor)[0] = Task{Completed: false}
+		}})
 
 		worker := &WorkerSystem{}
 		logger := &LoggerSystem{}
@@ -109,10 +111,12 @@ func TestECS_SystemInteractions(t *testing.T) {
 		setupComponents(ecs)
 
 		var task goke.Comp[Task]
-		factory := ecs.NewFactory(&task)
-		factory.Create(1)
-		factory.Next()
-		task.Slice(&factory.Cursor)[0] = Task{Completed: false}
+		ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+			factory := si.NewFactory(&task)
+			factory.Create(1)
+			factory.Next()
+			task.Slice(&factory.Cursor)[0] = Task{Completed: false}
+		}})
 
 		worker := &WorkerSystem{}
 		logger := &LoggerSystem{}

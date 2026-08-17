@@ -20,9 +20,14 @@ func Benchmark_Remover_Remove(b *testing.B) {
 			fmt.Sprintf("pop=%d/subset=%d", entitiesNumber, subset),
 			subset,
 			func() (*goke.Query, func()) {
-				populate(ecs, entitiesNumber)
-				removeQ := ecs.NewQueryBuilder().Include(goke.Include[Pos]()).Build()
-				return removeQ, func() { populate(ecs, subset) }
+				var removeQ *goke.Query
+				var pop *populator
+				ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+					pop = newPopulator(si)
+					pop.spawn(entitiesNumber)
+					removeQ = si.NewQueryBuilder().Include(goke.Include[Pos]()).Build()
+				}})
+				return removeQ, func() { pop.spawn(subset) }
 			})
 	}
 }

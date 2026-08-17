@@ -36,7 +36,6 @@ type EntityExtras interface {
 
 // World owns the spatial index and population bookkeeping for one game.
 type World struct {
-	ecs          *goke.ECS
 	space        *gokg.Space
 	population   Population
 	spawnedCount int
@@ -76,8 +75,8 @@ func buildSpace(cfg Config, pop Population) *gokg.Space {
 }
 
 // NewWorld builds the spatial index from cfg, provisioned for pop.
-func NewWorld(ecs *goke.ECS, cfg Config, pop Population) *World {
-	return &World{ecs: ecs, space: buildSpace(cfg, pop), population: pop}
+func NewWorld(cfg Config, pop Population) *World {
+	return &World{space: buildSpace(cfg, pop), population: pop}
 }
 
 func (w *World) Space() *gokg.Space     { return w.space }
@@ -104,7 +103,7 @@ func (w *World) validateSize(id uid.UID64, pos kinematics.Position) {
 // Populate spawns count moving entities: Position and Velocity from
 // populators[0] (which must implement kinematics.Spawner), everything else
 // from the rest of populators.
-func (w *World) Populate(count int, telemetry *kinematics.Telemetry, populators ...EntityExtras) {
+func (w *World) Populate(si *goke.SysInit, count int, telemetry *kinematics.Telemetry, populators ...EntityExtras) {
 	if len(populators) == 0 {
 		panic("spatial: Populate requires a kinematics.Spawner as its first populator")
 	}
@@ -122,7 +121,7 @@ func (w *World) Populate(count int, telemetry *kinematics.Telemetry, populators 
 	for _, p := range populators {
 		comps = append(comps, p.Components()...)
 	}
-	factory := w.ecs.NewFactory(comps...)
+	factory := si.NewFactory(comps...)
 
 	factory.Create(count)
 	index := 0
@@ -148,7 +147,7 @@ func (w *World) Populate(count int, telemetry *kinematics.Telemetry, populators 
 // PopulateStatic spawns count entities with Position only — e.g. level
 // geometry that never moves — from populators[0] (which must implement
 // kinematics.Placement) and the rest of populators.
-func (w *World) PopulateStatic(count int, telemetry *kinematics.Telemetry, populators ...EntityExtras) {
+func (w *World) PopulateStatic(si *goke.SysInit, count int, telemetry *kinematics.Telemetry, populators ...EntityExtras) {
 	if len(populators) == 0 {
 		panic("spatial: PopulateStatic requires a kinematics.Placement as its first populator")
 	}
@@ -164,7 +163,7 @@ func (w *World) PopulateStatic(count int, telemetry *kinematics.Telemetry, popul
 	for _, p := range populators {
 		comps = append(comps, p.Components()...)
 	}
-	factory := w.ecs.NewFactory(comps...)
+	factory := si.NewFactory(comps...)
 
 	factory.Create(count)
 	index := 0

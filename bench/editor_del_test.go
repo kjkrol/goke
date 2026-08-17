@@ -12,7 +12,7 @@ import (
 // a Base anchor in the same Factory call, so removing all 10 tracked
 // components in the n==10 case never unlinks the entity — no retrofit pass
 // needed after the fact.
-func populateWithBase(ecs *goke.ECS, count int) []uid.UID64 {
+func populateWithBase(si *goke.SysInit, count int) []uid.UID64 {
 	var cBase goke.Comp[Base]
 	var c1 goke.Comp[Pos]
 	var c2 goke.Comp[Vel]
@@ -24,7 +24,7 @@ func populateWithBase(ecs *goke.ECS, count int) []uid.UID64 {
 	var c8 goke.Comp[T08]
 	var c9 goke.Comp[T09]
 	var c10 goke.Comp[T10]
-	factory := ecs.NewFactory(&cBase, &c1, &c2, &c3, &c4, &c5, &c6, &c7, &c8, &c9, &c10)
+	factory := si.NewFactory(&cBase, &c1, &c2, &c3, &c4, &c5, &c6, &c7, &c8, &c9, &c10)
 
 	var entities []uid.UID64
 	factory.Create(count)
@@ -61,21 +61,24 @@ func Benchmark_Editor_Del(b *testing.B) {
 				fmt.Sprintf("pop=%d/subset=%d/comp=10/comps=%d", entitiesNumber, subset, n),
 				subset,
 				func() (*goke.Query, *goke.Editor, goke.Runnable) {
-					if n == 10 {
-						populateWithBase(ecs, entitiesNumber)
-					} else {
-						populate(ecs, entitiesNumber)
-					}
-					fwd := ecs.NewEditorBuilder().Remove(delComps[:n]...).Build()
-					rev := ecs.NewEditorBuilder(addComps[:n]...).Build()
-					migrateQ := ecs.NewQueryBuilder().Include(goke.Include[Pos]()).Build()
-					var restoreQ *goke.Query
-					if n == 10 {
-						restoreQ = ecs.NewQueryBuilder().Include(goke.Include[Base]()).Exclude(goke.Exclude[Pos]()).Build()
-					} else {
-						restoreQ = ecs.NewQueryBuilder().Include(goke.Include[T10]()).Exclude(goke.Exclude[Pos]()).Build()
-					}
-					return migrateQ, fwd, ecs.RegSysFn(enqueueAll(restoreQ, rev))
+					var migrateQ, restoreQ *goke.Query
+					var fwd, rev *goke.Editor
+					ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+						if n == 10 {
+							populateWithBase(si, entitiesNumber)
+						} else {
+							populate(si, entitiesNumber)
+						}
+						migrateQ = si.NewQueryBuilder().Include(goke.Include[Pos]()).Build()
+						if n == 10 {
+							restoreQ = si.NewQueryBuilder().Include(goke.Include[Base]()).Exclude(goke.Exclude[Pos]()).Build()
+						} else {
+							restoreQ = si.NewQueryBuilder().Include(goke.Include[T10]()).Exclude(goke.Exclude[Pos]()).Build()
+						}
+						fwd = migrateQ.NewEditorBuilder().Remove(delComps[:n]...).Build()
+						rev = restoreQ.NewEditorBuilder(addComps[:n]...).Build()
+					}})
+					return migrateQ, fwd, ecs.RegSys(enqueueAll(restoreQ, rev))
 				})
 		}
 	}

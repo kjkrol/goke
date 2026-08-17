@@ -6,7 +6,7 @@ import (
 	"github.com/kjkrol/goke/v2/internal/orch"
 )
 
-// Runnable is an opaque handle returned by RegSys/RegSysFn — pass it to
+// Runnable is an opaque handle returned by RegSys — pass it to
 // RunCtx.Run/RunParallel inside a Plan. It is not meant to be called
 // directly; Update is driven by the scheduler.
 type Runnable = orch.Runnable

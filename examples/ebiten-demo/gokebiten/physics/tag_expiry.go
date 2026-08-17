@@ -23,9 +23,9 @@ func NewTagExpirySystem[T any](expiresAt func(*T) time.Time) *TagExpirySystem[T]
 	return &TagExpirySystem[T]{expiresAt: expiresAt}
 }
 
-func (s *TagExpirySystem[T]) Init(ecs *goke.ECS) {
-	s.query = ecs.NewQueryBuilder(&s.tag).Build()
-	s.remove = ecs.NewEditorBuilder().Remove(goke.Remove[T]()).Build()
+func (s *TagExpirySystem[T]) Init(si *goke.SysInit) {
+	s.query = si.NewQueryBuilder(&s.tag).Build()
+	s.remove = s.query.NewEditorBuilder().Remove(goke.Remove[T]()).Build()
 }
 
 func (s *TagExpirySystem[T]) Update(cb *goke.CmdBuf, _ time.Duration) {

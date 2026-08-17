@@ -49,15 +49,15 @@ func NewNarrowPhase(space *gokg.Space, handler CollisionHandler, hitDuration tim
 	}
 }
 
-func (n *NarrowPhase) Init(ecs *goke.ECS) {
-	n.hitQry = ecs.NewQueryBuilder(&n.pos, &n.vel, &n.hitTag, &n.collision).Build()
-	n.dynQry = ecs.NewQueryBuilder(&n.dynPos, &n.dynVel).Build()
-	n.staticQuery = ecs.NewQueryBuilder(&n.staticPos).Exclude(goke.Exclude[kinematics.Velocity]()).Build()
+func (n *NarrowPhase) Init(si *goke.SysInit) {
+	n.hitQry = si.NewQueryBuilder(&n.pos, &n.vel, &n.hitTag, &n.collision).Build()
+	n.dynQry = si.NewQueryBuilder(&n.dynPos, &n.dynVel).Build()
+	n.staticQuery = si.NewQueryBuilder(&n.staticPos).Exclude(goke.Exclude[kinematics.Velocity]()).Build()
 	if init, ok := n.handler.(Initializer); ok {
-		init.Init(ecs)
+		init.Init(si)
 	}
-	n.removeEditor = ecs.NewEditorBuilder().Remove(goke.Remove[Hit]()).Build()
-	sensorQry := ecs.NewQueryBuilder().Include(goke.Include[Sensor]()).Build()
+	n.removeEditor = n.hitQry.NewEditorBuilder().Remove(goke.Remove[Hit]()).Build()
+	sensorQry := si.NewQueryBuilder().Include(goke.Include[Sensor]()).Build()
 	sensorQry.All()
 	for sensorQry.Next() {
 		for _, id := range sensorQry.Cursor().IDs {

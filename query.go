@@ -15,7 +15,8 @@ import (
 // entity). Call All() or Pick() to set the iteration mode and loop with
 // Next(), or call Seek() directly for single-entity access.
 type Query struct {
-	m *query.Matcher
+	m   *query.Matcher
+	ecs *ECS
 }
 
 // All prepares the Query for full chunk iteration and returns q.
@@ -78,16 +79,6 @@ type QueryBuilder struct {
 	opts []Opt
 }
 
-// NewQueryBuilder starts a QueryBuilder, tracking the given components as
-// data columns (equivalent to Track[T] for each).
-func (ecs *ECS) NewQueryBuilder(comps ...Trackable) *QueryBuilder {
-	b := &QueryBuilder{ecs: ecs, opts: make([]Opt, 0, len(comps))}
-	for _, c := range comps {
-		b.opts = append(b.opts, c.asTrack())
-	}
-	return b
-}
-
 // Include adds required (filter-only, no data access) component types,
 // built via Include[T]().
 func (b *QueryBuilder) Include(opts ...Opt) *QueryBuilder {
@@ -103,7 +94,24 @@ func (b *QueryBuilder) Exclude(opts ...Opt) *QueryBuilder {
 
 // Build creates the Query from the accumulated options.
 func (b *QueryBuilder) Build() *Query {
-	return &Query{m: b.ecs.registry.AddMatcher(b.opts...)}
+	return &Query{m: b.ecs.registry.AddMatcher(b.opts...), ecs: b.ecs}
+}
+
+// NewEditorBuilder starts an EditorBuilder, adding the given components
+// (equivalent to Add[T] for each). The resulting Editor applies to entities
+// matched by q.
+func (q *Query) NewEditorBuilder(comps ...Addable) *EditorBuilder {
+	b := &EditorBuilder{ecs: q.ecs, opts: make([]EditOpt, 0, len(comps))}
+	for _, c := range comps {
+		b.opts = append(b.opts, c.asAdd())
+	}
+	return b
+}
+
+// NewValueEditorBuilder starts a ValueEditorBuilder for a single added
+// component. The resulting ValueEditor applies to entities matched by q.
+func (q *Query) NewValueEditorBuilder(addable Addable) *ValueEditorBuilder {
+	return &ValueEditorBuilder{ecs: q.ecs, opts: []EditOpt{addable.asAdd()}}
 }
 
 // MigrateBuf stages ids for a bulk structural change. Obtained from

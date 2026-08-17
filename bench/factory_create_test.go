@@ -13,7 +13,10 @@ func Benchmark_Factory_Create(b *testing.B) {
 	b.Run(fmt.Sprintf("pop=%d/comp=1", entitiesNumber), func(b *testing.B) {
 		ecs.Reset()
 		var c1 goke.Comp[Pos]
-		factory := ecs.NewFactory(&c1)
+		var factory *goke.Factory
+		ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+			factory = si.NewFactory(&c1)
+		}})
 		fc := &factory.Cursor
 		fn := func() {
 			factory.Create(entitiesNumber)
@@ -35,7 +38,10 @@ func Benchmark_Factory_Create(b *testing.B) {
 		ecs.Reset()
 		var c1 goke.Comp[Pos]
 		var c2 goke.Comp[Vel]
-		factory := ecs.NewFactory(&c1, &c2)
+		var factory *goke.Factory
+		ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+			factory = si.NewFactory(&c1, &c2)
+		}})
 		fc := &factory.Cursor
 		fn := func() {
 			factory.Create(entitiesNumber)
@@ -60,7 +66,10 @@ func Benchmark_Factory_Create(b *testing.B) {
 		var c1 goke.Comp[Pos]
 		var c2 goke.Comp[Vel]
 		var c3 goke.Comp[Acc]
-		factory := ecs.NewFactory(&c1, &c2, &c3)
+		var factory *goke.Factory
+		ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+			factory = si.NewFactory(&c1, &c2, &c3)
+		}})
 		fc := &factory.Cursor
 		fn := func() {
 			factory.Create(entitiesNumber)
@@ -88,7 +97,10 @@ func Benchmark_Factory_Create(b *testing.B) {
 		var c2 goke.Comp[Vel]
 		var c3 goke.Comp[Acc]
 		var c4 goke.Comp[T04]
-		factory := ecs.NewFactory(&c1, &c2, &c3, &c4)
+		var factory *goke.Factory
+		ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+			factory = si.NewFactory(&c1, &c2, &c3, &c4)
+		}})
 		fc := &factory.Cursor
 		fn := func() {
 			factory.Create(entitiesNumber)
@@ -119,7 +131,10 @@ func Benchmark_Factory_Create(b *testing.B) {
 		var c3 goke.Comp[Acc]
 		var c4 goke.Comp[T04]
 		var c5 goke.Comp[T05]
-		factory := ecs.NewFactory(&c1, &c2, &c3, &c4, &c5)
+		var factory *goke.Factory
+		ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+			factory = si.NewFactory(&c1, &c2, &c3, &c4, &c5)
+		}})
 		fc := &factory.Cursor
 		fn := func() {
 			factory.Create(entitiesNumber)
@@ -153,7 +168,10 @@ func Benchmark_Factory_Create(b *testing.B) {
 		var c4 goke.Comp[T04]
 		var c5 goke.Comp[T05]
 		var c6 goke.Comp[T06]
-		factory := ecs.NewFactory(&c1, &c2, &c3, &c4, &c5, &c6)
+		var factory *goke.Factory
+		ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+			factory = si.NewFactory(&c1, &c2, &c3, &c4, &c5, &c6)
+		}})
 		fc := &factory.Cursor
 		fn := func() {
 			factory.Create(entitiesNumber)
@@ -190,7 +208,10 @@ func Benchmark_Factory_Create(b *testing.B) {
 		var c5 goke.Comp[T05]
 		var c6 goke.Comp[T06]
 		var c7 goke.Comp[T07]
-		factory := ecs.NewFactory(&c1, &c2, &c3, &c4, &c5, &c6, &c7)
+		var factory *goke.Factory
+		ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+			factory = si.NewFactory(&c1, &c2, &c3, &c4, &c5, &c6, &c7)
+		}})
 		fc := &factory.Cursor
 		fn := func() {
 			factory.Create(entitiesNumber)
@@ -230,7 +251,10 @@ func Benchmark_Factory_Create(b *testing.B) {
 		var c6 goke.Comp[T06]
 		var c7 goke.Comp[T07]
 		var c8 goke.Comp[T08]
-		factory := ecs.NewFactory(&c1, &c2, &c3, &c4, &c5, &c6, &c7, &c8)
+		var factory *goke.Factory
+		ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+			factory = si.NewFactory(&c1, &c2, &c3, &c4, &c5, &c6, &c7, &c8)
+		}})
 		fc := &factory.Cursor
 		fn := func() {
 			factory.Create(entitiesNumber)
@@ -273,7 +297,10 @@ func Benchmark_Factory_Create(b *testing.B) {
 		var c7 goke.Comp[T07]
 		var c8 goke.Comp[T08]
 		var c9 goke.Comp[T09]
-		factory := ecs.NewFactory(&c1, &c2, &c3, &c4, &c5, &c6, &c7, &c8, &c9)
+		var factory *goke.Factory
+		ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+			factory = si.NewFactory(&c1, &c2, &c3, &c4, &c5, &c6, &c7, &c8, &c9)
+		}})
 		fc := &factory.Cursor
 		fn := func() {
 			factory.Create(entitiesNumber)
@@ -319,7 +346,10 @@ func Benchmark_Factory_Create(b *testing.B) {
 		var c8 goke.Comp[T08]
 		var c9 goke.Comp[T09]
 		var c10 goke.Comp[T10]
-		factory := ecs.NewFactory(&c1, &c2, &c3, &c4, &c5, &c6, &c7, &c8, &c9, &c10)
+		var factory *goke.Factory
+		ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+			factory = si.NewFactory(&c1, &c2, &c3, &c4, &c5, &c6, &c7, &c8, &c9, &c10)
+		}})
 		fc := &factory.Cursor
 		fn := func() {
 			factory.Create(entitiesNumber)

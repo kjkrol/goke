@@ -12,7 +12,7 @@ import (
 // one migration command per chunk until limit entities are covered.
 // Registration only — the migration itself runs at the plan's Sync point.
 func enqueueSubset(q *goke.Query, mig *goke.Editor, limit int) goke.SystemFn {
-	return func(cb *goke.CmdBuf, _ time.Duration) {
+	return goke.SystemFn{OnUpdate: func(cb *goke.CmdBuf, _ time.Duration) {
 		q.All()
 		taken := 0
 		for taken < limit && q.Next() {
@@ -27,13 +27,13 @@ func enqueueSubset(q *goke.Query, mig *goke.Editor, limit int) goke.SystemFn {
 			buf.Commit(mig)
 			taken += len(ids)
 		}
-	}
+	}}
 }
 
 // enqueueAll returns a system that registers one migration command per
 // chunk for every entity matched by q.
 func enqueueAll(q *goke.Query, mig *goke.Editor) goke.SystemFn {
-	return func(cb *goke.CmdBuf, _ time.Duration) {
+	return goke.SystemFn{OnUpdate: func(cb *goke.CmdBuf, _ time.Duration) {
 		q.All()
 		for q.Next() {
 			buf := q.BeginMigrate(cb)
@@ -42,7 +42,7 @@ func enqueueAll(q *goke.Query, mig *goke.Editor) goke.SystemFn {
 			}
 			buf.Commit(mig)
 		}
-	}
+	}}
 }
 
 // randPickMask returns a mask of length pop with exactly k true entries at
@@ -63,7 +63,7 @@ func randPickMask(pop, k int, seed uint64) []bool {
 // share that chunk's ChunkSnapshot, so each chunk contributes one command — but the
 // resulting holes are non-contiguous, exercising the slot-level compaction path.
 func enqueueScattered(q *goke.Query, mig *goke.Editor, pick []bool) goke.SystemFn {
-	return func(cb *goke.CmdBuf, _ time.Duration) {
+	return goke.SystemFn{OnUpdate: func(cb *goke.CmdBuf, _ time.Duration) {
 		q.All()
 		pos := 0
 		for q.Next() {
@@ -77,7 +77,7 @@ func enqueueScattered(q *goke.Query, mig *goke.Editor, pick []bool) goke.SystemF
 			}
 			buf.Commit(mig)
 		}
-	}
+	}}
 }
 
 // timedMigrationPlan runs migSys and times only its Sync — the per-chunk
@@ -109,7 +109,7 @@ func runEditorLeaf(b *testing.B, ecs *goke.ECS, name string, subset int,
 		b.Run(name+"/"+order, func(b *testing.B) {
 			ecs.Reset()
 			migrateQ, fwd, restoreSys := setup()
-			migSys := ecs.RegSysFn(mkSys(migrateQ, fwd))
+			migSys := ecs.RegSys(mkSys(migrateQ, fwd))
 			ecs.SetPlan(timedMigrationPlan(b, migSys, restoreSys))
 			measurePerEntity(b, subset, func() {
 				for b.Loop() {

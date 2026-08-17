@@ -3,7 +3,8 @@
 // [Registry] wires three subsystems into a single world:
 //
 //   - [ent.Manager]    — entity lifecycle: address book ([addr.Book]) and
-//     archetype graph management
+//     archetype graph management, plus bulk archetype migration ([ent.Editor],
+//     [ent.Remover], [ent.ValueEditor])
 //   - [comp.DefIndex] — maps Go types to stable [comp.Def] descriptors
 //   - [query.Catalog]  — maintains active matchers as new archetypes are created
 //

@@ -31,8 +31,8 @@ type PhysicsSystem struct {
 	vel   goke.Comp[Velocity]
 }
 
-func (s *PhysicsSystem) Init(ecs *goke.ECS) {
-	s.query = ecs.NewQueryBuilder(&s.pos, &s.vel).Build()
+func (s *PhysicsSystem) Init(si *goke.SysInit) {
+	s.query = si.NewQueryBuilder(&s.pos, &s.vel).Build()
 }
 func (s *PhysicsSystem) Update(schedule *goke.CmdBuf, d time.Duration) {
 	cursor := s.query.Cursor()
@@ -53,8 +53,8 @@ type HealthSystem struct {
 	health goke.Comp[Health]
 }
 
-func (s *HealthSystem) Init(eng *goke.ECS) {
-	s.query = eng.NewQueryBuilder(&s.health).Build()
+func (s *HealthSystem) Init(si *goke.SysInit) {
+	s.query = si.NewQueryBuilder(&s.health).Build()
 }
 func (s *HealthSystem) Update(schedule *goke.CmdBuf, d time.Duration) {
 	s.query.All()
@@ -89,19 +89,23 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	var pos goke.Comp[Position]
 	var vel goke.Comp[Velocity]
 	var health goke.Comp[Health]
-	factory := ecs.NewFactory(&pos, &vel, &health)
-	fc := &factory.Cursor
-	factory.Create(1000)
-	for factory.Next() {
-		positions := pos.Slice(fc)
-		velocities := vel.Slice(fc)
-		healths := health.Slice(fc)
-		for i := range factory.IDs {
-			positions[i] = Position{0, 0}
-			velocities[i] = Velocity{10, 10}
-			healths[i] = Health{50, 100}
+	var query *goke.Query
+	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+		factory := si.NewFactory(&pos, &vel, &health)
+		fc := &factory.Cursor
+		factory.Create(1000)
+		for factory.Next() {
+			positions := pos.Slice(fc)
+			velocities := vel.Slice(fc)
+			healths := health.Slice(fc)
+			for i := range factory.IDs {
+				positions[i] = Position{0, 0}
+				velocities[i] = Velocity{10, 10}
+				healths[i] = Health{50, 100}
+			}
 		}
-	}
+		query = si.NewQueryBuilder(&pos, &health).Build()
+	}})
 
 	// 2. Execution Plan: Run Physics and Health in parallel
 	ecs.SetPlan(func(ctx goke.RunCtx, d time.Duration) {
@@ -113,7 +117,6 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	ecs.Tick(time.Second) // Simulate 1 second
 
 	// 4. Verification
-	query := ecs.NewQueryBuilder(&pos, &health).Build()
 	cursor := query.Cursor()
 	count := 0
 	query.All()

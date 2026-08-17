@@ -24,7 +24,7 @@ func NewTelemetryRenderer(measuredTPS *int, entityCount func() int, measuredColl
 	}
 }
 
-func (s *TelemetryRenderer) Init(ecs *goke.ECS) {}
+func (s *TelemetryRenderer) Init(si *goke.SysInit) {}
 
 func (s *TelemetryRenderer) Draw(screen *ebiten.Image) {
 	avgCollisionsPerTick := float64(0)

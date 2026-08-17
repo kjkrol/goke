@@ -8,6 +8,6 @@ import (
 // Renderer draws each frame; Init runs once at registration, outside the
 // per-tick Update cycle — there is no scheduled Update here.
 type Renderer interface {
-	Init(*goke.ECS)
+	Init(*goke.SysInit)
 	Draw(screen *ebiten.Image)
 }

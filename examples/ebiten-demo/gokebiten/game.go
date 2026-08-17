@@ -47,6 +47,11 @@ type Game struct {
 	world             *spatial.World
 	kinematicsEnabled bool
 	paused            bool
+	// pendingSetup collects everything that needs SysInit-gated construction
+	// (renderer Init, world population) across RenderSequence/Populate/
+	// PopulateStatic calls — ecs.Setup is callable only once, so it all runs
+	// together, lazily, right before the game loop starts (see Run).
+	pendingSetup []goke.System
 }
 
 var _ ebiten.Game = (*Game)(nil)
@@ -91,14 +96,10 @@ func (g *Game) RegSys(factory func() goke.System) goke.Runnable {
 
 func (g *Game) registerRenderer(factory func() render.Renderer) render.Renderer {
 	renderer := factory()
-	renderer.Init(g.ecs)
+	g.pendingSetup = append(g.pendingSetup, goke.SystemFn{OnInit: func(si *goke.SysInit) {
+		renderer.Init(si)
+	}})
 	return renderer
-}
-
-func (g *Game) Setup(factories ...func() spatial.Setup) {
-	for _, factory := range factories {
-		factory().Init(g.ecs)
-	}
 }
 
 func (g *Game) Loop(plan func(ctx goke.RunCtx, d time.Duration)) {
@@ -122,7 +123,7 @@ func (g *Game) RenderSequence(rendererFactories ...func() render.Renderer) {
 // provisioned for pop. Must be called before Populate, PopulateStatic or
 // UsePhysics.
 func (g *Game) UseWorld(pop spatial.Population) {
-	g.world = spatial.NewWorld(g.ecs, g.spaceConfig, pop)
+	g.world = spatial.NewWorld(g.spaceConfig, pop)
 }
 
 // Populate spawns count moving entities — see spatial.World.Populate.
@@ -134,7 +135,9 @@ func (g *Game) Populate(count int, telemetry *kinematics.Telemetry, populators .
 	if !g.kinematicsEnabled {
 		panic("gokebiten: UsePhysics must be called before Populate")
 	}
-	g.world.Populate(count, telemetry, populators...)
+	g.pendingSetup = append(g.pendingSetup, goke.SystemFn{OnInit: func(si *goke.SysInit) {
+		g.world.Populate(si, count, telemetry, populators...)
+	}})
 }
 
 // PopulateStatic spawns count static entities — see spatial.World.PopulateStatic.
@@ -143,7 +146,9 @@ func (g *Game) PopulateStatic(count int, telemetry *kinematics.Telemetry, popula
 	if g.world == nil {
 		panic("gokebiten: UseWorld must be called before PopulateStatic")
 	}
-	g.world.PopulateStatic(count, telemetry, populators...)
+	g.pendingSetup = append(g.pendingSetup, goke.SystemFn{OnInit: func(si *goke.SysInit) {
+		g.world.PopulateStatic(si, count, telemetry, populators...)
+	}})
 }
 
 // UsePhysics builds the Physics wrapper (kinematics + collisions) for this
@@ -189,6 +194,11 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 }
 
 func (g *Game) Run() {
+	if len(g.pendingSetup) > 0 {
+		g.ecs.Setup(g.pendingSetup...)
+		g.pendingSetup = nil
+	}
+
 	ScreenWidth := g.resources.GetGameProps().ScreenWidth
 	ScreenHeight := g.resources.GetGameProps().ScreenHeight
 	Title := g.resources.GetGameProps().Title

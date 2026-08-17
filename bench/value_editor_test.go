@@ -21,13 +21,18 @@ func Benchmark_ValueEditor_Add(b *testing.B) {
 			fmt.Sprintf("pop=%d/subset=%d/comp=1/comps=1", entitiesNumber, subset),
 			subset,
 			func() (*goke.Query, *goke.ValueEditor, *goke.Comp[Pos], goke.Runnable) {
-				populateBase(ecs, entitiesNumber)
 				var col goke.Comp[Pos]
-				fwd := ecs.NewValueEditorBuilder(&col).Build()
-				rev := ecs.NewEditorBuilder().Remove(goke.Remove[Pos]()).Build()
-				migrateQ := ecs.NewQueryBuilder().Include(goke.Include[Base]()).Exclude(goke.Exclude[Pos]()).Build()
-				restoreQ := ecs.NewQueryBuilder().Include(goke.Include[Pos]()).Build()
-				return migrateQ, fwd, &col, ecs.RegSysFn(enqueueAll(restoreQ, rev))
+				var migrateQ, restoreQ *goke.Query
+				var fwd *goke.ValueEditor
+				var rev *goke.Editor
+				ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+					populateBase(si, entitiesNumber)
+					migrateQ = si.NewQueryBuilder().Include(goke.Include[Base]()).Exclude(goke.Exclude[Pos]()).Build()
+					restoreQ = si.NewQueryBuilder().Include(goke.Include[Pos]()).Build()
+					fwd = migrateQ.NewValueEditorBuilder(&col).Build()
+					rev = restoreQ.NewEditorBuilder().Remove(goke.Remove[Pos]()).Build()
+				}})
+				return migrateQ, fwd, &col, ecs.RegSys(enqueueAll(restoreQ, rev))
 			})
 	}
 }

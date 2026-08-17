@@ -34,97 +34,115 @@ func main() {
 
 	// 2. Setup Entities & Components
 	var dice goke.Comp[Dice]
-	diceFactory := ecs.NewFactory(&dice)
-
-	var diceEnt uid.UID64
-	diceFactory.Create(1)
-	diceFactory.Next()
-	diceEnt = diceFactory.IDs[0]
-	dice.Slice(&diceFactory.Cursor)[0] = Dice{Value: 0}
-
-	// Setup player entities
 	var player goke.Comp[Player]
-	playerFactory := ecs.NewFactory(&player)
+	var diceEnt uid.UID64
+	ecs.Setup(goke.SystemFn{
+		OnInit: func(si *goke.SysInit) {
+			diceFactory := si.NewFactory(&dice)
+			diceFactory.Create(1)
+			diceFactory.Next()
+			diceEnt = diceFactory.IDs[0]
+			dice.Slice(&diceFactory.Cursor)[0] = Dice{Value: 0}
 
-	playerFactory.Create(2)
-	fc := &playerFactory.Cursor
-	for playerFactory.Next() {
-		players := player.Slice(fc)
-		for i := range playerFactory.IDs {
-			players[i] = Player{Bet: 0}
-		}
-	}
+			playerFactory := si.NewFactory(&player)
+			playerFactory.Create(2)
+			fc := &playerFactory.Cursor
+			for playerFactory.Next() {
+				players := player.Slice(fc)
+				for i := range playerFactory.IDs {
+					players[i] = Player{Bet: 0}
+				}
+			}
+		},
+	})
 
-	// 3. Define Queries (for system filtering)
-	vDice := ecs.NewQueryBuilder(&dice).Build()
-	vPlayers := ecs.NewQueryBuilder(&player).Build()
-	vWinners := ecs.NewQueryBuilder().Include(goke.Include[Winner]()).Build()
-
-	diceCursor := vDice.Cursor()
-	winnerCursor := vWinners.Cursor()
-	playerCursor := vPlayers.Cursor()
-
-	// Query for reading the dice entity's value each turn
-	diceQuery := ecs.NewQueryBuilder(&dice).Build()
-
-	// 4. Register Systems
+	// 3. Define Systems (each builds its own Query in Init)
 
 	// System A: Roll the dice
-	rollSys := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
-		vDice.All()
-		for vDice.Next() {
-			diceSlice := dice.Slice(diceCursor)
-			for i := range diceCursor.IDs {
-				diceSlice[i].Value = rand.Intn(6) + 1
+	var vDice *goke.Query
+	rollSys := ecs.RegSys(goke.SystemFn{
+		OnInit: func(si *goke.SysInit) {
+			vDice = si.NewQueryBuilder(&dice).Build()
+		},
+		OnUpdate: func(cb *goke.CmdBuf, d time.Duration) {
+			diceCursor := vDice.Cursor()
+			vDice.All()
+			for vDice.Next() {
+				diceSlice := dice.Slice(diceCursor)
+				for i := range diceCursor.IDs {
+					diceSlice[i].Value = rand.Intn(6) + 1
+				}
 			}
-		}
+		},
 	})
 
 	// System B: Players place their bets
-	betSys := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
-		vPlayers.All()
-		for vPlayers.Next() {
-			players := player.Slice(playerCursor)
-			for i := range playerCursor.IDs {
-				players[i].Bet = rand.Intn(6) + 1
+	var vPlayers *goke.Query
+	betSys := ecs.RegSys(goke.SystemFn{
+		OnInit: func(si *goke.SysInit) {
+			vPlayers = si.NewQueryBuilder(&player).Build()
+		},
+		OnUpdate: func(cb *goke.CmdBuf, d time.Duration) {
+			playerCursor := vPlayers.Cursor()
+			vPlayers.All()
+			for vPlayers.Next() {
+				players := player.Slice(playerCursor)
+				for i := range playerCursor.IDs {
+					players[i].Bet = rand.Intn(6) + 1
+				}
 			}
-		}
+		},
 	})
 
 	// System C: Judge the results
-	judgeSys := ecs.RegSysFn(func(schedule *goke.CmdBuf, d time.Duration) {
-		if gameFinished {
-			return
-		}
-		turnCounter++
+	var diceQuery *goke.Query
+	judgeSys := ecs.RegSys(goke.SystemFn{
+		OnInit: func(si *goke.SysInit) {
+			// Query for reading the dice entity's value each turn
+			diceQuery = si.NewQueryBuilder(&dice).Build()
+		},
+		OnUpdate: func(schedule *goke.CmdBuf, d time.Duration) {
+			if gameFinished {
+				return
+			}
+			turnCounter++
 
-		diceQuery.Seek(diceEnt)
-		diceComp := dice.At(diceQuery.Cursor())
-		fmt.Printf("🎲 Turn %d | Dice Result: %d\n", turnCounter, diceComp.Value)
+			diceQuery.Seek(diceEnt)
+			diceComp := dice.At(diceQuery.Cursor())
+			fmt.Printf("🎲 Turn %d | Dice Result: %d\n", turnCounter, diceComp.Value)
 
-		vPlayers.All()
-		for vPlayers.Next() {
-			players := player.Slice(playerCursor)
-			for i, entityID := range playerCursor.IDs {
-				bet := players[i].Bet
-				fmt.Printf("   Player %d bet: %d\n", entityID, bet)
-				if bet == diceComp.Value {
-					gameFinished = true
-					// Defer the assignment of the Winner tag to the next Sync point
-					goke.AddOne(schedule, entityID, winnerID, Winner{})
+			playerCursor := vPlayers.Cursor()
+			vPlayers.All()
+			for vPlayers.Next() {
+				players := player.Slice(playerCursor)
+				for i, entityID := range playerCursor.IDs {
+					bet := players[i].Bet
+					fmt.Printf("   Player %d bet: %d\n", entityID, bet)
+					if bet == diceComp.Value {
+						gameFinished = true
+						// Defer the assignment of the Winner tag to the next Sync point
+						goke.AddOne(schedule, entityID, winnerID, Winner{})
+					}
 				}
 			}
-		}
+		},
 	})
 
 	// System D: Display winners (Reactive System)
-	displayWinnerSys := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
-		vWinners.All()
-		for vWinners.Next() {
-			for _, e := range winnerCursor.IDs {
-				fmt.Printf("🏆 VICTORY! Entity %d is marked as a Winner!\n", e)
+	var vWinners *goke.Query
+	displayWinnerSys := ecs.RegSys(goke.SystemFn{
+		OnInit: func(si *goke.SysInit) {
+			vWinners = si.NewQueryBuilder().Include(goke.Include[Winner]()).Build()
+		},
+		OnUpdate: func(cb *goke.CmdBuf, d time.Duration) {
+			winnerCursor := vWinners.Cursor()
+			vWinners.All()
+			for vWinners.Next() {
+				for _, e := range winnerCursor.IDs {
+					fmt.Printf("🏆 VICTORY! Entity %d is marked as a Winner!\n", e)
+				}
 			}
-		}
+		},
 	})
 
 	// 5. Define Execution Plan

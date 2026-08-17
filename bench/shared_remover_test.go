@@ -11,7 +11,7 @@ import (
 // registers one removal command per chunk until limit entities are
 // covered. Registration only — removal itself runs at the plan's Sync point.
 func enqueueRemoveSubset(q *goke.Query, limit int) goke.SystemFn {
-	return func(cb *goke.CmdBuf, _ time.Duration) {
+	return goke.SystemFn{OnUpdate: func(cb *goke.CmdBuf, _ time.Duration) {
 		q.All()
 		taken := 0
 		for taken < limit && q.Next() {
@@ -26,7 +26,7 @@ func enqueueRemoveSubset(q *goke.Query, limit int) goke.SystemFn {
 			buf.CommitRemove()
 			taken += len(ids)
 		}
-	}
+	}}
 }
 
 // enqueueRemoveScattered returns a system that registers removal commands
@@ -36,7 +36,7 @@ func enqueueRemoveSubset(q *goke.Query, limit int) goke.SystemFn {
 // command — but the resulting holes are non-contiguous, exercising the
 // slot-level compaction path.
 func enqueueRemoveScattered(q *goke.Query, pick []bool) goke.SystemFn {
-	return func(cb *goke.CmdBuf, _ time.Duration) {
+	return goke.SystemFn{OnUpdate: func(cb *goke.CmdBuf, _ time.Duration) {
 		q.All()
 		pos := 0
 		for q.Next() {
@@ -50,7 +50,7 @@ func enqueueRemoveScattered(q *goke.Query, pick []bool) goke.SystemFn {
 			}
 			buf.CommitRemove()
 		}
-	}
+	}}
 }
 
 // timedRemovalPlan runs remSys and times only its Sync — the per-chunk
@@ -81,7 +81,7 @@ func runRemoverLeaf(b *testing.B, ecs *goke.ECS, name string, subset int,
 		b.Run(name+"/"+order, func(b *testing.B) {
 			ecs.Reset()
 			removeQ, restore := setup()
-			remSys := ecs.RegSysFn(mkSys(removeQ))
+			remSys := ecs.RegSys(mkSys(removeQ))
 			ecs.SetPlan(timedRemovalPlan(b, remSys, restore))
 			measurePerEntity(b, subset, func() {
 				for b.Loop() {

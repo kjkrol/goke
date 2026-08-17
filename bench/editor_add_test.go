@@ -34,12 +34,16 @@ func Benchmark_Editor_Add(b *testing.B) {
 				fmt.Sprintf("pop=%d/subset=%d/comp=1/comps=%d", entitiesNumber, subset, n),
 				subset,
 				func() (*goke.Query, *goke.Editor, goke.Runnable) {
-					populateBase(ecs, entitiesNumber)
-					fwd := ecs.NewEditorBuilder(addComps[:n]...).Build()
-					rev := ecs.NewEditorBuilder().Remove(delComps[:n]...).Build()
-					migrateQ := ecs.NewQueryBuilder().Include(goke.Include[Base]()).Exclude(goke.Exclude[Pos]()).Build()
-					restoreQ := ecs.NewQueryBuilder().Include(goke.Include[Pos]()).Build()
-					return migrateQ, fwd, ecs.RegSysFn(enqueueAll(restoreQ, rev))
+					var migrateQ, restoreQ *goke.Query
+					var fwd, rev *goke.Editor
+					ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+						populateBase(si, entitiesNumber)
+						migrateQ = si.NewQueryBuilder().Include(goke.Include[Base]()).Exclude(goke.Exclude[Pos]()).Build()
+						restoreQ = si.NewQueryBuilder().Include(goke.Include[Pos]()).Build()
+						fwd = migrateQ.NewEditorBuilder(addComps[:n]...).Build()
+						rev = restoreQ.NewEditorBuilder().Remove(delComps[:n]...).Build()
+					}})
+					return migrateQ, fwd, ecs.RegSys(enqueueAll(restoreQ, rev))
 				})
 		}
 	}
@@ -64,12 +68,16 @@ func Benchmark_Editor_Add(b *testing.B) {
 				fmt.Sprintf("pop=%d/subset=%d/comp=1/tags=%d", entitiesNumber, subset, n),
 				subset,
 				func() (*goke.Query, *goke.Editor, goke.Runnable) {
-					populateBase(tagECS, entitiesNumber)
-					fwd := tagECS.NewEditorBuilder(addTags[:n]...).Build()
-					rev := tagECS.NewEditorBuilder().Remove(delTags[:n]...).Build()
-					migrateQ := tagECS.NewQueryBuilder().Include(goke.Include[Base]()).Exclude(goke.Exclude[Tag1]()).Build()
-					restoreQ := tagECS.NewQueryBuilder().Include(goke.Include[Tag1]()).Build()
-					return migrateQ, fwd, tagECS.RegSysFn(enqueueAll(restoreQ, rev))
+					var migrateQ, restoreQ *goke.Query
+					var fwd, rev *goke.Editor
+					tagECS.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+						populateBase(si, entitiesNumber)
+						migrateQ = si.NewQueryBuilder().Include(goke.Include[Base]()).Exclude(goke.Exclude[Tag1]()).Build()
+						restoreQ = si.NewQueryBuilder().Include(goke.Include[Tag1]()).Build()
+						fwd = migrateQ.NewEditorBuilder(addTags[:n]...).Build()
+						rev = restoreQ.NewEditorBuilder().Remove(delTags[:n]...).Build()
+					}})
+					return migrateQ, fwd, tagECS.RegSys(enqueueAll(restoreQ, rev))
 				})
 		}
 	}

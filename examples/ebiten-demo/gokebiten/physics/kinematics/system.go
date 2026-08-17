@@ -41,8 +41,8 @@ func clampSpeed(v, max int32) int32 {
 	return v
 }
 
-func (s *System) Init(ecs *goke.ECS) {
-	s.moveQuery = ecs.NewQueryBuilder(&s.pos, &s.vel).Build()
+func (s *System) Init(si *goke.SysInit) {
+	s.moveQuery = si.NewQueryBuilder(&s.pos, &s.vel).Build()
 }
 
 func (s *System) Update(_ *goke.CmdBuf, d time.Duration) {

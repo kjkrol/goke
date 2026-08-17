@@ -17,7 +17,10 @@ func Benchmark_Remove(b *testing.B) {
 		)
 		_ = goke.RegComp[Pos](ecs)
 
-		factory := ecs.NewFactory(new(goke.Comp[Pos]))
+		var factory *goke.Factory
+		ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+			factory = si.NewFactory(new(goke.Comp[Pos]))
+		}})
 		entities := make([]uid.UID64, count)
 
 		refill := func() {

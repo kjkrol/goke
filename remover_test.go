@@ -13,16 +13,19 @@ func TestRemover_RemovesMatchingEntities(t *testing.T) {
 	_ = goke.RegComp[Position](ecs)
 
 	var pos goke.Comp[Position]
-	factory := ecs.NewFactory(&pos)
-	factory.Create(3)
 	var ids []uid.UID64
-	for factory.Next() {
-		ids = append(ids, factory.IDs...)
-	}
+	var query *goke.Query
+	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+		factory := si.NewFactory(&pos)
+		factory.Create(3)
+		for factory.Next() {
+			ids = append(ids, factory.IDs...)
+		}
 
-	query := ecs.NewQueryBuilder(&pos).Build()
+		query = si.NewQueryBuilder(&pos).Build()
+	}})
 
-	sys := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
+	sys := ecs.RegSys(goke.SystemFn{OnUpdate: func(cb *goke.CmdBuf, d time.Duration) {
 		query.All()
 		for query.Next() {
 			cursor := query.Cursor()
@@ -35,7 +38,7 @@ func TestRemover_RemovesMatchingEntities(t *testing.T) {
 			}
 			buf.CommitRemove()
 		}
-	})
+	}})
 	ecs.SetPlan(func(s goke.RunCtx, d time.Duration) {
 		s.Run(sys, d)
 		s.Sync()
@@ -55,27 +58,32 @@ func TestRemover_LeavesNonMatchingEntitiesIntact(t *testing.T) {
 	_ = goke.RegComp[Position](ecs)
 	_ = goke.RegComp[Velocity](ecs)
 
-	var pos goke.Comp[Position]
-	posOnly := ecs.NewFactory(&pos)
-	posOnly.Create(2)
-	var posOnlyIDs []uid.UID64
-	for posOnly.Next() {
-		posOnlyIDs = append(posOnlyIDs, posOnly.IDs...)
-	}
-
-	var pos2 goke.Comp[Position]
+	var pos, pos2 goke.Comp[Position]
 	var vel goke.Comp[Velocity]
-	posVel := ecs.NewFactory(&pos2, &vel)
-	posVel.Create(2)
-	var posVelIDs []uid.UID64
-	for posVel.Next() {
-		posVelIDs = append(posVelIDs, posVel.IDs...)
-	}
+	var posOnlyIDs, posVelIDs []uid.UID64
+	var query *goke.Query
+	var posQuery, velQuery *goke.Query
+	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+		posOnly := si.NewFactory(&pos)
+		posOnly.Create(2)
+		for posOnly.Next() {
+			posOnlyIDs = append(posOnlyIDs, posOnly.IDs...)
+		}
 
-	// Only matches the Position-only archetype (excludes Velocity).
-	query := ecs.NewQueryBuilder(&pos).Exclude(goke.Exclude[Velocity]()).Build()
+		posVel := si.NewFactory(&pos2, &vel)
+		posVel.Create(2)
+		for posVel.Next() {
+			posVelIDs = append(posVelIDs, posVel.IDs...)
+		}
 
-	sys := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
+		// Only matches the Position-only archetype (excludes Velocity).
+		query = si.NewQueryBuilder(&pos).Exclude(goke.Exclude[Velocity]()).Build()
+
+		posQuery = si.NewQueryBuilder().Include(goke.Include[Position]()).Build()
+		velQuery = si.NewQueryBuilder().Include(goke.Include[Velocity]()).Build()
+	}})
+
+	sys := ecs.RegSys(goke.SystemFn{OnUpdate: func(cb *goke.CmdBuf, d time.Duration) {
 		query.All()
 		for query.Next() {
 			cursor := query.Cursor()
@@ -88,7 +96,7 @@ func TestRemover_LeavesNonMatchingEntitiesIntact(t *testing.T) {
 			}
 			buf.CommitRemove()
 		}
-	})
+	}})
 	ecs.SetPlan(func(s goke.RunCtx, d time.Duration) {
 		s.Run(sys, d)
 		s.Sync()
@@ -102,10 +110,10 @@ func TestRemover_LeavesNonMatchingEntitiesIntact(t *testing.T) {
 		}
 	}
 	for _, id := range posVelIDs {
-		if !hasComp[Position](ecs, id) {
+		if !hasComp(posQuery, id) {
 			t.Errorf("entity %v: expected Position to remain (not matched by query)", id)
 		}
-		if !hasComp[Velocity](ecs, id) {
+		if !hasComp(velQuery, id) {
 			t.Errorf("entity %v: expected Velocity to remain (not matched by query)", id)
 		}
 	}

@@ -12,7 +12,7 @@ import (
 // CmdBufAddCompValue instead of cb.Migrate — one write per entity,
 // matching how a real ValueEditor caller computes it during iteration.
 func enqueueSubsetWithValue(q *goke.Query, vm *goke.ValueEditor, col *goke.Comp[Pos], limit int) goke.SystemFn {
-	return func(cb *goke.CmdBuf, _ time.Duration) {
+	return goke.SystemFn{OnUpdate: func(cb *goke.CmdBuf, _ time.Duration) {
 		q.All()
 		taken := 0
 		for taken < limit && q.Next() {
@@ -26,13 +26,13 @@ func enqueueSubsetWithValue(q *goke.Query, vm *goke.ValueEditor, col *goke.Comp[
 			}
 			taken += len(ids)
 		}
-	}
+	}}
 }
 
 // enqueueScatteredWithValue mirrors enqueueScattered for the value-carrying path.
 func enqueueScatteredWithValue(q *goke.Query, vm *goke.ValueEditor, col *goke.Comp[Pos], pick []bool) goke.SystemFn {
 	buf := make([]uid.UID64, 0, len(pick))
-	return func(cb *goke.CmdBuf, _ time.Duration) {
+	return goke.SystemFn{OnUpdate: func(cb *goke.CmdBuf, _ time.Duration) {
 		q.All()
 		pos := 0
 		for q.Next() {
@@ -52,7 +52,7 @@ func enqueueScatteredWithValue(q *goke.Query, vm *goke.ValueEditor, col *goke.Co
 				vals[i] = Pos{X: 1, Y: 1}
 			}
 		}
-	}
+	}}
 }
 
 // runValueEditorLeaf mirrors runEditorLeaf for ValueEditor: same
@@ -65,7 +65,7 @@ func runValueEditorLeaf(b *testing.B, ecs *goke.ECS, name string, subset int,
 		b.Run(name+"/"+order, func(b *testing.B) {
 			ecs.Reset()
 			migrateQ, fwd, col, restoreSys := setup()
-			migSys := ecs.RegSysFn(mkSys(migrateQ, fwd, col))
+			migSys := ecs.RegSys(mkSys(migrateQ, fwd, col))
 			ecs.SetPlan(timedMigrationPlan(b, migSys, restoreSys))
 			measurePerEntity(b, subset, func() {
 				for b.Loop() {

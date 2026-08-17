@@ -8,20 +8,27 @@ import (
 // Init is called once on registration; Update is called every tick.
 type System interface {
 	Update(*CmdBuf, time.Duration)
-	Init(*ECS)
+	Init(*SysInit)
 }
 
-// SystemFn is a stateless function-based system — a shorthand alternative to implementing System.
-type SystemFn func(*CmdBuf, time.Duration)
-
-type functionalSystem struct {
-	updateFn SystemFn
+// SystemFn is a lightweight System — set OnInit and/or OnUpdate directly as
+// a composite literal instead of declaring a named type with methods. Either
+// field may be nil.
+type SystemFn struct {
+	OnInit   func(*SysInit)
+	OnUpdate func(*CmdBuf, time.Duration)
 }
 
-func (f *functionalSystem) Init(*ECS) {}
-
-func (f *functionalSystem) Update(cb *CmdBuf, d time.Duration) {
-	f.updateFn(cb, d)
+func (f SystemFn) Init(si *SysInit) {
+	if f.OnInit != nil {
+		f.OnInit(si)
+	}
 }
 
-var _ System = (*functionalSystem)(nil)
+func (f SystemFn) Update(cb *CmdBuf, d time.Duration) {
+	if f.OnUpdate != nil {
+		f.OnUpdate(cb, d)
+	}
+}
+
+var _ System = SystemFn{}

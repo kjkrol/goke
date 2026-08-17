@@ -31,8 +31,8 @@ func NewTagOverlayRenderer(atlas AtlasSource, camera *Camera, spriteID uint8, c 
 	}
 }
 
-func (r *TagOverlayRenderer) Init(ecs *goke.ECS) {
-	r.query = ecs.NewQueryBuilder(&r.pos).Include(r.filter).Build()
+func (r *TagOverlayRenderer) Init(si *goke.SysInit) {
+	r.query = si.NewQueryBuilder(&r.pos).Include(r.filter).Build()
 }
 
 func (r *TagOverlayRenderer) Draw(screen *ebiten.Image) {

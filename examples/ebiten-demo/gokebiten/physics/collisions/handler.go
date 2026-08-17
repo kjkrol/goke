@@ -26,7 +26,7 @@ type CollisionHandler interface {
 // registered handler (or a handler composed via MultiHandler) implements it,
 // System.Init calls it once at registration.
 type Initializer interface {
-	Init(*goke.ECS)
+	Init(*goke.SysInit)
 }
 
 // MultiHandler composes handlers to run in order within the same narrow-phase
@@ -47,10 +47,10 @@ func (m multiHandler) OnCollision(cb *goke.CmdBuf, e CollisionEvent) {
 	}
 }
 
-func (m multiHandler) Init(ecs *goke.ECS) {
+func (m multiHandler) Init(si *goke.SysInit) {
 	for _, h := range m {
 		if init, ok := h.(Initializer); ok {
-			init.Init(ecs)
+			init.Init(si)
 		}
 	}
 }

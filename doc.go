@@ -27,9 +27,12 @@
 //     for SIMD-like processing speeds.
 //
 //  3. Systems & Execution Plans:
-//     Logic is decoupled into Systems. The engine supports both interface-based
-//     systems (System interface) and lightweight functional systems (SystemFn).
-//     The order and concurrency of execution are defined via a Plan.
+//     Logic is decoupled into Systems (System interface) — [SystemFn] is a
+//     lightweight System, set as a composite literal instead of a named type.
+//     Query, Editor, ValueEditor, and Factory can only be constructed inside
+//     a System's Init (via [SysInit]) or a one-time [ECS.Setup] — never
+//     directly on ECS — so every read and structural change flows through a
+//     system. The order and concurrency of execution are defined via a Plan.
 //
 //  4. Thread Safety & Parallelism:
 //     The engine allows for synchronous or parallel system execution. While the engine
@@ -43,13 +46,13 @@
 //     world (like adding components or removing entities) are buffered via
 //     the CmdBuf and applied during explicit synchronization points (Sync).
 //     Structural changes can also be applied in bulk: an [Editor] (built via
-//     [ECS.NewEditorBuilder]) migrates whole chunks captured during
+//     [Query.NewEditorBuilder]) migrates whole chunks captured during
 //     Query.All iteration — [Query.ChunkSnapshot] plus CmdBuf.Migrate
 //     queue the batch, and Sync executes it with block column copies and
 //     deferred compaction instead of per-entity moves.
 //
 //  6. Type-Safe Queries & Cache-Optimized Iteration:
-//     Data retrieval is handled through [Query] obtained via [ECS.NewQueryBuilder].
+//     Data retrieval is handled through [Query] obtained via [SysInit.NewQueryBuilder].
 //     Component columns are declared with [Comp][T] and accessed via
 //     [Comp.Slice] (bulk) or [Comp.At] (per-entity). Bulk iteration via
 //     Query.All yields SoA chunks (Go slices over native memory), while

@@ -15,14 +15,6 @@ type ValueEditorBuilder struct {
 	opts []EditOpt
 }
 
-// NewValueEditorBuilder starts a ValueEditorBuilder, adding the given
-// component (equivalent to Add[T]). Unlike NewEditorBuilder this takes a
-// single Addable, not variadic — ValueEditor supports exactly one added
-// component, the one whose value CmdBufAddCompValue lets you write.
-func (ecs *ECS) NewValueEditorBuilder(addable Addable) *ValueEditorBuilder {
-	return &ValueEditorBuilder{ecs: ecs, opts: []EditOpt{addable.asAdd()}}
-}
-
 // Remove adds component types to remove, built via Remove[T]().
 func (b *ValueEditorBuilder) Remove(opts ...EditOpt) *ValueEditorBuilder {
 	b.opts = append(b.opts, opts...)
