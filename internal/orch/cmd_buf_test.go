@@ -135,6 +135,27 @@ func TestCmdBuf_ReserveSpace(t *testing.T) {
 	}
 }
 
+func TestCmdBuf_ReserveIDs_Zero(t *testing.T) {
+	cb := NewCmdBuf()
+
+	got := cb.ReserveIDs(0)
+	if got != nil {
+		t.Errorf("expected nil for n=0, got %v", got)
+	}
+}
+
+func TestCmdBuf_CommitReserved_Empty_NoCommand(t *testing.T) {
+	cb := NewCmdBuf()
+	m := &stubMigrator{}
+
+	cb.CommitReserved(m, bulk.ChunkSnapshot{}, nil)
+	cb.CommitReserved(m, bulk.ChunkSnapshot{}, []uid.UID64{})
+
+	if len(cb.migrateCmds) != 0 {
+		t.Errorf("expected no commands for empty ids, got %d", len(cb.migrateCmds))
+	}
+}
+
 // --- Migrate ---
 
 type stubMigrator struct {
