@@ -135,12 +135,43 @@ func TestCmdBuf_ReserveSpace(t *testing.T) {
 	}
 }
 
+func TestCmdBuf_Remover(t *testing.T) {
+	cb := NewCmdBuf()
+	m := &stubMigrator{}
+
+	cb.SetRemover(m)
+
+	if got := cb.Remover(); got != bulk.Migrator(m) {
+		t.Errorf("expected Remover() to return the value set via SetRemover, got %v", got)
+	}
+}
+
 func TestCmdBuf_ReserveIDs_Zero(t *testing.T) {
 	cb := NewCmdBuf()
 
 	got := cb.ReserveIDs(0)
 	if got != nil {
 		t.Errorf("expected nil for n=0, got %v", got)
+	}
+}
+
+func TestCmdBuf_ReserveIDs_ThenCommitReserved(t *testing.T) {
+	cb := NewCmdBuf()
+	m := &stubMigrator{}
+
+	ids := cb.ReserveIDs(3)
+	if len(ids) != 0 || cap(ids) < 3 {
+		t.Fatalf("expected zero-length slice with cap >= 3, got len=%d cap=%d", len(ids), cap(ids))
+	}
+	ids = append(ids, 1, 2, 3)
+
+	cb.CommitReserved(m, bulk.ChunkSnapshot{}, ids)
+
+	if len(cb.migrateCmds) != 1 {
+		t.Fatalf("expected 1 migrateCmd, got %d", len(cb.migrateCmds))
+	}
+	if len(cb.migrateCmds[0].ids) != 3 {
+		t.Errorf("expected 3 ids in queued cmd, got %d", len(cb.migrateCmds[0].ids))
 	}
 }
 
