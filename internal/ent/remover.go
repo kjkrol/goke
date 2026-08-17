@@ -1,4 +1,4 @@
-package migration
+package ent
 
 import (
 	"github.com/kjkrol/uid"
@@ -10,7 +10,7 @@ import (
 )
 
 // Remover removes whole entities in bulk from a batch sharing the same
-// source archetype. Unlike Migrator it needs no configuration: every call
+// source archetype. Unlike Editor it needs no configuration: every call
 // removes every given entity outright, compacting the source table in one
 // batched pass via colstore.Defragmenter instead of a per-entity swap-and-pop.
 type Remover struct {

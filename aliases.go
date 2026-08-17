@@ -4,7 +4,6 @@ import (
 	"github.com/kjkrol/goke/v2/internal/bulk"
 	"github.com/kjkrol/goke/v2/internal/comp"
 	"github.com/kjkrol/goke/v2/internal/ent"
-	"github.com/kjkrol/goke/v2/internal/migration"
 	"github.com/kjkrol/goke/v2/internal/orch"
 	"github.com/kjkrol/goke/v2/internal/reg"
 	"github.com/kjkrol/goke/v2/iter"
@@ -38,24 +37,24 @@ type (
 	// components via col.Slice(&factory.Cursor).
 	Factory = ent.Factory
 
-	// Migrator applies a fixed set of structural changes to a batch of entities
-	// sharing the same source archetype. Create once via NewMigratorBuilder;
+	// Editor applies a fixed set of structural changes to a batch of entities
+	// sharing the same source archetype. Create once via NewEditorBuilder;
 	// call via cb.Migrate inside a system to defer bulk migration to Sync.
-	Migrator = migration.Migrator
+	Editor = ent.Editor
 
-	// ValueMigrator is Migrator's value-carrying counterpart: it adds exactly
+	// ValueEditor is Editor's value-carrying counterpart: it adds exactly
 	// one component and lets the caller write a per-entity value for it,
 	// computed at enqueue time and applied at Sync alongside the migration.
-	// Create once via NewValueMigratorBuilder; call via CmdBufAddCompValue.
-	ValueMigrator = migration.ValueMigrator
+	// Create once via NewValueEditorBuilder; call via CmdBufAddCompValue.
+	ValueEditor = ent.ValueEditor
 
 	// EditOpt configures a structural change — Add or Remove a component —
-	// used when building a Migrator or ValueMigrator. (Opt, by contrast, only
+	// used when building an Editor or ValueEditor. (Opt, by contrast, only
 	// accesses components within an entity's existing structure.)
 	EditOpt = comp.EditOpt
 
 	// ChunkSnapshot is a point-in-time capture of a single table chunk.
 	// Obtained from Query.ChunkSnapshot() during Query.All() iteration; passed
-	// to cb.Migrate so the Migrator can skip per-entity addr.Book lookups.
+	// to cb.Migrate so the Editor can skip per-entity addr.Book lookups.
 	ChunkSnapshot = bulk.ChunkSnapshot
 )

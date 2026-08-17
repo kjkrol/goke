@@ -106,23 +106,17 @@ func (b *QueryBuilder) Build() *Query {
 	return &Query{m: b.ecs.registry.AddMatcher(b.opts...)}
 }
 
-// MigrateBuf stages ids for a bulk structural change tied to the chunk q
-// most recently advanced to, writing directly into cb's arena to avoid a
-// separate scratch-slice copy. Obtained from Query.BeginMigrate; call Add
-// per matched entity, then Commit once with the op to apply.
+// MigrateBuf stages ids for a bulk structural change. Obtained from
+// Query.BeginMigrate; call Add per matched entity, then Commit once.
 type MigrateBuf struct {
 	cb   *CmdBuf
 	snap ChunkSnapshot
 	ids  []uid.UID64
 }
 
-// BeginMigrate reserves arena space in cb for up to len(q.Cursor().IDs) ids
-// — the current chunk's upper bound — and returns a MigrateBuf tied to q's
-// current ChunkSnapshot. Call it more than once per chunk (once per
-// destination op) for a mixed batch — each call gets its own reserved
-// region, so interleaved Add calls on different bufs never collide. Valid
-// only in the same window as ChunkSnapshot itself: between a Next() that
-// returned true and the following Next().
+// BeginMigrate starts a MigrateBuf for the current chunk. Call it once per
+// destination op; safe to call multiple times per chunk for a mixed batch.
+// Valid only until the next Next() call.
 func (q *Query) BeginMigrate(cb *CmdBuf) *MigrateBuf {
 	n := len(q.Cursor().IDs)
 	return &MigrateBuf{cb: cb, snap: q.ChunkSnapshot(), ids: cb.raw.ReserveIDs(n)}

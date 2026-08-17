@@ -1,4 +1,4 @@
-package migration
+package ent
 
 import (
 	"reflect"
@@ -13,15 +13,10 @@ import (
 	"github.com/kjkrol/goke/v2/internal/comp"
 )
 
-// ValueMigrator is Migrator's value-carrying counterpart: it adds exactly one
-// component (enforced by its builder taking a single Addable, not variadic)
-// and writes a caller-supplied value into it per entity, alongside any number
-// of removals. The value is computed by the caller at enqueue time — while
-// the source-iteration context that determines it is still live — staged
-// into the CmdBuf arena, and written into the destination column in the same
-// pass as the block copy, at Sync. Migrator itself stays untouched: this is a
-// separate type, not an extension of it.
-type ValueMigrator struct {
+// ValueEditor is Editor's value-carrying counterpart: it adds exactly one
+// component and writes a caller-supplied value into it per entity, alongside
+// any number of removals.
+type ValueEditor struct {
 	spec        comp.EditSpec // AddDefs has exactly one entry
 	addrBook    *addr.Book
 	archCatalog *arch.Catalog
@@ -29,7 +24,7 @@ type ValueMigrator struct {
 	// dst memoizes srcArch → dstArch; NullID = unlink (no components left).
 	dst [arch.MaxID]arch.ID
 
-	defrag colstore.Defragmenter // by value: shares ValueMigrator's heap allocation
+	defrag colstore.Defragmenter // by value: shares ValueEditor's heap allocation
 
 	// scratch is reused across MigrateWithValue calls; grows lazily, never shrinks.
 	scratch struct {
@@ -41,22 +36,22 @@ type ValueMigrator struct {
 	}
 }
 
-func NewValueMigrator(book *addr.Book, catalog *arch.Catalog, spec comp.EditSpec) *ValueMigrator {
-	vm := &ValueMigrator{spec: spec, addrBook: book, archCatalog: catalog}
+func NewValueEditor(book *addr.Book, catalog *arch.Catalog, spec comp.EditSpec) *ValueEditor {
+	vm := &ValueEditor{spec: spec, addrBook: book, archCatalog: catalog}
 	for i := range vm.dst {
 		vm.dst[i] = unresolvedID
 	}
 	return vm
 }
 
-// ValueType returns the reflect.Type of the one component this ValueMigrator
+// ValueType returns the reflect.Type of the one component this ValueEditor
 // adds, for callers to validate a Comp[T] against before staging a
 // mismatched-type payload — same-sized-but-different types (e.g. two structs
 // each holding a pair of float32s) would otherwise defeat a size-only check.
-func (vm *ValueMigrator) ValueType() reflect.Type { return vm.spec.AddDefs[0].Type }
+func (vm *ValueEditor) ValueType() reflect.Type { return vm.spec.AddDefs[0].Type }
 
 // resolve computes and memoizes the destination archetype for srcArchID.
-func (vm *ValueMigrator) resolve(srcArchID arch.ID) arch.ID {
+func (vm *ValueEditor) resolve(srcArchID arch.ID) arch.ID {
 	target := resolveDst(vm.archCatalog, vm.spec, srcArchID)
 	vm.dst[srcArchID] = target
 	return target
@@ -65,7 +60,7 @@ func (vm *ValueMigrator) resolve(srcArchID arch.ID) arch.ID {
 // MigrateWithValue satisfies bulk.ValueMigrator. payload holds len(ids)
 // contiguous values (the added component's type, elemSize each) in the same
 // order as ids.
-func (vm *ValueMigrator) MigrateWithValue(snap bulk.ChunkSnapshot, ids []uid.UID64, payload unsafe.Pointer) {
+func (vm *ValueEditor) MigrateWithValue(snap bulk.ChunkSnapshot, ids []uid.UID64, payload unsafe.Pointer) {
 	if len(ids) == 0 {
 		return
 	}
@@ -93,12 +88,9 @@ func (vm *ValueMigrator) MigrateWithValue(snap bulk.ChunkSnapshot, ids []uid.UID
 	vm.applyGroup(snap.ArchID, validIDs, slotRefs, payload)
 }
 
-// applyGroup mirrors Migrator.applyGroup, with one addition: the payload is
-// written into the added column in the same pass as the block copy (or, when
-// the destination composition equals the source one — the added component
-// was already present and no removal changed anything — directly at each
-// entity's unchanged position, since there is nothing else to do).
-func (vm *ValueMigrator) applyGroup(srcArchID arch.ID, ids []uid.UID64, slotRefs []colstore.SlotRef, payload unsafe.Pointer) {
+// applyGroup mirrors Editor.applyGroup, additionally writing payload into
+// the added column alongside the block copy.
+func (vm *ValueEditor) applyGroup(srcArchID arch.ID, ids []uid.UID64, slotRefs []colstore.SlotRef, payload unsafe.Pointer) {
 	n := len(ids)
 	srcTable := &vm.archCatalog.Archetypes[srcArchID].Table
 
@@ -195,7 +187,7 @@ func (vm *ValueMigrator) applyGroup(srcArchID arch.ID, ids []uid.UID64, slotRefs
 }
 
 // copyMemory copies size bytes from src to dst. Duplicated locally rather
-// than imported — internal/migration's allow-list doesn't include
+// than imported — internal/ent's allow-list doesn't include
 // internal/chunk (whose CopyMemory does the same thing), matching the
 // existing precedent of internal/orch/scheduler.go's own private copy.
 func copyMemory(dst, src unsafe.Pointer, size uintptr) {

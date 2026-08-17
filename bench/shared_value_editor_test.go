@@ -10,8 +10,8 @@ import (
 
 // enqueueSubsetWithValue mirrors enqueueSubset but stages a value per id via
 // CmdBufAddCompValue instead of cb.Migrate — one write per entity,
-// matching how a real ValueMigrator caller computes it during iteration.
-func enqueueSubsetWithValue(q *goke.Query, vm *goke.ValueMigrator, col *goke.Comp[Pos], limit int) goke.SystemFn {
+// matching how a real ValueEditor caller computes it during iteration.
+func enqueueSubsetWithValue(q *goke.Query, vm *goke.ValueEditor, col *goke.Comp[Pos], limit int) goke.SystemFn {
 	return func(cb *goke.CmdBuf, _ time.Duration) {
 		q.All()
 		taken := 0
@@ -30,7 +30,7 @@ func enqueueSubsetWithValue(q *goke.Query, vm *goke.ValueMigrator, col *goke.Com
 }
 
 // enqueueScatteredWithValue mirrors enqueueScattered for the value-carrying path.
-func enqueueScatteredWithValue(q *goke.Query, vm *goke.ValueMigrator, col *goke.Comp[Pos], pick []bool) goke.SystemFn {
+func enqueueScatteredWithValue(q *goke.Query, vm *goke.ValueEditor, col *goke.Comp[Pos], pick []bool) goke.SystemFn {
 	buf := make([]uid.UID64, 0, len(pick))
 	return func(cb *goke.CmdBuf, _ time.Duration) {
 		q.All()
@@ -55,13 +55,13 @@ func enqueueScatteredWithValue(q *goke.Query, vm *goke.ValueMigrator, col *goke.
 	}
 }
 
-// runValueMigratorLeaf mirrors runMigratorLeaf for ValueMigrator: same
+// runValueEditorLeaf mirrors runEditorLeaf for ValueEditor: same
 // sorted/random dimensions, same timedMigrationPlan (only Sync timed), only
 // the forward wiring differs (writes a value per id instead of just moving it).
-func runValueMigratorLeaf(b *testing.B, ecs *goke.ECS, name string, subset int,
-	setup func() (migrateQ *goke.Query, fwd *goke.ValueMigrator, col *goke.Comp[Pos], restore goke.Runnable)) {
+func runValueEditorLeaf(b *testing.B, ecs *goke.ECS, name string, subset int,
+	setup func() (migrateQ *goke.Query, fwd *goke.ValueEditor, col *goke.Comp[Pos], restore goke.Runnable)) {
 
-	run := func(order string, mkSys func(*goke.Query, *goke.ValueMigrator, *goke.Comp[Pos]) goke.SystemFn) {
+	run := func(order string, mkSys func(*goke.Query, *goke.ValueEditor, *goke.Comp[Pos]) goke.SystemFn) {
 		b.Run(name+"/"+order, func(b *testing.B) {
 			ecs.Reset()
 			migrateQ, fwd, col, restoreSys := setup()
@@ -75,12 +75,12 @@ func runValueMigratorLeaf(b *testing.B, ecs *goke.ECS, name string, subset int,
 		})
 	}
 
-	run("sorted", func(q *goke.Query, vm *goke.ValueMigrator, col *goke.Comp[Pos]) goke.SystemFn {
+	run("sorted", func(q *goke.Query, vm *goke.ValueEditor, col *goke.Comp[Pos]) goke.SystemFn {
 		return enqueueSubsetWithValue(q, vm, col, subset)
 	})
 	if subset < entitiesNumber {
 		pick := randPickMask(entitiesNumber, subset, 42)
-		run("random", func(q *goke.Query, vm *goke.ValueMigrator, col *goke.Comp[Pos]) goke.SystemFn {
+		run("random", func(q *goke.Query, vm *goke.ValueEditor, col *goke.Comp[Pos]) goke.SystemFn {
 			return enqueueScatteredWithValue(q, vm, col, pick)
 		})
 	}

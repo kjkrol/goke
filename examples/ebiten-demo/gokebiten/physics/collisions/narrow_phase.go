@@ -32,7 +32,7 @@ type NarrowPhase struct {
 
 	sensorIDs map[uid.UID64]struct{}
 
-	removeMigrator *goke.Migrator
+	removeEditor *goke.Editor
 
 	contactsBuffer []Contact
 
@@ -56,7 +56,7 @@ func (n *NarrowPhase) Init(ecs *goke.ECS) {
 	if init, ok := n.handler.(Initializer); ok {
 		init.Init(ecs)
 	}
-	n.removeMigrator = ecs.NewMigratorBuilder().Remove(goke.Remove[Hit]()).Build()
+	n.removeEditor = ecs.NewEditorBuilder().Remove(goke.Remove[Hit]()).Build()
 	sensorQry := ecs.NewQueryBuilder().Include(goke.Include[Sensor]()).Build()
 	sensorQry.All()
 	for sensorQry.Next() {
@@ -204,6 +204,6 @@ func (n *NarrowPhase) finalizeHitTags(cb *goke.CmdBuf) {
 			}
 			buf.Add(id)
 		}
-		buf.Commit(n.removeMigrator)
+		buf.Commit(n.removeEditor)
 	}
 }

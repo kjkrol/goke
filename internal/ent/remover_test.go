@@ -1,4 +1,4 @@
-package migration_test
+package ent_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 
 	"github.com/kjkrol/goke/v2/internal/bulk"
 	"github.com/kjkrol/goke/v2/internal/comp"
-	"github.com/kjkrol/goke/v2/internal/migration"
+	"github.com/kjkrol/goke/v2/internal/ent"
 )
 
 func TestRemover_Migrate_Empty_IsNoOp(t *testing.T) {
@@ -20,7 +20,7 @@ func TestRemover_Migrate_Empty_IsNoOp(t *testing.T) {
 	_ = accessSpec.Comp(posDef)
 	ids := spawnAll(m, accessSpec, 2)
 
-	remover := migration.NewRemover(&m.AddressBook, &m.ArchCatalog)
+	remover := ent.NewRemover(&m.AddressBook, &m.ArchCatalog)
 	remover.Migrate(bulk.ChunkSnapshot{}, nil)
 	remover.Migrate(bulk.ChunkSnapshot{}, []uid.UID64{})
 
@@ -41,7 +41,7 @@ func TestRemover_Migrate_RemovesEntitiesFromBook(t *testing.T) {
 	_ = accessSpec.Comp(posDef)
 	ids := spawnAll(m, accessSpec, 3)
 
-	remover := migration.NewRemover(&m.AddressBook, &m.ArchCatalog)
+	remover := ent.NewRemover(&m.AddressBook, &m.ArchCatalog)
 	applyByChunks(m, remover, ids)
 
 	for _, id := range ids {
@@ -64,7 +64,7 @@ func TestRemover_Migrate_TableEmptiedAfterFullRemoval(t *testing.T) {
 	entry0, _ := m.AddressBook.Get(ids[0])
 	srcArchID := entry0.ArchID
 
-	remover := migration.NewRemover(&m.AddressBook, &m.ArchCatalog)
+	remover := ent.NewRemover(&m.AddressBook, &m.ArchCatalog)
 	applyByChunks(m, remover, ids)
 
 	if got := m.ArchCatalog.Archetypes[srcArchID].Table.Len(); got != 0 {
@@ -85,7 +85,7 @@ func TestRemover_Migrate_PartialRemoval_SurvivorsConsistent(t *testing.T) {
 	entry0, _ := m.AddressBook.Get(ids[0])
 	srcArchID := entry0.ArchID
 
-	remover := migration.NewRemover(&m.AddressBook, &m.ArchCatalog)
+	remover := ent.NewRemover(&m.AddressBook, &m.ArchCatalog)
 	applyByChunks(m, remover, []uid.UID64{ids[0], ids[2], ids[4]})
 
 	if got := m.ArchCatalog.Archetypes[srcArchID].Table.Len(); got != 2 {
@@ -132,7 +132,7 @@ func TestRemover_Migrate_SlotAlignedFastPath(t *testing.T) {
 	srcArchID := entry0.ArchID
 	srcTable := &m.ArchCatalog.Archetypes[srcArchID].Table
 
-	remover := migration.NewRemover(&m.AddressBook, &m.ArchCatalog)
+	remover := ent.NewRemover(&m.AddressBook, &m.ArchCatalog)
 
 	snap := bulk.ChunkSnapshot{
 		ArchID:      srcArchID,
@@ -170,7 +170,7 @@ func TestRemover_Migrate_StaleVersion_RevalidatesEntities(t *testing.T) {
 	srcArchID := entry0.ArchID
 	srcTable := &m.ArchCatalog.Archetypes[srcArchID].Table
 
-	remover := migration.NewRemover(&m.AddressBook, &m.ArchCatalog)
+	remover := ent.NewRemover(&m.AddressBook, &m.ArchCatalog)
 
 	snap := bulk.ChunkSnapshot{
 		ArchID:      srcArchID,
@@ -212,7 +212,7 @@ func TestRemover_Migrate_StaleVersion_AllEntitiesDead_NoOp(t *testing.T) {
 	srcArchID := entry0.ArchID
 	srcTable := &m.ArchCatalog.Archetypes[srcArchID].Table
 
-	remover := migration.NewRemover(&m.AddressBook, &m.ArchCatalog)
+	remover := ent.NewRemover(&m.AddressBook, &m.ArchCatalog)
 
 	snap := bulk.ChunkSnapshot{
 		ArchID:      srcArchID,
@@ -254,7 +254,7 @@ func TestRemover_Migrate_MultiSrcArch_PerChunkCalls(t *testing.T) {
 	srcArchX := entryX.ArchID
 	srcArchY := entryY.ArchID
 
-	remover := migration.NewRemover(&m.AddressBook, &m.ArchCatalog)
+	remover := ent.NewRemover(&m.AddressBook, &m.ArchCatalog)
 
 	mixed := []uid.UID64{idsPos[0], idsPosVel[0], idsPos[1], idsPosVel[1], idsPos[2]}
 	applyByChunks(m, remover, mixed)
@@ -289,7 +289,7 @@ func TestRemover_Migrate_IDRecycling(t *testing.T) {
 	_ = accessSpec.Comp(posDef)
 	ids := spawnAll(m, accessSpec, 3)
 
-	remover := migration.NewRemover(&m.AddressBook, &m.ArchCatalog)
+	remover := ent.NewRemover(&m.AddressBook, &m.ArchCatalog)
 	applyByChunks(m, remover, ids)
 
 	for _, id := range ids {

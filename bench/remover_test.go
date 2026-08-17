@@ -8,7 +8,7 @@ import (
 )
 
 // Benchmark_Remover_Remove is the bulk counterpart of Benchmark_Remove: the
-// same 10-component world as the Migrator suites, entities removed through
+// same 10-component world as the Editor suites, entities removed through
 // the production CmdBuf path — a system registers one cb.Remove command per
 // chunk and only the Sync executing the shared Remover's Migrate is timed.
 // subset=pop removes the whole population each tick; subset<pop additionally

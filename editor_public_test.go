@@ -8,10 +8,10 @@ import (
 	"github.com/kjkrol/uid"
 )
 
-// TestMigratorBuilder_AddComponent exercises the public Migrator API end to
-// end: NewMigratorBuilder(comps...).Build(), applied via Query.BeginMigrate
+// TestEditorBuilder_AddComponent exercises the public Editor API end to
+// end: NewEditorBuilder(comps...).Build(), applied via Query.BeginMigrate
 // inside a system's Update, applied at Sync.
-func TestMigratorBuilder_AddComponent(t *testing.T) {
+func TestEditorBuilder_AddComponent(t *testing.T) {
 	ecs := goke.New()
 	_ = goke.RegComp[Position](ecs)
 	_ = goke.RegComp[Velocity](ecs)
@@ -26,7 +26,7 @@ func TestMigratorBuilder_AddComponent(t *testing.T) {
 
 	var vel goke.Comp[Velocity]
 	query := ecs.NewQueryBuilder(&pos).Exclude(goke.Exclude[Velocity]()).Build()
-	addVel := ecs.NewMigratorBuilder(&vel).Build()
+	addVel := ecs.NewEditorBuilder(&vel).Build()
 
 	sys := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
 		query.All()
@@ -51,15 +51,15 @@ func TestMigratorBuilder_AddComponent(t *testing.T) {
 
 	for _, id := range ids {
 		if !hasComp[Velocity](ecs, id) {
-			t.Errorf("entity %v: expected Velocity added via Migrator", id)
+			t.Errorf("entity %v: expected Velocity added via Editor", id)
 		}
 	}
 }
 
-// TestMigratorBuilder_RemoveComponent exercises the Remove side: a Migrator
-// built via NewMigratorBuilder().Remove(...).Build() removes a component
+// TestEditorBuilder_RemoveComponent exercises the Remove side: an Editor
+// built via NewEditorBuilder().Remove(...).Build() removes a component
 // from every matched entity.
-func TestMigratorBuilder_RemoveComponent(t *testing.T) {
+func TestEditorBuilder_RemoveComponent(t *testing.T) {
 	ecs := goke.New()
 	_ = goke.RegComp[Position](ecs)
 	_ = goke.RegComp[Velocity](ecs)
@@ -74,7 +74,7 @@ func TestMigratorBuilder_RemoveComponent(t *testing.T) {
 	}
 
 	query := ecs.NewQueryBuilder(&pos, &vel).Build()
-	removeVel := ecs.NewMigratorBuilder().Remove(goke.Remove[Velocity]()).Build()
+	removeVel := ecs.NewEditorBuilder().Remove(goke.Remove[Velocity]()).Build()
 
 	sys := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
 		query.All()
@@ -99,7 +99,7 @@ func TestMigratorBuilder_RemoveComponent(t *testing.T) {
 
 	for _, id := range ids {
 		if hasComp[Velocity](ecs, id) {
-			t.Errorf("entity %v: expected Velocity removed via Migrator", id)
+			t.Errorf("entity %v: expected Velocity removed via Editor", id)
 		}
 		if !hasComp[Position](ecs, id) {
 			t.Errorf("entity %v: expected Position to remain", id)

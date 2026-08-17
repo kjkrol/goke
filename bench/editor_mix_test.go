@@ -8,7 +8,7 @@ import (
 	"github.com/kjkrol/uid"
 )
 
-// E01..E10 are the incoming component types used by Benchmark_Migrator_Mix.
+// E01..E10 are the incoming component types used by Benchmark_Editor_Mix.
 // For N=K the migrator adds E01..EK and removes the K existing components,
 // replacing them completely in a single archetype migration.
 type E01 struct{ V float32 }
@@ -104,12 +104,12 @@ func populateN(ecs *goke.ECS, count, n int) []uid.UID64 {
 	return ids
 }
 
-// Benchmark_Migrator_Mix exercises a combined add+remove through the
+// Benchmark_Editor_Mix exercises a combined add+remove through the
 // production CmdBuf path: each leaf swap=N adds N new types (E01..E0N) and
 // removes N existing ones (Pos..) in a single bulk migration; only the Sync
-// executing Migrator.Migrate is timed. subset<pop leaves additionally
+// executing Editor.Migrate is timed. subset<pop leaves additionally
 // exercise source compaction.
-func Benchmark_Migrator_Mix(b *testing.B) {
+func Benchmark_Editor_Mix(b *testing.B) {
 	ecs := setupEditECS()
 	addComps := []goke.Addable{
 		new(goke.Comp[Pos]), new(goke.Comp[Vel]), new(goke.Comp[Acc]),
@@ -138,13 +138,13 @@ func Benchmark_Migrator_Mix(b *testing.B) {
 
 	for n := 1; n <= 10; n++ {
 		for _, subset := range []int{filterSubsetSize, entitiesNumber} {
-			runMigratorLeaf(b, ecs,
+			runEditorLeaf(b, ecs,
 				fmt.Sprintf("pop=%d/subset=%d/comp=%d/swap=%d", entitiesNumber, subset, n+1, n),
 				subset,
-				func() (*goke.Query, *goke.Migrator, goke.Runnable) {
+				func() (*goke.Query, *goke.Editor, goke.Runnable) {
 					populateN(ecs, entitiesNumber, n)
-					fwd := ecs.NewMigratorBuilder(addE[:n]...).Remove(delComps[:n]...).Build()
-					rev := ecs.NewMigratorBuilder(addComps[:n]...).Remove(delE[:n]...).Build()
+					fwd := ecs.NewEditorBuilder(addE[:n]...).Remove(delComps[:n]...).Build()
+					rev := ecs.NewEditorBuilder(addComps[:n]...).Remove(delE[:n]...).Build()
 					migrateQ := ecs.NewQueryBuilder().Include(goke.Include[Pos]()).Build()
 					restoreQ := ecs.NewQueryBuilder().Include(goke.Include[E01]()).Build()
 					return migrateQ, fwd, ecs.RegSysFn(enqueueAll(restoreQ, rev))

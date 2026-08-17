@@ -1,4 +1,4 @@
-package migration
+package ent
 
 import (
 	"unsafe"
@@ -12,22 +12,11 @@ import (
 	"github.com/kjkrol/goke/v2/internal/comp"
 )
 
-// resolveSlotRefs resolves ids to their current SlotRef positions within
-// srcTable, using *idsScratch/*slotRefsScratch as the caller's persistent
-// scratch storage (grown lazily, never shrunk). While snap.TableVer still
-// matches srcTable's structural version, every id is alive at its captured
-// position and ids is returned unchanged (no copy) — SlotAligned synthesizes
-// the slots outright, otherwise one unchecked Slot read per id suffices. On
-// a version mismatch, every id is revalidated against addrBook; dead or
-// relocated-away ids are skipped and *idsScratch backs the returned
-// (possibly shorter) id slice.
-//
-// origIdxScratch is optional (nil for callers that never need it, e.g.
-// Remover and payload-less Migrator calls — this costs them one predictable
-// nil-check on the slow path and nothing on the fast path). When non-nil, it
-// receives each survivor's original index into ids — the slow path never
-// reorders, only skips, so this is exactly what a caller needs to compact a
-// parallel per-id buffer (e.g. ValueMigrator's payload) in lockstep.
+// resolveSlotRefs resolves ids to their current SlotRef positions in
+// srcTable, revalidating against addrBook (and dropping dead/relocated ids)
+// only if snap is stale. origIdxScratch is optional; when non-nil it
+// receives each survivor's original index into ids, for compacting a
+// parallel per-id buffer (e.g. ValueEditor's payload) in lockstep.
 func resolveSlotRefs(
 	addrBook *addr.Book,
 	srcTable *colstore.Table,
@@ -89,11 +78,8 @@ func resolveSlotRefs(
 }
 
 // resolveDst computes the destination archetype for applying spec's adds
-// then dels to srcArchID's composition — jumping straight to the target
-// composition, no edge-graph waypoints, so coexisting wide migrators cannot
-// cross-multiply intermediate archetypes. Returns arch.NullID when nothing is
-// left (every component removed). Shared by Migrator and ValueMigrator, each
-// memoizing the result in their own srcArch → dstArch cache.
+// then dels to srcArchID's composition. Returns arch.NullID when nothing is
+// left (every component removed).
 func resolveDst(archCatalog *arch.Catalog, spec comp.EditSpec, srcArchID arch.ID) arch.ID {
 	set := archCatalog.Archetypes[srcArchID].Composition()
 	for i := range spec.AddDefs {
@@ -111,12 +97,9 @@ func resolveDst(archCatalog *arch.Catalog, spec comp.EditSpec, srcArchID arch.ID
 	return archCatalog.Upsert(set)
 }
 
-// removeBatch removes ids outright from srcTable: one batched Compact call
-// closes every vacated hole at once, then the address book is updated in
-// one homogeneous pass — deletions (id recycling) first, survivor
-// relocations from the compaction's SlotMove list second. Used both by
-// Remover.Migrate and by Migrator.applyGroup when a batch's destination
-// composition resolves empty (every component removed).
+// removeBatch removes ids outright from srcTable, compacting and updating
+// addrBook in one pass. Used by Remover.Migrate and by Editor.applyGroup
+// when a batch's destination composition resolves empty.
 func removeBatch(
 	addrBook *addr.Book,
 	defrag *colstore.Defragmenter,

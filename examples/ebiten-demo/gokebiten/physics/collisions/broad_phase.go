@@ -14,13 +14,13 @@ import (
 var _ goke.System = (*BroadPhase)(nil)
 
 type BroadPhase struct {
-	space       *gokg.Space
-	query       *goke.Query
-	pos         goke.Comp[kinematics.Position]
-	vel         goke.Comp[kinematics.Velocity]
-	hit         goke.Comp[Hit]
-	collision   goke.Comp[Collision]
-	addMigrator *goke.Migrator
+	space     *gokg.Space
+	query     *goke.Query
+	pos       goke.Comp[kinematics.Position]
+	vel       goke.Comp[kinematics.Velocity]
+	hit       goke.Comp[Hit]
+	collision goke.Comp[Collision]
+	addEditor *goke.Editor
 }
 
 func NewBroadPhase(space *gokg.Space) *BroadPhase {
@@ -30,7 +30,7 @@ func NewBroadPhase(space *gokg.Space) *BroadPhase {
 func (b *BroadPhase) Init(ecs *goke.ECS) {
 	b.query = ecs.NewQueryBuilder(&b.pos, &b.vel, &b.collision).Build()
 	goke.RegComp[Hit](ecs)
-	b.addMigrator = ecs.NewMigratorBuilder(&b.hit).Build()
+	b.addEditor = ecs.NewEditorBuilder(&b.hit).Build()
 }
 
 func (b *BroadPhase) Update(cb *goke.CmdBuf, _ time.Duration) {
@@ -68,6 +68,6 @@ func (b *BroadPhase) Update(cb *goke.CmdBuf, _ time.Duration) {
 				return true
 			})
 		}
-		buf.Commit(b.addMigrator)
+		buf.Commit(b.addEditor)
 	}
 }

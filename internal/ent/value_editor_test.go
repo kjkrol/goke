@@ -1,4 +1,4 @@
-package migration_test
+package ent_test
 
 import (
 	"reflect"
@@ -10,15 +10,14 @@ import (
 	"github.com/kjkrol/goke/v2/internal/bulk"
 	"github.com/kjkrol/goke/v2/internal/comp"
 	"github.com/kjkrol/goke/v2/internal/ent"
-	"github.com/kjkrol/goke/v2/internal/migration"
 	"github.com/kjkrol/goke/v2/iter"
 )
 
-// applyByChunksWithValue mirrors applyByChunks (migrator_test.go) but for
-// ValueMigrator: groups consecutive ids by their current (ArchID, Ptr) and
+// applyByChunksWithValue mirrors applyByChunks (editor_test.go) but for
+// ValueEditor: groups consecutive ids by their current (ArchID, Ptr) and
 // calls MigrateWithValue once per group, slicing values in lockstep — one
-// call per chunk, exactly as CmdBufMassMigrateInit's production callers do.
-func applyByChunksWithValue[T any](m *ent.Manager, vm *migration.ValueMigrator, ids []uid.UID64, values []T) {
+// call per chunk, exactly as CmdBufAddCompValue's production callers do.
+func applyByChunksWithValue[T any](m *ent.Manager, vm *ent.ValueEditor, ids []uid.UID64, values []T) {
 	for start := 0; start < len(ids); {
 		entry, ok := m.AddressBook.Get(ids[start])
 		if !ok {
@@ -58,7 +57,7 @@ func readVel(m *ent.Manager, velDef comp.Def, id uid.UID64) mVelocity {
 	return *(*mVelocity)(ptr)
 }
 
-func TestValueMigrator_MigrateWithValue_Empty_IsNoOp(t *testing.T) {
+func TestValueEditor_MigrateWithValue_Empty_IsNoOp(t *testing.T) {
 	m := newMgr()
 	var mi comp.DefIndex
 	mi.Init()
@@ -70,7 +69,7 @@ func TestValueMigrator_MigrateWithValue_Empty_IsNoOp(t *testing.T) {
 
 	var editSpec comp.EditSpec
 	editSpec.Init(&mi, comp.Add(new(iter.ArrayRef[mVelocity])))
-	vm := migration.NewValueMigrator(&m.AddressBook, &m.ArchCatalog, editSpec)
+	vm := ent.NewValueEditor(&m.AddressBook, &m.ArchCatalog, editSpec)
 
 	vm.MigrateWithValue(bulk.ChunkSnapshot{}, nil, nil)
 	vm.MigrateWithValue(bulk.ChunkSnapshot{}, []uid.UID64{}, nil)
@@ -82,7 +81,7 @@ func TestValueMigrator_MigrateWithValue_Empty_IsNoOp(t *testing.T) {
 	}
 }
 
-func TestValueMigrator_MigrateWithValue_ValuesWrittenPerEntity(t *testing.T) {
+func TestValueEditor_MigrateWithValue_ValuesWrittenPerEntity(t *testing.T) {
 	m := newMgr()
 	var mi comp.DefIndex
 	mi.Init()
@@ -97,7 +96,7 @@ func TestValueMigrator_MigrateWithValue_ValuesWrittenPerEntity(t *testing.T) {
 
 	var editSpec comp.EditSpec
 	editSpec.Init(&mi, comp.Add(new(iter.ArrayRef[mVelocity])))
-	vm := migration.NewValueMigrator(&m.AddressBook, &m.ArchCatalog, editSpec)
+	vm := ent.NewValueEditor(&m.AddressBook, &m.ArchCatalog, editSpec)
 
 	values := []mVelocity{{VX: 10, VY: 10}, {VX: 20, VY: 20}, {VX: 30, VY: 30}}
 	applyByChunksWithValue(m, vm, ids, values)
@@ -116,7 +115,7 @@ func TestValueMigrator_MigrateWithValue_ValuesWrittenPerEntity(t *testing.T) {
 	}
 }
 
-func TestValueMigrator_MigrateWithValue_StaleVersion_ValuesStayAlignedAfterDrop(t *testing.T) {
+func TestValueEditor_MigrateWithValue_StaleVersion_ValuesStayAlignedAfterDrop(t *testing.T) {
 	// The core case this whole mechanism exists for: a structural change
 	// between capture and apply forces the slow path, which drops a dead
 	// id — survivors' values must still match their own original index, not
@@ -136,7 +135,7 @@ func TestValueMigrator_MigrateWithValue_StaleVersion_ValuesStayAlignedAfterDrop(
 
 	var editSpec comp.EditSpec
 	editSpec.Init(&mi, comp.Add(new(iter.ArrayRef[mVelocity])))
-	vm := migration.NewValueMigrator(&m.AddressBook, &m.ArchCatalog, editSpec)
+	vm := ent.NewValueEditor(&m.AddressBook, &m.ArchCatalog, editSpec)
 
 	snap := bulk.ChunkSnapshot{
 		ArchID:      srcArchID,
@@ -163,7 +162,7 @@ func TestValueMigrator_MigrateWithValue_StaleVersion_ValuesStayAlignedAfterDrop(
 	}
 }
 
-func TestValueMigrator_MigrateWithValue_MultiChunk_PerChunkValues(t *testing.T) {
+func TestValueEditor_MigrateWithValue_MultiChunk_PerChunkValues(t *testing.T) {
 	m := newMgr()
 	var mi comp.DefIndex
 	mi.Init()
@@ -176,7 +175,7 @@ func TestValueMigrator_MigrateWithValue_MultiChunk_PerChunkValues(t *testing.T) 
 
 	var editSpec comp.EditSpec
 	editSpec.Init(&mi, comp.Add(new(iter.ArrayRef[mVelocity])))
-	vm := migration.NewValueMigrator(&m.AddressBook, &m.ArchCatalog, editSpec)
+	vm := ent.NewValueEditor(&m.AddressBook, &m.ArchCatalog, editSpec)
 
 	values := make([]mVelocity, n)
 	for i := range values {
@@ -191,7 +190,7 @@ func TestValueMigrator_MigrateWithValue_MultiChunk_PerChunkValues(t *testing.T) 
 	}
 }
 
-func TestValueMigrator_MigrateWithValue_ComponentAlreadyPresent_WritesInPlace(t *testing.T) {
+func TestValueEditor_MigrateWithValue_ComponentAlreadyPresent_WritesInPlace(t *testing.T) {
 	m := newMgr()
 	var mi comp.DefIndex
 	mi.Init()
@@ -207,7 +206,7 @@ func TestValueMigrator_MigrateWithValue_ComponentAlreadyPresent_WritesInPlace(t 
 
 	var editSpec comp.EditSpec
 	editSpec.Init(&mi, comp.Add(new(iter.ArrayRef[mVelocity])))
-	vm := migration.NewValueMigrator(&m.AddressBook, &m.ArchCatalog, editSpec)
+	vm := ent.NewValueEditor(&m.AddressBook, &m.ArchCatalog, editSpec)
 
 	values := []mVelocity{{VX: 5, VY: 5}, {VX: 6, VY: 6}}
 	applyByChunksWithValue(m, vm, ids, values)
@@ -226,7 +225,7 @@ func TestValueMigrator_MigrateWithValue_ComponentAlreadyPresent_WritesInPlace(t 
 	}
 }
 
-func TestValueMigrator_MigrateWithValue_AddDelSameComponent_NoOpWithoutCrash(t *testing.T) {
+func TestValueEditor_MigrateWithValue_AddDelSameComponent_NoOpWithoutCrash(t *testing.T) {
 	// Add(vel) + Del(vel) on entities that never had vel cancels out to the
 	// unchanged source composition in resolveDst, but the vel column never
 	// existed in this table — MigrateWithValue must not dereference a nil
@@ -245,7 +244,7 @@ func TestValueMigrator_MigrateWithValue_AddDelSameComponent_NoOpWithoutCrash(t *
 
 	var editSpec comp.EditSpec
 	editSpec.Init(&mi, comp.Add(new(iter.ArrayRef[mVelocity])), comp.Del[mVelocity]())
-	vm := migration.NewValueMigrator(&m.AddressBook, &m.ArchCatalog, editSpec)
+	vm := ent.NewValueEditor(&m.AddressBook, &m.ArchCatalog, editSpec)
 
 	values := []mVelocity{{VX: 1, VY: 1}, {VX: 2, VY: 2}}
 	applyByChunksWithValue(m, vm, ids, values) // must not panic
@@ -261,21 +260,21 @@ func TestValueMigrator_MigrateWithValue_AddDelSameComponent_NoOpWithoutCrash(t *
 	}
 }
 
-func TestValueMigrator_ValueType(t *testing.T) {
+func TestValueEditor_ValueType(t *testing.T) {
 	m := newMgr()
 	var mi comp.DefIndex
 	mi.Init()
 
 	var editSpec comp.EditSpec
 	editSpec.Init(&mi, comp.Add(new(iter.ArrayRef[mVelocity])))
-	vm := migration.NewValueMigrator(&m.AddressBook, &m.ArchCatalog, editSpec)
+	vm := ent.NewValueEditor(&m.AddressBook, &m.ArchCatalog, editSpec)
 
 	if got, want := vm.ValueType(), reflect.TypeFor[mVelocity](); got != want {
 		t.Errorf("ValueType() = %v; want %v", got, want)
 	}
 }
 
-func TestValueMigrator_MigrateWithValue_StaleVersion_AllEntitiesDead_NoOp(t *testing.T) {
+func TestValueEditor_MigrateWithValue_StaleVersion_AllEntitiesDead_NoOp(t *testing.T) {
 	m := newMgr()
 	var mi comp.DefIndex
 	mi.Init()
@@ -291,7 +290,7 @@ func TestValueMigrator_MigrateWithValue_StaleVersion_AllEntitiesDead_NoOp(t *tes
 
 	var editSpec comp.EditSpec
 	editSpec.Init(&mi, comp.Add(new(iter.ArrayRef[mVelocity])))
-	vm := migration.NewValueMigrator(&m.AddressBook, &m.ArchCatalog, editSpec)
+	vm := ent.NewValueEditor(&m.AddressBook, &m.ArchCatalog, editSpec)
 
 	snap := bulk.ChunkSnapshot{
 		ArchID:      srcArchID,
@@ -314,7 +313,7 @@ func TestValueMigrator_MigrateWithValue_StaleVersion_AllEntitiesDead_NoOp(t *tes
 	}
 }
 
-func TestValueMigrator_MigrateWithValue_ZeroSizeComponentAlreadyPresent_NoOp(t *testing.T) {
+func TestValueEditor_MigrateWithValue_ZeroSizeComponentAlreadyPresent_NoOp(t *testing.T) {
 	m := newMgr()
 	var mi comp.DefIndex
 	mi.Init()
@@ -331,7 +330,7 @@ func TestValueMigrator_MigrateWithValue_ZeroSizeComponentAlreadyPresent_NoOp(t *
 
 	var editSpec comp.EditSpec
 	editSpec.Init(&mi, comp.Add(new(iter.ArrayRef[mTag])))
-	vm := migration.NewValueMigrator(&m.AddressBook, &m.ArchCatalog, editSpec)
+	vm := ent.NewValueEditor(&m.AddressBook, &m.ArchCatalog, editSpec)
 
 	applyByChunksWithValue(m, vm, ids, []mTag{{}, {}}) // must not panic; zero-size, nothing to write
 
@@ -346,7 +345,7 @@ func TestValueMigrator_MigrateWithValue_ZeroSizeComponentAlreadyPresent_NoOp(t *
 	}
 }
 
-func TestValueMigrator_MigrateWithValue_PartialBatch_SurvivorsRelocated(t *testing.T) {
+func TestValueEditor_MigrateWithValue_PartialBatch_SurvivorsRelocated(t *testing.T) {
 	m := newMgr()
 	var mi comp.DefIndex
 	mi.Init()
@@ -361,7 +360,7 @@ func TestValueMigrator_MigrateWithValue_PartialBatch_SurvivorsRelocated(t *testi
 
 	var editSpec comp.EditSpec
 	editSpec.Init(&mi, comp.Add(new(iter.ArrayRef[mVelocity])))
-	vm := migration.NewValueMigrator(&m.AddressBook, &m.ArchCatalog, editSpec)
+	vm := ent.NewValueEditor(&m.AddressBook, &m.ArchCatalog, editSpec)
 
 	// Only ids[0] and ids[2] migrate — ids[1], ids[3] stay behind and must be
 	// relocated by the source-compaction pass (the srcMoves address-book loop).
@@ -397,7 +396,7 @@ func TestValueMigrator_MigrateWithValue_PartialBatch_SurvivorsRelocated(t *testi
 	}
 }
 
-func TestValueMigrator_MigrateWithValue_Unlink_RemovesEntities(t *testing.T) {
+func TestValueEditor_MigrateWithValue_Unlink_RemovesEntities(t *testing.T) {
 	m := newMgr()
 	var mi comp.DefIndex
 	mi.Init()
@@ -409,7 +408,7 @@ func TestValueMigrator_MigrateWithValue_Unlink_RemovesEntities(t *testing.T) {
 
 	var editSpec comp.EditSpec
 	editSpec.Init(&mi, comp.Add(new(iter.ArrayRef[mVelocity])), comp.Del[mVelocity](), comp.Del[mPosition]())
-	vm := migration.NewValueMigrator(&m.AddressBook, &m.ArchCatalog, editSpec)
+	vm := ent.NewValueEditor(&m.AddressBook, &m.ArchCatalog, editSpec)
 
 	values := []mVelocity{{VX: 1, VY: 1}, {VX: 2, VY: 2}}
 	applyByChunksWithValue(m, vm, ids, values)

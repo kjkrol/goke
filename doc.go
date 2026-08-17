@@ -42,8 +42,8 @@
 //     To maintain state consistency during system updates, modifications to the
 //     world (like adding components or removing entities) are buffered via
 //     the CmdBuf and applied during explicit synchronization points (Sync).
-//     Structural changes can also be applied in bulk: a [Migrator] (built via
-//     [ECS.NewMigratorBuilder]) migrates whole chunks captured during
+//     Structural changes can also be applied in bulk: an [Editor] (built via
+//     [ECS.NewEditorBuilder]) migrates whole chunks captured during
 //     Query.All iteration — [Query.ChunkSnapshot] plus CmdBuf.Migrate
 //     queue the batch, and Sync executes it with block column copies and
 //     deferred compaction instead of per-entity moves.
@@ -89,19 +89,18 @@
 //	Layer 4   arch      — archetype ID, Mask, graph                (→ comp, colstore)
 //	Layer 5   addr      — entity address book: Entry, Index, Book  (→ arch, colstore)
 //	          bulk      — bulk-operation contract: ChunkSnapshot, Migrator  (→ arch, colstore)
-//	Layer 6   ent       — entity lifecycle, Manager, Factory, Editor  (→ addr, arch, colstore, comp, iter)
-//	          migration — bulk archetype migration                 (→ addr, arch, bulk, colstore, comp)
+//	Layer 6   ent       — entity lifecycle & bulk migration: Manager, Factory,
+//	                      Editor, Remover, ValueEditor  (→ addr, arch, bulk, colstore, comp, iter)
 //	Layer 7   query     — query layer, matcher baking              (→ addr, arch, bulk, colstore, comp, iter)
 //	Layer 8   orch      — scheduler, plans, command buffers        (→ bulk, comp)
-//	          reg       — top-level Registry                       (→ bulk, ent, arch, comp, migration, query)
+//	          reg       — top-level Registry                       (→ bulk, ent, arch, comp, query)
 //
-// Expressed as a directed graph (arrow = "is imported by"; migration, query,
-// and reg are drawn twice — each is fed by both addr and bulk):
+// Expressed as a directed graph (arrow = "is imported by"; ent, query, and
+// reg are drawn twice — each is fed by both addr and bulk):
 //
 //	iter ──► comp ──► chunk ──► colstore ──► arch ──┬─► addr ──┬─► ent ───────┬─► reg
-//	                                                 │          ├─► migration ─┤
 //	                                                 │          └─► query ─────┤
-//	                                                 └─► bulk ──┬─► migration  │
+//	                                                 └─► bulk ──┬─► ent        │
 //	                                                            ├─► query     │
 //	                                                            ├─► orch      │
 //	                                                            └─► reg ──────┘

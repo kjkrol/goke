@@ -10,7 +10,6 @@ import (
 	"github.com/kjkrol/goke/v2/internal/bulk"
 	"github.com/kjkrol/goke/v2/internal/comp"
 	"github.com/kjkrol/goke/v2/internal/ent"
-	"github.com/kjkrol/goke/v2/internal/migration"
 	"github.com/kjkrol/goke/v2/internal/query"
 )
 
@@ -18,7 +17,7 @@ type Registry struct {
 	EntityManager  ent.Manager
 	CompDefIndex   comp.DefIndex
 	MatcherCatalog query.Catalog
-	sharedRemover  *migration.Remover
+	sharedRemover  *ent.Remover
 }
 
 func (r *Registry) Init(cfg Config) {
@@ -70,13 +69,7 @@ func (r *Registry) AddMatcher(opts ...comp.AccessOpt) *query.Matcher {
 func (r *Registry) CreateEditor(opts ...comp.EditOpt) *ent.Editor {
 	var spec comp.EditSpec
 	spec.Init(&r.CompDefIndex, opts...)
-	return r.EntityManager.CreateEditor(spec)
-}
-
-func (r *Registry) CreateMigrator(opts ...comp.EditOpt) *migration.Migrator {
-	var spec comp.EditSpec
-	spec.Init(&r.CompDefIndex, opts...)
-	return migration.New(&r.EntityManager.AddressBook, &r.EntityManager.ArchCatalog, spec)
+	return ent.NewEditor(&r.EntityManager.AddressBook, &r.EntityManager.ArchCatalog, spec)
 }
 
 // Remover returns a shared Remover instance, built lazily on first call and
@@ -84,18 +77,18 @@ func (r *Registry) CreateMigrator(opts ...comp.EditOpt) *migration.Migrator {
 // instance serves every caller.
 func (r *Registry) Remover() bulk.Migrator {
 	if r.sharedRemover == nil {
-		r.sharedRemover = migration.NewRemover(&r.EntityManager.AddressBook, &r.EntityManager.ArchCatalog)
+		r.sharedRemover = ent.NewRemover(&r.EntityManager.AddressBook, &r.EntityManager.ArchCatalog)
 	}
 	return r.sharedRemover
 }
 
-func (r *Registry) CreateValueMigrator(opts ...comp.EditOpt) *migration.ValueMigrator {
+func (r *Registry) CreateValueEditor(opts ...comp.EditOpt) *ent.ValueEditor {
 	var spec comp.EditSpec
 	spec.Init(&r.CompDefIndex, opts...)
 	if len(spec.AddDefs) != 1 {
-		panic("goke: ValueMigrator requires exactly one added component")
+		panic("goke: ValueEditor requires exactly one added component")
 	}
-	return migration.NewValueMigrator(&r.EntityManager.AddressBook, &r.EntityManager.ArchCatalog, spec)
+	return ent.NewValueEditor(&r.EntityManager.AddressBook, &r.EntityManager.ArchCatalog, spec)
 }
 
 func (r *Registry) Reset() {

@@ -34,13 +34,13 @@ func populateWithBase(ecs *goke.ECS, count int) []uid.UID64 {
 	return entities
 }
 
-// Benchmark_Migrator_Del exercises a structural remove through the
+// Benchmark_Editor_Del exercises a structural remove through the
 // production CmdBuf path: entities carry 10 data components and each leaf
-// removes comps=N of them; only the Sync executing Migrator.Migrate is
+// removes comps=N of them; only the Sync executing Editor.Migrate is
 // timed. The comps=10 world anchors entities with an extra Base component
 // (via populateWithBase) so removing all 10 tracked components never
 // unlinks them. subset<pop leaves additionally exercise source compaction.
-func Benchmark_Migrator_Del(b *testing.B) {
+func Benchmark_Editor_Del(b *testing.B) {
 	ecs := setupECS()
 	addComps := []goke.Addable{
 		new(goke.Comp[Pos]), new(goke.Comp[Vel]), new(goke.Comp[Acc]),
@@ -57,17 +57,17 @@ func Benchmark_Migrator_Del(b *testing.B) {
 
 	for n := 1; n <= 10; n++ {
 		for _, subset := range []int{filterSubsetSize, entitiesNumber} {
-			runMigratorLeaf(b, ecs,
+			runEditorLeaf(b, ecs,
 				fmt.Sprintf("pop=%d/subset=%d/comp=10/comps=%d", entitiesNumber, subset, n),
 				subset,
-				func() (*goke.Query, *goke.Migrator, goke.Runnable) {
+				func() (*goke.Query, *goke.Editor, goke.Runnable) {
 					if n == 10 {
 						populateWithBase(ecs, entitiesNumber)
 					} else {
 						populate(ecs, entitiesNumber)
 					}
-					fwd := ecs.NewMigratorBuilder().Remove(delComps[:n]...).Build()
-					rev := ecs.NewMigratorBuilder(addComps[:n]...).Build()
+					fwd := ecs.NewEditorBuilder().Remove(delComps[:n]...).Build()
+					rev := ecs.NewEditorBuilder(addComps[:n]...).Build()
 					migrateQ := ecs.NewQueryBuilder().Include(goke.Include[Pos]()).Build()
 					var restoreQ *goke.Query
 					if n == 10 {

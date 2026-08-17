@@ -8,15 +8,15 @@ import (
 
 var _ goke.System = (*TagExpirySystem[struct{}])(nil)
 
-// TagExpirySystem removes tag component T, batched per chunk via a
-// Migrator, from any entity once its expiry (given by expiresAt) has
+// TagExpirySystem removes tag component T, batched per chunk via an
+// Editor, from any entity once its expiry (given by expiresAt) has
 // passed. A zero expiresAt is treated as not-yet-initialized and never
 // expires — whatever adds T is expected to set it shortly after.
 type TagExpirySystem[T any] struct {
 	expiresAt func(*T) time.Time
 	query     *goke.Query
 	tag       goke.Comp[T]
-	remove    *goke.Migrator
+	remove    *goke.Editor
 }
 
 func NewTagExpirySystem[T any](expiresAt func(*T) time.Time) *TagExpirySystem[T] {
@@ -25,7 +25,7 @@ func NewTagExpirySystem[T any](expiresAt func(*T) time.Time) *TagExpirySystem[T]
 
 func (s *TagExpirySystem[T]) Init(ecs *goke.ECS) {
 	s.query = ecs.NewQueryBuilder(&s.tag).Build()
-	s.remove = ecs.NewMigratorBuilder().Remove(goke.Remove[T]()).Build()
+	s.remove = ecs.NewEditorBuilder().Remove(goke.Remove[T]()).Build()
 }
 
 func (s *TagExpirySystem[T]) Update(cb *goke.CmdBuf, _ time.Duration) {

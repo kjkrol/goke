@@ -140,7 +140,7 @@ func TestCatalog_EnsureEdgeNext_DifferentComponentsBranch(t *testing.T) {
 }
 
 // EnsureEdgeNext has no concept of "the caller should check the mask
-// first" — callers (ent.Manager, ent.Editor) do guard against this, but
+// first" — callers (ent.Manager) do guard against this, but
 // Catalog itself stays correct even without that guard: asking to add a
 // component the archetype already has resolves back to the same archetype.
 func TestCatalog_EnsureEdgeNext_RedundantAddIsSelfLoop(t *testing.T) {

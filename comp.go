@@ -8,7 +8,7 @@ import (
 // Comp gives typed read/write access to a component's value, and declares
 // that component as tracked (data access) or added (structural change) when
 // passed to a builder. Declare one as a variable, then pass its address
-// directly to NewFactory/NewQueryBuilder/NewMigratorBuilder — it binds
+// directly to NewFactory/NewQueryBuilder/NewEditorBuilder — it binds
 // itself, no separate wrapping call needed. Use comp.Slice(cursor) in
 // All/Factory-mode and comp.At(cursor) in Pick/Seek-mode.
 type Comp[T any] struct {
@@ -32,7 +32,7 @@ type Trackable interface {
 }
 
 // Addable is satisfied by *Comp[T] for any T — it lets NewFactory and
-// NewMigratorBuilder accept components (&comp) directly as added components.
+// NewEditorBuilder accept components (&comp) directly as added components.
 type Addable interface {
 	// asAdd is unexported so *Comp[T] is the only implementer — this is a
 	// sealed interface, not an extension point.
