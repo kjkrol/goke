@@ -44,7 +44,7 @@
 //     the CmdBuf and applied during explicit synchronization points (Sync).
 //     Structural changes can also be applied in bulk: a [Migrator] (built via
 //     [ECS.NewMigratorBuilder]) migrates whole chunks captured during
-//     Query.All iteration — [Query.ChunkSnapshot] plus [CmdBufMassMigrate]
+//     Query.All iteration — [Query.ChunkSnapshot] plus CmdBuf.Migrate
 //     queue the batch, and Sync executes it with block column copies and
 //     deferred compaction instead of per-entity moves.
 //
@@ -93,17 +93,18 @@
 //	          migration — bulk archetype migration                 (→ addr, arch, bulk, colstore, comp)
 //	Layer 7   query     — query layer, matcher baking              (→ addr, arch, bulk, colstore, comp, iter)
 //	Layer 8   orch      — scheduler, plans, command buffers        (→ bulk, comp)
-//	          reg       — top-level Registry                       (→ ent, arch, comp, migration, query)
+//	          reg       — top-level Registry                       (→ bulk, ent, arch, comp, migration, query)
 //
-// Expressed as a directed graph (arrow = "is imported by"; migration and
-// query are drawn twice — each is fed by both addr and bulk):
+// Expressed as a directed graph (arrow = "is imported by"; migration, query,
+// and reg are drawn twice — each is fed by both addr and bulk):
 //
 //	iter ──► comp ──► chunk ──► colstore ──► arch ──┬─► addr ──┬─► ent ───────┬─► reg
 //	                                                 │          ├─► migration ─┤
-//	                                                 │          └─► query ─────┘
-//	                                                 └─► bulk ──┬─► migration
-//	                                                            ├─► query
-//	                                                            └─► orch
+//	                                                 │          └─► query ─────┤
+//	                                                 └─► bulk ──┬─► migration  │
+//	                                                            ├─► query     │
+//	                                                            ├─► orch      │
+//	                                                            └─► reg ──────┘
 //
 // [github.com/kjkrol/uid] is an external module used across the stack for
 // 64-bit generational entity identifiers.

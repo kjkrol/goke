@@ -9,8 +9,8 @@ import (
 )
 
 // TestMigratorBuilder_AddComponent exercises the public Migrator API end to
-// end: NewMigratorBuilder(comps...).Build(), CmdBufMassMigrate called from
-// inside a system's Update using Query.ChunkSnapshot, applied at Sync.
+// end: NewMigratorBuilder(comps...).Build(), applied via Query.BeginMigrate
+// inside a system's Update, applied at Sync.
 func TestMigratorBuilder_AddComponent(t *testing.T) {
 	ecs := goke.New()
 	_ = goke.RegComp[Position](ecs)
@@ -28,18 +28,18 @@ func TestMigratorBuilder_AddComponent(t *testing.T) {
 	query := ecs.NewQueryBuilder(&pos).Exclude(goke.Exclude[Velocity]()).Build()
 	addVel := ecs.NewMigratorBuilder(&vel).Build()
 
-	var matched []uid.UID64
 	sys := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
 		query.All()
 		for query.Next() {
 			cursor := query.Cursor()
-			matched = matched[:0]
-			matched = append(matched, cursor.IDs...)
-			if len(matched) == 0 {
+			if len(cursor.IDs) == 0 {
 				continue
 			}
-			snap := query.ChunkSnapshot()
-			goke.CmdBufMassMigrate(cb, addVel, snap, matched)
+			buf := query.BeginMigrate(cb)
+			for _, id := range cursor.IDs {
+				buf.Add(id)
+			}
+			buf.Commit(addVel)
 		}
 	})
 	ecs.SetPlan(func(s goke.RunCtx, d time.Duration) {
@@ -56,10 +56,10 @@ func TestMigratorBuilder_AddComponent(t *testing.T) {
 	}
 }
 
-// TestMigratorBuilder_DeleteComponent exercises the Delete side: a Migrator
-// built via NewMigratorBuilder().Delete(...).Build() removes a component
+// TestMigratorBuilder_RemoveComponent exercises the Remove side: a Migrator
+// built via NewMigratorBuilder().Remove(...).Build() removes a component
 // from every matched entity.
-func TestMigratorBuilder_DeleteComponent(t *testing.T) {
+func TestMigratorBuilder_RemoveComponent(t *testing.T) {
 	ecs := goke.New()
 	_ = goke.RegComp[Position](ecs)
 	_ = goke.RegComp[Velocity](ecs)
@@ -74,20 +74,20 @@ func TestMigratorBuilder_DeleteComponent(t *testing.T) {
 	}
 
 	query := ecs.NewQueryBuilder(&pos, &vel).Build()
-	removeVel := ecs.NewMigratorBuilder().Delete(goke.Del[Velocity]()).Build()
+	removeVel := ecs.NewMigratorBuilder().Remove(goke.Remove[Velocity]()).Build()
 
-	var matched []uid.UID64
 	sys := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
 		query.All()
 		for query.Next() {
 			cursor := query.Cursor()
-			matched = matched[:0]
-			matched = append(matched, cursor.IDs...)
-			if len(matched) == 0 {
+			if len(cursor.IDs) == 0 {
 				continue
 			}
-			snap := query.ChunkSnapshot()
-			goke.CmdBufMassMigrate(cb, removeVel, snap, matched)
+			buf := query.BeginMigrate(cb)
+			for _, id := range cursor.IDs {
+				buf.Add(id)
+			}
+			buf.Commit(removeVel)
 		}
 	})
 	ecs.SetPlan(func(s goke.RunCtx, d time.Duration) {

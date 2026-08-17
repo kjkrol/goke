@@ -7,12 +7,12 @@ import (
 	"github.com/kjkrol/goke/v2"
 )
 
-// Benchmark_Migrator_Add is the bulk counterpart of Benchmark_Editor_Add:
-// the same worlds and payloads (comps=N data components or tags=N zero-size
-// tags added onto a Base anchor), but migrated through the production CmdBuf
-// path — a system registers one CmdBufMassMigrate command per chunk and only
-// the Sync executing Migrator.Migrate is timed. subset=pop leaves pair 1:1
-// with Editor_Add; subset<pop leaves additionally exercise source compaction.
+// Benchmark_Migrator_Add exercises a structural add through the production
+// CmdBuf path: the same worlds and payloads (comps=N data components or
+// tags=N zero-size tags added onto a Base anchor), but a system registers
+// one cb.Migrate command per chunk and only the Sync executing
+// Migrator.Migrate is timed. subset<pop leaves additionally exercise source
+// compaction.
 func Benchmark_Migrator_Add(b *testing.B) {
 	ecs := setupECS()
 	addComps := []goke.Addable{
@@ -22,10 +22,10 @@ func Benchmark_Migrator_Add(b *testing.B) {
 		new(goke.Comp[T10]),
 	}
 	delComps := []goke.EditOpt{
-		goke.Del[Pos](), goke.Del[Vel](), goke.Del[Acc](),
-		goke.Del[T04](), goke.Del[T05](), goke.Del[T06](),
-		goke.Del[T07](), goke.Del[T08](), goke.Del[T09](),
-		goke.Del[T10](),
+		goke.Remove[Pos](), goke.Remove[Vel](), goke.Remove[Acc](),
+		goke.Remove[T04](), goke.Remove[T05](), goke.Remove[T06](),
+		goke.Remove[T07](), goke.Remove[T08](), goke.Remove[T09](),
+		goke.Remove[T10](),
 	}
 
 	for n := 1; n <= 10; n++ {
@@ -33,10 +33,10 @@ func Benchmark_Migrator_Add(b *testing.B) {
 			runMigratorLeaf(b, ecs,
 				fmt.Sprintf("pop=%d/subset=%d/comp=1/comps=%d", entitiesNumber, subset, n),
 				subset,
-				func() (*goke.Query, *goke.Migrator, goke.System) {
+				func() (*goke.Query, *goke.Migrator, goke.Runnable) {
 					populateBase(ecs, entitiesNumber)
 					fwd := ecs.NewMigratorBuilder(addComps[:n]...).Build()
-					rev := ecs.NewMigratorBuilder().Delete(delComps[:n]...).Build()
+					rev := ecs.NewMigratorBuilder().Remove(delComps[:n]...).Build()
 					migrateQ := ecs.NewQueryBuilder().Include(goke.Include[Base]()).Exclude(goke.Exclude[Pos]()).Build()
 					restoreQ := ecs.NewQueryBuilder().Include(goke.Include[Pos]()).Build()
 					return migrateQ, fwd, ecs.RegSysFn(enqueueAll(restoreQ, rev))
@@ -52,10 +52,10 @@ func Benchmark_Migrator_Add(b *testing.B) {
 		new(goke.Comp[Tag10]),
 	}
 	delTags := []goke.EditOpt{
-		goke.Del[Tag1](), goke.Del[Tag2](), goke.Del[Tag3](),
-		goke.Del[Tag4](), goke.Del[Tag5](), goke.Del[Tag6](),
-		goke.Del[Tag7](), goke.Del[Tag8](), goke.Del[Tag9](),
-		goke.Del[Tag10](),
+		goke.Remove[Tag1](), goke.Remove[Tag2](), goke.Remove[Tag3](),
+		goke.Remove[Tag4](), goke.Remove[Tag5](), goke.Remove[Tag6](),
+		goke.Remove[Tag7](), goke.Remove[Tag8](), goke.Remove[Tag9](),
+		goke.Remove[Tag10](),
 	}
 
 	for n := 1; n <= 10; n++ {
@@ -63,10 +63,10 @@ func Benchmark_Migrator_Add(b *testing.B) {
 			runMigratorLeaf(b, tagECS,
 				fmt.Sprintf("pop=%d/subset=%d/comp=1/tags=%d", entitiesNumber, subset, n),
 				subset,
-				func() (*goke.Query, *goke.Migrator, goke.System) {
+				func() (*goke.Query, *goke.Migrator, goke.Runnable) {
 					populateBase(tagECS, entitiesNumber)
 					fwd := tagECS.NewMigratorBuilder(addTags[:n]...).Build()
-					rev := tagECS.NewMigratorBuilder().Delete(delTags[:n]...).Build()
+					rev := tagECS.NewMigratorBuilder().Remove(delTags[:n]...).Build()
 					migrateQ := tagECS.NewQueryBuilder().Include(goke.Include[Base]()).Exclude(goke.Exclude[Tag1]()).Build()
 					restoreQ := tagECS.NewQueryBuilder().Include(goke.Include[Tag1]()).Build()
 					return migrateQ, fwd, tagECS.RegSysFn(enqueueAll(restoreQ, rev))

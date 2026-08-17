@@ -10,7 +10,7 @@ import (
 
 // TestValueMigratorBuilder_WritesPerEntityValue exercises the public
 // ValueMigrator API end to end: NewValueMigratorBuilder(comp).Build(),
-// CmdBufMassMigrateInit called from inside a system's Update using
+// CmdBufAddCompValue called from inside a system's Update using
 // Query.ChunkSnapshot, values written into the returned slice, applied at
 // Sync — then read back afterward via a normal Query.
 func TestValueMigratorBuilder_WritesPerEntityValue(t *testing.T) {
@@ -39,7 +39,7 @@ func TestValueMigratorBuilder_WritesPerEntityValue(t *testing.T) {
 				continue
 			}
 			snap := query.ChunkSnapshot()
-			vals := goke.CmdBufMassMigrateInit(cb, vm, &vel, snap, cursor.IDs)
+			vals := goke.CmdBufAddCompValue(cb, vm, &vel, snap, cursor.IDs)
 			for i, id := range cursor.IDs {
 				v := Velocity{VX: float32(i) + 1, VY: float32(i) + 2}
 				vals[i] = v
@@ -80,10 +80,10 @@ func TestValueMigratorBuilder_WritesPerEntityValue(t *testing.T) {
 	}
 }
 
-// TestValueMigratorBuilder_DeleteComponent exercises Delete: entities start
+// TestValueMigratorBuilder_RemoveComponent exercises Remove: entities start
 // with Position and Discount; the ValueMigrator adds Velocity (with a
 // per-entity value) and removes Discount in the same migration.
-func TestValueMigratorBuilder_DeleteComponent(t *testing.T) {
+func TestValueMigratorBuilder_RemoveComponent(t *testing.T) {
 	ecs := goke.New()
 	_ = goke.RegComp[Position](ecs)
 	_ = goke.RegComp[Velocity](ecs)
@@ -100,7 +100,7 @@ func TestValueMigratorBuilder_DeleteComponent(t *testing.T) {
 
 	var vel goke.Comp[Velocity]
 	query := ecs.NewQueryBuilder(&pos, &disc).Build()
-	vm := ecs.NewValueMigratorBuilder(&vel).Delete(goke.Del[Discount]()).Build()
+	vm := ecs.NewValueMigratorBuilder(&vel).Remove(goke.Remove[Discount]()).Build()
 
 	want := map[uid.UID64]Velocity{}
 	sys := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
@@ -111,7 +111,7 @@ func TestValueMigratorBuilder_DeleteComponent(t *testing.T) {
 				continue
 			}
 			snap := query.ChunkSnapshot()
-			vals := goke.CmdBufMassMigrateInit(cb, vm, &vel, snap, cursor.IDs)
+			vals := goke.CmdBufAddCompValue(cb, vm, &vel, snap, cursor.IDs)
 			for i, id := range cursor.IDs {
 				v := Velocity{VX: float32(i) + 1, VY: float32(i) + 2}
 				vals[i] = v
@@ -137,7 +137,7 @@ func TestValueMigratorBuilder_DeleteComponent(t *testing.T) {
 }
 
 // TestValueMigratorBuilder_MismatchedType_Panics confirms the runtime size
-// guard in CmdBufMassMigrateInit catches a Comp[T] that doesn't match the
+// guard in CmdBufAddCompValue catches a Comp[T] that doesn't match the
 // ValueMigrator's own added component — the one case Go's type system can't
 // catch here, since ValueMigrator is untyped at the Go level.
 func TestValueMigratorBuilder_MismatchedType_Panics(t *testing.T) {
@@ -163,7 +163,7 @@ func TestValueMigratorBuilder_MismatchedType_Panics(t *testing.T) {
 				continue
 			}
 			// pos does not match vm's own added component (Velocity) — must panic.
-			goke.CmdBufMassMigrateInit(cb, vm, &pos, query.ChunkSnapshot(), cursor.IDs)
+			goke.CmdBufAddCompValue(cb, vm, &pos, query.ChunkSnapshot(), cursor.IDs)
 		}
 	})
 	ecs.SetPlan(func(s goke.RunCtx, d time.Duration) {

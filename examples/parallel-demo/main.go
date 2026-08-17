@@ -111,7 +111,7 @@ func main() {
 				if bet == diceComp.Value {
 					gameFinished = true
 					// Defer the assignment of the Winner tag to the next Sync point
-					goke.CmdBufAddComp(schedule, entityID, winnerID, Winner{})
+					goke.AddOne(schedule, entityID, winnerID, Winner{})
 				}
 			}
 		}

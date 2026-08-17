@@ -7,6 +7,7 @@ import (
 	"github.com/kjkrol/uid"
 
 	"github.com/kjkrol/goke/v2/internal/arch"
+	"github.com/kjkrol/goke/v2/internal/bulk"
 	"github.com/kjkrol/goke/v2/internal/comp"
 	"github.com/kjkrol/goke/v2/internal/ent"
 	"github.com/kjkrol/goke/v2/internal/migration"
@@ -17,6 +18,7 @@ type Registry struct {
 	EntityManager  ent.Manager
 	CompDefIndex   comp.DefIndex
 	MatcherCatalog query.Catalog
+	sharedRemover  *migration.Remover
 }
 
 func (r *Registry) Init(cfg Config) {
@@ -77,8 +79,14 @@ func (r *Registry) CreateMigrator(opts ...comp.EditOpt) *migration.Migrator {
 	return migration.New(&r.EntityManager.AddressBook, &r.EntityManager.ArchCatalog, spec)
 }
 
-func (r *Registry) CreateRemover() *migration.Remover {
-	return migration.NewRemover(&r.EntityManager.AddressBook, &r.EntityManager.ArchCatalog)
+// Remover returns a shared Remover instance, built lazily on first call and
+// reused thereafter — Remover carries no per-call configuration, so one
+// instance serves every caller.
+func (r *Registry) Remover() bulk.Migrator {
+	if r.sharedRemover == nil {
+		r.sharedRemover = migration.NewRemover(&r.EntityManager.AddressBook, &r.EntityManager.ArchCatalog)
+	}
+	return r.sharedRemover
 }
 
 func (r *Registry) CreateValueMigrator(opts ...comp.EditOpt) *migration.ValueMigrator {

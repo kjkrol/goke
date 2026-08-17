@@ -202,7 +202,7 @@ func TestRegistry_CreateMigrator(t *testing.T) {
 	}
 }
 
-func TestRegistry_CreateRemover(t *testing.T) {
+func TestRegistry_Remover(t *testing.T) {
 	r := newRegistry(t)
 	r.RegComp(reflect.TypeFor[Position]())
 
@@ -220,7 +220,7 @@ func TestRegistry_CreateRemover(t *testing.T) {
 	}
 	srcTable := &r.EntityManager.ArchCatalog.Archetypes[entry0.ArchID].Table
 
-	remover := r.CreateRemover()
+	remover := r.Remover()
 
 	snap := bulk.ChunkSnapshot{
 		ArchID:      entry0.ArchID,

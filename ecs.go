@@ -58,18 +58,26 @@ func (ecs *ECS) RemoveEnt(id uid.UID64) bool {
 	return ecs.registry.Remove(id)
 }
 
-// RegSys registers a stateful system. The system's Init method is called immediately.
-func (ecs *ECS) RegSys(system System) {
+// RegSys registers a stateful system. The system's Init method is called
+// immediately. Returns a Runnable handle — pass it to RunCtx.Run/RunParallel
+// inside a Plan.
+func (ecs *ECS) RegSys(system System) Runnable {
 	system.Init(ecs)
-	ecs.scheduler.Register(system)
+	raw := orch.NewCmdBuf()
+	adapter := &runnableAdapter{sys: system, wrapped: &CmdBuf{raw: raw}}
+	ecs.scheduler.Register(adapter, raw)
+	return adapter
 }
 
-// RegSysFn registers a stateless function as a system and returns the created System.
-func (ecs *ECS) RegSysFn(fn SystemFn) System {
+// RegSysFn registers a stateless function as a system. Returns a Runnable
+// handle — pass it to RunCtx.Run/RunParallel inside a Plan.
+func (ecs *ECS) RegSysFn(fn SystemFn) Runnable {
 	wrapper := &functionalSystem{updateFn: fn}
 	wrapper.Init(ecs)
-	ecs.scheduler.Register(wrapper)
-	return wrapper
+	raw := orch.NewCmdBuf()
+	adapter := &runnableAdapter{sys: wrapper, wrapped: &CmdBuf{raw: raw}}
+	ecs.scheduler.Register(adapter, raw)
+	return adapter
 }
 
 // SetPlan sets the execution plan that controls how systems run each tick.

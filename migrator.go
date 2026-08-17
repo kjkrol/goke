@@ -1,9 +1,7 @@
 package goke
 
-import "github.com/kjkrol/uid"
-
 // MigratorBuilder assembles a Migrator's structural-change options. Start with
-// NewMigratorBuilder, optionally chain Delete, and finish with Build.
+// NewMigratorBuilder, optionally chain Remove, and finish with Build.
 type MigratorBuilder struct {
 	ecs  *ECS
 	opts []EditOpt
@@ -19,8 +17,8 @@ func (ecs *ECS) NewMigratorBuilder(comps ...Addable) *MigratorBuilder {
 	return b
 }
 
-// Delete adds component types to remove, built via Del[T]().
-func (b *MigratorBuilder) Delete(opts ...EditOpt) *MigratorBuilder {
+// Remove adds component types to remove, built via Remove[T]().
+func (b *MigratorBuilder) Remove(opts ...EditOpt) *MigratorBuilder {
 	b.opts = append(b.opts, opts...)
 	return b
 }
@@ -28,13 +26,4 @@ func (b *MigratorBuilder) Delete(opts ...EditOpt) *MigratorBuilder {
 // Build creates the Migrator from the accumulated options.
 func (b *MigratorBuilder) Build() *Migrator {
 	return b.ecs.registry.CreateMigrator(b.opts...)
-}
-
-// CmdBufMassMigrate records a bulk migration of ids from a single source chunk.
-// Call inside a system's Update after Query.All() + Next(): obtain snap from
-// Query.ChunkSnapshot(), pass the ids you want to migrate from cursor.IDs.
-// Applied at the next Sync point: one CompactHoles per chunk, one batch
-// addr.Book update, zero per-entity archetype or pointer lookups beyond Slot.
-func CmdBufMassMigrate(cb *CmdBuf, migrator *Migrator, snap ChunkSnapshot, ids []uid.UID64) {
-	cb.MassMigrate(migrator, snap, ids)
 }

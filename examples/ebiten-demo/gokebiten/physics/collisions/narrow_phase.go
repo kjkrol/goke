@@ -39,7 +39,6 @@ type NarrowPhase struct {
 	dynSeeded, staticSeeded bool
 
 	confirmed map[uid.UID64]bool
-	matched   []uid.UID64
 }
 
 func NewNarrowPhase(space *gokg.Space, handler CollisionHandler, hitDuration time.Duration) *NarrowPhase {
@@ -57,7 +56,7 @@ func (n *NarrowPhase) Init(ecs *goke.ECS) {
 	if init, ok := n.handler.(Initializer); ok {
 		init.Init(ecs)
 	}
-	n.removeMigrator = ecs.NewMigratorBuilder().Delete(goke.Del[Hit]()).Build()
+	n.removeMigrator = ecs.NewMigratorBuilder().Remove(goke.Remove[Hit]()).Build()
 	sensorQry := ecs.NewQueryBuilder().Include(goke.Include[Sensor]()).Build()
 	sensorQry.All()
 	for sensorQry.Next() {
@@ -190,7 +189,7 @@ func (n *NarrowPhase) finalizeHitTags(cb *goke.CmdBuf) {
 	for n.hitQry.Next() {
 		cursor := n.hitQry.Cursor()
 		tags := n.hitTag.Slice(cursor)
-		n.matched = n.matched[:0]
+		buf := n.hitQry.BeginMigrate(cb)
 		for i, id := range cursor.IDs {
 			confirmedThisTick, tracked := n.confirmed[id]
 			if !tracked {
@@ -203,11 +202,8 @@ func (n *NarrowPhase) finalizeHitTags(cb *goke.CmdBuf) {
 			if !tags[i].ExpiresAt.IsZero() {
 				continue
 			}
-			n.matched = append(n.matched, id)
+			buf.Add(id)
 		}
-		if len(n.matched) > 0 {
-			snap := n.hitQry.ChunkSnapshot()
-			goke.CmdBufMassMigrate(cb, n.removeMigrator, snap, n.matched)
-		}
+		buf.Commit(n.removeMigrator)
 	}
 }

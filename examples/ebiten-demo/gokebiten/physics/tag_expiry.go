@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/kjkrol/goke/v2"
-	"github.com/kjkrol/uid"
 )
 
 var _ goke.System = (*TagExpirySystem[struct{}])(nil)
@@ -18,7 +17,6 @@ type TagExpirySystem[T any] struct {
 	query     *goke.Query
 	tag       goke.Comp[T]
 	remove    *goke.Migrator
-	matched   []uid.UID64
 }
 
 func NewTagExpirySystem[T any](expiresAt func(*T) time.Time) *TagExpirySystem[T] {
@@ -27,7 +25,7 @@ func NewTagExpirySystem[T any](expiresAt func(*T) time.Time) *TagExpirySystem[T]
 
 func (s *TagExpirySystem[T]) Init(ecs *goke.ECS) {
 	s.query = ecs.NewQueryBuilder(&s.tag).Build()
-	s.remove = ecs.NewMigratorBuilder().Delete(goke.Del[T]()).Build()
+	s.remove = ecs.NewMigratorBuilder().Remove(goke.Remove[T]()).Build()
 }
 
 func (s *TagExpirySystem[T]) Update(cb *goke.CmdBuf, _ time.Duration) {
@@ -36,17 +34,14 @@ func (s *TagExpirySystem[T]) Update(cb *goke.CmdBuf, _ time.Duration) {
 	for s.query.Next() {
 		cursor := s.query.Cursor()
 		tags := s.tag.Slice(cursor)
-		s.matched = s.matched[:0]
+		buf := s.query.BeginMigrate(cb)
 		for i, id := range cursor.IDs {
 			exp := s.expiresAt(&tags[i])
 			if exp.IsZero() || !now.After(exp) {
 				continue
 			}
-			s.matched = append(s.matched, id)
+			buf.Add(id)
 		}
-		if len(s.matched) > 0 {
-			snap := s.query.ChunkSnapshot()
-			goke.CmdBufMassMigrate(cb, s.remove, snap, s.matched)
-		}
+		buf.Commit(s.remove)
 	}
 }

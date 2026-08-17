@@ -16,14 +16,15 @@ type Physics struct {
 	minEntitySize uint32
 	physicsStep   time.Duration
 
-	handlers    []collisions.CollisionHandler
-	extra       []goke.System
-	debug       bool
-	hitDuration time.Duration
+	handlers     []collisions.CollisionHandler
+	extra        []goke.System
+	extraHandles []goke.Runnable
+	debug        bool
+	hitDuration  time.Duration
 
-	moveSystem  goke.System
-	broadPhase  *collisions.BroadPhase
-	narrowPhase *collisions.NarrowPhase
+	moveSystem  goke.Runnable
+	broadPhase  goke.Runnable
+	narrowPhase goke.Runnable
 	built       bool
 }
 
@@ -72,8 +73,8 @@ func (p *Physics) Run(ctx goke.RunCtx, d time.Duration) {
 	ctx.Run(p.narrowPhase, d)
 	ctx.Sync()
 
-	for _, sys := range p.extra {
-		ctx.Run(sys, d)
+	for _, h := range p.extraHandles {
+		ctx.Run(h, d)
 		ctx.Sync()
 	}
 }
@@ -84,24 +85,21 @@ func (p *Physics) build() {
 		handlers = append(handlers, debug.NewHandler())
 	}
 	broad, narrow := p.useCollisions(collisions.MultiHandler(handlers...), p.hitDuration)
-	p.ecs.RegSys(broad)
-	p.broadPhase = broad
-	p.narrowPhase = narrow
-	p.ecs.RegSys(narrow)
+	p.broadPhase = p.ecs.RegSys(broad)
+	p.narrowPhase = p.ecs.RegSys(narrow)
 
 	for _, sys := range p.extra {
-		p.ecs.RegSys(sys)
+		p.extraHandles = append(p.extraHandles, p.ecs.RegSys(sys))
 	}
 	p.built = true
 }
 
-func (p *Physics) useKinematics() goke.System {
+func (p *Physics) useKinematics() goke.Runnable {
 	// Cap displacement per tick to half the smallest entity's size, so
 	// nothing can tunnel through it undetected.
 	maxSpeed := int32(float64(p.minEntitySize) / 2 / p.physicsStep.Seconds())
 	system := kinematics.NewSystem(p.space, maxSpeed)
-	p.ecs.RegSys(system)
-	return system
+	return p.ecs.RegSys(system)
 }
 
 func (p *Physics) useCollisions(handler collisions.CollisionHandler, hitDuration time.Duration) (*collisions.BroadPhase, *collisions.NarrowPhase) {

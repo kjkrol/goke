@@ -54,7 +54,7 @@ func TestECS_UseCase(t *testing.T) {
 			for i, entityID := range cursor1.IDs {
 				processedCount++
 				orders[i].Total *= (1 - discounts[i].Percentage/100)
-				goke.CmdBufAddComp(cb, entityID, processedID, Processed{})
+				goke.AddOne(cb, entityID, processedID, Processed{})
 			}
 		}
 	})
@@ -63,7 +63,7 @@ func TestECS_UseCase(t *testing.T) {
 		query2.All()
 		for query2.Next() {
 			for _, entityID := range query2.Cursor().IDs {
-				schedule.RemoveEntity(entityID)
+				schedule.RemoveOne(entityID)
 			}
 		}
 	})
@@ -171,7 +171,7 @@ func TestECS_Seek_AcrossArchetypes(t *testing.T) {
 
 func TestECS_RemoveComp(t *testing.T) {
 	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
+	posID := goke.RegComp[Position](ecs)
 
 	var entityID uid.UID64
 	factory := ecs.NewFactory(new(goke.Comp[Position]))
@@ -179,10 +179,14 @@ func TestECS_RemoveComp(t *testing.T) {
 	factory.Next()
 	entityID = factory.IDs[0]
 
-	editor := ecs.NewEditorBuilder().Delete(goke.Del[Position]()).Build()
-	if !editor.Update(entityID) {
-		t.Fatalf("expected Update to succeed")
-	}
+	sys := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
+		cb.RemoveCompOne(entityID, posID)
+	})
+	ecs.SetPlan(func(ctx goke.RunCtx, d time.Duration) {
+		ctx.Run(sys, d)
+		ctx.Sync()
+	})
+	ecs.Tick(time.Millisecond)
 
 	// Position was the entity's only component, so removing it unlinks the entity.
 	ptr := seekComp[Position](ecs, entityID)

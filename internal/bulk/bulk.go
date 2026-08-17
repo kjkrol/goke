@@ -35,3 +35,9 @@ type Migrator interface {
 type ValueMigrator interface {
 	MigrateWithValue(snap ChunkSnapshot, ids []uid.UID64, payload unsafe.Pointer)
 }
+
+// Spawner is satisfied by any type that can create count new entities of a
+// fixed archetype in one call, returning their ids.
+type Spawner interface {
+	Spawn(count int) []uid.UID64
+}

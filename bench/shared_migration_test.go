@@ -6,11 +6,10 @@ import (
 	"time"
 
 	"github.com/kjkrol/goke/v2"
-	"github.com/kjkrol/uid"
 )
 
 // enqueueSubset returns a system that iterates q chunk by chunk and registers
-// one MassMigrate command per chunk until limit entities are covered.
+// one migration command per chunk until limit entities are covered.
 // Registration only — the migration itself runs at the plan's Sync point.
 func enqueueSubset(q *goke.Query, mig *goke.Migrator, limit int) goke.SystemFn {
 	return func(cb *goke.CmdBuf, _ time.Duration) {
@@ -21,19 +20,27 @@ func enqueueSubset(q *goke.Query, mig *goke.Migrator, limit int) goke.SystemFn {
 			if rem := limit - taken; len(ids) > rem {
 				ids = ids[:rem]
 			}
-			goke.CmdBufMassMigrate(cb, mig, q.ChunkSnapshot(), ids)
+			buf := q.BeginMigrate(cb)
+			for _, id := range ids {
+				buf.Add(id)
+			}
+			buf.Commit(mig)
 			taken += len(ids)
 		}
 	}
 }
 
-// enqueueAll returns a system that registers one MassMigrate command per
+// enqueueAll returns a system that registers one migration command per
 // chunk for every entity matched by q.
 func enqueueAll(q *goke.Query, mig *goke.Migrator) goke.SystemFn {
 	return func(cb *goke.CmdBuf, _ time.Duration) {
 		q.All()
 		for q.Next() {
-			goke.CmdBufMassMigrate(cb, mig, q.ChunkSnapshot(), q.Cursor().IDs)
+			buf := q.BeginMigrate(cb)
+			for _, id := range q.Cursor().IDs {
+				buf.Add(id)
+			}
+			buf.Commit(mig)
 		}
 	}
 }
@@ -50,26 +57,25 @@ func randPickMask(pop, k int, seed uint64) []bool {
 	return pick
 }
 
-// enqueueScattered returns a system that registers MassMigrate commands for a
+// enqueueScattered returns a system that registers migration commands for a
 // randomly scattered subset: pick[i] decides whether the i-th matched entity
 // (in chunk iteration order) is included. Scattered picks from one chunk still
 // share that chunk's ChunkSnapshot, so each chunk contributes one command — but the
 // resulting holes are non-contiguous, exercising the slot-level compaction path.
 func enqueueScattered(q *goke.Query, mig *goke.Migrator, pick []bool) goke.SystemFn {
-	buf := make([]uid.UID64, 0, len(pick))
 	return func(cb *goke.CmdBuf, _ time.Duration) {
 		q.All()
 		pos := 0
 		for q.Next() {
 			ids := q.Cursor().IDs
-			buf = buf[:0]
+			buf := q.BeginMigrate(cb)
 			for _, id := range ids {
 				if pos < len(pick) && pick[pos] {
-					buf = append(buf, id)
+					buf.Add(id)
 				}
 				pos++
 			}
-			goke.CmdBufMassMigrate(cb, mig, q.ChunkSnapshot(), buf)
+			buf.Commit(mig)
 		}
 	}
 }
@@ -77,7 +83,7 @@ func enqueueScattered(q *goke.Query, mig *goke.Migrator, pick []bool) goke.Syste
 // timedMigrationPlan runs migSys and times only its Sync — the per-chunk
 // Migrate work. The restoreSys tick (counter-migration back to the initial
 // archetype) runs entirely outside the timer.
-func timedMigrationPlan(b *testing.B, migSys, restoreSys goke.System) goke.Plan {
+func timedMigrationPlan(b *testing.B, migSys, restoreSys goke.Runnable) goke.Plan {
 	return func(ctx goke.RunCtx, d time.Duration) {
 		b.StopTimer()
 		ctx.Run(migSys, d)
@@ -97,7 +103,7 @@ func timedMigrationPlan(b *testing.B, migSys, restoreSys goke.System) goke.Plan 
 // ecs.Reset and returns the timed forward wiring plus the untimed restore
 // system; only the Sync executing the forward migration is timed.
 func runMigratorLeaf(b *testing.B, ecs *goke.ECS, name string, subset int,
-	setup func() (migrateQ *goke.Query, fwd *goke.Migrator, restore goke.System)) {
+	setup func() (migrateQ *goke.Query, fwd *goke.Migrator, restore goke.Runnable)) {
 
 	run := func(order string, mkSys func(*goke.Query, *goke.Migrator) goke.SystemFn) {
 		b.Run(name+"/"+order, func(b *testing.B) {

@@ -5,15 +5,41 @@ import (
 	"testing"
 
 	"github.com/kjkrol/goke/v2"
+	"github.com/kjkrol/uid"
 )
 
-// Benchmark_Migrator_Del is the bulk counterpart of Benchmark_Editor_Del:
-// entities carry 10 data components and each leaf removes comps=N of them
-// through the production CmdBuf path; only the Sync executing
-// Migrator.Migrate is timed. Like Editor_Del, the comps=10 world anchors
-// entities with an extra Base component so removing all 10 tracked
-// components never unlinks them. subset=pop leaves pair 1:1 with
-// Editor_Del; subset<pop leaves additionally exercise source compaction.
+// populateWithBase mirrors populate but additionally spawns each entity with
+// a Base anchor in the same Factory call, so removing all 10 tracked
+// components in the n==10 case never unlinks the entity — no retrofit pass
+// needed after the fact.
+func populateWithBase(ecs *goke.ECS, count int) []uid.UID64 {
+	var cBase goke.Comp[Base]
+	var c1 goke.Comp[Pos]
+	var c2 goke.Comp[Vel]
+	var c3 goke.Comp[Acc]
+	var c4 goke.Comp[T04]
+	var c5 goke.Comp[T05]
+	var c6 goke.Comp[T06]
+	var c7 goke.Comp[T07]
+	var c8 goke.Comp[T08]
+	var c9 goke.Comp[T09]
+	var c10 goke.Comp[T10]
+	factory := ecs.NewFactory(&cBase, &c1, &c2, &c3, &c4, &c5, &c6, &c7, &c8, &c9, &c10)
+
+	var entities []uid.UID64
+	factory.Create(count)
+	for factory.Next() {
+		entities = append(entities, factory.IDs...)
+	}
+	return entities
+}
+
+// Benchmark_Migrator_Del exercises a structural remove through the
+// production CmdBuf path: entities carry 10 data components and each leaf
+// removes comps=N of them; only the Sync executing Migrator.Migrate is
+// timed. The comps=10 world anchors entities with an extra Base component
+// (via populateWithBase) so removing all 10 tracked components never
+// unlinks them. subset<pop leaves additionally exercise source compaction.
 func Benchmark_Migrator_Del(b *testing.B) {
 	ecs := setupECS()
 	addComps := []goke.Addable{
@@ -23,10 +49,10 @@ func Benchmark_Migrator_Del(b *testing.B) {
 		new(goke.Comp[T10]),
 	}
 	delComps := []goke.EditOpt{
-		goke.Del[Pos](), goke.Del[Vel](), goke.Del[Acc](),
-		goke.Del[T04](), goke.Del[T05](), goke.Del[T06](),
-		goke.Del[T07](), goke.Del[T08](), goke.Del[T09](),
-		goke.Del[T10](),
+		goke.Remove[Pos](), goke.Remove[Vel](), goke.Remove[Acc](),
+		goke.Remove[T04](), goke.Remove[T05](), goke.Remove[T06](),
+		goke.Remove[T07](), goke.Remove[T08](), goke.Remove[T09](),
+		goke.Remove[T10](),
 	}
 
 	for n := 1; n <= 10; n++ {
@@ -34,15 +60,13 @@ func Benchmark_Migrator_Del(b *testing.B) {
 			runMigratorLeaf(b, ecs,
 				fmt.Sprintf("pop=%d/subset=%d/comp=10/comps=%d", entitiesNumber, subset, n),
 				subset,
-				func() (*goke.Query, *goke.Migrator, goke.System) {
-					entities := populate(ecs, entitiesNumber)
+				func() (*goke.Query, *goke.Migrator, goke.Runnable) {
 					if n == 10 {
-						anchorEd := ecs.NewEditorBuilder(new(goke.Comp[Base])).Build()
-						for _, e := range entities {
-							anchorEd.Update(e)
-						}
+						populateWithBase(ecs, entitiesNumber)
+					} else {
+						populate(ecs, entitiesNumber)
 					}
-					fwd := ecs.NewMigratorBuilder().Delete(delComps[:n]...).Build()
+					fwd := ecs.NewMigratorBuilder().Remove(delComps[:n]...).Build()
 					rev := ecs.NewMigratorBuilder(addComps[:n]...).Build()
 					migrateQ := ecs.NewQueryBuilder().Include(goke.Include[Pos]()).Build()
 					var restoreQ *goke.Query

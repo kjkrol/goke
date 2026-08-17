@@ -22,7 +22,7 @@ import (
 //           migration          (→ addr, arch, bulk, colstore, comp)
 // Layer 7   query              (→ addr, arch, bulk, colstore, comp, iter)
 // Layer 8   orch               (→ bulk, comp)
-//           reg                (→ ent, arch, comp, migration, query)
+//           reg                (→ bulk, ent, arch, comp, migration, query)
 //
 // github.com/kjkrol/uid is an external module; listed explicitly per package.
 
@@ -93,6 +93,7 @@ var depRules = map[string][]string{
 	},
 	"internal/reg": {
 		module + "/internal/arch",
+		module + "/internal/bulk",
 		module + "/internal/comp",
 		module + "/internal/ent",
 		module + "/internal/migration",

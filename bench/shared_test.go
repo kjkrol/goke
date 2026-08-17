@@ -27,6 +27,16 @@ type Tag struct{}
 
 type Base struct{ V int32 }
 
+func populateBase(ecs *goke.ECS, count int) []uid.UID64 {
+	factory := ecs.NewFactory(new(goke.Comp[Base]))
+	var ids []uid.UID64
+	factory.Create(count)
+	for factory.Next() {
+		ids = append(ids, factory.IDs...)
+	}
+	return ids
+}
+
 func setupECS() *goke.ECS {
 	ecs := goke.New()
 	_ = goke.RegComp[Pos](ecs)

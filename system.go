@@ -2,10 +2,6 @@ package goke
 
 import (
 	"time"
-
-	"github.com/kjkrol/uid"
-
-	"github.com/kjkrol/goke/v2/internal/orch"
 )
 
 // System is the interface for stateful logic units that process entity data each tick.
@@ -17,12 +13,6 @@ type System interface {
 
 // SystemFn is a stateless function-based system — a shorthand alternative to implementing System.
 type SystemFn func(*CmdBuf, time.Duration)
-
-// CmdBufAddComp queues the addition of a component value to an entity.
-// If the entity already has this component, its data is overwritten on flush.
-func CmdBufAddComp[T any](cb *CmdBuf, e uid.UID64, compID CompID, value T) {
-	orch.AddComp(cb, e, compID, value)
-}
 
 type functionalSystem struct {
 	updateFn SystemFn

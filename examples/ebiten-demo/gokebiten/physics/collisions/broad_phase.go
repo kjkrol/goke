@@ -21,7 +21,6 @@ type BroadPhase struct {
 	hit         goke.Comp[Hit]
 	collision   goke.Comp[Collision]
 	addMigrator *goke.Migrator
-	matched     []uid.UID64
 }
 
 func NewBroadPhase(space *gokg.Space) *BroadPhase {
@@ -41,7 +40,7 @@ func (b *BroadPhase) Update(cb *goke.CmdBuf, _ time.Duration) {
 		cursor := b.query.Cursor()
 		posSlice := b.pos.Slice(cursor)
 		collisionSlice := b.collision.Slice(cursor)
-		b.matched = b.matched[:0]
+		buf := b.query.BeginMigrate(cb)
 		for i, entityA := range cursor.IDs {
 			found := false
 			p := &posSlice[i]
@@ -55,7 +54,7 @@ func (b *BroadPhase) Update(cb *goke.CmdBuf, _ time.Duration) {
 					}
 					c.addTouching(entityB)
 					if !found {
-						b.matched = append(b.matched, entityA)
+						buf.Add(entityA)
 						found = true
 					}
 				})
@@ -69,7 +68,6 @@ func (b *BroadPhase) Update(cb *goke.CmdBuf, _ time.Duration) {
 				return true
 			})
 		}
-		snap := b.query.ChunkSnapshot()
-		goke.CmdBufMassMigrate(cb, b.addMigrator, snap, b.matched)
+		buf.Commit(b.addMigrator)
 	}
 }

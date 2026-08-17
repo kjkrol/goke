@@ -42,6 +42,7 @@ type Game struct {
 	ecs               *goke.ECS
 	renderSeq         []render.Renderer
 	controller        *control.DefaultController
+	controllerHandle  goke.Runnable
 	spaceConfig       spatial.Config
 	world             *spatial.World
 	kinematicsEnabled bool
@@ -64,7 +65,7 @@ func NewGame(res resources) *Game {
 		controller:  controller,
 		spaceConfig: res.GetSpaceConfig(),
 	}
-	game.ecs.RegSys(controller)
+	game.controllerHandle = game.ecs.RegSys(controller)
 	return game
 }
 
@@ -84,10 +85,8 @@ func RegComp[C any](game *Game) goke.CompID {
 	return goke.RegComp[C](game.ecs)
 }
 
-func (g *Game) RegSys(factory func() goke.System) goke.System {
-	system := factory()
-	g.ecs.RegSys(system)
-	return system
+func (g *Game) RegSys(factory func() goke.System) goke.Runnable {
+	return g.ecs.RegSys(factory())
 }
 
 func (g *Game) registerRenderer(factory func() render.Renderer) render.Renderer {
@@ -104,7 +103,7 @@ func (g *Game) Setup(factories ...func() spatial.Setup) {
 
 func (g *Game) Loop(plan func(ctx goke.RunCtx, d time.Duration)) {
 	g.ecs.SetPlan(func(ctx goke.RunCtx, d time.Duration) {
-		ctx.Run(g.controller, d)
+		ctx.Run(g.controllerHandle, d)
 		if g.paused {
 			return
 		}

@@ -48,7 +48,7 @@ func main() {
 			for i, entityID := range cursor.IDs {
 				orders[i].Total = orders[i].Total * (1 - discounts[i].Percentage/100)
 				// Defer the assignment of the Processed tag to the next synchronization point
-				goke.CmdBufAddComp(schedule, entityID, processedID, Processed{})
+				goke.AddOne(schedule, entityID, processedID, Processed{})
 			}
 		}
 	})

@@ -42,7 +42,7 @@ func (s *WorkerSystem) Update(schedule *goke.CmdBuf, duration time.Duration) {
 	for s.query.Next() {
 		for _, entityID := range s.query.Cursor().IDs {
 			msg := Log{Msg: "Done"}
-			goke.CmdBufAddComp(schedule, entityID, logID, msg)
+			goke.AddOne(schedule, entityID, logID, msg)
 		}
 	}
 }
@@ -88,12 +88,12 @@ func TestECS_SystemInteractions(t *testing.T) {
 		worker := &WorkerSystem{}
 		logger := &LoggerSystem{}
 
-		ecs.RegSys(worker)
-		ecs.RegSys(logger)
+		workerH := ecs.RegSys(worker)
+		loggerH := ecs.RegSys(logger)
 
 		ecs.SetPlan(func(s goke.RunCtx, d time.Duration) {
-			s.Run(worker, d)
-			s.Run(logger, d)
+			s.Run(workerH, d)
+			s.Run(loggerH, d)
 			s.Sync()
 		})
 
@@ -117,13 +117,13 @@ func TestECS_SystemInteractions(t *testing.T) {
 		worker := &WorkerSystem{}
 		logger := &LoggerSystem{}
 
-		ecs.RegSys(worker)
-		ecs.RegSys(logger)
+		workerH := ecs.RegSys(worker)
+		loggerH := ecs.RegSys(logger)
 
 		ecs.SetPlan(func(s goke.RunCtx, d time.Duration) {
-			s.Run(worker, d)
+			s.Run(workerH, d)
 			s.Sync() // Force synchronization between systems
-			s.Run(logger, d)
+			s.Run(loggerH, d)
 			s.Sync()
 		})
 

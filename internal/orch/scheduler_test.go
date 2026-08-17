@@ -10,6 +10,7 @@ import (
 
 	"github.com/kjkrol/uid"
 
+	"github.com/kjkrol/goke/v2/internal/bulk"
 	"github.com/kjkrol/goke/v2/internal/comp"
 )
 
@@ -26,6 +27,7 @@ type mockMutator struct {
 		called bool
 		id     uid.UID64
 	}
+	remover bulk.Migrator
 }
 
 func (m *mockMutator) UpsertComp(uid.UID64, comp.ID) (unsafe.Pointer, error) {
@@ -43,6 +45,13 @@ func (m *mockMutator) Remove(id uid.UID64) bool {
 	m.removeCall.called = true
 	m.removeCall.id = id
 	return true
+}
+
+func (m *mockMutator) Remover() bulk.Migrator {
+	if m.remover == nil {
+		m.remover = &stubMigrator{}
+	}
+	return m.remover
 }
 
 // fnRunnable adapts a plain function to the Runnable interface.
@@ -93,9 +102,9 @@ func TestScheduler_RunParallel_RunsAllRunnablesConcurrently(t *testing.T) {
 		}}
 	}
 	r1, r2, r3 := makeRunnable(), makeRunnable(), makeRunnable()
-	sched.Register(r1)
-	sched.Register(r2)
-	sched.Register(r3)
+	sched.Register(r1, NewCmdBuf())
+	sched.Register(r2, NewCmdBuf())
+	sched.Register(r3, NewCmdBuf())
 
 	sched.RunParallel(time.Millisecond, r1, r2, r3)
 
@@ -110,9 +119,9 @@ func TestScheduler_RunParallel_RunsAllRunnablesConcurrently(t *testing.T) {
 func TestScheduler_Reset_ClearsStateAndPlan(t *testing.T) {
 	sched := NewScheduler(&mockMutator{})
 	r := &fnRunnable{fn: func(cb *CmdBuf, d time.Duration) {
-		cb.RemoveEntity(uid.UID64(1))
+		cb.RemoveOne(uid.UID64(1))
 	}}
-	sched.Register(r)
+	sched.Register(r, NewCmdBuf())
 	sched.SetPlan(func(ctx RunCtx, d time.Duration) {})
 	sched.Run(r, 0) // queue a command so the buffer has state to clear
 
@@ -138,9 +147,9 @@ func TestScheduler_Sync_PropagatesUpsertCompError(t *testing.T) {
 	mut := &mockMutator{upsertErr: wantErr}
 	sched := NewScheduler(mut)
 	r := &fnRunnable{fn: func(cb *CmdBuf, d time.Duration) {
-		AddComp(cb, uid.UID64(1), comp.ID(0), 42)
+		AddOne(cb, uid.UID64(1), comp.ID(0), 42)
 	}}
-	sched.Register(r)
+	sched.Register(r, NewCmdBuf())
 	sched.Run(r, 0)
 
 	err := sched.Sync()
@@ -152,14 +161,14 @@ func TestScheduler_Sync_PropagatesUpsertCompError(t *testing.T) {
 	}
 }
 
-func TestScheduler_Sync_DispatchesRemoveEntity(t *testing.T) {
+func TestScheduler_Sync_DispatchesRemoveOne(t *testing.T) {
 	mut := &mockMutator{}
 	sched := NewScheduler(mut)
 	target := uid.UID64(7)
 	r := &fnRunnable{fn: func(cb *CmdBuf, d time.Duration) {
-		cb.RemoveEntity(target)
+		cb.RemoveOne(target)
 	}}
-	sched.Register(r)
+	sched.Register(r, NewCmdBuf())
 	sched.Run(r, 0)
 
 	if err := sched.Sync(); err != nil {
@@ -172,15 +181,15 @@ func TestScheduler_Sync_DispatchesRemoveEntity(t *testing.T) {
 	}
 }
 
-func TestScheduler_Sync_DispatchesRemoveComp(t *testing.T) {
+func TestScheduler_Sync_DispatchesRemoveCompOne(t *testing.T) {
 	mut := &mockMutator{}
 	sched := NewScheduler(mut)
 	target := uid.UID64(9)
 	wantComp := comp.ID(3)
 	r := &fnRunnable{fn: func(cb *CmdBuf, d time.Duration) {
-		cb.RemoveComp(target, wantComp)
+		cb.RemoveCompOne(target, wantComp)
 	}}
-	sched.Register(r)
+	sched.Register(r, NewCmdBuf())
 	sched.Run(r, 0)
 
 	if err := sched.Sync(); err != nil {

@@ -59,3 +59,17 @@ func (f *Factory) Next() bool {
 
 	return true
 }
+
+// SpawnAll creates count entities in one call, driving Create/Next
+// internally, and returns every id created — for deferred callers (like
+// CmdBuf.Spawn) that don't need per-chunk Cursor access to write values
+// immediately, since a later system writes them after Sync via a normal
+// Query instead. Satisfies bulk.Spawner.
+func (f *Factory) SpawnAll(count int) []uid.UID64 {
+	f.Create(count)
+	var ids []uid.UID64
+	for f.Next() {
+		ids = append(ids, f.IDs...)
+	}
+	return ids
+}

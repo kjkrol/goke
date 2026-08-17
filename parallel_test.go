@@ -82,10 +82,8 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	_ = goke.RegComp[Velocity](ecs)
 	_ = goke.RegComp[Health](ecs)
 
-	phys := &PhysicsSystem{}
-	heal := &HealthSystem{}
-	ecs.RegSys(phys)
-	ecs.RegSys(heal)
+	phys := ecs.RegSys(&PhysicsSystem{})
+	heal := ecs.RegSys(&HealthSystem{})
 
 	// Create entities with ALL components
 	var pos goke.Comp[Position]

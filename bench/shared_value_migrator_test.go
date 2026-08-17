@@ -9,7 +9,7 @@ import (
 )
 
 // enqueueSubsetWithValue mirrors enqueueSubset but stages a value per id via
-// CmdBufMassMigrateInit instead of CmdBufMassMigrate — one write per entity,
+// CmdBufAddCompValue instead of cb.Migrate — one write per entity,
 // matching how a real ValueMigrator caller computes it during iteration.
 func enqueueSubsetWithValue(q *goke.Query, vm *goke.ValueMigrator, col *goke.Comp[Pos], limit int) goke.SystemFn {
 	return func(cb *goke.CmdBuf, _ time.Duration) {
@@ -20,7 +20,7 @@ func enqueueSubsetWithValue(q *goke.Query, vm *goke.ValueMigrator, col *goke.Com
 			if remaining := limit - taken; len(ids) > remaining {
 				ids = ids[:remaining]
 			}
-			vals := goke.CmdBufMassMigrateInit(cb, vm, col, q.ChunkSnapshot(), ids)
+			vals := goke.CmdBufAddCompValue(cb, vm, col, q.ChunkSnapshot(), ids)
 			for i := range vals {
 				vals[i] = Pos{X: 1, Y: 1}
 			}
@@ -47,7 +47,7 @@ func enqueueScatteredWithValue(q *goke.Query, vm *goke.ValueMigrator, col *goke.
 			if len(buf) == 0 {
 				continue
 			}
-			vals := goke.CmdBufMassMigrateInit(cb, vm, col, q.ChunkSnapshot(), buf)
+			vals := goke.CmdBufAddCompValue(cb, vm, col, q.ChunkSnapshot(), buf)
 			for i := range vals {
 				vals[i] = Pos{X: 1, Y: 1}
 			}
@@ -59,7 +59,7 @@ func enqueueScatteredWithValue(q *goke.Query, vm *goke.ValueMigrator, col *goke.
 // sorted/random dimensions, same timedMigrationPlan (only Sync timed), only
 // the forward wiring differs (writes a value per id instead of just moving it).
 func runValueMigratorLeaf(b *testing.B, ecs *goke.ECS, name string, subset int,
-	setup func() (migrateQ *goke.Query, fwd *goke.ValueMigrator, col *goke.Comp[Pos], restore goke.System)) {
+	setup func() (migrateQ *goke.Query, fwd *goke.ValueMigrator, col *goke.Comp[Pos], restore goke.Runnable)) {
 
 	run := func(order string, mkSys func(*goke.Query, *goke.ValueMigrator, *goke.Comp[Pos]) goke.SystemFn) {
 		b.Run(name+"/"+order, func(b *testing.B) {

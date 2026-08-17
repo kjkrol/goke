@@ -21,20 +21,19 @@ func TestRemover_RemovesMatchingEntities(t *testing.T) {
 	}
 
 	query := ecs.NewQueryBuilder(&pos).Build()
-	remover := ecs.NewRemover()
 
-	var matched []uid.UID64
 	sys := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
 		query.All()
 		for query.Next() {
 			cursor := query.Cursor()
-			matched = matched[:0]
-			matched = append(matched, cursor.IDs...)
-			if len(matched) == 0 {
+			if len(cursor.IDs) == 0 {
 				continue
 			}
-			snap := query.ChunkSnapshot()
-			goke.CmdBufMassRemove(cb, remover, snap, matched)
+			buf := query.BeginMigrate(cb)
+			for _, id := range cursor.IDs {
+				buf.Add(id)
+			}
+			buf.CommitRemove()
 		}
 	})
 	ecs.SetPlan(func(s goke.RunCtx, d time.Duration) {
@@ -46,7 +45,7 @@ func TestRemover_RemovesMatchingEntities(t *testing.T) {
 
 	for _, id := range ids {
 		if ecs.RemoveEnt(id) {
-			t.Errorf("entity %v: expected already removed via Remover, but RemoveEnt succeeded", id)
+			t.Errorf("entity %v: expected already removed via cb.Remove, but RemoveEnt succeeded", id)
 		}
 	}
 }
@@ -75,20 +74,19 @@ func TestRemover_LeavesNonMatchingEntitiesIntact(t *testing.T) {
 
 	// Only matches the Position-only archetype (excludes Velocity).
 	query := ecs.NewQueryBuilder(&pos).Exclude(goke.Exclude[Velocity]()).Build()
-	remover := ecs.NewRemover()
 
-	var matched []uid.UID64
 	sys := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
 		query.All()
 		for query.Next() {
 			cursor := query.Cursor()
-			matched = matched[:0]
-			matched = append(matched, cursor.IDs...)
-			if len(matched) == 0 {
+			if len(cursor.IDs) == 0 {
 				continue
 			}
-			snap := query.ChunkSnapshot()
-			goke.CmdBufMassRemove(cb, remover, snap, matched)
+			buf := query.BeginMigrate(cb)
+			for _, id := range cursor.IDs {
+				buf.Add(id)
+			}
+			buf.CommitRemove()
 		}
 	})
 	ecs.SetPlan(func(s goke.RunCtx, d time.Duration) {
@@ -100,7 +98,7 @@ func TestRemover_LeavesNonMatchingEntitiesIntact(t *testing.T) {
 
 	for _, id := range posOnlyIDs {
 		if ecs.RemoveEnt(id) {
-			t.Errorf("entity %v: expected already removed via Remover, but RemoveEnt succeeded", id)
+			t.Errorf("entity %v: expected already removed via cb.Remove, but RemoveEnt succeeded", id)
 		}
 	}
 	for _, id := range posVelIDs {
