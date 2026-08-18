@@ -72,14 +72,21 @@ func (r *Registry) CreateEditor(opts ...comp.EditOpt) *ent.Editor {
 	return ent.NewEditor(&r.EntityManager.AddressBook, &r.EntityManager.ArchCatalog, spec)
 }
 
-// Remover returns a shared Remover instance, built lazily on first call and
-// reused thereafter — Remover carries no per-call configuration, so one
-// instance serves every caller.
-func (r *Registry) Remover() bulk.Migrator {
+// CreateRemover returns a shared Remover instance, built lazily on first
+// call and reused thereafter — Remover carries no per-call configuration,
+// so one instance serves every caller.
+func (r *Registry) CreateRemover() *ent.Remover {
 	if r.sharedRemover == nil {
 		r.sharedRemover = ent.NewRemover(&r.EntityManager.AddressBook, &r.EntityManager.ArchCatalog)
 	}
 	return r.sharedRemover
+}
+
+// Remover satisfies orch.Mutator — same shared instance as CreateRemover,
+// returned as a bulk.Migrator for Scheduler.Register to auto-wire into
+// CmdBuf.SetRemover.
+func (r *Registry) Remover() bulk.Migrator {
+	return r.CreateRemover()
 }
 
 func (r *Registry) CreateValueEditor(opts ...comp.EditOpt) *ent.ValueEditor {

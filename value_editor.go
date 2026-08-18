@@ -26,12 +26,12 @@ func (b *ValueEditorBuilder) Build() *ValueEditor {
 	return b.ecs.registry.CreateValueEditor(b.opts...)
 }
 
-// CmdBufAddCompValue queues ids for migration via vm and returns an
+// AddCompValue queues ids for migration via vm and returns an
 // uninitialized per-id slice to write the added component's value into
 // before Sync. col must match vm's added component (panics otherwise).
-func CmdBufAddCompValue[T any](cb *CmdBuf, vm *ValueEditor, col *Comp[T], snap ChunkSnapshot, ids []uid.UID64) []T {
+func (cb *CmdBuf) AddCompValue[T any](vm *ValueEditor, col *Comp[T], snap ChunkSnapshot, ids []uid.UID64) []T {
 	if t := reflect.TypeFor[T](); t != vm.ValueType() {
-		panic("goke: CmdBufAddCompValue: " + t.String() + " does not match this ValueEditor's added component " + vm.ValueType().String())
+		panic("goke: CmdBuf.AddCompValue: " + t.String() + " does not match this ValueEditor's added component " + vm.ValueType().String())
 	}
 	var zero T
 	ptr := cb.raw.AddCompValue(vm, snap, ids, unsafe.Sizeof(zero), unsafe.Alignof(zero))

@@ -135,16 +135,11 @@ func (b *MigrateBuf) Add(id uid.UID64) {
 	b.ids = append(b.ids, id)
 }
 
-// Commit queues op against every id staged since BeginMigrate.
+// Commit queues op against every id staged since BeginMigrate. For
+// whole-entity removal, pass a Remover (SysInit.Remover) — it satisfies
+// bulk.Migrator the same way Editor/ValueEditor do.
 func (b *MigrateBuf) Commit(op bulk.Migrator) {
 	b.cb.raw.CommitReserved(op, b.snap, b.ids)
-}
-
-// CommitRemove queues whole-entity removal for every id staged since
-// BeginMigrate, using the shared Remover — no object to build or pass, same
-// as cb.RemoveOne.
-func (b *MigrateBuf) CommitRemove() {
-	b.cb.raw.CommitReserved(b.cb.raw.Remover(), b.snap, b.ids)
 }
 
 // Include adds a required component type T to the Query's filter.

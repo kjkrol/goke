@@ -14,11 +14,11 @@ func TestSysInit_ECS(t *testing.T) {
 	var compID goke.CompID
 	ecs.Setup(goke.SystemFn{
 		OnInit: func(si *goke.SysInit) {
-			compID = goke.RegComp[Position](si.ECS())
+			compID = si.ECS().RegComp[Position]()
 		},
 	})
 
-	if compID != goke.RegComp[Position](ecs) {
-		t.Errorf("expected RegComp via si.ECS() to resolve the same CompID as RegComp(ecs) directly")
+	if compID != ecs.RegComp[Position]() {
+		t.Errorf("expected RegComp via si.ECS() to resolve the same CompID as ecs.RegComp() directly")
 	}
 }

@@ -45,7 +45,7 @@ type (
 	// ValueEditor is Editor's value-carrying counterpart: it adds exactly
 	// one component and lets the caller write a per-entity value for it,
 	// computed at enqueue time and applied at Sync alongside the migration.
-	// Create once via NewValueEditorBuilder; call via CmdBufAddCompValue.
+	// Create once via NewValueEditorBuilder; call via CmdBuf.AddCompValue.
 	ValueEditor = ent.ValueEditor
 
 	// EditOpt configures a structural change — Add or Remove a component —
@@ -57,4 +57,8 @@ type (
 	// Obtained from Query.ChunkSnapshot() during Query.All() iteration; passed
 	// to cb.Migrate so the Editor can skip per-entity addr.Book lookups.
 	ChunkSnapshot = bulk.ChunkSnapshot
+
+	// Remover removes whole entities matched by a Query, in bulk, at Sync.
+	// Construct once via SysInit.Remover; apply via MigrateBuf.Commit.
+	Remover = ent.Remover
 )

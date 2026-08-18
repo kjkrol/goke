@@ -1,6 +1,6 @@
 module github.com/kjkrol/goke/v3
 
-go 1.26.4
+go 1.27rc3
 
 require (
 	github.com/kjkrol/uid v0.2.1

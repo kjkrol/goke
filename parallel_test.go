@@ -78,9 +78,9 @@ func TestECS_ParallelExecution_Disjoint(t *testing.T) {
 	ecs := goke.New()
 
 	// 1. Setup
-	_ = goke.RegComp[Position](ecs)
-	_ = goke.RegComp[Velocity](ecs)
-	_ = goke.RegComp[Health](ecs)
+	_ = ecs.RegComp[Position]()
+	_ = ecs.RegComp[Velocity]()
+	_ = ecs.RegComp[Health]()
 
 	phys := ecs.RegSys(&PhysicsSystem{})
 	heal := ecs.RegSys(&HealthSystem{})

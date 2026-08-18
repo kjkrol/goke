@@ -4,8 +4,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/kjkrol/uid"
-
 	"github.com/kjkrol/goke/v3/internal/orch"
 	"github.com/kjkrol/goke/v3/internal/reg"
 )
@@ -39,15 +37,9 @@ func New(opts ...ECSOption) *ECS {
 
 // RegComp registers the component type T with the ECS and returns its ID.
 // Call once at startup; subsequent calls for the same type return the cached ID.
-func RegComp[T any](ecs *ECS) CompID {
+func (ecs *ECS) RegComp[T any]() CompID {
 	compType := reflect.TypeFor[T]()
 	return ecs.registry.RegComp(compType)
-}
-
-// RemoveEnt destroys an entity and recycles its ID.
-// All associated components are removed. Returns true if the entity existed.
-func (ecs *ECS) RemoveEnt(id uid.UID64) bool {
-	return ecs.registry.Remove(id)
 }
 
 // RegSys registers a system. The system's Init method is called

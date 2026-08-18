@@ -11,22 +11,26 @@ import (
 // registers one removal command per chunk until limit entities are
 // covered. Registration only — removal itself runs at the plan's Sync point.
 func enqueueRemoveSubset(q *goke.Query, limit int) goke.SystemFn {
-	return goke.SystemFn{OnUpdate: func(cb *goke.CmdBuf, _ time.Duration) {
-		q.All()
-		taken := 0
-		for taken < limit && q.Next() {
-			ids := q.Cursor().IDs
-			if remaining := limit - taken; len(ids) > remaining {
-				ids = ids[:remaining]
+	var remover *goke.Remover
+	return goke.SystemFn{
+		OnInit: func(si *goke.SysInit) { remover = si.Remover() },
+		OnUpdate: func(cb *goke.CmdBuf, _ time.Duration) {
+			q.All()
+			taken := 0
+			for taken < limit && q.Next() {
+				ids := q.Cursor().IDs
+				if remaining := limit - taken; len(ids) > remaining {
+					ids = ids[:remaining]
+				}
+				buf := q.BeginMigrate(cb)
+				for _, id := range ids {
+					buf.Add(id)
+				}
+				buf.Commit(remover)
+				taken += len(ids)
 			}
-			buf := q.BeginMigrate(cb)
-			for _, id := range ids {
-				buf.Add(id)
-			}
-			buf.CommitRemove()
-			taken += len(ids)
-		}
-	}}
+		},
+	}
 }
 
 // enqueueRemoveScattered returns a system that registers removal commands
@@ -36,21 +40,25 @@ func enqueueRemoveSubset(q *goke.Query, limit int) goke.SystemFn {
 // command — but the resulting holes are non-contiguous, exercising the
 // slot-level compaction path.
 func enqueueRemoveScattered(q *goke.Query, pick []bool) goke.SystemFn {
-	return goke.SystemFn{OnUpdate: func(cb *goke.CmdBuf, _ time.Duration) {
-		q.All()
-		pos := 0
-		for q.Next() {
-			ids := q.Cursor().IDs
-			buf := q.BeginMigrate(cb)
-			for _, id := range ids {
-				if pos < len(pick) && pick[pos] {
-					buf.Add(id)
+	var remover *goke.Remover
+	return goke.SystemFn{
+		OnInit: func(si *goke.SysInit) { remover = si.Remover() },
+		OnUpdate: func(cb *goke.CmdBuf, _ time.Duration) {
+			q.All()
+			pos := 0
+			for q.Next() {
+				ids := q.Cursor().IDs
+				buf := q.BeginMigrate(cb)
+				for _, id := range ids {
+					if pos < len(pick) && pick[pos] {
+						buf.Add(id)
+					}
+					pos++
 				}
-				pos++
+				buf.Commit(remover)
 			}
-			buf.CommitRemove()
-		}
-	}}
+		},
+	}
 }
 
 // timedRemovalPlan runs remSys and times only its Sync — the per-chunk

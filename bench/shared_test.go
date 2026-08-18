@@ -42,18 +42,18 @@ func populateBase(si *goke.SysInit, count int) []uid.UID64 {
 
 func setupECS() *goke.ECS {
 	ecs := goke.New()
-	_ = goke.RegComp[Pos](ecs)
-	_ = goke.RegComp[Vel](ecs)
-	_ = goke.RegComp[Acc](ecs)
-	_ = goke.RegComp[T04](ecs)
-	_ = goke.RegComp[T05](ecs)
-	_ = goke.RegComp[T06](ecs)
-	_ = goke.RegComp[T07](ecs)
-	_ = goke.RegComp[T08](ecs)
-	_ = goke.RegComp[T09](ecs)
-	_ = goke.RegComp[T10](ecs)
-	_ = goke.RegComp[Tag](ecs)
-	_ = goke.RegComp[Base](ecs)
+	_ = ecs.RegComp[Pos]()
+	_ = ecs.RegComp[Vel]()
+	_ = ecs.RegComp[Acc]()
+	_ = ecs.RegComp[T04]()
+	_ = ecs.RegComp[T05]()
+	_ = ecs.RegComp[T06]()
+	_ = ecs.RegComp[T07]()
+	_ = ecs.RegComp[T08]()
+	_ = ecs.RegComp[T09]()
+	_ = ecs.RegComp[T10]()
+	_ = ecs.RegComp[Tag]()
+	_ = ecs.RegComp[Base]()
 	return ecs
 }
 

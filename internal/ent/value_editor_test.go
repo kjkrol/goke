@@ -16,7 +16,7 @@ import (
 // applyByChunksWithValue mirrors applyByChunks (editor_test.go) but for
 // ValueEditor: groups consecutive ids by their current (ArchID, Ptr) and
 // calls MigrateWithValue once per group, slicing values in lockstep — one
-// call per chunk, exactly as CmdBufAddCompValue's production callers do.
+// call per chunk, exactly as CmdBuf.AddCompValue's production callers do.
 func applyByChunksWithValue[T any](m *ent.Manager, vm *ent.ValueEditor, ids []uid.UID64, values []T) {
 	for start := 0; start < len(ids); {
 		entry, ok := m.AddressBook.Get(ids[start])

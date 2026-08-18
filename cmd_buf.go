@@ -18,7 +18,7 @@ type CmdBuf struct {
 // outside Query iteration (a lone id from an external event, callback, or
 // saved reference). If the entity already has this component, its data is
 // overwritten on flush.
-func AddOne[T any](cb *CmdBuf, e uid.UID64, compID CompID, value T) {
+func (cb *CmdBuf) AddOne[T any](e uid.UID64, compID CompID, value T) {
 	orch.AddOne(cb.raw, e, compID, value)
 }
 

@@ -63,9 +63,7 @@ type CmdBuf struct {
 // Called once by Scheduler.Register — not part of the per-tick hot path.
 func (cb *CmdBuf) SetRemover(r bulk.Migrator) { cb.remover = r }
 
-// Remover returns the shared Remover installed by SetRemover, for callers
-// (like Query.CommitRemove) that need to queue against it without the
-// caller building or naming one.
+// Remover returns the shared Remover installed by SetRemover.
 func (cb *CmdBuf) Remover() bulk.Migrator { return cb.remover }
 
 func (cb *CmdBuf) Clear() {

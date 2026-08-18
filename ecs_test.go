@@ -20,9 +20,9 @@ type Processed struct{}
 func TestECS_UseCase(t *testing.T) {
 	ecs := goke.New()
 
-	_ = goke.RegComp[Order](ecs)
-	_ = goke.RegComp[Discount](ecs)
-	processedID := goke.RegComp[Processed](ecs)
+	_ = ecs.RegComp[Order]()
+	_ = ecs.RegComp[Discount]()
+	processedID := ecs.RegComp[Processed]()
 
 	var order goke.Comp[Order]
 	var discount goke.Comp[Discount]
@@ -61,7 +61,7 @@ func TestECS_UseCase(t *testing.T) {
 				for i, entityID := range cursor1.IDs {
 					processedCount++
 					orders[i].Total *= (1 - discounts[i].Percentage/100)
-					goke.AddOne(cb, entityID, processedID, Processed{})
+					cb.AddOne(entityID, processedID, Processed{})
 				}
 			}
 		},
@@ -120,7 +120,7 @@ func TestECS_UseCase(t *testing.T) {
 
 func TestECS_Seek(t *testing.T) {
 	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
+	_ = ecs.RegComp[Position]()
 
 	var pos goke.Comp[Position]
 	var entityID uid.UID64
@@ -153,8 +153,8 @@ func TestECS_Seek(t *testing.T) {
 // never returning stale ones.
 func TestECS_Seek_AcrossArchetypes(t *testing.T) {
 	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
-	_ = goke.RegComp[Velocity](ecs)
+	_ = ecs.RegComp[Position]()
+	_ = ecs.RegComp[Velocity]()
 
 	var posA, posB goke.Comp[Position]
 	var velB goke.Comp[Velocity]
@@ -191,7 +191,7 @@ func TestECS_Seek_AcrossArchetypes(t *testing.T) {
 
 func TestECS_RemoveComp(t *testing.T) {
 	ecs := goke.New()
-	posID := goke.RegComp[Position](ecs)
+	posID := ecs.RegComp[Position]()
 
 	var entityID uid.UID64
 	var pos goke.Comp[Position]
@@ -220,33 +220,9 @@ func TestECS_RemoveComp(t *testing.T) {
 	}
 }
 
-func TestECS_RemoveEntity(t *testing.T) {
-	ecs := goke.New()
-	posID := goke.RegComp[Position](ecs)
-	_ = posID // to avoid unused variable error if any
-
-	var entityID uid.UID64
-	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
-		factory := si.NewFactory(new(goke.Comp[Position]))
-		factory.Create(1)
-		factory.Next()
-		entityID = factory.IDs[0]
-	}})
-
-	ok := ecs.RemoveEnt(entityID)
-	if !ok {
-		t.Errorf("expected entity to be removed")
-	}
-
-	ok = ecs.RemoveEnt(entityID)
-	if ok {
-		t.Errorf("expected false for already removed entity")
-	}
-}
-
 func TestECS_Reset(t *testing.T) {
 	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
+	_ = ecs.RegComp[Position]()
 
 	var entityID uid.UID64
 	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {

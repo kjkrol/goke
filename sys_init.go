@@ -33,3 +33,8 @@ func (s *SysInit) NewFactory(comps ...Addable) *Factory {
 // to call lazily) from within Init. Construction (Query/Factory builders)
 // stays gated through SysInit/Query — ECS no longer exposes any of it.
 func (s *SysInit) ECS() *ECS { return s.ecs }
+
+// Remover returns the shared Remover for whole-entity removal — pass it to
+// MigrateBuf.Commit. It carries no per-call configuration (removes any
+// entity regardless of archetype), so every call returns the same instance.
+func (s *SysInit) Remover() *Remover { return s.ecs.registry.CreateRemover() }

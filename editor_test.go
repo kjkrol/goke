@@ -13,8 +13,8 @@ import (
 // Query.BeginMigrate inside a system's Update, applied at Sync.
 func TestEditorBuilder_AddComponent(t *testing.T) {
 	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
-	_ = goke.RegComp[Velocity](ecs)
+	_ = ecs.RegComp[Position]()
+	_ = ecs.RegComp[Velocity]()
 
 	var pos goke.Comp[Position]
 	var vel goke.Comp[Velocity]
@@ -67,8 +67,8 @@ func TestEditorBuilder_AddComponent(t *testing.T) {
 // from every matched entity.
 func TestEditorBuilder_RemoveComponent(t *testing.T) {
 	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
-	_ = goke.RegComp[Velocity](ecs)
+	_ = ecs.RegComp[Position]()
+	_ = ecs.RegComp[Velocity]()
 
 	var pos goke.Comp[Position]
 	var vel goke.Comp[Velocity]

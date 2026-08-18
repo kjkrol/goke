@@ -24,16 +24,16 @@ type E10 struct{ V float32 }
 
 func setupEditECS() *goke.ECS {
 	ecs := setupECS()
-	_ = goke.RegComp[E01](ecs)
-	_ = goke.RegComp[E02](ecs)
-	_ = goke.RegComp[E03](ecs)
-	_ = goke.RegComp[E04](ecs)
-	_ = goke.RegComp[E05](ecs)
-	_ = goke.RegComp[E06](ecs)
-	_ = goke.RegComp[E07](ecs)
-	_ = goke.RegComp[E08](ecs)
-	_ = goke.RegComp[E09](ecs)
-	_ = goke.RegComp[E10](ecs)
+	_ = ecs.RegComp[E01]()
+	_ = ecs.RegComp[E02]()
+	_ = ecs.RegComp[E03]()
+	_ = ecs.RegComp[E04]()
+	_ = ecs.RegComp[E05]()
+	_ = ecs.RegComp[E06]()
+	_ = ecs.RegComp[E07]()
+	_ = ecs.RegComp[E08]()
+	_ = ecs.RegComp[E09]()
+	_ = ecs.RegComp[E10]()
 	return ecs
 }
 

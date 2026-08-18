@@ -9,7 +9,7 @@ import (
 
 // Benchmark_ValueEditor_Add is the value-carrying counterpart of
 // Benchmark_Editor_Add's comps=1 leaf: identical world, population, and
-// subset/order dimensions, but through ValueEditor + CmdBufAddCompValue
+// subset/order dimensions, but through ValueEditor + CmdBuf.AddCompValue
 // instead of Editor + cb.Migrate — isolating the payload mechanism's
 // overhead (arena reservation, per-run copyMemory, slow-path origIdx
 // compaction) from everything else, since both leaves add exactly one Pos

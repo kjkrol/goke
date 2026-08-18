@@ -28,9 +28,9 @@ func main() {
 	ecs := goke.New()
 
 	// Register component types
-	winnerID = goke.RegComp[Winner](ecs)
-	diceID = goke.RegComp[Dice](ecs)
-	playerID = goke.RegComp[Player](ecs)
+	winnerID = ecs.RegComp[Winner]()
+	diceID = ecs.RegComp[Dice]()
+	playerID = ecs.RegComp[Player]()
 
 	// 2. Setup Entities & Components
 	var dice goke.Comp[Dice]
@@ -121,7 +121,7 @@ func main() {
 					if bet == diceComp.Value {
 						gameFinished = true
 						// Defer the assignment of the Winner tag to the next Sync point
-						goke.AddOne(schedule, entityID, winnerID, Winner{})
+						schedule.AddOne(entityID, winnerID, Winner{})
 					}
 				}
 			}

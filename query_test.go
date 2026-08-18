@@ -12,9 +12,9 @@ func TestQueryBuilder_IncludeExclude(t *testing.T) {
 	ecs := goke.New()
 	// 1. Setup Entities with different structural profiles
 
-	_ = goke.RegComp[position](ecs)
-	_ = goke.RegComp[velocity](ecs)
-	_ = goke.RegComp[complexComponent](ecs)
+	_ = ecs.RegComp[position]()
+	_ = ecs.RegComp[velocity]()
+	_ = ecs.RegComp[complexComponent]()
 
 	// Entity A: Only position
 	var eA uid.UID64
@@ -142,7 +142,7 @@ func TestQueryBuilder_IncludeExclude(t *testing.T) {
 
 func TestQueryBuilder_EmptyBuild(t *testing.T) {
 	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
+	_ = ecs.RegComp[Position]()
 
 	var query *goke.Query
 	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
@@ -166,7 +166,7 @@ func TestQueryBuilder_EmptyBuild(t *testing.T) {
 
 func TestQuery_All_SlicesCoverAllEntities(t *testing.T) {
 	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
+	_ = ecs.RegComp[Position]()
 
 	var pos goke.Comp[Position]
 	var query *goke.Query
@@ -198,7 +198,7 @@ func TestQuery_All_SlicesCoverAllEntities(t *testing.T) {
 
 func TestQuery_Pick_EntityAndIdxMatchInput(t *testing.T) {
 	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
+	_ = ecs.RegComp[Position]()
 
 	var pos goke.Comp[Position]
 	var ids []uid.UID64
@@ -224,7 +224,7 @@ func TestQuery_Pick_EntityAndIdxMatchInput(t *testing.T) {
 
 func TestQuery_Seek_FindsEntityAndFailsForMissing(t *testing.T) {
 	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
+	_ = ecs.RegComp[Position]()
 
 	var pos goke.Comp[Position]
 	var entityID uid.UID64
@@ -251,7 +251,7 @@ func TestQuery_Seek_FindsEntityAndFailsForMissing(t *testing.T) {
 
 func TestQuery_SeekH_SameArchetypeMatches(t *testing.T) {
 	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
+	_ = ecs.RegComp[Position]()
 
 	var pos goke.Comp[Position]
 	var e0, e1 uid.UID64
@@ -282,8 +282,8 @@ func TestQuery_SeekH_SameArchetypeMatches(t *testing.T) {
 
 func TestQuery_SeekH_DifferentArchetypeReportsMismatch(t *testing.T) {
 	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
-	_ = goke.RegComp[Velocity](ecs)
+	_ = ecs.RegComp[Position]()
+	_ = ecs.RegComp[Velocity]()
 
 	var pos goke.Comp[Position]
 	var vel goke.Comp[Velocity]

@@ -9,7 +9,7 @@ import (
 )
 
 // enqueueSubsetWithValue mirrors enqueueSubset but stages a value per id via
-// CmdBufAddCompValue instead of cb.Migrate — one write per entity,
+// CmdBuf.AddCompValue instead of cb.Migrate — one write per entity,
 // matching how a real ValueEditor caller computes it during iteration.
 func enqueueSubsetWithValue(q *goke.Query, vm *goke.ValueEditor, col *goke.Comp[Pos], limit int) goke.SystemFn {
 	return goke.SystemFn{OnUpdate: func(cb *goke.CmdBuf, _ time.Duration) {
@@ -20,7 +20,7 @@ func enqueueSubsetWithValue(q *goke.Query, vm *goke.ValueEditor, col *goke.Comp[
 			if remaining := limit - taken; len(ids) > remaining {
 				ids = ids[:remaining]
 			}
-			vals := goke.CmdBufAddCompValue(cb, vm, col, q.ChunkSnapshot(), ids)
+			vals := cb.AddCompValue(vm, col, q.ChunkSnapshot(), ids)
 			for i := range vals {
 				vals[i] = Pos{X: 1, Y: 1}
 			}
@@ -47,7 +47,7 @@ func enqueueScatteredWithValue(q *goke.Query, vm *goke.ValueEditor, col *goke.Co
 			if len(buf) == 0 {
 				continue
 			}
-			vals := goke.CmdBufAddCompValue(cb, vm, col, q.ChunkSnapshot(), buf)
+			vals := cb.AddCompValue(vm, col, q.ChunkSnapshot(), buf)
 			for i := range vals {
 				vals[i] = Pos{X: 1, Y: 1}
 			}

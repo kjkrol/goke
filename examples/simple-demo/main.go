@@ -21,9 +21,9 @@ var processedID, orderID, discountID goke.CompID
 
 func main() {
 	ecs := goke.New()
-	processedID = goke.RegComp[Processed](ecs)
-	_ = goke.RegComp[Order](ecs)
-	discountID = goke.RegComp[Discount](ecs)
+	processedID = ecs.RegComp[Processed]()
+	_ = ecs.RegComp[Order]()
+	discountID = ecs.RegComp[Discount]()
 
 	// Initialize an entity with Order and Discount component data
 	var order goke.Comp[Order]
@@ -74,7 +74,7 @@ func main() {
 				for i, entityID := range cursor.IDs {
 					orders[i].Total = orders[i].Total * (1 - discounts[i].Percentage/100)
 					// Defer the assignment of the Processed tag to the next synchronization point
-					goke.AddOne(schedule, entityID, processedID, Processed{})
+					schedule.AddOne(entityID, processedID, Processed{})
 				}
 			}
 		},

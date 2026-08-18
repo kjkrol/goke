@@ -10,13 +10,13 @@ import (
 
 // TestValueEditorBuilder_WritesPerEntityValue exercises the public
 // ValueEditor API end to end: query.NewValueEditorBuilder(comp).Build(),
-// CmdBufAddCompValue called from inside a system's Update using
+// CmdBuf.AddCompValue called from inside a system's Update using
 // Query.ChunkSnapshot, values written into the returned slice, applied at
 // Sync — then read back afterward via a normal Query.
 func TestValueEditorBuilder_WritesPerEntityValue(t *testing.T) {
 	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
-	_ = goke.RegComp[Velocity](ecs)
+	_ = ecs.RegComp[Position]()
+	_ = ecs.RegComp[Velocity]()
 
 	var pos goke.Comp[Position]
 	var vel goke.Comp[Velocity]
@@ -45,7 +45,7 @@ func TestValueEditorBuilder_WritesPerEntityValue(t *testing.T) {
 				continue
 			}
 			snap := query.ChunkSnapshot()
-			vals := goke.CmdBufAddCompValue(cb, vm, &vel, snap, cursor.IDs)
+			vals := cb.AddCompValue(vm, &vel, snap, cursor.IDs)
 			for i, id := range cursor.IDs {
 				v := Velocity{VX: float32(i) + 1, VY: float32(i) + 2}
 				vals[i] = v
@@ -90,9 +90,9 @@ func TestValueEditorBuilder_WritesPerEntityValue(t *testing.T) {
 // per-entity value) and removes Discount in the same migration.
 func TestValueEditorBuilder_RemoveComponent(t *testing.T) {
 	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
-	_ = goke.RegComp[Velocity](ecs)
-	_ = goke.RegComp[Discount](ecs)
+	_ = ecs.RegComp[Position]()
+	_ = ecs.RegComp[Velocity]()
+	_ = ecs.RegComp[Discount]()
 
 	var pos goke.Comp[Position]
 	var disc goke.Comp[Discount]
@@ -123,7 +123,7 @@ func TestValueEditorBuilder_RemoveComponent(t *testing.T) {
 				continue
 			}
 			snap := query.ChunkSnapshot()
-			vals := goke.CmdBufAddCompValue(cb, vm, &vel, snap, cursor.IDs)
+			vals := cb.AddCompValue(vm, &vel, snap, cursor.IDs)
 			for i, id := range cursor.IDs {
 				v := Velocity{VX: float32(i) + 1, VY: float32(i) + 2}
 				vals[i] = v
@@ -149,13 +149,13 @@ func TestValueEditorBuilder_RemoveComponent(t *testing.T) {
 }
 
 // TestValueEditorBuilder_MismatchedType_Panics confirms the runtime size
-// guard in CmdBufAddCompValue catches a Comp[T] that doesn't match the
+// guard in CmdBuf.AddCompValue catches a Comp[T] that doesn't match the
 // ValueEditor's own added component — the one case Go's type system can't
 // catch here, since ValueEditor is untyped at the Go level.
 func TestValueEditorBuilder_MismatchedType_Panics(t *testing.T) {
 	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
-	_ = goke.RegComp[Velocity](ecs)
+	_ = ecs.RegComp[Position]()
+	_ = ecs.RegComp[Velocity]()
 
 	var pos goke.Comp[Position]
 	var vel goke.Comp[Velocity]
@@ -179,7 +179,7 @@ func TestValueEditorBuilder_MismatchedType_Panics(t *testing.T) {
 				continue
 			}
 			// pos does not match vm's own added component (Velocity) — must panic.
-			goke.CmdBufAddCompValue(cb, vm, &pos, query.ChunkSnapshot(), cursor.IDs)
+			cb.AddCompValue(vm, &pos, query.ChunkSnapshot(), cursor.IDs)
 		}
 	}})
 	ecs.SetPlan(func(s goke.RunCtx, d time.Duration) {

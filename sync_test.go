@@ -42,7 +42,7 @@ func (s *WorkerSystem) Update(schedule *goke.CmdBuf, duration time.Duration) {
 	for s.query.Next() {
 		for _, entityID := range s.query.Cursor().IDs {
 			msg := Log{Msg: "Done"}
-			goke.AddOne(schedule, entityID, logID, msg)
+			schedule.AddOne(entityID, logID, msg)
 		}
 	}
 }
@@ -71,8 +71,8 @@ func (s *LoggerSystem) Update(schedule *goke.CmdBuf, duration time.Duration) {
 func TestECS_SystemInteractions(t *testing.T) {
 
 	setupComponents := func(e *goke.ECS) {
-		taskID = goke.RegComp[Task](e)
-		logID = goke.RegComp[Log](e)
+		taskID = e.RegComp[Task]()
+		logID = e.RegComp[Log]()
 	}
 
 	t.Run("Isolation: Logger should not see changes from Worker without Sync between them", func(t *testing.T) {

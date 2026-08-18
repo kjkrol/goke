@@ -17,15 +17,15 @@ type Tag10 struct{}
 
 func setupTagECS() *goke.ECS {
 	ecs := setupECS()
-	_ = goke.RegComp[Tag1](ecs)
-	_ = goke.RegComp[Tag2](ecs)
-	_ = goke.RegComp[Tag3](ecs)
-	_ = goke.RegComp[Tag4](ecs)
-	_ = goke.RegComp[Tag5](ecs)
-	_ = goke.RegComp[Tag6](ecs)
-	_ = goke.RegComp[Tag7](ecs)
-	_ = goke.RegComp[Tag8](ecs)
-	_ = goke.RegComp[Tag9](ecs)
-	_ = goke.RegComp[Tag10](ecs)
+	_ = ecs.RegComp[Tag1]()
+	_ = ecs.RegComp[Tag2]()
+	_ = ecs.RegComp[Tag3]()
+	_ = ecs.RegComp[Tag4]()
+	_ = ecs.RegComp[Tag5]()
+	_ = ecs.RegComp[Tag6]()
+	_ = ecs.RegComp[Tag7]()
+	_ = ecs.RegComp[Tag8]()
+	_ = ecs.RegComp[Tag9]()
+	_ = ecs.RegComp[Tag10]()
 	return ecs
 }
