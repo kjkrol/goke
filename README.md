@@ -4,7 +4,7 @@
   <img src=".github/docs/img/logo.png" alt="GOKe Logo" width="300">
   <br>
   <a href="https://go.dev">
-    <img src="https://img.shields.io/badge/Go-1.26+-00ADD8?style=flat-square&logo=go" alt="Go Version">
+    <img src="https://img.shields.io/badge/Go-1.27rc3+-00ADD8?style=flat-square&logo=go" alt="Go Version">
   </a>
   <a href="https://pkg.go.dev/github.com/kjkrol/goke/v3">
     <img src="https://img.shields.io/badge/GoDoc-Reference-007d9c?style=flat-square&logo=go" alt="GoDoc">
