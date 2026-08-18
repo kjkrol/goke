@@ -2,299 +2,84 @@ package bench_test
 
 import (
 	"fmt"
-	"math/rand/v2"
 	"testing"
 
-	"github.com/kjkrol/goke/v2"
+	"github.com/kjkrol/goke/v3"
+	"github.com/kjkrol/uid"
 )
 
-// Benchmark_Editor_Del measures the per-entity cost of a structural remove via
-// Editor.Update. Entities are pre-populated with 10 components at setup; each
-// sub-benchmark deletes comps=N of them (timed) then adds them back outside
-// the timer so every loop iteration starts from the same 10-component state. Each
-// sub-benchmark runs in two orders: sorted iterates entities in creation
-// order, random reshuffles them before every iteration (outside the timer).
+// populateWithBase mirrors populate but additionally spawns each entity with
+// a Base anchor in the same Factory call, so removing all 10 tracked
+// components in the n==10 case never unlinks the entity — no retrofit pass
+// needed after the fact.
+func populateWithBase(si *goke.SysInit, count int) []uid.UID64 {
+	var cBase goke.Comp[Base]
+	var c1 goke.Comp[Pos]
+	var c2 goke.Comp[Vel]
+	var c3 goke.Comp[Acc]
+	var c4 goke.Comp[T04]
+	var c5 goke.Comp[T05]
+	var c6 goke.Comp[T06]
+	var c7 goke.Comp[T07]
+	var c8 goke.Comp[T08]
+	var c9 goke.Comp[T09]
+	var c10 goke.Comp[T10]
+	factory := si.NewFactory(&cBase, &c1, &c2, &c3, &c4, &c5, &c6, &c7, &c8, &c9, &c10)
+
+	var entities []uid.UID64
+	factory.Create(count)
+	for factory.Next() {
+		entities = append(entities, factory.IDs...)
+	}
+	return entities
+}
+
+// Benchmark_Editor_Del exercises a structural remove through the
+// production CmdBuf path: entities carry 10 data components and each leaf
+// removes comps=N of them; only the Sync executing Editor.Migrate is
+// timed. The comps=10 world anchors entities with an extra Base component
+// (via populateWithBase) so removing all 10 tracked components never
+// unlinks them. subset<pop leaves additionally exercise source compaction.
 func Benchmark_Editor_Del(b *testing.B) {
 	ecs := setupECS()
-
-	for _, o := range benchOrders {
-		b.Run(fmt.Sprintf("pop=%d/subset=%d/comp=10/comps=1/%s", entitiesNumber, entitiesNumber, o), func(b *testing.B) {
-			ecs.Reset()
-			entities := populate(ecs, entitiesNumber)
-			rng := rand.New(rand.NewPCG(42, 42))
-			delEd := ecs.NewEditorBuilder().Delete(goke.Del[Pos]()).Build()
-			addEd := ecs.NewEditorBuilder(new(goke.Comp[Pos])).Build()
-			measurePerEntity(b, entitiesNumber, func() {
-				for b.Loop() {
-					if o == "random" {
-						b.StopTimer()
-						shuffleIDs(rng, entities)
-						b.StartTimer()
-					}
-					for _, e := range entities {
-						delEd.Update(e)
-					}
-					b.StopTimer()
-					for _, e := range entities {
-						addEd.Update(e)
-					}
-					b.StartTimer()
-				}
-			})
-		})
+	addComps := []goke.Addable{
+		new(goke.Comp[Pos]), new(goke.Comp[Vel]), new(goke.Comp[Acc]),
+		new(goke.Comp[T04]), new(goke.Comp[T05]), new(goke.Comp[T06]),
+		new(goke.Comp[T07]), new(goke.Comp[T08]), new(goke.Comp[T09]),
+		new(goke.Comp[T10]),
+	}
+	delComps := []goke.EditOpt{
+		goke.Remove[Pos](), goke.Remove[Vel](), goke.Remove[Acc](),
+		goke.Remove[T04](), goke.Remove[T05](), goke.Remove[T06](),
+		goke.Remove[T07](), goke.Remove[T08](), goke.Remove[T09](),
+		goke.Remove[T10](),
 	}
 
-	for _, o := range benchOrders {
-		b.Run(fmt.Sprintf("pop=%d/subset=%d/comp=10/comps=2/%s", entitiesNumber, entitiesNumber, o), func(b *testing.B) {
-			ecs.Reset()
-			entities := populate(ecs, entitiesNumber)
-			rng := rand.New(rand.NewPCG(42, 42))
-			delEd := ecs.NewEditorBuilder().Delete(goke.Del[Pos](), goke.Del[Vel]()).Build()
-			addEd := ecs.NewEditorBuilder(new(goke.Comp[Pos]), new(goke.Comp[Vel])).Build()
-			measurePerEntity(b, entitiesNumber, func() {
-				for b.Loop() {
-					if o == "random" {
-						b.StopTimer()
-						shuffleIDs(rng, entities)
-						b.StartTimer()
-					}
-					for _, e := range entities {
-						delEd.Update(e)
-					}
-					b.StopTimer()
-					for _, e := range entities {
-						addEd.Update(e)
-					}
-					b.StartTimer()
-				}
-			})
-		})
-	}
-
-	for _, o := range benchOrders {
-		b.Run(fmt.Sprintf("pop=%d/subset=%d/comp=10/comps=3/%s", entitiesNumber, entitiesNumber, o), func(b *testing.B) {
-			ecs.Reset()
-			entities := populate(ecs, entitiesNumber)
-			rng := rand.New(rand.NewPCG(42, 42))
-			delEd := ecs.NewEditorBuilder().Delete(goke.Del[Pos](), goke.Del[Vel](), goke.Del[Acc]()).Build()
-			addEd := ecs.NewEditorBuilder(new(goke.Comp[Pos]), new(goke.Comp[Vel]), new(goke.Comp[Acc])).Build()
-			measurePerEntity(b, entitiesNumber, func() {
-				for b.Loop() {
-					if o == "random" {
-						b.StopTimer()
-						shuffleIDs(rng, entities)
-						b.StartTimer()
-					}
-					for _, e := range entities {
-						delEd.Update(e)
-					}
-					b.StopTimer()
-					for _, e := range entities {
-						addEd.Update(e)
-					}
-					b.StartTimer()
-				}
-			})
-		})
-	}
-
-	for _, o := range benchOrders {
-		b.Run(fmt.Sprintf("pop=%d/subset=%d/comp=10/comps=4/%s", entitiesNumber, entitiesNumber, o), func(b *testing.B) {
-			ecs.Reset()
-			entities := populate(ecs, entitiesNumber)
-			rng := rand.New(rand.NewPCG(42, 42))
-			delEd := ecs.NewEditorBuilder().Delete(goke.Del[Pos](), goke.Del[Vel](), goke.Del[Acc](), goke.Del[T04]()).Build()
-			addEd := ecs.NewEditorBuilder(new(goke.Comp[Pos]), new(goke.Comp[Vel]), new(goke.Comp[Acc]), new(goke.Comp[T04])).Build()
-			measurePerEntity(b, entitiesNumber, func() {
-				for b.Loop() {
-					if o == "random" {
-						b.StopTimer()
-						shuffleIDs(rng, entities)
-						b.StartTimer()
-					}
-					for _, e := range entities {
-						delEd.Update(e)
-					}
-					b.StopTimer()
-					for _, e := range entities {
-						addEd.Update(e)
-					}
-					b.StartTimer()
-				}
-			})
-		})
-	}
-
-	for _, o := range benchOrders {
-		b.Run(fmt.Sprintf("pop=%d/subset=%d/comp=10/comps=5/%s", entitiesNumber, entitiesNumber, o), func(b *testing.B) {
-			ecs.Reset()
-			entities := populate(ecs, entitiesNumber)
-			rng := rand.New(rand.NewPCG(42, 42))
-			delEd := ecs.NewEditorBuilder().Delete(goke.Del[Pos](), goke.Del[Vel](), goke.Del[Acc](), goke.Del[T04](), goke.Del[T05]()).Build()
-			addEd := ecs.NewEditorBuilder(new(goke.Comp[Pos]), new(goke.Comp[Vel]), new(goke.Comp[Acc]), new(goke.Comp[T04]), new(goke.Comp[T05])).Build()
-			measurePerEntity(b, entitiesNumber, func() {
-				for b.Loop() {
-					if o == "random" {
-						b.StopTimer()
-						shuffleIDs(rng, entities)
-						b.StartTimer()
-					}
-					for _, e := range entities {
-						delEd.Update(e)
-					}
-					b.StopTimer()
-					for _, e := range entities {
-						addEd.Update(e)
-					}
-					b.StartTimer()
-				}
-			})
-		})
-	}
-
-	for _, o := range benchOrders {
-		b.Run(fmt.Sprintf("pop=%d/subset=%d/comp=10/comps=6/%s", entitiesNumber, entitiesNumber, o), func(b *testing.B) {
-			ecs.Reset()
-			entities := populate(ecs, entitiesNumber)
-			rng := rand.New(rand.NewPCG(42, 42))
-			delEd := ecs.NewEditorBuilder().Delete(goke.Del[Pos](), goke.Del[Vel](), goke.Del[Acc](), goke.Del[T04](), goke.Del[T05](), goke.Del[T06]()).Build()
-			addEd := ecs.NewEditorBuilder(new(goke.Comp[Pos]), new(goke.Comp[Vel]), new(goke.Comp[Acc]), new(goke.Comp[T04]), new(goke.Comp[T05]), new(goke.Comp[T06])).Build()
-			measurePerEntity(b, entitiesNumber, func() {
-				for b.Loop() {
-					if o == "random" {
-						b.StopTimer()
-						shuffleIDs(rng, entities)
-						b.StartTimer()
-					}
-					for _, e := range entities {
-						delEd.Update(e)
-					}
-					b.StopTimer()
-					for _, e := range entities {
-						addEd.Update(e)
-					}
-					b.StartTimer()
-				}
-			})
-		})
-	}
-
-	for _, o := range benchOrders {
-		b.Run(fmt.Sprintf("pop=%d/subset=%d/comp=10/comps=7/%s", entitiesNumber, entitiesNumber, o), func(b *testing.B) {
-			ecs.Reset()
-			entities := populate(ecs, entitiesNumber)
-			rng := rand.New(rand.NewPCG(42, 42))
-			delEd := ecs.NewEditorBuilder().Delete(goke.Del[Pos](), goke.Del[Vel](), goke.Del[Acc](), goke.Del[T04](), goke.Del[T05](), goke.Del[T06](), goke.Del[T07]()).Build()
-			addEd := ecs.NewEditorBuilder(new(goke.Comp[Pos]), new(goke.Comp[Vel]), new(goke.Comp[Acc]), new(goke.Comp[T04]), new(goke.Comp[T05]), new(goke.Comp[T06]), new(goke.Comp[T07])).Build()
-			measurePerEntity(b, entitiesNumber, func() {
-				for b.Loop() {
-					if o == "random" {
-						b.StopTimer()
-						shuffleIDs(rng, entities)
-						b.StartTimer()
-					}
-					for _, e := range entities {
-						delEd.Update(e)
-					}
-					b.StopTimer()
-					for _, e := range entities {
-						addEd.Update(e)
-					}
-					b.StartTimer()
-				}
-			})
-		})
-	}
-
-	for _, o := range benchOrders {
-		b.Run(fmt.Sprintf("pop=%d/subset=%d/comp=10/comps=8/%s", entitiesNumber, entitiesNumber, o), func(b *testing.B) {
-			ecs.Reset()
-			entities := populate(ecs, entitiesNumber)
-			rng := rand.New(rand.NewPCG(42, 42))
-			delEd := ecs.NewEditorBuilder().Delete(goke.Del[Pos](), goke.Del[Vel](), goke.Del[Acc](), goke.Del[T04](), goke.Del[T05](), goke.Del[T06](), goke.Del[T07](), goke.Del[T08]()).Build()
-			addEd := ecs.NewEditorBuilder(new(goke.Comp[Pos]), new(goke.Comp[Vel]), new(goke.Comp[Acc]), new(goke.Comp[T04]), new(goke.Comp[T05]), new(goke.Comp[T06]), new(goke.Comp[T07]), new(goke.Comp[T08])).Build()
-			measurePerEntity(b, entitiesNumber, func() {
-				for b.Loop() {
-					if o == "random" {
-						b.StopTimer()
-						shuffleIDs(rng, entities)
-						b.StartTimer()
-					}
-					for _, e := range entities {
-						delEd.Update(e)
-					}
-					b.StopTimer()
-					for _, e := range entities {
-						addEd.Update(e)
-					}
-					b.StartTimer()
-				}
-			})
-		})
-	}
-
-	for _, o := range benchOrders {
-		b.Run(fmt.Sprintf("pop=%d/subset=%d/comp=10/comps=9/%s", entitiesNumber, entitiesNumber, o), func(b *testing.B) {
-			ecs.Reset()
-			entities := populate(ecs, entitiesNumber)
-			rng := rand.New(rand.NewPCG(42, 42))
-			delEd := ecs.NewEditorBuilder().Delete(goke.Del[Pos](), goke.Del[Vel](), goke.Del[Acc](), goke.Del[T04](), goke.Del[T05](), goke.Del[T06](), goke.Del[T07](), goke.Del[T08](), goke.Del[T09]()).Build()
-			addEd := ecs.NewEditorBuilder(new(goke.Comp[Pos]), new(goke.Comp[Vel]), new(goke.Comp[Acc]), new(goke.Comp[T04]), new(goke.Comp[T05]), new(goke.Comp[T06]), new(goke.Comp[T07]), new(goke.Comp[T08]), new(goke.Comp[T09])).Build()
-			measurePerEntity(b, entitiesNumber, func() {
-				for b.Loop() {
-					if o == "random" {
-						b.StopTimer()
-						shuffleIDs(rng, entities)
-						b.StartTimer()
-					}
-					for _, e := range entities {
-						delEd.Update(e)
-					}
-					b.StopTimer()
-					for _, e := range entities {
-						addEd.Update(e)
-					}
-					b.StartTimer()
-				}
-			})
-		})
-	}
-
-	for _, o := range benchOrders {
-		b.Run(fmt.Sprintf("pop=%d/subset=%d/comp=10/comps=10/%s", entitiesNumber, entitiesNumber, o), func(b *testing.B) {
-			ecs.Reset()
-			entities := populate(ecs, entitiesNumber)
-			rng := rand.New(rand.NewPCG(42, 42))
-
-			// Anchor entities with an extra untouched component so deleting all 10
-			// tracked components never leaves zero components: Editor.Update unlinks
-			// (destroys) an entity that would end up with none, which would silently
-			// no-op the untimed addEd restore below and corrupt every iteration after
-			// the first.
-			anchorEd := ecs.NewEditorBuilder(new(goke.Comp[Base])).Build()
-			for _, e := range entities {
-				anchorEd.Update(e)
-			}
-
-			delEd := ecs.NewEditorBuilder().Delete(goke.Del[Pos](), goke.Del[Vel](), goke.Del[Acc](), goke.Del[T04](), goke.Del[T05](), goke.Del[T06](), goke.Del[T07](), goke.Del[T08](), goke.Del[T09](), goke.Del[T10]()).Build()
-			addEd := ecs.NewEditorBuilder(new(goke.Comp[Pos]), new(goke.Comp[Vel]), new(goke.Comp[Acc]), new(goke.Comp[T04]), new(goke.Comp[T05]), new(goke.Comp[T06]), new(goke.Comp[T07]), new(goke.Comp[T08]), new(goke.Comp[T09]), new(goke.Comp[T10])).Build()
-			measurePerEntity(b, entitiesNumber, func() {
-				for b.Loop() {
-					if o == "random" {
-						b.StopTimer()
-						shuffleIDs(rng, entities)
-						b.StartTimer()
-					}
-					for _, e := range entities {
-						delEd.Update(e)
-					}
-					b.StopTimer()
-					for _, e := range entities {
-						addEd.Update(e)
-					}
-					b.StartTimer()
-				}
-			})
-		})
+	for n := 1; n <= 10; n++ {
+		for _, subset := range []int{filterSubsetSize, entitiesNumber} {
+			runEditorLeaf(b, ecs,
+				fmt.Sprintf("pop=%d/subset=%d/comp=10/comps=%d", entitiesNumber, subset, n),
+				subset,
+				func() (*goke.Query, *goke.Editor, goke.Runnable) {
+					var migrateQ, restoreQ *goke.Query
+					var fwd, rev *goke.Editor
+					ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+						if n == 10 {
+							populateWithBase(si, entitiesNumber)
+						} else {
+							populate(si, entitiesNumber)
+						}
+						migrateQ = si.NewQueryBuilder().Include(goke.Include[Pos]()).Build()
+						if n == 10 {
+							restoreQ = si.NewQueryBuilder().Include(goke.Include[Base]()).Exclude(goke.Exclude[Pos]()).Build()
+						} else {
+							restoreQ = si.NewQueryBuilder().Include(goke.Include[T10]()).Exclude(goke.Exclude[Pos]()).Build()
+						}
+						fwd = migrateQ.NewEditorBuilder().Remove(delComps[:n]...).Build()
+						rev = restoreQ.NewEditorBuilder(addComps[:n]...).Build()
+					}})
+					return migrateQ, fwd, ecs.RegSys(enqueueAll(restoreQ, rev))
+				})
+		}
 	}
 }

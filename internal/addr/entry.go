@@ -3,8 +3,8 @@ package addr
 import (
 	"unsafe"
 
-	"github.com/kjkrol/goke/v2/internal/arch"
-	"github.com/kjkrol/goke/v2/internal/colstore"
+	"github.com/kjkrol/goke/v3/internal/arch"
+	"github.com/kjkrol/goke/v3/internal/colstore"
 )
 
 // Entry is the full storage address of an entity; Gen guards against stale

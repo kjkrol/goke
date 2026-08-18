@@ -6,12 +6,12 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/kjkrol/goke/v2/internal/bulk"
-	"github.com/kjkrol/goke/v2/internal/comp"
-	"github.com/kjkrol/goke/v2/internal/ent"
-	"github.com/kjkrol/goke/v2/internal/query"
-	"github.com/kjkrol/goke/v2/internal/reg"
-	"github.com/kjkrol/goke/v2/iter"
+	"github.com/kjkrol/goke/v3/internal/bulk"
+	"github.com/kjkrol/goke/v3/internal/comp"
+	"github.com/kjkrol/goke/v3/internal/ent"
+	"github.com/kjkrol/goke/v3/internal/query"
+	"github.com/kjkrol/goke/v3/internal/reg"
+	"github.com/kjkrol/goke/v3/iter"
 	"github.com/kjkrol/uid"
 )
 
@@ -30,18 +30,18 @@ type modifyTestSystem struct {
 }
 
 func (s *modifyTestSystem) Update(cb *CmdBuf, d time.Duration) {
-	cb.RemoveComp(s.target, s.compA)
-	AddComp(cb, s.target, s.compB, mockCompB{Msg: "added"})
+	cb.RemoveCompOne(s.target, s.compA)
+	AddOne(cb, s.target, s.compB, mockCompB{Msg: "added"})
 }
 
-// AddComp must not try to copy any bytes for a zero-size (tag) component —
+// AddOne must not try to copy any bytes for a zero-size (tag) component —
 // it should queue a command with a nil dataPtr instead of dereferencing a
 // zero-size value's address.
-func TestAddComp_ZeroSizeComponent(t *testing.T) {
+func TestAddOne_ZeroSizeComponent(t *testing.T) {
 	type tag struct{}
 	cb := NewCmdBuf()
 
-	AddComp(cb, uid.UID64(1), comp.ID(5), tag{})
+	AddOne(cb, uid.UID64(1), comp.ID(5), tag{})
 
 	if len(cb.cmds) != 1 {
 		t.Fatalf("expected 1 queued command, got %d", len(cb.cmds))
@@ -80,7 +80,7 @@ func TestCmdBuf_ComponentCmds(t *testing.T) {
 		target: e,
 	}
 
-	sched.Register(sys)
+	sched.Register(sys, NewCmdBuf())
 	sched.Run(sys, 0)
 
 	err := sched.Sync()
@@ -108,7 +108,7 @@ func TestCmdBuf_ComponentCmds(t *testing.T) {
 func TestCmdBuf_Clear(t *testing.T) {
 	cb := NewCmdBuf()
 
-	cb.RemoveEntity(uid.UID64(1))
+	cb.RemoveOne(uid.UID64(1))
 
 	if len(cb.cmds) == 0 {
 		t.Fatalf("Expected commands to not be empty")
@@ -135,7 +135,59 @@ func TestCmdBuf_ReserveSpace(t *testing.T) {
 	}
 }
 
-// --- MassMigrate ---
+func TestCmdBuf_Remover(t *testing.T) {
+	cb := NewCmdBuf()
+	m := &stubMigrator{}
+
+	cb.SetRemover(m)
+
+	if got := cb.Remover(); got != bulk.Migrator(m) {
+		t.Errorf("expected Remover() to return the value set via SetRemover, got %v", got)
+	}
+}
+
+func TestCmdBuf_ReserveIDs_Zero(t *testing.T) {
+	cb := NewCmdBuf()
+
+	got := cb.ReserveIDs(0)
+	if got != nil {
+		t.Errorf("expected nil for n=0, got %v", got)
+	}
+}
+
+func TestCmdBuf_ReserveIDs_ThenCommitReserved(t *testing.T) {
+	cb := NewCmdBuf()
+	m := &stubMigrator{}
+
+	ids := cb.ReserveIDs(3)
+	if len(ids) != 0 || cap(ids) < 3 {
+		t.Fatalf("expected zero-length slice with cap >= 3, got len=%d cap=%d", len(ids), cap(ids))
+	}
+	ids = append(ids, 1, 2, 3)
+
+	cb.CommitReserved(m, bulk.ChunkSnapshot{}, ids)
+
+	if len(cb.migrateCmds) != 1 {
+		t.Fatalf("expected 1 migrateCmd, got %d", len(cb.migrateCmds))
+	}
+	if len(cb.migrateCmds[0].ids) != 3 {
+		t.Errorf("expected 3 ids in queued cmd, got %d", len(cb.migrateCmds[0].ids))
+	}
+}
+
+func TestCmdBuf_CommitReserved_Empty_NoCommand(t *testing.T) {
+	cb := NewCmdBuf()
+	m := &stubMigrator{}
+
+	cb.CommitReserved(m, bulk.ChunkSnapshot{}, nil)
+	cb.CommitReserved(m, bulk.ChunkSnapshot{}, []uid.UID64{})
+
+	if len(cb.migrateCmds) != 0 {
+		t.Errorf("expected no commands for empty ids, got %d", len(cb.migrateCmds))
+	}
+}
+
+// --- Migrate ---
 
 type stubMigrator struct {
 	applyCalls int
@@ -147,58 +199,155 @@ func (s *stubMigrator) Migrate(_ bulk.ChunkSnapshot, ids []uid.UID64) {
 	s.got = append(s.got, ids...)
 }
 
-func TestCmdBuf_MassMigrate_QueuesCommand(t *testing.T) {
+func TestCmdBuf_Migrate_QueuesCommand(t *testing.T) {
 	cb := NewCmdBuf()
 	m := &stubMigrator{}
 
-	cb.MassMigrate(m, bulk.ChunkSnapshot{}, []uid.UID64{1, 2, 3})
+	cb.Migrate(m, bulk.ChunkSnapshot{}, []uid.UID64{1, 2, 3})
 
-	if len(cb.massCmds) != 1 {
-		t.Fatalf("expected 1 massMigrateCmd, got %d", len(cb.massCmds))
+	if len(cb.migrateCmds) != 1 {
+		t.Fatalf("expected 1 migrateCmd, got %d", len(cb.migrateCmds))
 	}
-	if len(cb.massCmds[0].ids) != 3 {
-		t.Errorf("expected 3 ids in queued cmd, got %d", len(cb.massCmds[0].ids))
+	if len(cb.migrateCmds[0].ids) != 3 {
+		t.Errorf("expected 3 ids in queued cmd, got %d", len(cb.migrateCmds[0].ids))
 	}
 }
 
-func TestCmdBuf_MassMigrate_CopiesIDs(t *testing.T) {
+func TestCmdBuf_Migrate_CopiesIDs(t *testing.T) {
 	cb := NewCmdBuf()
 	m := &stubMigrator{}
 	ids := []uid.UID64{10, 20, 30}
 
-	cb.MassMigrate(m, bulk.ChunkSnapshot{}, ids)
+	cb.Migrate(m, bulk.ChunkSnapshot{}, ids)
 	ids[0] = 99
 
-	if cb.massCmds[0].ids[0] != 10 {
-		t.Errorf("MassMigrate must copy ids; mutated original changed queued value to %v", cb.massCmds[0].ids[0])
+	if cb.migrateCmds[0].ids[0] != 10 {
+		t.Errorf("Migrate must copy ids; mutated original changed queued value to %v", cb.migrateCmds[0].ids[0])
 	}
 }
 
-func TestCmdBuf_MassMigrate_Empty_NoCommand(t *testing.T) {
+func TestCmdBuf_Migrate_Empty_NoCommand(t *testing.T) {
 	cb := NewCmdBuf()
 	m := &stubMigrator{}
 
-	cb.MassMigrate(m, bulk.ChunkSnapshot{}, nil)
-	cb.MassMigrate(m, bulk.ChunkSnapshot{}, []uid.UID64{})
+	cb.Migrate(m, bulk.ChunkSnapshot{}, nil)
+	cb.Migrate(m, bulk.ChunkSnapshot{}, []uid.UID64{})
 
-	if len(cb.massCmds) != 0 {
-		t.Errorf("expected no commands for empty id slices, got %d", len(cb.massCmds))
+	if len(cb.migrateCmds) != 0 {
+		t.Errorf("expected no commands for empty id slices, got %d", len(cb.migrateCmds))
 	}
 }
 
-func TestCmdBuf_Clear_ResetsMassCmds(t *testing.T) {
+func TestCmdBuf_Clear_ResetsMigrateCmds(t *testing.T) {
 	cb := NewCmdBuf()
 	m := &stubMigrator{}
-	cb.MassMigrate(m, bulk.ChunkSnapshot{}, []uid.UID64{1, 2})
+	cb.Migrate(m, bulk.ChunkSnapshot{}, []uid.UID64{1, 2})
 
 	cb.Clear()
 
-	if len(cb.massCmds) != 0 {
-		t.Errorf("expected massCmds empty after Clear, got %d", len(cb.massCmds))
+	if len(cb.migrateCmds) != 0 {
+		t.Errorf("expected migrateCmds empty after Clear, got %d", len(cb.migrateCmds))
 	}
 }
 
-// --- MassMigrateInit ---
+// --- Remove ---
+
+func TestCmdBuf_Remove_QueuesAgainstSetRemover(t *testing.T) {
+	cb := NewCmdBuf()
+	m := &stubMigrator{}
+	cb.SetRemover(m)
+
+	cb.Remove(bulk.ChunkSnapshot{}, []uid.UID64{1, 2, 3})
+
+	if len(cb.migrateCmds) != 1 {
+		t.Fatalf("expected 1 migrateCmd, got %d", len(cb.migrateCmds))
+	}
+	if cb.migrateCmds[0].op != bulk.Migrator(m) {
+		t.Error("expected queued cmd's op to be the remover installed via SetRemover")
+	}
+	if len(cb.migrateCmds[0].ids) != 3 {
+		t.Errorf("expected 3 ids in queued cmd, got %d", len(cb.migrateCmds[0].ids))
+	}
+}
+
+func TestCmdBuf_Remove_Empty_NoCommand(t *testing.T) {
+	cb := NewCmdBuf()
+	cb.SetRemover(&stubMigrator{})
+
+	cb.Remove(bulk.ChunkSnapshot{}, nil)
+
+	if len(cb.migrateCmds) != 0 {
+		t.Errorf("expected no commands for an empty id slice, got %d", len(cb.migrateCmds))
+	}
+}
+
+// --- Spawn ---
+
+type stubSpawner struct {
+	gotCount int
+	ids      []uid.UID64
+}
+
+func (s *stubSpawner) Spawn(count int) []uid.UID64 {
+	s.gotCount = count
+	return s.ids
+}
+
+func TestCmdBuf_Spawn_QueuesCommand(t *testing.T) {
+	cb := NewCmdBuf()
+	sp := &stubSpawner{}
+	var outIDs []uid.UID64
+
+	cb.Spawn(sp, 5, &outIDs)
+
+	if len(cb.spawnCmds) != 1 {
+		t.Fatalf("expected 1 spawnCmd, got %d", len(cb.spawnCmds))
+	}
+	if cb.spawnCmds[0].count != 5 {
+		t.Errorf("expected count 5, got %d", cb.spawnCmds[0].count)
+	}
+}
+
+func TestCmdBuf_Clear_ResetsSpawnCmds(t *testing.T) {
+	cb := NewCmdBuf()
+	var outIDs []uid.UID64
+	cb.Spawn(&stubSpawner{}, 1, &outIDs)
+
+	cb.Clear()
+
+	if len(cb.spawnCmds) != 0 {
+		t.Errorf("expected spawnCmds empty after Clear, got %d", len(cb.spawnCmds))
+	}
+}
+
+func TestScheduler_Sync_AppliesSpawnCmds(t *testing.T) {
+	var registry reg.Registry
+	registry.Init(reg.Config{
+		Entity:  ent.Config{Cap: 10, FreeCap: 10},
+		Matcher: query.Config{Cap: 4},
+	})
+	sched := NewScheduler(&registry)
+
+	sp := &stubSpawner{ids: []uid.UID64{7, 8, 9}}
+	var outIDs []uid.UID64
+	sys := &fnRunnable{fn: func(cb *CmdBuf, d time.Duration) {
+		cb.Spawn(sp, 3, &outIDs)
+	}}
+	sched.Register(sys, NewCmdBuf())
+	sched.Run(sys, 0)
+
+	if err := sched.Sync(); err != nil {
+		t.Fatalf("Sync failed: %v", err)
+	}
+	if sp.gotCount != 3 {
+		t.Errorf("expected Spawn called with count 3, got %d", sp.gotCount)
+	}
+	if len(outIDs) != 3 || outIDs[0] != 7 || outIDs[1] != 8 || outIDs[2] != 9 {
+		t.Errorf("expected outIDs to be filled with spawner's result, got %v", outIDs)
+	}
+}
+
+// --- AddCompValue ---
 
 type stubValueMigrator struct {
 	applyCalls int
@@ -212,91 +361,91 @@ func (s *stubValueMigrator) MigrateWithValue(_ bulk.ChunkSnapshot, ids []uid.UID
 	s.gotPayload = payload
 }
 
-func TestCmdBuf_MassMigrateInit_QueuesCommand(t *testing.T) {
+func TestCmdBuf_AddCompValue_QueuesCommand(t *testing.T) {
 	cb := NewCmdBuf()
 	m := &stubValueMigrator{}
 
-	ptr := cb.MassMigrateInit(m, bulk.ChunkSnapshot{}, []uid.UID64{1, 2, 3}, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0)))
+	ptr := cb.AddCompValue(m, bulk.ChunkSnapshot{}, []uid.UID64{1, 2, 3}, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0)))
 
-	if len(cb.massValueCmds) != 1 {
-		t.Fatalf("expected 1 massMigrateValueCmd, got %d", len(cb.massValueCmds))
+	if len(cb.migrateValueCmds) != 1 {
+		t.Fatalf("expected 1 massMigrateValueCmd, got %d", len(cb.migrateValueCmds))
 	}
-	if len(cb.massValueCmds[0].ids) != 3 {
-		t.Errorf("expected 3 ids in queued cmd, got %d", len(cb.massValueCmds[0].ids))
+	if len(cb.migrateValueCmds[0].ids) != 3 {
+		t.Errorf("expected 3 ids in queued cmd, got %d", len(cb.migrateValueCmds[0].ids))
 	}
 	if ptr == nil {
 		t.Error("expected a non-nil reserved payload pointer for a positive elemSize")
 	}
-	if cb.massValueCmds[0].payload != ptr {
+	if cb.migrateValueCmds[0].payload != ptr {
 		t.Error("queued cmd's payload must be the same pointer returned to the caller")
 	}
 }
 
-func TestCmdBuf_MassMigrateInit_CopiesIDs(t *testing.T) {
+func TestCmdBuf_AddCompValue_CopiesIDs(t *testing.T) {
 	cb := NewCmdBuf()
 	m := &stubValueMigrator{}
 	ids := []uid.UID64{10, 20, 30}
 
-	cb.MassMigrateInit(m, bulk.ChunkSnapshot{}, ids, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0)))
+	cb.AddCompValue(m, bulk.ChunkSnapshot{}, ids, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0)))
 	ids[0] = 99
 
-	if cb.massValueCmds[0].ids[0] != 10 {
-		t.Errorf("MassMigrateInit must copy ids; mutated original changed queued value to %v", cb.massValueCmds[0].ids[0])
+	if cb.migrateValueCmds[0].ids[0] != 10 {
+		t.Errorf("AddCompValue must copy ids; mutated original changed queued value to %v", cb.migrateValueCmds[0].ids[0])
 	}
 }
 
-func TestCmdBuf_MassMigrateInit_Empty_NoCommand(t *testing.T) {
+func TestCmdBuf_AddCompValue_Empty_NoCommand(t *testing.T) {
 	cb := NewCmdBuf()
 	m := &stubValueMigrator{}
 
-	if ptr := cb.MassMigrateInit(m, bulk.ChunkSnapshot{}, nil, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0))); ptr != nil {
+	if ptr := cb.AddCompValue(m, bulk.ChunkSnapshot{}, nil, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0))); ptr != nil {
 		t.Error("expected nil payload pointer for a nil id slice")
 	}
-	cb.MassMigrateInit(m, bulk.ChunkSnapshot{}, []uid.UID64{}, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0)))
+	cb.AddCompValue(m, bulk.ChunkSnapshot{}, []uid.UID64{}, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0)))
 
-	if len(cb.massValueCmds) != 0 {
-		t.Errorf("expected no commands for empty id slices, got %d", len(cb.massValueCmds))
+	if len(cb.migrateValueCmds) != 0 {
+		t.Errorf("expected no commands for empty id slices, got %d", len(cb.migrateValueCmds))
 	}
 }
 
-func TestCmdBuf_MassMigrateInit_ZeroElemSize_NoPayloadReserved(t *testing.T) {
+func TestCmdBuf_AddCompValue_ZeroElemSize_NoPayloadReserved(t *testing.T) {
 	cb := NewCmdBuf()
 	m := &stubValueMigrator{}
 
-	ptr := cb.MassMigrateInit(m, bulk.ChunkSnapshot{}, []uid.UID64{1, 2}, 0, 1)
+	ptr := cb.AddCompValue(m, bulk.ChunkSnapshot{}, []uid.UID64{1, 2}, 0, 1)
 
 	if ptr != nil {
 		t.Error("expected nil payload pointer when elemSize is 0 (zero-sized added component)")
 	}
-	if len(cb.massValueCmds) != 1 {
-		t.Fatalf("expected the command to still be queued (ids matter even with no payload), got %d", len(cb.massValueCmds))
+	if len(cb.migrateValueCmds) != 1 {
+		t.Fatalf("expected the command to still be queued (ids matter even with no payload), got %d", len(cb.migrateValueCmds))
 	}
 }
 
-func TestCmdBuf_Clear_ResetsMassValueCmds(t *testing.T) {
+func TestCmdBuf_Clear_ResetsMigrateValueCmds(t *testing.T) {
 	cb := NewCmdBuf()
 	m := &stubValueMigrator{}
-	cb.MassMigrateInit(m, bulk.ChunkSnapshot{}, []uid.UID64{1, 2}, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0)))
+	cb.AddCompValue(m, bulk.ChunkSnapshot{}, []uid.UID64{1, 2}, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0)))
 
 	cb.Clear()
 
-	if len(cb.massValueCmds) != 0 {
-		t.Errorf("expected massValueCmds empty after Clear, got %d", len(cb.massValueCmds))
+	if len(cb.migrateValueCmds) != 0 {
+		t.Errorf("expected migrateValueCmds empty after Clear, got %d", len(cb.migrateValueCmds))
 	}
 }
 
-type massMigrateInitTestSystem struct {
+type addCompValueTestSystem struct {
 	migrator bulk.ValueMigrator
 	batches  [][]uid.UID64
 }
 
-func (s *massMigrateInitTestSystem) Update(cb *CmdBuf, d time.Duration) {
+func (s *addCompValueTestSystem) Update(cb *CmdBuf, d time.Duration) {
 	for _, batch := range s.batches {
-		cb.MassMigrateInit(s.migrator, bulk.ChunkSnapshot{}, batch, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0)))
+		cb.AddCompValue(s.migrator, bulk.ChunkSnapshot{}, batch, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0)))
 	}
 }
 
-func TestScheduler_Sync_AppliesMassMigrateInitCmds(t *testing.T) {
+func TestScheduler_Sync_AppliesAddCompValueCmds(t *testing.T) {
 	var registry reg.Registry
 	registry.Init(reg.Config{
 		Entity:  ent.Config{Cap: 10, FreeCap: 10},
@@ -305,8 +454,8 @@ func TestScheduler_Sync_AppliesMassMigrateInitCmds(t *testing.T) {
 	sched := NewScheduler(&registry)
 
 	m := &stubValueMigrator{}
-	sys := &massMigrateInitTestSystem{migrator: m, batches: [][]uid.UID64{{1, 2, 3}}}
-	sched.Register(sys)
+	sys := &addCompValueTestSystem{migrator: m, batches: [][]uid.UID64{{1, 2, 3}}}
+	sched.Register(sys, NewCmdBuf())
 	sched.Run(sys, 0)
 
 	if err := sched.Sync(); err != nil {
@@ -323,22 +472,22 @@ func TestScheduler_Sync_AppliesMassMigrateInitCmds(t *testing.T) {
 	}
 }
 
-type massMigrateTestSystem struct {
+type migrateTestSystem struct {
 	migrator bulk.Migrator
 	batches  [][]uid.UID64
 }
 
-func (s *massMigrateTestSystem) Update(cb *CmdBuf, d time.Duration) {
+func (s *migrateTestSystem) Update(cb *CmdBuf, d time.Duration) {
 	for _, batch := range s.batches {
-		cb.MassMigrate(s.migrator, bulk.ChunkSnapshot{}, batch)
+		cb.Migrate(s.migrator, bulk.ChunkSnapshot{}, batch)
 	}
 }
 
-func newMassMigrateSystem(m bulk.Migrator, batches ...[]uid.UID64) *massMigrateTestSystem {
-	return &massMigrateTestSystem{migrator: m, batches: batches}
+func newMigrateSystem(m bulk.Migrator, batches ...[]uid.UID64) *migrateTestSystem {
+	return &migrateTestSystem{migrator: m, batches: batches}
 }
 
-func TestScheduler_Sync_AppliesMassMigrateCmds(t *testing.T) {
+func TestScheduler_Sync_AppliesMigrateCmds(t *testing.T) {
 	var registry reg.Registry
 	registry.Init(reg.Config{
 		Entity:  ent.Config{Cap: 10, FreeCap: 10},
@@ -347,8 +496,8 @@ func TestScheduler_Sync_AppliesMassMigrateCmds(t *testing.T) {
 	sched := NewScheduler(&registry)
 
 	m := &stubMigrator{}
-	sys := newMassMigrateSystem(m, []uid.UID64{1, 2, 3})
-	sched.Register(sys)
+	sys := newMigrateSystem(m, []uid.UID64{1, 2, 3})
+	sched.Register(sys, NewCmdBuf())
 	sched.Run(sys, 0)
 
 	if err := sched.Sync(); err != nil {
@@ -363,7 +512,7 @@ func TestScheduler_Sync_AppliesMassMigrateCmds(t *testing.T) {
 }
 
 func TestScheduler_Sync_EachChunkAppliedSeparately(t *testing.T) {
-	// Two MassMigrate calls (two chunks) result in two separate Migrate calls.
+	// Two Migrate calls (two chunks) result in two separate Migrate calls.
 	var registry reg.Registry
 	registry.Init(reg.Config{
 		Entity:  ent.Config{Cap: 10, FreeCap: 10},
@@ -372,11 +521,11 @@ func TestScheduler_Sync_EachChunkAppliedSeparately(t *testing.T) {
 	sched := NewScheduler(&registry)
 
 	m := &stubMigrator{}
-	sys := newMassMigrateSystem(m,
+	sys := newMigrateSystem(m,
 		[]uid.UID64{1, 2},
 		[]uid.UID64{3, 4, 5},
 	)
-	sched.Register(sys)
+	sched.Register(sys, NewCmdBuf())
 	sched.Run(sys, 0)
 
 	if err := sched.Sync(); err != nil {
@@ -391,15 +540,15 @@ func TestScheduler_Sync_EachChunkAppliedSeparately(t *testing.T) {
 }
 
 func TestScheduler_Sync_TwoDistinctMigrators_PerChunkApply(t *testing.T) {
-	// Three MassMigrate calls: mA twice, mB once. Each call maps to one chunk,
+	// Three Migrate calls: mA twice, mB once. Each call maps to one chunk,
 	// so mA gets two Migrate calls and mB gets one — no merging.
 	mA := &stubMigrator{}
 	mB := &stubMigrator{}
 
 	cb := NewCmdBuf()
-	cb.MassMigrate(mA, bulk.ChunkSnapshot{}, []uid.UID64{1, 2})
-	cb.MassMigrate(mB, bulk.ChunkSnapshot{}, []uid.UID64{3})
-	cb.MassMigrate(mA, bulk.ChunkSnapshot{}, []uid.UID64{4, 5})
+	cb.Migrate(mA, bulk.ChunkSnapshot{}, []uid.UID64{1, 2})
+	cb.Migrate(mB, bulk.ChunkSnapshot{}, []uid.UID64{3})
+	cb.Migrate(mA, bulk.ChunkSnapshot{}, []uid.UID64{4, 5})
 
 	var registry reg.Registry
 	registry.Init(reg.Config{

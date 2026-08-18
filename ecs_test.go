@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kjkrol/goke/v2"
+	"github.com/kjkrol/goke/v3"
 	"github.com/kjkrol/uid"
 )
 
@@ -20,59 +20,72 @@ type Processed struct{}
 func TestECS_UseCase(t *testing.T) {
 	ecs := goke.New()
 
-	_ = goke.RegComp[Order](ecs)
-	_ = goke.RegComp[Discount](ecs)
-	processedID := goke.RegComp[Processed](ecs)
+	_ = ecs.RegComp[Order]()
+	_ = ecs.RegComp[Discount]()
+	processedID := ecs.RegComp[Processed]()
 
 	var order goke.Comp[Order]
 	var discount goke.Comp[Discount]
-	factory1 := ecs.NewFactory(&order, &discount)
-
 	var eA, eB uid.UID64
-	factory1.Create(1)
-	factory1.Next()
-	eA = factory1.IDs[0]
-	fc1 := &factory1.Cursor
-	order.Slice(fc1)[0] = Order{ID: "ORD-001", Total: 100.0}
-	discount.Slice(fc1)[0] = Discount{Percentage: 10.0}
+	var orderQuery *goke.Query
+	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+		factory1 := si.NewFactory(&order, &discount)
+		factory1.Create(1)
+		factory1.Next()
+		eA = factory1.IDs[0]
+		fc1 := &factory1.Cursor
+		order.Slice(fc1)[0] = Order{ID: "ORD-001", Total: 100.0}
+		discount.Slice(fc1)[0] = Discount{Percentage: 10.0}
 
-	factory2 := ecs.NewFactory(&order)
-	factory2.Create(1)
-	factory2.Next()
-	eB = factory2.IDs[0]
-	order.Slice(&factory2.Cursor)[0] = Order{ID: "ORD-002", Total: 50.0}
+		factory2 := si.NewFactory(&order)
+		factory2.Create(1)
+		factory2.Next()
+		eB = factory2.IDs[0]
+		order.Slice(&factory2.Cursor)[0] = Order{ID: "ORD-002", Total: 50.0}
 
-	query1 := ecs.NewQueryBuilder(&order, &discount).Build()
-	cursor1 := query1.Cursor()
+		orderQuery = si.NewQueryBuilder(&order).Build()
+	}})
+
 	processedCount := 0
-
-	billingSystem := ecs.RegSysFn(func(cb *goke.CmdBuf, d time.Duration) {
-		query1.All()
-		for query1.Next() {
-			orders := order.Slice(cursor1)
-			discounts := discount.Slice(cursor1)
-			for i, entityID := range cursor1.IDs {
-				processedCount++
-				orders[i].Total *= (1 - discounts[i].Percentage/100)
-				goke.CmdBufAddComp(cb, entityID, processedID, Processed{})
+	var query1 *goke.Query
+	billingSystem := ecs.RegSys(goke.SystemFn{
+		OnInit: func(si *goke.SysInit) {
+			query1 = si.NewQueryBuilder(&order, &discount).Build()
+		},
+		OnUpdate: func(cb *goke.CmdBuf, d time.Duration) {
+			cursor1 := query1.Cursor()
+			query1.All()
+			for query1.Next() {
+				orders := order.Slice(cursor1)
+				discounts := discount.Slice(cursor1)
+				for i, entityID := range cursor1.IDs {
+					processedCount++
+					orders[i].Total *= (1 - discounts[i].Percentage/100)
+					cb.AddOne(entityID, processedID, Processed{})
+				}
 			}
-		}
+		},
 	})
-	query2 := ecs.NewQueryBuilder().Include(goke.Include[Processed](), goke.Include[Order](), goke.Include[Discount]()).Build()
-	cleanerSystem := ecs.RegSysFn(func(schedule *goke.CmdBuf, d time.Duration) {
-		query2.All()
-		for query2.Next() {
-			for _, entityID := range query2.Cursor().IDs {
-				schedule.RemoveEntity(entityID)
+	var query2 *goke.Query
+	cleanerSystem := ecs.RegSys(goke.SystemFn{
+		OnInit: func(si *goke.SysInit) {
+			query2 = si.NewQueryBuilder().Include(goke.Include[Processed](), goke.Include[Order](), goke.Include[Discount]()).Build()
+		},
+		OnUpdate: func(schedule *goke.CmdBuf, d time.Duration) {
+			query2.All()
+			for query2.Next() {
+				for _, entityID := range query2.Cursor().IDs {
+					schedule.RemoveOne(entityID)
+				}
 			}
-		}
+		},
 	})
 
 	ecs.SetPlan(func(ctx goke.RunCtx, d time.Duration) {
 		ctx.Run(billingSystem, d)
 
 		// test this stage
-		result := seekComp[Order](ecs, eA)
+		result := seekComp(orderQuery, &order, eA)
 		if result.Total != 90.0 {
 			t.Errorf("Discount has not been applied, Total: %v", result.Total)
 		}
@@ -95,28 +108,32 @@ func TestECS_UseCase(t *testing.T) {
 	}
 
 	// Entity A should be removed from Registry
-	if seekComp[Order](ecs, eA) != nil {
+	if seekComp(orderQuery, &order, eA) != nil {
 		t.Error("Entity eA should have been removed from the registry")
 	}
 
 	// Entity B should still exist
-	if seekComp[Order](ecs, eB) == nil {
+	if seekComp(orderQuery, &order, eB) == nil {
 		t.Error("Entity eB should not have been removed")
 	}
 }
 
 func TestECS_Seek(t *testing.T) {
 	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
+	_ = ecs.RegComp[Position]()
 
 	var pos goke.Comp[Position]
-	factory := ecs.NewFactory(&pos)
-	factory.Create(1)
-	factory.Next()
-	entityID := factory.IDs[0]
-	pos.Slice(&factory.Cursor)[0] = Position{X: 10, Y: 20}
+	var entityID uid.UID64
+	var matcher *goke.Query
+	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+		factory := si.NewFactory(&pos)
+		factory.Create(1)
+		factory.Next()
+		entityID = factory.IDs[0]
+		pos.Slice(&factory.Cursor)[0] = Position{X: 10, Y: 20}
 
-	matcher := ecs.NewQueryBuilder(&pos).Build()
+		matcher = si.NewQueryBuilder(&pos).Build()
+	}})
 
 	if !matcher.Seek(entityID) {
 		t.Fatalf("expected Seek to find the entity")
@@ -136,28 +153,31 @@ func TestECS_Seek(t *testing.T) {
 // never returning stale ones.
 func TestECS_Seek_AcrossArchetypes(t *testing.T) {
 	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
-	_ = goke.RegComp[Velocity](ecs)
+	_ = ecs.RegComp[Position]()
+	_ = ecs.RegComp[Velocity]()
 
-	// Entity A: {Position}
-	var posA goke.Comp[Position]
-	fa := ecs.NewFactory(&posA)
-	fa.Create(1)
-	fa.Next()
-	eA := fa.IDs[0]
-	posA.Slice(&fa.Cursor)[0] = Position{X: 1}
-
-	// Entity B: {Position, Velocity} — a different archetype
-	var posB goke.Comp[Position]
+	var posA, posB goke.Comp[Position]
 	var velB goke.Comp[Velocity]
-	fb := ecs.NewFactory(&posB, &velB)
-	fb.Create(1)
-	fb.Next()
-	eB := fb.IDs[0]
-	posB.Slice(&fb.Cursor)[0] = Position{X: 2}
-
+	var eA, eB uid.UID64
 	var pos goke.Comp[Position]
-	matcher := ecs.NewQueryBuilder(&pos).Build()
+	var matcher *goke.Query
+	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+		// Entity A: {Position}
+		fa := si.NewFactory(&posA)
+		fa.Create(1)
+		fa.Next()
+		eA = fa.IDs[0]
+		posA.Slice(&fa.Cursor)[0] = Position{X: 1}
+
+		// Entity B: {Position, Velocity} — a different archetype
+		fb := si.NewFactory(&posB, &velB)
+		fb.Create(1)
+		fb.Next()
+		eB = fb.IDs[0]
+		posB.Slice(&fb.Cursor)[0] = Position{X: 2}
+
+		matcher = si.NewQueryBuilder(&pos).Build()
+	}})
 
 	for i := 0; i < 3; i++ {
 		if !matcher.Seek(eA) || pos.At(matcher.Cursor()).X != 1 {
@@ -171,61 +191,56 @@ func TestECS_Seek_AcrossArchetypes(t *testing.T) {
 
 func TestECS_RemoveComp(t *testing.T) {
 	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
+	posID := ecs.RegComp[Position]()
 
 	var entityID uid.UID64
-	factory := ecs.NewFactory(new(goke.Comp[Position]))
-	factory.Create(1)
-	factory.Next()
-	entityID = factory.IDs[0]
+	var pos goke.Comp[Position]
+	var posQuery *goke.Query
+	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+		factory := si.NewFactory(new(goke.Comp[Position]))
+		factory.Create(1)
+		factory.Next()
+		entityID = factory.IDs[0]
+		posQuery = si.NewQueryBuilder(&pos).Build()
+	}})
 
-	editor := ecs.NewEditorBuilder().Delete(goke.Del[Position]()).Build()
-	if !editor.Update(entityID) {
-		t.Fatalf("expected Update to succeed")
-	}
+	sys := ecs.RegSys(goke.SystemFn{OnUpdate: func(cb *goke.CmdBuf, d time.Duration) {
+		cb.RemoveCompOne(entityID, posID)
+	}})
+	ecs.SetPlan(func(ctx goke.RunCtx, d time.Duration) {
+		ctx.Run(sys, d)
+		ctx.Sync()
+	})
+	ecs.Tick(time.Millisecond)
 
 	// Position was the entity's only component, so removing it unlinks the entity.
-	ptr := seekComp[Position](ecs, entityID)
+	ptr := seekComp(posQuery, &pos, entityID)
 	if ptr != nil {
 		t.Errorf("expected component to be removed")
 	}
 }
 
-func TestECS_RemoveEntity(t *testing.T) {
-	ecs := goke.New()
-	posID := goke.RegComp[Position](ecs)
-	_ = posID // to avoid unused variable error if any
-
-	var entityID uid.UID64
-	factory := ecs.NewFactory(new(goke.Comp[Position]))
-	factory.Create(1)
-	factory.Next()
-	entityID = factory.IDs[0]
-
-	ok := ecs.RemoveEnt(entityID)
-	if !ok {
-		t.Errorf("expected entity to be removed")
-	}
-
-	ok = ecs.RemoveEnt(entityID)
-	if ok {
-		t.Errorf("expected false for already removed entity")
-	}
-}
-
 func TestECS_Reset(t *testing.T) {
 	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
+	_ = ecs.RegComp[Position]()
 
 	var entityID uid.UID64
-	factory := ecs.NewFactory(new(goke.Comp[Position]))
-	factory.Create(1)
-	factory.Next()
-	entityID = factory.IDs[0]
+	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+		factory := si.NewFactory(new(goke.Comp[Position]))
+		factory.Create(1)
+		factory.Next()
+		entityID = factory.IDs[0]
+	}})
 
 	ecs.Reset()
 
-	ptr := seekComp[Position](ecs, entityID)
+	var pos goke.Comp[Position]
+	var posQuery *goke.Query
+	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+		posQuery = si.NewQueryBuilder(&pos).Build()
+	}})
+
+	ptr := seekComp(posQuery, &pos, entityID)
 	if ptr != nil {
 		t.Errorf("expected entity to be reset/removed")
 	}
@@ -238,4 +253,23 @@ func TestECS_NewWithOptions(t *testing.T) {
 	if ecs == nil {
 		t.Fatal("expected ecs")
 	}
+}
+
+func TestECS_Setup_PanicsOnSecondCall(t *testing.T) {
+	ecs := goke.New()
+	ecs.Setup(goke.SystemFn{})
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatal("expected panic on second Setup call")
+		}
+	}()
+	ecs.Setup(goke.SystemFn{})
+}
+
+func TestECS_Setup_AllowedAgainAfterReset(t *testing.T) {
+	ecs := goke.New()
+	ecs.Setup(goke.SystemFn{})
+	ecs.Reset()
+	ecs.Setup(goke.SystemFn{})
 }

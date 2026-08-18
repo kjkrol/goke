@@ -1,16 +1,16 @@
 package goke
 
 import (
-	"github.com/kjkrol/goke/v2/internal/comp"
-	"github.com/kjkrol/goke/v2/iter"
+	"github.com/kjkrol/goke/v3/internal/comp"
+	"github.com/kjkrol/goke/v3/iter"
 )
 
 // Comp gives typed read/write access to a component's value, and declares
 // that component as tracked (data access) or added (structural change) when
 // passed to a builder. Declare one as a variable, then pass its address
-// directly to NewFactory/NewQueryBuilder/NewEditorBuilder — it binds itself,
-// no separate wrapping call needed. Use comp.Slice(cursor) in All/Factory-mode
-// and comp.At(cursor) in Pick/Seek-mode.
+// directly to NewFactory/NewQueryBuilder/NewEditorBuilder — it binds
+// itself, no separate wrapping call needed. Use comp.Slice(cursor) in
+// All/Factory-mode and comp.At(cursor) in Pick/Seek-mode.
 type Comp[T any] struct {
 	col iter.ArrayRef[T]
 }
@@ -41,3 +41,6 @@ type Addable interface {
 
 func (c *Comp[T]) asTrack() Opt   { return comp.Track[T](&c.col) }
 func (c *Comp[T]) asAdd() EditOpt { return comp.Add[T](&c.col) }
+
+// Remove returns an EditOpt that removes component T from an entity.
+func Remove[T any]() EditOpt { return comp.Del[T]() }

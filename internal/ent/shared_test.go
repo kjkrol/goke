@@ -1,8 +1,8 @@
 package ent_test
 
 import (
-	"github.com/kjkrol/goke/v2/internal/comp"
-	"github.com/kjkrol/goke/v2/internal/ent"
+	"github.com/kjkrol/goke/v3/internal/comp"
+	"github.com/kjkrol/goke/v3/internal/ent"
 )
 
 // shared_test.go contains component types and small helpers shared across

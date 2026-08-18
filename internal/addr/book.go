@@ -5,8 +5,8 @@ import (
 
 	"github.com/kjkrol/uid"
 
-	"github.com/kjkrol/goke/v2/internal/arch"
-	"github.com/kjkrol/goke/v2/internal/colstore"
+	"github.com/kjkrol/goke/v3/internal/arch"
+	"github.com/kjkrol/goke/v3/internal/colstore"
 )
 
 // Book is the address book: entity ID lifecycle (uid pool) plus the address

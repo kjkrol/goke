@@ -7,12 +7,12 @@ import (
 
 	"github.com/kjkrol/uid"
 
-	"github.com/kjkrol/goke/v2/internal/bulk"
-	"github.com/kjkrol/goke/v2/internal/comp"
-	"github.com/kjkrol/goke/v2/internal/ent"
-	"github.com/kjkrol/goke/v2/internal/query"
-	"github.com/kjkrol/goke/v2/internal/reg"
-	"github.com/kjkrol/goke/v2/iter"
+	"github.com/kjkrol/goke/v3/internal/bulk"
+	"github.com/kjkrol/goke/v3/internal/comp"
+	"github.com/kjkrol/goke/v3/internal/ent"
+	"github.com/kjkrol/goke/v3/internal/query"
+	"github.com/kjkrol/goke/v3/internal/reg"
+	"github.com/kjkrol/goke/v3/iter"
 )
 
 func TestDefaultConfig(t *testing.T) {
@@ -146,29 +146,6 @@ func TestRegistry_CreateEditor(t *testing.T) {
 
 	var pos iter.ArrayRef[Position]
 	factory := r.CreateFactory(comp.Add(&pos))
-	factory.Create(1)
-	factory.Next()
-	id := factory.IDs[0]
-
-	var vel iter.ArrayRef[Velocity]
-	editor := r.CreateEditor(comp.Add(&vel), comp.Del[Position]())
-	if !editor.Update(id) {
-		t.Fatal("expected Editor.Update to succeed")
-	}
-	vel.At(&editor.Cursor).VX = 5
-
-	if got := *vel.At(&editor.Cursor); got.VX != 5 {
-		t.Errorf("expected written VX 5, got %v", got)
-	}
-}
-
-func TestRegistry_CreateMigrator(t *testing.T) {
-	r := newRegistry(t)
-	r.RegComp(reflect.TypeFor[Position]())
-	r.RegComp(reflect.TypeFor[Velocity]())
-
-	var pos iter.ArrayRef[Position]
-	factory := r.CreateFactory(comp.Add(&pos))
 	factory.Create(2)
 	var ids []uid.UID64
 	for factory.Next() {
@@ -182,7 +159,7 @@ func TestRegistry_CreateMigrator(t *testing.T) {
 	srcTable := &r.EntityManager.ArchCatalog.Archetypes[entry0.ArchID].Table
 
 	var vel iter.ArrayRef[Velocity]
-	migrator := r.CreateMigrator(comp.Add(&vel))
+	editor := r.CreateEditor(comp.Add(&vel))
 
 	snap := bulk.ChunkSnapshot{
 		ArchID:      entry0.ArchID,
@@ -191,7 +168,7 @@ func TestRegistry_CreateMigrator(t *testing.T) {
 		TableVer:    srcTable.Version(),
 		SlotAligned: true,
 	}
-	migrator.Migrate(snap, ids)
+	editor.Migrate(snap, ids)
 
 	entryAfter, ok := r.EntityManager.AddressBook.Get(ids[0])
 	if !ok {
@@ -202,7 +179,7 @@ func TestRegistry_CreateMigrator(t *testing.T) {
 	}
 }
 
-func TestRegistry_CreateRemover(t *testing.T) {
+func TestRegistry_Remover(t *testing.T) {
 	r := newRegistry(t)
 	r.RegComp(reflect.TypeFor[Position]())
 
@@ -220,7 +197,7 @@ func TestRegistry_CreateRemover(t *testing.T) {
 	}
 	srcTable := &r.EntityManager.ArchCatalog.Archetypes[entry0.ArchID].Table
 
-	remover := r.CreateRemover()
+	remover := r.Remover()
 
 	snap := bulk.ChunkSnapshot{
 		ArchID:      entry0.ArchID,
@@ -238,7 +215,7 @@ func TestRegistry_CreateRemover(t *testing.T) {
 	}
 }
 
-func TestRegistry_CreateValueMigrator(t *testing.T) {
+func TestRegistry_CreateValueEditor(t *testing.T) {
 	r := newRegistry(t)
 	r.RegComp(reflect.TypeFor[Position]())
 	r.RegComp(reflect.TypeFor[Velocity]())
@@ -258,7 +235,7 @@ func TestRegistry_CreateValueMigrator(t *testing.T) {
 	srcTable := &r.EntityManager.ArchCatalog.Archetypes[entry0.ArchID].Table
 
 	var vel iter.ArrayRef[Velocity]
-	vm := r.CreateValueMigrator(comp.Add(&vel))
+	vm := r.CreateValueEditor(comp.Add(&vel))
 
 	if got := vm.ValueType(); got != reflect.TypeFor[Velocity]() {
 		t.Errorf("ValueType() = %v; want %v", got, reflect.TypeFor[Velocity]())
@@ -283,7 +260,7 @@ func TestRegistry_CreateValueMigrator(t *testing.T) {
 	}
 }
 
-func TestRegistry_CreateValueMigrator_PanicsOnNotExactlyOneAdd(t *testing.T) {
+func TestRegistry_CreateValueEditor_PanicsOnNotExactlyOneAdd(t *testing.T) {
 	r := newRegistry(t)
 	r.RegComp(reflect.TypeFor[Position]())
 
@@ -292,7 +269,7 @@ func TestRegistry_CreateValueMigrator_PanicsOnNotExactlyOneAdd(t *testing.T) {
 			t.Fatal("expected panic when no component is added")
 		}
 	}()
-	r.CreateValueMigrator()
+	r.CreateValueEditor()
 }
 
 func TestRegistry_Reset(t *testing.T) {

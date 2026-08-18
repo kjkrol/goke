@@ -2,131 +2,120 @@ package goke_test
 
 import (
 	"testing"
+	"time"
 
-	"github.com/kjkrol/goke/v2"
+	"github.com/kjkrol/goke/v3"
 	"github.com/kjkrol/uid"
 )
 
-func TestEditorBuilder_AddComp(t *testing.T) {
+// TestEditorBuilder_AddComponent exercises the public Editor API end to
+// end: query.NewEditorBuilder(comps...).Build(), applied via
+// Query.BeginMigrate inside a system's Update, applied at Sync.
+func TestEditorBuilder_AddComponent(t *testing.T) {
 	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
-	_ = goke.RegComp[Velocity](ecs)
-
-	// Entity starts with only Velocity.
-	var vel goke.Comp[Velocity]
-	factory := ecs.NewFactory(&vel)
-	factory.Create(1)
-	factory.Next()
-	entityID := factory.IDs[0]
-
-	// Add Position and write its value through the editor's cursor.
-	var pos goke.Comp[Position]
-	editor := ecs.NewEditorBuilder(&pos).Build()
-	if !editor.Update(entityID) {
-		t.Fatalf("expected Update to succeed")
-	}
-	pos.At(&editor.Cursor).X = 55
-
-	val := seekComp[Position](ecs, entityID)
-	if val == nil || val.X != 55 {
-		t.Errorf("expected Position.X == 55, got %v", val)
-	}
-}
-
-func TestEditorBuilder_InvalidEntity(t *testing.T) {
-	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
-
-	var pos goke.Comp[Position]
-	editor := ecs.NewEditorBuilder(&pos).Build()
-
-	if editor.Update(uid.UID64(999)) {
-		t.Errorf("expected Update to return false for a nonexistent entity")
-	}
-}
-
-func TestEditorBuilder_Delete(t *testing.T) {
-	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
-	_ = goke.RegComp[Velocity](ecs)
+	_ = ecs.RegComp[Position]()
+	_ = ecs.RegComp[Velocity]()
 
 	var pos goke.Comp[Position]
 	var vel goke.Comp[Velocity]
-	factory := ecs.NewFactory(&pos, &vel)
-	factory.Create(1)
-	factory.Next()
-	entityID := factory.IDs[0]
+	var ids []uid.UID64
+	var query *goke.Query
+	var addVel *goke.Editor
+	var velQuery *goke.Query
+	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+		factory := si.NewFactory(&pos)
+		factory.Create(2)
+		for factory.Next() {
+			ids = append(ids, factory.IDs...)
+		}
 
-	editor := ecs.NewEditorBuilder().Delete(goke.Del[Velocity]()).Build()
-	if !editor.Update(entityID) {
-		t.Fatalf("expected Update to succeed")
-	}
+		query = si.NewQueryBuilder(&pos).Exclude(goke.Exclude[Velocity]()).Build()
+		addVel = query.NewEditorBuilder(&vel).Build()
+		velQuery = si.NewQueryBuilder().Include(goke.Include[Velocity]()).Build()
+	}})
 
-	if hasComp[Velocity](ecs, entityID) {
-		t.Errorf("expected Velocity to be removed")
-	}
-	if p := seekComp[Position](ecs, entityID); p == nil {
-		t.Errorf("expected Position to remain")
-	}
-}
+	sys := ecs.RegSys(goke.SystemFn{OnUpdate: func(cb *goke.CmdBuf, d time.Duration) {
+		query.All()
+		for query.Next() {
+			cursor := query.Cursor()
+			if len(cursor.IDs) == 0 {
+				continue
+			}
+			buf := query.BeginMigrate(cb)
+			for _, id := range cursor.IDs {
+				buf.Add(id)
+			}
+			buf.Commit(addVel)
+		}
+	}})
+	ecs.SetPlan(func(s goke.RunCtx, d time.Duration) {
+		s.Run(sys, d)
+		s.Sync()
+	})
 
-func TestEditorBuilder_AddAndDelete(t *testing.T) {
-	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
-	_ = goke.RegComp[Velocity](ecs)
+	ecs.Tick(time.Millisecond)
 
-	var vel goke.Comp[Velocity]
-	factory := ecs.NewFactory(&vel)
-	factory.Create(1)
-	factory.Next()
-	entityID := factory.IDs[0]
-
-	// Swap Velocity for Position in a single migration.
-	var pos goke.Comp[Position]
-	editor := ecs.NewEditorBuilder(&pos).Delete(goke.Del[Velocity]()).Build()
-	if !editor.Update(entityID) {
-		t.Fatalf("expected Update to succeed")
-	}
-	pos.At(&editor.Cursor).Y = 7
-
-	if hasComp[Velocity](ecs, entityID) {
-		t.Errorf("expected Velocity to be removed")
-	}
-	p := seekComp[Position](ecs, entityID)
-	if p == nil || p.Y != 7 {
-		t.Errorf("expected Position.Y == 7, got %v", p)
+	for _, id := range ids {
+		if !hasComp(velQuery, id) {
+			t.Errorf("entity %v: expected Velocity added via Editor", id)
+		}
 	}
 }
 
-func TestEditorBuilder_ChainedDelete(t *testing.T) {
+// TestEditorBuilder_RemoveComponent exercises the Remove side: an Editor
+// built via query.NewEditorBuilder().Remove(...).Build() removes a component
+// from every matched entity.
+func TestEditorBuilder_RemoveComponent(t *testing.T) {
 	ecs := goke.New()
-	_ = goke.RegComp[Position](ecs)
-	_ = goke.RegComp[Velocity](ecs)
-	_ = goke.RegComp[Discount](ecs)
+	_ = ecs.RegComp[Position]()
+	_ = ecs.RegComp[Velocity]()
 
 	var pos goke.Comp[Position]
 	var vel goke.Comp[Velocity]
-	var disc goke.Comp[Discount]
-	factory := ecs.NewFactory(&pos, &vel, &disc)
-	factory.Create(1)
-	factory.Next()
-	entityID := factory.IDs[0]
+	var ids []uid.UID64
+	var query *goke.Query
+	var removeVel *goke.Editor
+	var velQuery, posQuery *goke.Query
+	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+		factory := si.NewFactory(&pos, &vel)
+		factory.Create(2)
+		for factory.Next() {
+			ids = append(ids, factory.IDs...)
+		}
 
-	editor := ecs.NewEditorBuilder().
-		Delete(goke.Del[Velocity]()).
-		Delete(goke.Del[Discount]()).
-		Build()
-	if !editor.Update(entityID) {
-		t.Fatalf("expected Update to succeed")
-	}
+		query = si.NewQueryBuilder(&pos, &vel).Build()
+		removeVel = query.NewEditorBuilder().Remove(goke.Remove[Velocity]()).Build()
+		velQuery = si.NewQueryBuilder().Include(goke.Include[Velocity]()).Build()
+		posQuery = si.NewQueryBuilder().Include(goke.Include[Position]()).Build()
+	}})
 
-	if hasComp[Velocity](ecs, entityID) {
-		t.Errorf("expected Velocity to be removed")
-	}
-	if hasComp[Discount](ecs, entityID) {
-		t.Errorf("expected Discount to be removed")
-	}
-	if pos := seekComp[Position](ecs, entityID); pos == nil {
-		t.Errorf("expected Position to remain")
+	sys := ecs.RegSys(goke.SystemFn{OnUpdate: func(cb *goke.CmdBuf, d time.Duration) {
+		query.All()
+		for query.Next() {
+			cursor := query.Cursor()
+			if len(cursor.IDs) == 0 {
+				continue
+			}
+			buf := query.BeginMigrate(cb)
+			for _, id := range cursor.IDs {
+				buf.Add(id)
+			}
+			buf.Commit(removeVel)
+		}
+	}})
+	ecs.SetPlan(func(s goke.RunCtx, d time.Duration) {
+		s.Run(sys, d)
+		s.Sync()
+	})
+
+	ecs.Tick(time.Millisecond)
+
+	for _, id := range ids {
+		if hasComp(velQuery, id) {
+			t.Errorf("entity %v: expected Velocity removed via Editor", id)
+		}
+		if !hasComp(posQuery, id) {
+			t.Errorf("entity %v: expected Position to remain", id)
+		}
 	}
 }

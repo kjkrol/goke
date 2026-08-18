@@ -6,7 +6,7 @@
   <a href="https://go.dev">
     <img src="https://img.shields.io/badge/Go-1.26+-00ADD8?style=flat-square&logo=go" alt="Go Version">
   </a>
-  <a href="https://pkg.go.dev/github.com/kjkrol/goke/v2">
+  <a href="https://pkg.go.dev/github.com/kjkrol/goke/v3">
     <img src="https://img.shields.io/badge/GoDoc-Reference-007d9c?style=flat-square&logo=go" alt="GoDoc">
   </a>
   <a href="https://opensource.org/licenses/MIT">
@@ -73,7 +73,7 @@ integration costs can outweigh the gains of a faster foreign implementation.
 GOKe requires **Go 1.26** or newer.
 
 ```bash
-go get github.com/kjkrol/goke/v2
+go get github.com/kjkrol/goke/v3
 ```
 
 <a id="features"></a>
@@ -92,7 +92,7 @@ go get github.com/kjkrol/goke/v2
 | **Type-safe component API** | Fully generic — no reflection, no interface boxing, no runtime type assertions |
 | **Built-in scheduler** | Declarative `Plan` wires systems into an execution graph — a full ECS runtime, not just a component store |
 | **Command Buffer** | Structural changes during iteration are queued and flushed at explicit `Sync()` points — enables safe `RunParallel` |
-| **Bulk archetype migration** | `Migrator` applies add/remove component specs to whole chunks at `Sync()` — block memory copies and deferred compaction instead of per-entity moves |
+| **Bulk archetype migration** | `Editor` applies add/remove component specs to whole chunks at `Sync()` — block memory copies and deferred compaction instead of per-entity moves |
 
 > 💡 **See the Performance & Scalability section below for benchmark results validated from 2¹⁰ to 2²⁰ entities.**
 
@@ -131,7 +131,8 @@ make bench
 
 # Real-World Example
 
-The following demo showcases a simple collision simulation built with GOKe and Ebitengine.
+The following demo showcases a simple collision simulation built with GOKe and Ebitengine, via
+the [**gokebiten**](https://github.com/kjkrol/gokebiten) companion repository.
 
 It simulates thousands of moving AABBs while maintaining a fixed 120 TPS update loop using archetype-based storage, cache-friendly iteration, and parallel systems.
 
@@ -152,7 +153,7 @@ It simulates thousands of moving AABBs while maintaining a fixed 120 TPS update 
   </thead>
 </table>
 
-> Source code: [examples/ebiten-demo](examples/ebiten-demo/main.go)
+> Source code: [gokebiten/examples/collision-demo](https://github.com/kjkrol/gokebiten/tree/main/examples/collision-demo)
 
 <a id="example"></a>
 # Example
@@ -165,7 +166,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kjkrol/goke/v2"
+	"github.com/kjkrol/goke/v3"
+	"github.com/kjkrol/uid"
 )
 
 type Pos struct{ X, Y float32 }
@@ -182,55 +184,74 @@ func main() {
 	var pos goke.Comp[Pos]
 	var vel goke.Comp[Vel]
 	var acc goke.Comp[Acc]
+	var entityID uid.UID64
 
-	// Create a factory for bulk entity spawning.
-	factory := ecs.NewFactory(&pos, &vel, &acc)
-	cursor := &factory.Cursor
+	// Query/Editor/Factory can only be constructed inside a System's Init —
+	// ecs.Setup runs one-off systems for world seeding, exactly once.
+	ecs.Setup(goke.SystemFn{
+		OnInit: func(si *goke.SysInit) {
+			factory := si.NewFactory(&pos, &vel, &acc)
+			cursor := &factory.Cursor
 
-	factory.Create(1)
-	factory.Next()
-	entityID := factory.IDs[0]
-	pos.Slice(cursor)[0] = Pos{X: 0, Y: 0}
-	vel.Slice(cursor)[0] = Vel{X: 1, Y: 1}
-	acc.Slice(cursor)[0] = Acc{X: 0.1, Y: 0.1}
+			factory.Create(1)
+			factory.Next()
+			entityID = factory.IDs[0]
+			pos.Slice(cursor)[0] = Pos{X: 0, Y: 0}
+			vel.Slice(cursor)[0] = Vel{X: 1, Y: 1}
+			acc.Slice(cursor)[0] = Acc{X: 0.1, Y: 0.1}
+		},
+	})
 
-	// Create a query — declares which components to iterate.
-	query := ecs.NewQueryBuilder(&pos, &vel, &acc).Build()
-	cursor = query.Cursor()
-	
-	// Register a system using the functional pattern.
-	movementSystem := ecs.RegSysFn(func(_ *goke.CmdBuf, _ time.Duration) {
-		// SoA layout: Query.All advances chunk by chunk — the inner loop
-		// iterates over contiguous memory for cache-friendly access.
-		query.All()
-		for query.Next() {
-			posSlice := pos.Slice(cursor)
-			velSlice := vel.Slice(cursor)
-			accSlice := acc.Slice(cursor)
-			for i := range cursor.IDs {
-				velSlice[i].X += accSlice[i].X
-				velSlice[i].Y += accSlice[i].Y
-				posSlice[i].X += velSlice[i].X
-				posSlice[i].Y += velSlice[i].Y
+	// Register the movement system: builds its own Query in Init, iterates in Update.
+	var query *goke.Query
+	movementSystem := ecs.RegSys(goke.SystemFn{
+		OnInit: func(si *goke.SysInit) {
+			query = si.NewQueryBuilder(&pos, &vel, &acc).Build()
+		},
+		OnUpdate: func(_ *goke.CmdBuf, _ time.Duration) {
+			// SoA layout: Query.All advances chunk by chunk — the inner loop
+			// iterates over contiguous memory for cache-friendly access.
+			cursor := query.Cursor()
+			query.All()
+			for query.Next() {
+				posSlice := pos.Slice(cursor)
+				velSlice := vel.Slice(cursor)
+				accSlice := acc.Slice(cursor)
+				for i := range cursor.IDs {
+					velSlice[i].X += accSlice[i].X
+					velSlice[i].Y += accSlice[i].Y
+					posSlice[i].X += velSlice[i].X
+					posSlice[i].Y += velSlice[i].Y
+				}
 			}
-		}
+		},
+	})
+
+	// Register the report system: reads and prints, same pattern as
+	// movementSystem — reads flow through systems too, not raw lookups
+	// pulled out of the ECS.
+	var reportQuery *goke.Query
+	reportSystem := ecs.RegSys(goke.SystemFn{
+		OnInit: func(si *goke.SysInit) {
+			reportQuery = si.NewQueryBuilder(&pos).Build()
+		},
+		OnUpdate: func(_ *goke.CmdBuf, _ time.Duration) {
+			if reportQuery.Seek(entityID) {
+				p := pos.At(reportQuery.Cursor())
+				fmt.Printf("Final Position: {X: %.2f, Y: %.2f}\n", p.X, p.Y)
+			}
+		},
 	})
 
 	// Configure the execution plan and synchronization points.
 	ecs.SetPlan(func(ctx goke.RunCtx, d time.Duration) {
 		ctx.Run(movementSystem, d)
 		ctx.Sync()
+		ctx.Run(reportSystem, d)
 	})
 
 	// Execute a single simulation step (120 TPS).
 	ecs.Tick(time.Second / 120)
-
-	// Read a single entity's component via Seek (cursor-based, typed).
-	lookup := ecs.NewQueryBuilder(&pos).Build()
-	if lookup.Seek(entityID) {
-		p := pos.At(lookup.Cursor())
-		fmt.Printf("Final Position: {X: %.2f, Y: %.2f}\n", p.X, p.Y)
-	}
 }
 ```
 
@@ -251,18 +272,16 @@ GOKe is an archetype-based ECS built around data-oriented design principles. The
 | [`internal/arch`](internal/arch/doc.go) | Archetype identity, archetype graph, and SoA table storage — creates archetypes on demand and caches structural transitions as graph edges |
 | [`internal/addr`](internal/addr/doc.go) | Entity address book — manages entity ID lifecycle (uid pool) and maps each ID to its current storage address (`Entry`) via a flat index in O(1); generation check guards against stale references |
 | [`internal/bulk`](internal/bulk/doc.go) | Bulk-operation contract — `ChunkSnapshot` (point-in-time chunk address, guarded by the source table's structural version) and the `Migrator`/`ValueMigrator` interfaces; the shared vocabulary of chunk-level batch commands |
-| [`internal/ent`](internal/ent/doc.go) | Entity lifecycle — delegates ID allocation and address tracking to `addr.Book`, manages component migration (add/remove moves entity to a new archetype), and batch entity creation via `Factory` |
-| [`internal/migration`](internal/migration/doc.go) | Bulk archetype migration, chunk by chunk with block column copies and deferred hole compaction — `Migrator` (add/remove component spec), `Remover` (bulk unlink), `ValueMigrator` (add one component and write a caller-supplied per-entity value into it) |
+| [`internal/ent`](internal/ent/doc.go) | Entity lifecycle — delegates ID allocation and address tracking to `addr.Book`, manages batch entity creation via `Factory`, and bulk archetype migration via `Editor` (add/remove component spec), `Remover` (bulk unlink), and `ValueEditor` (add one component and write a caller-supplied per-entity value into it) |
 | [`internal/query`](internal/query/doc.go) | Query layer: `Matcher` bakes component masks into precomputed per-archetype offsets, enabling zero-allocation bulk iteration (`All`), per-entity subset iteration (`Pick`), and O(1) single-entity access (`Seek`) |
 | [`internal/orch`](internal/orch/doc.go) | Plan-based task orchestrator: sequential/parallel execution, deferred mutations via command buffers |
 | [`internal/reg`](internal/reg/doc.go) | Top-level world registry — wires together all subsystems and exposes the unified API for entity and component management |
-| [`goke`](doc.go) (public) | The package you import. `ECS` wires `reg.Registry` + `orch.Scheduler`; `Comp[T]` gives typed access to a component; `NewFactory`/`NewQueryBuilder`/`NewEditorBuilder`/`NewMigratorBuilder`/`NewValueMigratorBuilder`/`NewRemover` are the only construction paths for `Factory`/`Query`/`Editor`/`Migrator`/`ValueMigrator`/`Remover`; `System`/`SystemFn`/`CmdBuf` round out the scheduling API |
+| [`goke`](doc.go) (public) | The package you import. `ECS` wires `reg.Registry` + `orch.Scheduler`; `Comp[T]` gives typed access to a component. Construction is gated through systems: `SysInit` (available in a `System`'s `Init`, or via `ecs.Setup` for one-off world seeding) is the only way to get a `Query` or `Factory`; `Editor`/`ValueEditor` are then built from that `Query`. `System`/`SystemFn`/`CmdBuf` round out the scheduling API |
 
 <a id="roadmap"></a>
 # 🗺️ Roadmap
 Current development focus and planned improvements:
 
-* **Ebitengine Integration:** Dedicated helpers for seamless state synchronization between GOKe systems and Ebitengine's loop — partially prototyped in the [ebiten-demo](./examples/ebiten-demo/main.go), with the goal of extracting it into a separate companion repository.
 * **Entity Relations via Tags:** Extend the Tag system to model relationships between entities (parent-child, links, ownership, ...) — adding relational semantics on top of the existing archetype-mask machinery, without sacrificing the zero-allocation hot loop.
 
 > **Live Feature Tracker**
@@ -286,6 +305,6 @@ GOKe is licensed under the MIT License. See the LICENSE [file](./LICENSE) for mo
 
 <a id="documentation"></a>
 # 📖 Documentation
-* **API Reference**: Detailed documentation and examples are available on [**pkg.go.dev**](https://pkg.go.dev/github.com/kjkrol/goke/v2).
+* **API Reference**: Detailed documentation and examples are available on [**pkg.go.dev**](https://pkg.go.dev/github.com/kjkrol/goke/v3).
 * **Wiki & Guides**: For a step-by-step deep dive into building your first simulation, check the [**Getting Started with GOKe**](https://github.com/kjkrol/goke/wiki/Getting-Started-with-GOKe) guide.
 * **Internal Mechanics**: For a technical breakdown of the engine's core, check the `doc.go` files within the `internal` packages.

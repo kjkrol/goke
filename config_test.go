@@ -3,7 +3,7 @@ package goke_test
 import (
 	"testing"
 
-	"github.com/kjkrol/goke/v2"
+	"github.com/kjkrol/goke/v3"
 )
 
 func TestWithEntityCap(t *testing.T) {
@@ -33,12 +33,14 @@ func TestECSOptions_AppliedByNew(t *testing.T) {
 	// The options must actually take effect, not just be accepted silently:
 	// an entity pool with Cap=10 should still be usable for creating entities.
 	var pos goke.Comp[Position]
-	factory := ecs.NewFactory(&pos)
-	factory.Create(10)
 	total := 0
-	for factory.Next() {
-		total += len(factory.IDs)
-	}
+	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+		factory := si.NewFactory(&pos)
+		factory.Create(10)
+		for factory.Next() {
+			total += len(factory.IDs)
+		}
+	}})
 	if total != 10 {
 		t.Errorf("expected 10 entities created, got %d", total)
 	}

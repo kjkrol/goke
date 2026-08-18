@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kjkrol/goke/v2"
+	"github.com/kjkrol/goke/v3"
 )
 
 // --- Components ---
@@ -33,8 +33,8 @@ type WorkerSystem struct {
 	query *goke.Query
 }
 
-func (s *WorkerSystem) Init(eng *goke.ECS) {
-	s.query = eng.NewQueryBuilder().Include(goke.Include[Task]()).Build()
+func (s *WorkerSystem) Init(si *goke.SysInit) {
+	s.query = si.NewQueryBuilder().Include(goke.Include[Task]()).Build()
 }
 
 func (s *WorkerSystem) Update(schedule *goke.CmdBuf, duration time.Duration) {
@@ -42,7 +42,7 @@ func (s *WorkerSystem) Update(schedule *goke.CmdBuf, duration time.Duration) {
 	for s.query.Next() {
 		for _, entityID := range s.query.Cursor().IDs {
 			msg := Log{Msg: "Done"}
-			goke.CmdBufAddComp(schedule, entityID, logID, msg)
+			schedule.AddOne(entityID, logID, msg)
 		}
 	}
 }
@@ -52,8 +52,8 @@ type LoggerSystem struct {
 	Found bool
 }
 
-func (s *LoggerSystem) Init(eng *goke.ECS) {
-	s.query = eng.NewQueryBuilder().Include(goke.Include[Log]()).Build()
+func (s *LoggerSystem) Init(si *goke.SysInit) {
+	s.query = si.NewQueryBuilder().Include(goke.Include[Log]()).Build()
 }
 
 func (s *LoggerSystem) Update(schedule *goke.CmdBuf, duration time.Duration) {
@@ -71,8 +71,8 @@ func (s *LoggerSystem) Update(schedule *goke.CmdBuf, duration time.Duration) {
 func TestECS_SystemInteractions(t *testing.T) {
 
 	setupComponents := func(e *goke.ECS) {
-		taskID = goke.RegComp[Task](e)
-		logID = goke.RegComp[Log](e)
+		taskID = e.RegComp[Task]()
+		logID = e.RegComp[Log]()
 	}
 
 	t.Run("Isolation: Logger should not see changes from Worker without Sync between them", func(t *testing.T) {
@@ -80,20 +80,22 @@ func TestECS_SystemInteractions(t *testing.T) {
 		setupComponents(ecs)
 
 		var task goke.Comp[Task]
-		factory := ecs.NewFactory(&task)
-		factory.Create(1)
-		factory.Next()
-		task.Slice(&factory.Cursor)[0] = Task{Completed: false}
+		ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+			factory := si.NewFactory(&task)
+			factory.Create(1)
+			factory.Next()
+			task.Slice(&factory.Cursor)[0] = Task{Completed: false}
+		}})
 
 		worker := &WorkerSystem{}
 		logger := &LoggerSystem{}
 
-		ecs.RegSys(worker)
-		ecs.RegSys(logger)
+		workerH := ecs.RegSys(worker)
+		loggerH := ecs.RegSys(logger)
 
 		ecs.SetPlan(func(s goke.RunCtx, d time.Duration) {
-			s.Run(worker, d)
-			s.Run(logger, d)
+			s.Run(workerH, d)
+			s.Run(loggerH, d)
 			s.Sync()
 		})
 
@@ -109,21 +111,23 @@ func TestECS_SystemInteractions(t *testing.T) {
 		setupComponents(ecs)
 
 		var task goke.Comp[Task]
-		factory := ecs.NewFactory(&task)
-		factory.Create(1)
-		factory.Next()
-		task.Slice(&factory.Cursor)[0] = Task{Completed: false}
+		ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+			factory := si.NewFactory(&task)
+			factory.Create(1)
+			factory.Next()
+			task.Slice(&factory.Cursor)[0] = Task{Completed: false}
+		}})
 
 		worker := &WorkerSystem{}
 		logger := &LoggerSystem{}
 
-		ecs.RegSys(worker)
-		ecs.RegSys(logger)
+		workerH := ecs.RegSys(worker)
+		loggerH := ecs.RegSys(logger)
 
 		ecs.SetPlan(func(s goke.RunCtx, d time.Duration) {
-			s.Run(worker, d)
+			s.Run(workerH, d)
 			s.Sync() // Force synchronization between systems
-			s.Run(logger, d)
+			s.Run(loggerH, d)
 			s.Sync()
 		})
 

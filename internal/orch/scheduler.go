@@ -48,9 +48,10 @@ func (s *Scheduler) SetPlan(plan Plan) {
 	s.plan = plan
 }
 
-func (s *Scheduler) Register(runnable Runnable) {
+func (s *Scheduler) Register(runnable Runnable, cb *CmdBuf) {
+	cb.SetRemover(s.mutator.Remover())
 	s.runnables = append(s.runnables, runnable)
-	s.buffers[runnable] = NewCmdBuf()
+	s.buffers[runnable] = cb
 }
 
 func (s *Scheduler) Tick(duration time.Duration) {
@@ -82,7 +83,7 @@ func (s *Scheduler) RunParallel(d time.Duration, runnables ...Runnable) {
 
 func (s *Scheduler) Sync() error {
 	for _, cb := range s.buffers {
-		if len(cb.cmds) > 0 || len(cb.massCmds) > 0 || len(cb.massValueCmds) > 0 {
+		if len(cb.cmds) > 0 || len(cb.migrateCmds) > 0 || len(cb.migrateValueCmds) > 0 || len(cb.spawnCmds) > 0 {
 			err := s.applyBufferCmds(cb)
 			if err != nil {
 				return err
@@ -93,11 +94,14 @@ func (s *Scheduler) Sync() error {
 }
 
 func (s *Scheduler) applyBufferCmds(cb *CmdBuf) error {
-	for _, cmd := range cb.massCmds {
-		cmd.migrator.Migrate(cmd.snap, cmd.ids)
+	for _, cmd := range cb.spawnCmds {
+		*cmd.outIDs = cmd.spawner.Spawn(cmd.count)
 	}
-	for _, cmd := range cb.massValueCmds {
-		cmd.migrator.MigrateWithValue(cmd.snap, cmd.ids, cmd.payload)
+	for _, cmd := range cb.migrateCmds {
+		cmd.op.Migrate(cmd.snap, cmd.ids)
+	}
+	for _, cmd := range cb.migrateValueCmds {
+		cmd.op.MigrateWithValue(cmd.snap, cmd.ids, cmd.payload)
 	}
 	for _, cmd := range cb.cmds {
 		target := cmd.entityID

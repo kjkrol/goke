@@ -6,8 +6,8 @@ import (
 
 	"github.com/kjkrol/uid"
 
-	"github.com/kjkrol/goke/v2/internal/comp"
-	"github.com/kjkrol/goke/v2/iter"
+	"github.com/kjkrol/goke/v3/internal/comp"
+	"github.com/kjkrol/goke/v3/iter"
 )
 
 func TestFactory_SingleBatchSingleChunk(t *testing.T) {
@@ -82,6 +82,49 @@ func TestFactory_MultipleBatchesAcrossChunks(t *testing.T) {
 
 	if total != count {
 		t.Errorf("expected %d entities created, got %d", count, total)
+	}
+}
+
+func TestFactory_SpawnAll(t *testing.T) {
+	m := newManager()
+	var mi comp.DefIndex
+	mi.Init()
+	var posCol iter.ArrayRef[Position]
+	var spec comp.AccessSpec
+	spec.Init(&mi, comp.Track(&posCol))
+
+	factory := m.CreateFactory(spec)
+
+	// Large enough to force at least one chunk boundary, so SpawnAll must
+	// aggregate across multiple Next() calls, not just the first.
+	const count = 5000
+	ids := factory.SpawnAll(count)
+
+	if len(ids) != count {
+		t.Fatalf("expected %d ids, got %d", count, len(ids))
+	}
+	seen := make(map[uint64]bool, count)
+	for _, id := range ids {
+		if seen[uint64(id)] {
+			t.Fatalf("duplicate ID %v", id)
+		}
+		seen[uint64(id)] = true
+	}
+}
+
+func TestFactory_SpawnAll_ZeroCount(t *testing.T) {
+	m := newManager()
+	var mi comp.DefIndex
+	mi.Init()
+	var posCol iter.ArrayRef[Position]
+	var spec comp.AccessSpec
+	spec.Init(&mi, comp.Track(&posCol))
+
+	factory := m.CreateFactory(spec)
+
+	ids := factory.SpawnAll(0)
+	if ids != nil {
+		t.Errorf("expected nil ids for SpawnAll(0), got %v", ids)
 	}
 }
 

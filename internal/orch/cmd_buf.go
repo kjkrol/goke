@@ -3,8 +3,8 @@ package orch
 import (
 	"unsafe"
 
-	"github.com/kjkrol/goke/v2/internal/bulk"
-	"github.com/kjkrol/goke/v2/internal/comp"
+	"github.com/kjkrol/goke/v3/internal/bulk"
+	"github.com/kjkrol/goke/v3/internal/comp"
 	"github.com/kjkrol/uid"
 )
 
@@ -25,17 +25,23 @@ type bufferedCmd struct {
 	dataPtr  unsafe.Pointer
 }
 
-type massMigrateCmd struct {
-	migrator bulk.Migrator
-	snap     bulk.ChunkSnapshot
-	ids      []uid.UID64
+type migrateCmd struct {
+	op   bulk.Migrator
+	snap bulk.ChunkSnapshot
+	ids  []uid.UID64
 }
 
-type massMigrateValueCmd struct {
-	migrator bulk.ValueMigrator
-	snap     bulk.ChunkSnapshot
-	ids      []uid.UID64
-	payload  unsafe.Pointer
+type migrateValueCmd struct {
+	op      bulk.ValueMigrator
+	snap    bulk.ChunkSnapshot
+	ids     []uid.UID64
+	payload unsafe.Pointer
+}
+
+type spawnCmd struct {
+	spawner bulk.Spawner
+	count   int
+	outIDs  *[]uid.UID64
 }
 
 const allocBlockSize = 4096
@@ -43,19 +49,29 @@ const allocBlockSize = 4096
 // CmdBuf queues deferred commands, backing their payloads with a linear
 // page allocator so registration never heap-allocates once warm.
 type CmdBuf struct {
-	cmds          []bufferedCmd
-	massCmds      []massMigrateCmd
-	massValueCmds []massMigrateValueCmd
-	pages         [][]byte
-	pageIdx       int
-	offset        int
+	cmds             []bufferedCmd
+	migrateCmds      []migrateCmd
+	migrateValueCmds []migrateValueCmd
+	spawnCmds        []spawnCmd
+	remover          bulk.Migrator
+	pages            [][]byte
+	pageIdx          int
+	offset           int
 }
+
+// SetRemover installs the shared Remover that CmdBuf.Remove queues against.
+// Called once by Scheduler.Register — not part of the per-tick hot path.
+func (cb *CmdBuf) SetRemover(r bulk.Migrator) { cb.remover = r }
+
+// Remover returns the shared Remover installed by SetRemover.
+func (cb *CmdBuf) Remover() bulk.Migrator { return cb.remover }
 
 func (cb *CmdBuf) Clear() {
 	clear(cb.cmds)
 	cb.cmds = cb.cmds[:0]
-	cb.massCmds = cb.massCmds[:0]
-	cb.massValueCmds = cb.massValueCmds[:0]
+	cb.migrateCmds = cb.migrateCmds[:0]
+	cb.migrateValueCmds = cb.migrateValueCmds[:0]
+	cb.spawnCmds = cb.spawnCmds[:0]
 
 	for i := 0; i <= cb.pageIdx; i++ {
 		if i < len(cb.pages) {
@@ -74,8 +90,8 @@ func NewCmdBuf() *CmdBuf {
 	}
 }
 
-// AddComp queues an add-component command, copying value into the page pool.
-func AddComp[T any](cb *CmdBuf, entityID uid.UID64, compID comp.ID, value T) {
+// AddOne queues an add-component command, copying value into the page pool.
+func AddOne[T any](cb *CmdBuf, entityID uid.UID64, compID comp.ID, value T) {
 	size := int(unsafe.Sizeof(value))
 
 	var ptr unsafe.Pointer
@@ -97,7 +113,7 @@ func AddComp[T any](cb *CmdBuf, entityID uid.UID64, compID comp.ID, value T) {
 	})
 }
 
-func (cb *CmdBuf) RemoveComp(entityID uid.UID64, compID comp.ID) {
+func (cb *CmdBuf) RemoveCompOne(entityID uid.UID64, compID comp.ID) {
 	cb.cmds = append(cb.cmds, bufferedCmd{
 		cType:    cmdRemoveComp,
 		entityID: entityID,
@@ -105,17 +121,17 @@ func (cb *CmdBuf) RemoveComp(entityID uid.UID64, compID comp.ID) {
 	})
 }
 
-func (cb *CmdBuf) RemoveEntity(entityID uid.UID64) {
+func (cb *CmdBuf) RemoveOne(entityID uid.UID64) {
 	cb.cmds = append(cb.cmds, bufferedCmd{
 		cType:    cmdRemoveEntity,
 		entityID: entityID,
 	})
 }
 
-// MassMigrate records a bulk migration of ids from the chunk described by
-// snap, setting snap.SlotAligned when ids is a leading window of the chunk's
-// entity column. ids is copied into the page pool — the caller may reuse it.
-func (cb *CmdBuf) MassMigrate(migrator bulk.Migrator, snap bulk.ChunkSnapshot, ids []uid.UID64) {
+// enqueueMigrate copies ids into the page pool and appends a migrateCmd —
+// shared by Migrate and Remove, which differ only in what op they carry
+// (both satisfy bulk.Migrator).
+func (cb *CmdBuf) enqueueMigrate(op bulk.Migrator, snap bulk.ChunkSnapshot, ids []uid.UID64) {
 	n := len(ids)
 	if n == 0 {
 		return
@@ -125,15 +141,64 @@ func (cb *CmdBuf) MassMigrate(migrator bulk.Migrator, snap bulk.ChunkSnapshot, i
 	ptr := cb.reserveSpace(n*int(unsafe.Sizeof(u)), int(unsafe.Alignof(u)))
 	copied := unsafe.Slice((*uid.UID64)(ptr), n)
 	copy(copied, ids)
-	cb.massCmds = append(cb.massCmds, massMigrateCmd{migrator: migrator, snap: snap, ids: copied})
+	cb.migrateCmds = append(cb.migrateCmds, migrateCmd{op: op, snap: snap, ids: copied})
 }
 
-// MassMigrateInit records a bulk migration like MassMigrate, additionally
+// Migrate records a bulk component add/remove of ids from the chunk
+// described by snap, setting snap.SlotAligned when ids is a leading window
+// of the chunk's entity column. ids is copied into the page pool — the
+// caller may reuse it.
+func (cb *CmdBuf) Migrate(op bulk.Migrator, snap bulk.ChunkSnapshot, ids []uid.UID64) {
+	cb.enqueueMigrate(op, snap, ids)
+}
+
+// Remove records a bulk whole-entity removal of ids from the chunk
+// described by snap, using the shared Remover installed by SetRemover — the
+// caller never builds or holds a Remover, since it carries no per-call
+// configuration.
+func (cb *CmdBuf) Remove(snap bulk.ChunkSnapshot, ids []uid.UID64) {
+	cb.enqueueMigrate(cb.remover, snap, ids)
+}
+
+// Spawn records a deferred entity-creation command: at Sync, spawner.Spawn
+// is called once with count, and the resulting ids are written into
+// *outIDs for a later system (running after this Sync) to pick up via a
+// normal Query. Unlike Migrate/Remove/AddCompValue, there are no ids to
+// protect from caller reuse — count is a plain value and outIDs is the
+// caller's own field — so this never touches the page pool.
+func (cb *CmdBuf) Spawn(spawner bulk.Spawner, count int, outIDs *[]uid.UID64) {
+	cb.spawnCmds = append(cb.spawnCmds, spawnCmd{spawner: spawner, count: count, outIDs: outIDs})
+}
+
+// ReserveIDs reserves capacity for up to n ids in the page pool and returns
+// a zero-length slice backed by that reservation (cap == n) — for callers
+// that stage ids directly via append instead of building a separate scratch
+// slice first, then hand the result to CommitReserved.
+func (cb *CmdBuf) ReserveIDs(n int) []uid.UID64 {
+	if n == 0 {
+		return nil
+	}
+	var u uid.UID64
+	ptr := cb.reserveSpace(n*int(unsafe.Sizeof(u)), int(unsafe.Alignof(u)))
+	return unsafe.Slice((*uid.UID64)(ptr), n)[:0]
+}
+
+// CommitReserved queues op against ids without copying — ids must be a
+// slice obtained from ReserveIDs on this same CmdBuf (already arena-backed,
+// safe to store as-is).
+func (cb *CmdBuf) CommitReserved(op bulk.Migrator, snap bulk.ChunkSnapshot, ids []uid.UID64) {
+	if len(ids) == 0 {
+		return
+	}
+	cb.migrateCmds = append(cb.migrateCmds, migrateCmd{op: op, snap: snap, ids: ids})
+}
+
+// AddCompValue records a bulk migration like Migrate, additionally
 // reserving n*elemSize bytes (aligned to align) in the page pool for the
-// caller to fill with per-id values for the migrator's added component — the
+// caller to fill with per-id values for op's added component — the
 // returned pointer is uninitialized, written into by the caller, and read
-// back at Sync when migrator.MigrateWithValue runs.
-func (cb *CmdBuf) MassMigrateInit(migrator bulk.ValueMigrator, snap bulk.ChunkSnapshot, ids []uid.UID64, elemSize, align uintptr) unsafe.Pointer {
+// back at Sync when op.MigrateWithValue runs.
+func (cb *CmdBuf) AddCompValue(op bulk.ValueMigrator, snap bulk.ChunkSnapshot, ids []uid.UID64, elemSize, align uintptr) unsafe.Pointer {
 	n := len(ids)
 	if n == 0 {
 		return nil
@@ -149,16 +214,17 @@ func (cb *CmdBuf) MassMigrateInit(migrator bulk.ValueMigrator, snap bulk.ChunkSn
 		payloadPtr = cb.reserveSpace(n*int(elemSize), int(align))
 	}
 
-	cb.massValueCmds = append(cb.massValueCmds, massMigrateValueCmd{
-		migrator: migrator, snap: snap, ids: copiedIDs, payload: payloadPtr,
+	cb.migrateValueCmds = append(cb.migrateValueCmds, migrateValueCmd{
+		op: op, snap: snap, ids: copiedIDs, payload: payloadPtr,
 	})
 	return payloadPtr
 }
 
 func (cb *CmdBuf) reset() {
 	cb.cmds = cb.cmds[:0]
-	cb.massCmds = cb.massCmds[:0]
-	cb.massValueCmds = cb.massValueCmds[:0]
+	cb.migrateCmds = cb.migrateCmds[:0]
+	cb.migrateValueCmds = cb.migrateValueCmds[:0]
+	cb.spawnCmds = cb.spawnCmds[:0]
 	cb.pageIdx = 0
 	cb.offset = 0
 }

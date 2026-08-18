@@ -1,104 +1,155 @@
 package ent
 
 import (
+	"unsafe"
+
 	"github.com/kjkrol/uid"
 
-	"github.com/kjkrol/goke/v2/internal/arch"
-	"github.com/kjkrol/goke/v2/internal/colstore"
-	"github.com/kjkrol/goke/v2/internal/comp"
-	"github.com/kjkrol/goke/v2/iter"
+	"github.com/kjkrol/goke/v3/internal/addr"
+	"github.com/kjkrol/goke/v3/internal/arch"
+	"github.com/kjkrol/goke/v3/internal/bulk"
+	"github.com/kjkrol/goke/v3/internal/colstore"
+	"github.com/kjkrol/goke/v3/internal/comp"
 )
 
-// Editor applies a fixed set of structural changes — adding and removing
-// components — to an entity in a single archetype migration, then positions
-// Cursor so the added components' values can be written via ArrayRef.At.
-// Migration cost scales with the width of the source and destination
-// archetypes, not with how many components the edit changes.
+// unresolvedID marks a dst entry whose destination archetype has not been
+// resolved yet; it can never collide with a real ID (all are < arch.MaxID).
+const unresolvedID = arch.MaxID
+
+// Editor applies a fixed set of component adds/removes to whole batches of
+// entities sharing one source archetype, deferring compaction until the full
+// batch is known — enabling block column copies and a single address-index
+// pass per batch instead of one swap-and-pop per entity.
 type Editor struct {
-	Cursor   iter.Cursor
-	manager  *Manager
-	addDefs  []comp.Def
-	delDefs  []comp.Def
-	addIDs   []comp.ID
-	offsets  [arch.MaxID][]uintptr
-	table    *colstore.Table
-	lastArch arch.ID
+	spec        comp.EditSpec
+	addrBook    *addr.Book
+	archCatalog *arch.Catalog
+
+	// dst memoizes srcArch → dstArch; NullID = unlink (no components left).
+	// Resolved lazily on first use — once per source archetype, amortized
+	// over whole chunk batches.
+	dst [arch.MaxID]arch.ID
+
+	defrag colstore.Defragmenter // by value: shares Editor's heap allocation
+
+	// scratch is reused across Migrate calls; grows lazily, never shrinks.
+	scratch struct {
+		ids      []uid.UID64
+		slotRefs []colstore.SlotRef
+		dstRuns  []dstChunkRun
+	}
 }
 
-// CreateEditor builds an Editor from spec.
-func (m *Manager) CreateEditor(spec comp.EditSpec) *Editor {
-	e := &Editor{
-		manager:  m,
-		addDefs:  spec.AddDefs,
-		delDefs:  spec.DelDefs,
-		addIDs:   make([]comp.ID, len(spec.AddDefs)),
-		lastArch: arch.NullID,
-	}
-	for i, d := range spec.AddDefs {
-		e.addIDs[i] = d.ID
-	}
-	return e
+// dstChunkRun records where one destination chunk's batch landed, letting the
+// address-book pass recompute every position arithmetically — no per-entity buffer.
+type dstChunkRun struct {
+	ptr       unsafe.Pointer
+	startSlot colstore.Slot
+	n         int
 }
 
-// Update applies the edit to entityID in a single migration and positions
-// Cursor over the added columns. Returns false if the entity does not exist;
-// an edit that leaves no components removes the entity entirely.
-func (e *Editor) Update(entityID uid.UID64) bool {
-	entry, ok := e.manager.AddressBook.Get(entityID)
-	if !ok {
-		return false
+func NewEditor(book *addr.Book, catalog *arch.Catalog, spec comp.EditSpec) *Editor {
+	m := &Editor{spec: spec, addrBook: book, archCatalog: catalog}
+	for i := range m.dst {
+		m.dst[i] = unresolvedID
+	}
+	return m
+}
+
+// resolve computes and memoizes the destination archetype for srcArchID.
+func (m *Editor) resolve(srcArchID arch.ID) arch.ID {
+	target := resolveDst(m.archCatalog, m.spec, srcArchID)
+	m.dst[srcArchID] = target
+	return target
+}
+
+// Migrate moves ids out of the single source chunk described by snap.
+func (m *Editor) Migrate(snap bulk.ChunkSnapshot, ids []uid.UID64) {
+	if len(ids) == 0 {
+		return
+	}
+	srcTable := &m.archCatalog.Archetypes[snap.ArchID].Table
+	validIDs, slotRefs := resolveSlotRefs(m.addrBook, srcTable, snap, ids, &m.scratch.ids, &m.scratch.slotRefs, nil)
+	if len(validIDs) == 0 {
+		return
+	}
+	m.applyGroup(snap.ArchID, validIDs, slotRefs)
+}
+
+// applyGroup migrates ids to the pre-resolved destination: block-copies
+// bytes and compacts the source first, then updates the address book in one
+// pass so byte copies and index writes never interleave.
+func (m *Editor) applyGroup(srcArchID arch.ID, ids []uid.UID64, slotRefs []colstore.SlotRef) {
+	n := len(ids)
+	srcTable := &m.archCatalog.Archetypes[srcArchID].Table
+
+	dstArchID := m.dst[srcArchID]
+	if dstArchID == unresolvedID {
+		dstArchID = m.resolve(srcArchID)
+	}
+	if dstArchID == arch.NullID {
+		removeBatch(m.addrBook, &m.defrag, srcArchID, srcTable, ids, slotRefs)
+		return
+	}
+	if dstArchID == srcArchID {
+		// Every AddDef was already present and no DelDef matched anything —
+		// net composition is unchanged. Entities stay exactly where they
+		// are: nothing to copy, no address-book update, no compaction.
+		return
 	}
 
-	targetArchID, unlink := e.resolveTarget(entry.ArchID)
-	if unlink {
-		e.manager.removeFromArchetype(entityID, entry.ArchID, entry.ChunkPtr, entry.Slot)
-		return true
-	}
+	dstTable := &m.archCatalog.Archetypes[dstArchID].Table
 
-	targetPtr := entry.ChunkPtr
-	targetSlot := entry.Slot
-	if targetArchID != entry.ArchID {
-		targetPtr, targetSlot = e.manager.migrateEntity(entityID, entry.ArchID, entry.ChunkPtr, entry.Slot, targetArchID)
-	}
+	firstIdx, firstAvailable, chunkCap := dstTable.ReserveSlots(n)
 
-	// A remove-only Editor has nothing to write into — skip cursor setup.
-	if len(e.addIDs) > 0 {
-		if targetArchID != e.lastArch {
-			e.table = &e.manager.ArchCatalog.Archetypes[targetArchID].Table
-			offs := e.offsets[targetArchID]
-			if offs == nil {
-				offs = e.table.BakeOffsets(e.addIDs)
-				e.offsets[targetArchID] = offs
+	m.scratch.dstRuns = m.scratch.dstRuns[:0]
+	dstChunkIdx := firstIdx
+	available := firstAvailable
+	remaining := n
+	ei := 0
+
+	for remaining > 0 {
+		batchN := min(remaining, available)
+		dstPtr, startSlot := dstTable.AllocSlots(dstChunkIdx, batchN)
+		m.scratch.dstRuns = append(m.scratch.dstRuns, dstChunkRun{ptr: dstPtr, startSlot: startSlot, n: batchN})
+
+		// Ids arrive in chunk order, so slotRefs form long ascending runs —
+		// each run costs one CopyMemory per column instead of per slot.
+		i := 0
+		for i < batchN {
+			base := slotRefs[ei]
+			run := 1
+			for i+run < batchN &&
+				slotRefs[ei+run].Ptr == base.Ptr &&
+				slotRefs[ei+run].Slot == base.Slot+colstore.Slot(run) {
+				run++
 			}
-			e.Cursor.Offsets = offs
-			e.lastArch = targetArchID
-		}
-		e.Cursor.Set(targetPtr, uintptr(targetSlot))
-	}
-	return true
-}
 
-// resolveTarget walks the archetype graph from srcArchID, applying the adds then
-// the dels, and returns the final archetype. unlink is true when the result has
-// no components.
-func (e *Editor) resolveTarget(srcArchID arch.ID) (target arch.ID, unlink bool) {
-	cat := &e.manager.ArchCatalog
-	target = srcArchID
-	for i := range e.addDefs {
-		d := e.addDefs[i]
-		if !cat.Archetypes[target].Mask().IsSet(d.ID) {
-			target = cat.EnsureEdgeNext(d, target)
+			dstSlot := startSlot + colstore.Slot(i)
+			dstTable.CopyRangeFrom(srcTable, base.Ptr, base.Slot, dstPtr, dstSlot, run)
+			dstTable.SetEntityRange(dstPtr, dstSlot, ids[ei:ei+run])
+
+			i += run
+			ei += run
 		}
+
+		remaining -= batchN
+		dstChunkIdx++
+		available = chunkCap
 	}
-	for i := range e.delDefs {
-		d := e.delDefs[i]
-		if cat.Archetypes[target].Mask().IsSet(d.ID) {
-			next, shouldUnlink := cat.EnsureEdgePrev(d, target)
-			if shouldUnlink {
-				return arch.NullID, true
-			}
-			target = next
+
+	dstTable.ReleaseSlots()
+
+	srcMoves := m.defrag.Compact(srcTable, slotRefs)
+
+	ei = 0
+	for _, r := range m.scratch.dstRuns {
+		for k := range r.n {
+			m.addrBook.MoveUnchecked(ids[ei+k], dstArchID, r.ptr, r.startSlot+colstore.Slot(k))
 		}
+		ei += r.n
 	}
-	return target, false
+	for _, sm := range srcMoves {
+		m.addrBook.MoveUnchecked(sm.ID, srcArchID, sm.NewPtr, sm.NewSlot)
+	}
 }

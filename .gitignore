@@ -35,5 +35,9 @@ cmd/wasm-demo/server.log
 go.work
 go.work.sum
 
+
+# asdf
+.tool-versions
+
 # Temp bench results
 bench_results/

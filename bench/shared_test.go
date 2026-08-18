@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/kjkrol/goke/v2"
+	"github.com/kjkrol/goke/v3"
 	"github.com/kjkrol/uid"
 )
 
@@ -27,50 +27,79 @@ type Tag struct{}
 
 type Base struct{ V int32 }
 
+// populateBase spawns count Base-only entities. Must be called from within
+// the caller's own Setup (si comes from that Setup's OnInit) — it does not
+// call Setup itself, since Setup is callable only once per ECS.
+func populateBase(si *goke.SysInit, count int) []uid.UID64 {
+	factory := si.NewFactory(new(goke.Comp[Base]))
+	var ids []uid.UID64
+	factory.Create(count)
+	for factory.Next() {
+		ids = append(ids, factory.IDs...)
+	}
+	return ids
+}
+
 func setupECS() *goke.ECS {
 	ecs := goke.New()
-	_ = goke.RegComp[Pos](ecs)
-	_ = goke.RegComp[Vel](ecs)
-	_ = goke.RegComp[Acc](ecs)
-	_ = goke.RegComp[T04](ecs)
-	_ = goke.RegComp[T05](ecs)
-	_ = goke.RegComp[T06](ecs)
-	_ = goke.RegComp[T07](ecs)
-	_ = goke.RegComp[T08](ecs)
-	_ = goke.RegComp[T09](ecs)
-	_ = goke.RegComp[T10](ecs)
-	_ = goke.RegComp[Tag](ecs)
-	_ = goke.RegComp[Base](ecs)
+	_ = ecs.RegComp[Pos]()
+	_ = ecs.RegComp[Vel]()
+	_ = ecs.RegComp[Acc]()
+	_ = ecs.RegComp[T04]()
+	_ = ecs.RegComp[T05]()
+	_ = ecs.RegComp[T06]()
+	_ = ecs.RegComp[T07]()
+	_ = ecs.RegComp[T08]()
+	_ = ecs.RegComp[T09]()
+	_ = ecs.RegComp[T10]()
+	_ = ecs.RegComp[Tag]()
+	_ = ecs.RegComp[Base]()
 	return ecs
 }
 
-func populate(ecs *goke.ECS, count int) []uid.UID64 {
-	var c1 goke.Comp[Pos]
-	var c2 goke.Comp[Vel]
-	var c3 goke.Comp[Acc]
-	var c4 goke.Comp[T04]
-	var c5 goke.Comp[T05]
-	var c6 goke.Comp[T06]
-	var c7 goke.Comp[T07]
-	var c8 goke.Comp[T08]
-	var c9 goke.Comp[T09]
-	var c10 goke.Comp[T10]
-	factory := ecs.NewFactory(&c1, &c2, &c3, &c4, &c5, &c6, &c7, &c8, &c9, &c10)
+// populator holds the Factory and component handles for spawning the
+// standard 10-data-component entity shape. Build once via newPopulator
+// (SysInit-gated), then call spawn as many times as needed — spawn itself
+// only uses the already-built Factory, so it carries no Setup restriction.
+type populator struct {
+	factory *goke.Factory
+	c1      goke.Comp[Pos]
+	c2      goke.Comp[Vel]
+	c3      goke.Comp[Acc]
+	c4      goke.Comp[T04]
+	c5      goke.Comp[T05]
+	c6      goke.Comp[T06]
+	c7      goke.Comp[T07]
+	c8      goke.Comp[T08]
+	c9      goke.Comp[T09]
+	c10     goke.Comp[T10]
+}
 
+// newPopulator builds a populator. Must be called from within the caller's
+// own Setup — see populateBase.
+func newPopulator(si *goke.SysInit) *populator {
+	p := &populator{}
+	p.factory = si.NewFactory(&p.c1, &p.c2, &p.c3, &p.c4, &p.c5, &p.c6, &p.c7, &p.c8, &p.c9, &p.c10)
+	return p
+}
+
+// spawn creates count entities with all 10 data components, randomized.
+// Safe to call repeatedly, including outside any Setup.
+func (p *populator) spawn(count int) []uid.UID64 {
 	var entities []uid.UID64
-	factory.Create(count)
-	for factory.Next() {
-		comp1 := c1.Slice(&factory.Cursor)
-		comp2 := c2.Slice(&factory.Cursor)
-		comp3 := c3.Slice(&factory.Cursor)
-		comp4 := c4.Slice(&factory.Cursor)
-		comp5 := c5.Slice(&factory.Cursor)
-		comp6 := c6.Slice(&factory.Cursor)
-		comp7 := c7.Slice(&factory.Cursor)
-		comp8 := c8.Slice(&factory.Cursor)
-		comp9 := c9.Slice(&factory.Cursor)
-		comp10 := c10.Slice(&factory.Cursor)
-		for i, entityID := range factory.IDs {
+	p.factory.Create(count)
+	for p.factory.Next() {
+		comp1 := p.c1.Slice(&p.factory.Cursor)
+		comp2 := p.c2.Slice(&p.factory.Cursor)
+		comp3 := p.c3.Slice(&p.factory.Cursor)
+		comp4 := p.c4.Slice(&p.factory.Cursor)
+		comp5 := p.c5.Slice(&p.factory.Cursor)
+		comp6 := p.c6.Slice(&p.factory.Cursor)
+		comp7 := p.c7.Slice(&p.factory.Cursor)
+		comp8 := p.c8.Slice(&p.factory.Cursor)
+		comp9 := p.c9.Slice(&p.factory.Cursor)
+		comp10 := p.c10.Slice(&p.factory.Cursor)
+		for i, entityID := range p.factory.IDs {
 			comp1[i] = Pos{rand.Float32() * 100, rand.Float32() * 100}
 			comp2[i] = Vel{rand.Float32() * 40, 1}
 			comp3[i] = Acc{rand.Float32(), 0.1}
@@ -85,6 +114,13 @@ func populate(ecs *goke.ECS, count int) []uid.UID64 {
 		}
 	}
 	return entities
+}
+
+// populate spawns count entities with all 10 data components, randomized —
+// a one-shot convenience over populator for callers that never need to
+// spawn again. Must be called from within the caller's own Setup.
+func populate(si *goke.SysInit, count int) []uid.UID64 {
+	return newPopulator(si).spawn(count)
 }
 
 func measurePerEntity(b *testing.B, batchSize int, benchLoop func()) {

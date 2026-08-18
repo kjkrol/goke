@@ -18,15 +18,14 @@ import (
 // Layer 4   arch               (→ comp, colstore)
 // Layer 5   addr               (→ arch, colstore)
 //           bulk               (→ arch, colstore)
-// Layer 6   ent                (→ addr, arch, colstore, comp, iter)
-//           migration          (→ addr, arch, bulk, colstore, comp)
+// Layer 6   ent                (→ addr, arch, bulk, colstore, comp, iter)
 // Layer 7   query              (→ addr, arch, bulk, colstore, comp, iter)
 // Layer 8   orch               (→ bulk, comp)
-//           reg                (→ ent, arch, comp, migration, query)
+//           reg                (→ bulk, ent, arch, comp, query)
 //
 // github.com/kjkrol/uid is an external module; listed explicitly per package.
 
-const module = "github.com/kjkrol/goke/v2"
+const module = "github.com/kjkrol/goke/v3"
 const uidPkg = "github.com/kjkrol/uid"
 
 var depRules = map[string][]string{
@@ -69,17 +68,10 @@ var depRules = map[string][]string{
 	"internal/ent": {
 		module + "/internal/addr",
 		module + "/internal/arch",
-		module + "/internal/colstore",
-		module + "/internal/comp",
-		module + "/iter",
-		uidPkg,
-	},
-	"internal/migration": {
-		module + "/internal/addr",
-		module + "/internal/arch",
 		module + "/internal/bulk",
 		module + "/internal/colstore",
 		module + "/internal/comp",
+		module + "/iter",
 		uidPkg,
 	},
 	"internal/query": {
@@ -93,9 +85,9 @@ var depRules = map[string][]string{
 	},
 	"internal/reg": {
 		module + "/internal/arch",
+		module + "/internal/bulk",
 		module + "/internal/comp",
 		module + "/internal/ent",
-		module + "/internal/migration",
 		module + "/internal/query",
 		uidPkg,
 	},

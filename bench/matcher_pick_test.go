@@ -4,7 +4,7 @@ import (
 	"math/rand/v2"
 	"testing"
 
-	"github.com/kjkrol/goke/v2"
+	"github.com/kjkrol/goke/v3"
 	"github.com/kjkrol/uid"
 )
 
@@ -26,16 +26,6 @@ import (
 // sub-benchmark on the same ECS and eventually exceed MaxMatchers.
 func Benchmark_Matcher_Pick(b *testing.B) {
 	ecs := setupECS()
-	entities := populate(ecs, entitiesNumber)
-
-	sortedSubset := append([]uid.UID64(nil), entities[:filterSubsetSize]...)
-
-	randomSubset := append([]uid.UID64(nil), entities...)
-	rng := rand.New(rand.NewPCG(42, 1337))
-	rng.Shuffle(len(randomSubset), func(i, j int) {
-		randomSubset[i], randomSubset[j] = randomSubset[j], randomSubset[i]
-	})
-	randomSubset = randomSubset[:filterSubsetSize]
 
 	var pos goke.Comp[Pos]
 	var vel goke.Comp[Vel]
@@ -48,17 +38,31 @@ func Benchmark_Matcher_Pick(b *testing.B) {
 	var t09 goke.Comp[T09]
 	var t10 goke.Comp[T10]
 
-	matcher0 := ecs.NewQueryBuilder().Build()
-	matcher1 := ecs.NewQueryBuilder(&pos).Build()
-	matcher2 := ecs.NewQueryBuilder(&pos, &vel).Build()
-	matcher3 := ecs.NewQueryBuilder(&pos, &vel, &acc).Build()
-	matcher4 := ecs.NewQueryBuilder(&pos, &vel, &acc, &t04).Build()
-	matcher5 := ecs.NewQueryBuilder(&pos, &vel, &acc, &t04, &t05).Build()
-	matcher6 := ecs.NewQueryBuilder(&pos, &vel, &acc, &t04, &t05, &t06).Build()
-	matcher7 := ecs.NewQueryBuilder(&pos, &vel, &acc, &t04, &t05, &t06, &t07).Build()
-	matcher8 := ecs.NewQueryBuilder(&pos, &vel, &acc, &t04, &t05, &t06, &t07, &t08).Build()
-	matcher9 := ecs.NewQueryBuilder(&pos, &vel, &acc, &t04, &t05, &t06, &t07, &t08, &t09).Build()
-	matcher10 := ecs.NewQueryBuilder(&pos, &vel, &acc, &t04, &t05, &t06, &t07, &t08, &t09, &t10).Build()
+	var entities []uid.UID64
+	var matcher0, matcher1, matcher2, matcher3, matcher4, matcher5, matcher6, matcher7, matcher8, matcher9, matcher10 *goke.Query
+	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+		entities = populate(si, entitiesNumber)
+		matcher0 = si.NewQueryBuilder().Build()
+		matcher1 = si.NewQueryBuilder(&pos).Build()
+		matcher2 = si.NewQueryBuilder(&pos, &vel).Build()
+		matcher3 = si.NewQueryBuilder(&pos, &vel, &acc).Build()
+		matcher4 = si.NewQueryBuilder(&pos, &vel, &acc, &t04).Build()
+		matcher5 = si.NewQueryBuilder(&pos, &vel, &acc, &t04, &t05).Build()
+		matcher6 = si.NewQueryBuilder(&pos, &vel, &acc, &t04, &t05, &t06).Build()
+		matcher7 = si.NewQueryBuilder(&pos, &vel, &acc, &t04, &t05, &t06, &t07).Build()
+		matcher8 = si.NewQueryBuilder(&pos, &vel, &acc, &t04, &t05, &t06, &t07, &t08).Build()
+		matcher9 = si.NewQueryBuilder(&pos, &vel, &acc, &t04, &t05, &t06, &t07, &t08, &t09).Build()
+		matcher10 = si.NewQueryBuilder(&pos, &vel, &acc, &t04, &t05, &t06, &t07, &t08, &t09, &t10).Build()
+	}})
+
+	sortedSubset := append([]uid.UID64(nil), entities[:filterSubsetSize]...)
+
+	randomSubset := append([]uid.UID64(nil), entities...)
+	rng := rand.New(rand.NewPCG(42, 1337))
+	rng.Shuffle(len(randomSubset), func(i, j int) {
+		randomSubset[i], randomSubset[j] = randomSubset[j], randomSubset[i]
+	})
+	randomSubset = randomSubset[:filterSubsetSize]
 
 	// --- 0 comp ---
 	b.Run("pop=1024/subset=100/comp=0/sorted", func(b *testing.B) {
