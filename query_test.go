@@ -319,6 +319,32 @@ func TestQuery_SeekH_DifferentArchetypeReportsMismatch(t *testing.T) {
 	}
 }
 
+func TestQuery_Clear_NextYieldsNothing(t *testing.T) {
+	ecs := goke.New()
+	_ = ecs.RegComp[Position]()
+
+	var pos goke.Comp[Position]
+	var query *goke.Query
+	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+		factory := si.NewFactory(&pos)
+		factory.Create(1)
+		factory.Next()
+		query = si.NewQueryBuilder(&pos).Build()
+	}})
+
+	query.All()
+	if !query.Next() {
+		t.Fatalf("expected Next to find the spawned entity before Clear")
+	}
+
+	query.Clear()
+
+	query.All()
+	if query.Next() {
+		t.Error("expected Next to yield nothing after Clear")
+	}
+}
+
 // Shared component types and helpers used by builder tests.
 type complexComponent struct {
 	Active bool
