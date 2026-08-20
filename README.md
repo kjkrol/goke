@@ -301,7 +301,6 @@ GOKe is optimized for large-scale, data-oriented workloads. It may not be the be
 
 # Limitations
 
-* **`string` (and other pointer-bearing) component fields are not GC-safe yet.** Chunk memory is allocated as a raw, pointer-free (`noscan`) byte buffer for performance; a `string` or `encoding.BinaryMarshaler`-backed value written into it hides that value's backing allocation from the garbage collector, which can reclaim it independently of the component's lifetime, corrupting the field. This is a known, open issue — until it's fixed, prefer fixed-size, pointer-free component fields (the pattern the whole [`examples/`](./examples) tree follows).
 * **Maximum component types: 128 by default.** The archetype system uses a fixed-size bitmask (`[2]uint64`) for fast component membership checks. Projects requiring more component types can increase this limit by modifying `MaskSize` in `internal/comp` (e.g. `MaskSize = 4` gives 256 component types) and recompiling GOKe — `MaxComponents` is derived automatically as `64 * MaskSize`. This is a compile-time configuration, not a runtime setting.
 
 # License

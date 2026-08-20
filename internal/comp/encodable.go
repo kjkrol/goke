@@ -109,6 +109,9 @@ func validateEncodable(t reflect.Type, fieldPath string) error {
 // resolved via encoding.BinaryMarshaler/BinaryUnmarshaler. Assumes t is
 // already known to be encodable — call ValidateEncodable first.
 func OffChunkFields(t reflect.Type) []string {
+	if t == nil {
+		return nil
+	}
 	var out []string
 	collectOffChunkFields(t, "", &out)
 	return out

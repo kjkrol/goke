@@ -31,12 +31,6 @@
 // UnsafePointer, Slice, Map, Interface, Chan, and Func are rejected unless
 // covered by that escape hatch. See [ValidateEncodable] and
 // [OffChunkFields].
-//
-// KNOWN ISSUE: a string (or BinaryMarshaler-backed value with a pointer of
-// its own) stored in chunk memory is not currently GC-safe — see the
-// comment on iter.ArrayRef.Slice. Encoding-legal is not yet the same as
-// memory-safe for those kinds.
-//
 // # Constants
 //
 //	MaskSize      = 2    // number of uint64 words in Mask

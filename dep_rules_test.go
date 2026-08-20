@@ -21,7 +21,7 @@ import (
 // Layer 6   ent                (→ addr, arch, bulk, colstore, comp, iter)
 //           persist            (→ addr, arch, colstore, comp, iter)
 // Layer 7   query              (→ addr, arch, bulk, colstore, comp, iter)
-// Layer 8   orch               (→ bulk, comp)
+// Layer 8   orch               (→ bulk, chunk, comp)
 //           reg                (→ bulk, ent, arch, comp, query, persist)
 //
 // github.com/kjkrol/uid is an external module; listed explicitly per package.
@@ -42,6 +42,7 @@ var depRules = map[string][]string{
 	},
 	"internal/orch": {
 		module + "/internal/bulk",
+		module + "/internal/chunk",
 		module + "/internal/comp",
 		uidPkg,
 	},
