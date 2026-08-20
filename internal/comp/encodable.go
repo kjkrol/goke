@@ -20,21 +20,59 @@ func implementsBinaryCodec(t reflect.Type) bool {
 	return pt.Implements(binaryMarshalerType) && pt.Implements(binaryUnmarshalerType)
 }
 
+// promotedCodecHazard reports whether t's BinaryMarshaler/BinaryUnmarshaler
+// implementation is Go method promotion from an embedded (anonymous) field,
+// while t also has other fields alongside it — the embedded type's
+// MarshalBinary has no way to know about those sibling fields, so they'd be
+// silently dropped every Save. Returns the embedded field's name for the
+// error message. A struct whose ONLY field is the embedded type is safe
+// (nothing else to lose); anything named directly on t (not promoted) is
+// also safe, since Go resolves a type's own method over a promoted one.
+func promotedCodecHazard(t reflect.Type) (embeddedField string, hazard bool) {
+	if t.Kind() != reflect.Struct || t.NumField() <= 1 {
+		return "", false
+	}
+	for i := range t.NumField() {
+		f := t.Field(i)
+		if f.Anonymous && implementsBinaryCodec(f.Type) {
+			return f.Name, true
+		}
+	}
+	return "", false
+}
+
 // ValidateEncodable walks t recursively (including t itself) and returns an
 // error naming the first field that cannot be encoded. A field is encodable
 // if it is a bool, a numeric kind (including complex64/complex128), a
-// string, a struct, a fixed-size array, or implements
+// string, an exported struct field, a fixed-size array, or implements
 // encoding.BinaryMarshaler and encoding.BinaryUnmarshaler (checked first, at
 // every level — such a type is treated as opaque and its own fields are not
 // inspected). Everything else — Ptr, UnsafePointer, Uintptr, Slice, Map,
-// Interface, Chan, Func — is rejected; Uintptr is grouped with the pointer
-// kinds because it conventionally holds a raw address, not a portable value.
+// Interface, Chan, Func, and unexported struct fields — is rejected; Uintptr
+// is grouped with the pointer kinds because it conventionally holds a raw
+// address, not a portable value. Unexported fields are rejected because the
+// encoder needs reflect.Value.Interface on every field it visits (to probe
+// for BinaryMarshaler), which Go's reflect package refuses for a value
+// sourced from an unexported field, regardless of that field's own type.
+// A type that only implements BinaryMarshaler/BinaryUnmarshaler via Go
+// method promotion from an embedded field, while also declaring other
+// fields of its own, is rejected too — the promoted method has no way to
+// know about those sibling fields, so they'd be silently dropped every
+// Save. See promotedCodecHazard.
 func ValidateEncodable(t reflect.Type) error {
 	return validateEncodable(t, "")
 }
 
 func validateEncodable(t reflect.Type, fieldPath string) error {
 	if implementsBinaryCodec(t) {
+		if embedded, hazard := promotedCodecHazard(t); hazard {
+			what := t.String()
+			if fieldPath != "" {
+				what = fmt.Sprintf("field %s (type %s)", fieldPath, t)
+			}
+			return fmt.Errorf("comp: %s implements BinaryMarshaler/BinaryUnmarshaler only via its embedded field %s — its other fields would be silently dropped every Save, since the promoted MarshalBinary only knows about %s's own fields; give %s its own MarshalBinary/UnmarshalBinary covering everything, or stop embedding %s and use a named field instead",
+				what, embedded, embedded, t, embedded)
+		}
 		return nil
 	}
 	switch t.Kind() {
@@ -48,7 +86,11 @@ func validateEncodable(t reflect.Type, fieldPath string) error {
 	case reflect.Struct:
 		for i := range t.NumField() {
 			f := t.Field(i)
-			if err := validateEncodable(f.Type, subPath(fieldPath, f.Name)); err != nil {
+			path := subPath(fieldPath, f.Name)
+			if !f.IsExported() {
+				return fmt.Errorf("comp: field %s is unexported — persist cannot read unexported struct fields (Go's reflect forbids it); export the field, or implement encoding.BinaryMarshaler and encoding.BinaryUnmarshaler on the containing type to treat it as opaque", path)
+			}
+			if err := validateEncodable(f.Type, path); err != nil {
 				return err
 			}
 		}

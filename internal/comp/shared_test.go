@@ -4,13 +4,13 @@ package comp_test
 // multiple test suites to avoid duplication.
 
 type position struct {
-	x, y float64
+	X, Y float64
 }
 
 type velocity struct {
-	vx, vy float64
+	VX, VY float64
 }
 
 type rotation struct {
-	angle float32
+	Angle float32
 }

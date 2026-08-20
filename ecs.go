@@ -56,6 +56,13 @@ func (ecs *ECS) RegSys(system System) Runnable {
 	return adapter
 }
 
+// RegModule registers a Module's systems — equivalent to calling RegSys on
+// each of them, except the module keeps the resulting handles to itself
+// and replays them, in the required order, from RunPlan.
+func (ecs *ECS) RegModule(m Module) {
+	m.RegSystems(ecs)
+}
+
 // Setup runs each given system exactly once, in order: Init, then Update,
 // then Sync — fully applying one system's effects (including deferred
 // structural changes) before the next system's Init runs. Use it for

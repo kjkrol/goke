@@ -45,6 +45,22 @@ type hasFunc struct{ V func() }
 type hasUnsafePointer struct{ V unsafe.Pointer }
 type hasUintptr struct{ V uintptr }
 type nestedBad struct{ Inner hasPtr }
+type hasUnexportedField struct{ v int }
+
+// embedsMarshaled embeds marshaledType (anonymous) and also has its own
+// field — marshaledType's promoted MarshalBinary has no way to know about
+// Extra, so this must be rejected (the exact hazard kinematics.Position hit
+// via gokg's plane.AABB).
+type embedsMarshaled struct {
+	marshaledType
+	Extra int32
+}
+
+// wrapsMarshaled embeds marshaledType as its ONLY field — nothing else to
+// lose, so the promoted MarshalBinary is safe here.
+type wrapsMarshaled struct {
+	marshaledType
+}
 
 func TestValidateEncodable_Accepts(t *testing.T) {
 	types := []reflect.Type{
@@ -61,6 +77,7 @@ func TestValidateEncodable_Accepts(t *testing.T) {
 		reflect.TypeFor[withMarshaled](),
 		reflect.TypeFor[nestedPod](),
 		reflect.TypeFor[marshaledType](),
+		reflect.TypeFor[wrapsMarshaled](),
 	}
 	for _, ty := range types {
 		if err := comp.ValidateEncodable(ty); err != nil {
@@ -80,6 +97,8 @@ func TestValidateEncodable_Rejects(t *testing.T) {
 		reflect.TypeFor[hasUnsafePointer](),
 		reflect.TypeFor[hasUintptr](),
 		reflect.TypeFor[nestedBad](),
+		reflect.TypeFor[hasUnexportedField](),
+		reflect.TypeFor[embedsMarshaled](),
 	}
 	for _, ty := range types {
 		if err := comp.ValidateEncodable(ty); err == nil {

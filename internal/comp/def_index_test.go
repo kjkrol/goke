@@ -107,9 +107,9 @@ func TestDefIndex_MetadataConsistency(t *testing.T) {
 
 	t.Run("Size correctness", func(t *testing.T) {
 		type complexStruct struct {
-			a int64
-			b float32
-			c bool
+			A int64
+			B float32
+			C bool
 		}
 		cType := reflect.TypeFor[complexStruct]()
 		info := c.Intern(cType)

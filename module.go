@@ -17,12 +17,17 @@ type Module interface {
 	// closure, alongside any other systems or modules.
 	RunPlan(ctx RunCtx, d time.Duration)
 
+	SetupProvider
 	CompProvider
 }
 
-// RegModule registers a Module's systems — equivalent to calling RegSys on
-// each of them, except the module keeps the resulting handles to itself
-// and replays them, in the required order, from RunPlan.
-func (ecs *ECS) RegModule(m Module) {
-	m.RegSystems(ecs)
+// SetupProvider contributes one-time, Setup-phase logic — e.g. world
+// seeding — separate from Module's per-tick RegSystems/RunPlan. Part of
+// Module, but also usable standalone: a value with nothing to run every
+// tick (just a one-time spawn, like a populate helper) can implement just
+// this, without the rest of Module.
+type SetupProvider interface {
+	// SetupSystems returns systems to run once, in order, via ECS.Setup —
+	// before Plan-based ticking starts.
+	SetupSystems() []System
 }

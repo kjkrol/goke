@@ -353,9 +353,9 @@ type complexComponent struct {
 }
 
 type position struct {
-	x, y float64
+	X, Y float64
 }
 
 type velocity struct {
-	vx, vy float64
+	VX, VY float64
 }
