@@ -11,6 +11,10 @@ import (
 // directly to NewFactory/NewQueryBuilder/NewEditorBuilder — it binds
 // itself, no separate wrapping call needed. Use comp.Slice(cursor) in
 // All/Factory-mode and comp.At(cursor) in Pick/Seek-mode.
+//
+// T must be encodable — recursively, a bool, numeric kind, string, struct,
+// fixed-size array, or a type implementing encoding.BinaryMarshaler and
+// encoding.BinaryUnmarshaler — or RegComp panics.
 type Comp[T any] struct {
 	col iter.ArrayRef[T]
 }

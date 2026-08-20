@@ -11,6 +11,10 @@
   * Coordination of multiple systems.
   * Concurrent execution using `RunParallel`.
   * Handling structural changes via **Command Buffer** and explicit **Sync points**.
+* [**Persistence Demo**](./persistence-demo/main.go) – Saving and loading a world to/from a file:
+  * `Pause`/`Save`/`Load`, with entity IDs preserved across the round trip.
+  * `ComponentProvider`/`ProvidedComps` — registering a module's components for `Load` without
+    naming them directly.
 
 For a full graphics/physics integration example — real-time rendering via
 [Ebitengine](https://ebitengine.org/), spatial management via [GOKg](https://github.com/kjkrol/gokg),

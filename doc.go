@@ -94,19 +94,23 @@
 //	          bulk      — bulk-operation contract: ChunkSnapshot, Migrator  (→ arch, colstore)
 //	Layer 6   ent       — entity lifecycle & bulk migration: Manager, Factory,
 //	                      Editor, Remover, ValueEditor  (→ addr, arch, bulk, colstore, comp, iter)
+//	          persist   — world snapshot encoding: Save, Load             (→ addr, arch, colstore, comp, iter)
 //	Layer 7   query     — query layer, matcher baking              (→ addr, arch, bulk, colstore, comp, iter)
 //	Layer 8   orch      — scheduler, plans, command buffers        (→ bulk, comp)
-//	          reg       — top-level Registry                       (→ bulk, ent, arch, comp, query)
+//	          reg       — top-level Registry                       (→ bulk, ent, arch, comp, query, persist)
 //
-// Expressed as a directed graph (arrow = "is imported by"; ent, query, and
-// reg are drawn twice — each is fed by both addr and bulk):
+// Expressed as a directed graph (arrow = "is imported by"; addr and bulk
+// both feed ent and query, converging at the ├ marks below rather than
+// being drawn twice):
 //
-//	iter ──► comp ──► chunk ──► colstore ──► arch ──┬─► addr ──┬─► ent ───────┬─► reg
-//	                                                 │          └─► query ─────┤
-//	                                                 └─► bulk ──┬─► ent        │
-//	                                                            ├─► query     │
-//	                                                            ├─► orch      │
-//	                                                            └─► reg ──────┘
+//	iter ──► comp ──► chunk ──► colstore ──► arch ──┬─► addr ─┐
+//	                                                │         ├─► persist ───┐
+//	                                                │         └──┐           │
+//	                                                │            ├─► ent ────┤
+//	                                                │            ├─► query ──┼─► reg
+//	                                                │         ┌──┘           │
+//	                                                └─► bulk ─┼──────────────┘
+//	                                                          └─► orch
 //
 // [github.com/kjkrol/uid] is an external module used across the stack for
 // 64-bit generational entity identifiers.

@@ -17,6 +17,8 @@ type ECS struct {
 	scheduler orch.Scheduler
 	sysInit   SysInit
 	setupDone bool
+	paused    bool
+	saving    bool
 }
 
 // New creates a new ECS instance. Use ECSOption functions to tune memory
@@ -36,7 +38,8 @@ func New(opts ...ECSOption) *ECS {
 }
 
 // RegComp registers the component type T with the ECS and returns its ID.
-// Call once at startup; subsequent calls for the same type return the cached ID.
+// Call once at startup; subsequent calls for the same type return the
+// cached ID. Panics if T isn't encodable — see [Comp] for the exact rule.
 func (ecs *ECS) RegComp[T any]() CompID {
 	compType := reflect.TypeFor[T]()
 	return ecs.registry.RegComp(compType)
@@ -85,14 +88,37 @@ func (ecs *ECS) SetPlan(plan Plan) {
 }
 
 // Tick advances the simulation by one step with the given delta time.
+// Panics if the ECS is paused (see [ECS.Pause]) — call [ECS.Resume] first.
 func (ecs *ECS) Tick(duration time.Duration) {
+	if ecs.paused {
+		panic("goke: Tick called while the ECS is paused — call Resume() first")
+	}
 	ecs.scheduler.Tick(duration)
 }
 
+// Pause stops Tick from running — a subsequent call panics until Resume.
+// General-purpose (a host can use it as an ordinary game pause), and also
+// the required precondition for Save: nothing may mutate the world while a
+// snapshot is being written. Idempotent — calling it while already paused
+// is a no-op.
+func (ecs *ECS) Pause() { ecs.paused = true }
+
+// Resume clears the paused state set by Pause, allowing Tick again.
+// Idempotent — calling it while not paused is a no-op.
+func (ecs *ECS) Resume() { ecs.paused = false }
+
+// Paused reports whether the ECS is currently paused.
+func (ecs *ECS) Paused() bool { return ecs.paused }
+
 // Reset clears all entities, components, and system state, returning the ECS
 // to its initial (post-New) condition. Registered component types are preserved.
+// Also clears the paused state. Panics if called while a Save is in progress.
 func (ecs *ECS) Reset() {
+	if ecs.saving {
+		panic("goke: Reset called while a Save is in progress")
+	}
 	ecs.scheduler.Reset()
 	ecs.registry.Reset()
 	ecs.setupDone = false
+	ecs.paused = false
 }
