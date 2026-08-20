@@ -1,6 +1,7 @@
 package reg
 
 import (
+	"io"
 	"reflect"
 	"unsafe"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/kjkrol/goke/v3/internal/bulk"
 	"github.com/kjkrol/goke/v3/internal/comp"
 	"github.com/kjkrol/goke/v3/internal/ent"
+	"github.com/kjkrol/goke/v3/internal/persist"
 	"github.com/kjkrol/goke/v3/internal/query"
 )
 
@@ -96,6 +98,17 @@ func (r *Registry) CreateValueEditor(opts ...comp.EditOpt) *ent.ValueEditor {
 		panic("goke: ValueEditor requires exactly one added component")
 	}
 	return ent.NewValueEditor(&r.EntityManager.AddressBook, &r.EntityManager.ArchCatalog, spec)
+}
+
+// Save writes a full snapshot of the world to w — see [persist.Save].
+func (r *Registry) Save(w io.Writer) error {
+	return persist.Save(w, &r.CompDefIndex, &r.EntityManager.AddressBook, &r.EntityManager.ArchCatalog)
+}
+
+// Load reads a snapshot written by Save, registering components via comps
+// — see [persist.Load].
+func (r *Registry) Load(rd io.Reader, comps []persist.CompRequest) error {
+	return persist.Load(rd, &r.CompDefIndex, &r.EntityManager.AddressBook, &r.EntityManager.ArchCatalog, comps)
 }
 
 func (r *Registry) Reset() {

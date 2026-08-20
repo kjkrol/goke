@@ -180,6 +180,19 @@ func TestDefIndex_ByID(t *testing.T) {
 	}
 }
 
+func TestDefIndex_Count(t *testing.T) {
+	c := newDefIndex()
+	if got := c.Count(); got != 0 {
+		t.Errorf("expected 0 on a fresh DefIndex, got %d", got)
+	}
+	c.Intern(reflect.TypeFor[position]())
+	c.Intern(reflect.TypeFor[velocity]())
+	c.Intern(reflect.TypeFor[position]()) // idempotent — must not double-count
+	if got := c.Count(); got != 2 {
+		t.Errorf("expected 2 after interning 2 distinct types, got %d", got)
+	}
+}
+
 func TestDefIndex_Reset(t *testing.T) {
 	c := newDefIndex()
 	posType := reflect.TypeFor[position]()

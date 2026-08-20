@@ -79,3 +79,8 @@ func (r *DefIndex) ByType(t reflect.Type) (Def, bool) {
 func (r *DefIndex) ByID(id ID) Def {
 	return r.idIndex[id]
 }
+
+// Count returns the number of registered component types.
+func (r *DefIndex) Count() int {
+	return len(r.typeIndex)
+}
