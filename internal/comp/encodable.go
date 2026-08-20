@@ -22,11 +22,13 @@ func implementsBinaryCodec(t reflect.Type) bool {
 
 // ValidateEncodable walks t recursively (including t itself) and returns an
 // error naming the first field that cannot be encoded. A field is encodable
-// if it is a bool, a numeric kind, a string, a struct, a fixed-size array,
-// or implements encoding.BinaryMarshaler and encoding.BinaryUnmarshaler
-// (checked first, at every level — such a type is treated as opaque and its
-// own fields are not inspected). Everything else — Ptr, UnsafePointer,
-// Slice, Map, Interface, Chan, Func — is rejected.
+// if it is a bool, a numeric kind (including complex64/complex128), a
+// string, a struct, a fixed-size array, or implements
+// encoding.BinaryMarshaler and encoding.BinaryUnmarshaler (checked first, at
+// every level — such a type is treated as opaque and its own fields are not
+// inspected). Everything else — Ptr, UnsafePointer, Uintptr, Slice, Map,
+// Interface, Chan, Func — is rejected; Uintptr is grouped with the pointer
+// kinds because it conventionally holds a raw address, not a portable value.
 func ValidateEncodable(t reflect.Type) error {
 	return validateEncodable(t, "")
 }
@@ -39,7 +41,7 @@ func validateEncodable(t reflect.Type, fieldPath string) error {
 	case reflect.String, reflect.Bool,
 		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
-		reflect.Float32, reflect.Float64:
+		reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128:
 		return nil
 	case reflect.Array:
 		return validateEncodable(t.Elem(), fieldPath+"[]")

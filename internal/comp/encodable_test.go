@@ -43,6 +43,7 @@ type hasInterface struct{ V any }
 type hasChan struct{ V chan int }
 type hasFunc struct{ V func() }
 type hasUnsafePointer struct{ V unsafe.Pointer }
+type hasUintptr struct{ V uintptr }
 type nestedBad struct{ Inner hasPtr }
 
 func TestValidateEncodable_Accepts(t *testing.T) {
@@ -51,6 +52,8 @@ func TestValidateEncodable_Accepts(t *testing.T) {
 		reflect.TypeFor[int](),
 		reflect.TypeFor[uint8](),
 		reflect.TypeFor[float64](),
+		reflect.TypeFor[complex64](),
+		reflect.TypeFor[complex128](),
 		reflect.TypeFor[string](),
 		reflect.TypeFor[position](),
 		reflect.TypeFor[[4]float32](),
@@ -75,11 +78,75 @@ func TestValidateEncodable_Rejects(t *testing.T) {
 		reflect.TypeFor[hasChan](),
 		reflect.TypeFor[hasFunc](),
 		reflect.TypeFor[hasUnsafePointer](),
+		reflect.TypeFor[hasUintptr](),
 		reflect.TypeFor[nestedBad](),
 	}
 	for _, ty := range types {
 		if err := comp.ValidateEncodable(ty); err == nil {
 			t.Errorf("expected %s to be rejected as not encodable", ty)
+		}
+	}
+}
+
+// TestValidateEncodable_AllKinds enumerates every reflect.Kind Go defines
+// and asserts the expected accept/reject outcome explicitly — so a kind
+// added to Go in the future, or one silently missed in the switch, shows up
+// here as a failure instead of an unnoticed gap.
+func TestValidateEncodable_AllKinds(t *testing.T) {
+	type kindCase struct {
+		kind    reflect.Kind
+		sample  reflect.Type
+		encodes bool
+	}
+	cases := []kindCase{
+		{reflect.Bool, reflect.TypeFor[bool](), true},
+		{reflect.Int, reflect.TypeFor[int](), true},
+		{reflect.Int8, reflect.TypeFor[int8](), true},
+		{reflect.Int16, reflect.TypeFor[int16](), true},
+		{reflect.Int32, reflect.TypeFor[int32](), true},
+		{reflect.Int64, reflect.TypeFor[int64](), true},
+		{reflect.Uint, reflect.TypeFor[uint](), true},
+		{reflect.Uint8, reflect.TypeFor[uint8](), true},
+		{reflect.Uint16, reflect.TypeFor[uint16](), true},
+		{reflect.Uint32, reflect.TypeFor[uint32](), true},
+		{reflect.Uint64, reflect.TypeFor[uint64](), true},
+		{reflect.Uintptr, reflect.TypeFor[uintptr](), false},
+		{reflect.Float32, reflect.TypeFor[float32](), true},
+		{reflect.Float64, reflect.TypeFor[float64](), true},
+		{reflect.Complex64, reflect.TypeFor[complex64](), true},
+		{reflect.Complex128, reflect.TypeFor[complex128](), true},
+		{reflect.Array, reflect.TypeFor[[2]int](), true},
+		{reflect.Chan, reflect.TypeFor[chan int](), false},
+		{reflect.Func, reflect.TypeFor[func()](), false},
+		{reflect.Interface, reflect.TypeFor[any](), false},
+		{reflect.Map, reflect.TypeFor[map[string]int](), false},
+		{reflect.Pointer, reflect.TypeFor[*int](), false},
+		{reflect.Slice, reflect.TypeFor[[]int](), false},
+		{reflect.String, reflect.TypeFor[string](), true},
+		{reflect.Struct, reflect.TypeFor[struct{ X int }](), true},
+		{reflect.UnsafePointer, reflect.TypeFor[unsafe.Pointer](), false},
+	}
+
+	seen := make(map[reflect.Kind]bool, len(cases))
+	for _, c := range cases {
+		seen[c.kind] = true
+		if c.sample.Kind() != c.kind {
+			t.Fatalf("test bug: sample for %s has kind %s", c.kind, c.sample.Kind())
+		}
+		err := comp.ValidateEncodable(c.sample)
+		if c.encodes && err != nil {
+			t.Errorf("%s: expected encodable, got error: %v", c.kind, err)
+		}
+		if !c.encodes && err == nil {
+			t.Errorf("%s: expected rejection, got none", c.kind)
+		}
+	}
+
+	// Kind is a small closed enum (0..UnsafePointer); confirm every value
+	// in that range is covered above, Invalid aside.
+	for k := reflect.Bool; k <= reflect.UnsafePointer; k++ {
+		if !seen[k] {
+			t.Errorf("reflect.Kind %s is not covered by this test", k)
 		}
 	}
 }
