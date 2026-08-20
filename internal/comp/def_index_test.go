@@ -119,16 +119,25 @@ func TestDefIndex_MetadataConsistency(t *testing.T) {
 		}
 	})
 
-	t.Run("Pointers vs Values", func(t *testing.T) {
-		valType := reflect.TypeFor[position]()
-		ptrType := reflect.TypeOf(&position{})
+	t.Run("Distinct declared types", func(t *testing.T) {
+		posType := reflect.TypeFor[position]()
+		velType := reflect.TypeFor[velocity]()
 
-		infoVal := c.Intern(valType)
-		infoPtr := c.Intern(ptrType)
+		infoPos := c.Intern(posType)
+		infoVel := c.Intern(velType)
 
-		if infoVal.ID == infoPtr.ID {
-			t.Error("value and pointer types must have distinct component IDs")
+		if infoPos.ID == infoVel.ID {
+			t.Error("distinct declared types must have distinct component IDs")
 		}
+	})
+
+	t.Run("Pointer type is rejected", func(t *testing.T) {
+		defer func() {
+			if recover() == nil {
+				t.Error("expected Intern to panic on a pointer component type")
+			}
+		}()
+		c.Intern(reflect.TypeOf(&position{}))
 	})
 }
 
