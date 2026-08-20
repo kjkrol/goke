@@ -108,7 +108,7 @@ func registerComponents(headers []compHeader, comps []CompRequest) error {
 	byName := make(map[string]CompRequest, len(comps))
 	for _, c := range comps {
 		if _, dup := byName[c.Name]; dup {
-			panic(fmt.Sprintf("persist: RegisterFor provided more than once for %q", c.Name))
+			panic(fmt.Sprintf("persist: LoadComp provided more than once for %q", c.Name))
 		}
 		byName[c.Name] = c
 	}
@@ -117,7 +117,7 @@ func registerComponents(headers []compHeader, comps []CompRequest) error {
 	for _, h := range headers {
 		req, ok := byName[h.Name]
 		if !ok {
-			return fmt.Errorf("persist: save file needs component %q, but no matching RegisterFor was provided", h.Name)
+			return fmt.Errorf("persist: save file needs component %q, but no matching LoadComp was provided", h.Name)
 		}
 		size := h.Size
 		if err := req.Register(&size); err != nil {

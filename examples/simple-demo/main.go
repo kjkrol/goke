@@ -10,7 +10,7 @@ import (
 
 type (
 	Order struct {
-		ID    string
+		ID    int
 		Total float64
 	}
 	Discount  struct{ Percentage float64 }
@@ -41,7 +41,7 @@ func main() {
 			factory.Next()
 			entityID = factory.IDs[0]
 			fc := &factory.Cursor
-			order.Slice(fc)[0] = Order{ID: "ORD-99", Total: 100.0}
+			order.Slice(fc)[0] = Order{ID: 99, Total: 100.0}
 			discount.Slice(fc)[0] = Discount{Percentage: 20.0}
 		},
 	}

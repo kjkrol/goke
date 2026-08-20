@@ -204,7 +204,7 @@ func TestSaveLoad_RoundTrip_MultipleArchetypes(t *testing.T) {
 	}
 }
 
-func TestSaveLoad_RegisterForOrderIsIndependent(t *testing.T) {
+func TestSaveLoad_LoadCompOrderIsIndependent(t *testing.T) {
 	var di comp.DefIndex
 	di.Init()
 	m := newTestManager()
@@ -230,7 +230,7 @@ func TestSaveLoad_RegisterForOrderIsIndependent(t *testing.T) {
 	// Deliberately reversed relative to registration order at Save time.
 	comps := []persist.CompRequest{req[Velocity](&di2), req[Position](&di2)}
 	if err := persist.Load(&buf, &di2, &m2.AddressBook, &m2.ArchCatalog, comps); err != nil {
-		t.Fatalf("Load with reordered RegisterFor: %v", err)
+		t.Fatalf("Load with reordered LoadComp: %v", err)
 	}
 
 	posID2, _ := di2.ByType(reflect.TypeFor[Position]())
@@ -240,7 +240,7 @@ func TestSaveLoad_RegisterForOrderIsIndependent(t *testing.T) {
 	}
 }
 
-func TestSaveLoad_MissingRegisterFor_ReturnsError(t *testing.T) {
+func TestSaveLoad_MissingLoadComp_ReturnsError(t *testing.T) {
 	var di comp.DefIndex
 	di.Init()
 	m := newTestManager()
@@ -255,11 +255,11 @@ func TestSaveLoad_MissingRegisterFor_ReturnsError(t *testing.T) {
 	m2 := newTestManager()
 	err := persist.Load(&buf, &di2, &m2.AddressBook, &m2.ArchCatalog, nil)
 	if err == nil {
-		t.Fatal("expected an error when no RegisterFor is provided for a required component")
+		t.Fatal("expected an error when no LoadComp is provided for a required component")
 	}
 }
 
-func TestSaveLoad_DuplicateRegisterFor_Panics(t *testing.T) {
+func TestSaveLoad_DuplicateLoadComp_Panics(t *testing.T) {
 	var di comp.DefIndex
 	di.Init()
 	m := newTestManager()
@@ -270,7 +270,7 @@ func TestSaveLoad_DuplicateRegisterFor_Panics(t *testing.T) {
 
 	defer func() {
 		if recover() == nil {
-			t.Error("expected Load to panic on a duplicate RegisterFor")
+			t.Error("expected Load to panic on a duplicate LoadComp")
 		}
 	}()
 	var di2 comp.DefIndex
@@ -280,7 +280,7 @@ func TestSaveLoad_DuplicateRegisterFor_Panics(t *testing.T) {
 	_ = persist.Load(&buf, &di2, &m2.AddressBook, &m2.ArchCatalog, []persist.CompRequest{dup, dup})
 }
 
-func TestSaveLoad_ExtraRegisterFor_RegistersWithoutError(t *testing.T) {
+func TestSaveLoad_ExtraLoadComp_RegistersWithoutError(t *testing.T) {
 	var di comp.DefIndex
 	di.Init()
 	m := newTestManager()
@@ -294,7 +294,7 @@ func TestSaveLoad_ExtraRegisterFor_RegistersWithoutError(t *testing.T) {
 	m2 := newTestManager()
 	// Position never appears in this (empty) save — a "new module" type.
 	if err := persist.Load(&buf, &di2, &m2.AddressBook, &m2.ArchCatalog, []persist.CompRequest{req[Position](&di2)}); err != nil {
-		t.Fatalf("Load with an unmatched RegisterFor: %v", err)
+		t.Fatalf("Load with an unmatched LoadComp: %v", err)
 	}
 	if _, ok := di2.ByType(reflect.TypeFor[Position]()); !ok {
 		t.Error("expected the unmatched component to still be registered")

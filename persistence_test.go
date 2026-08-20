@@ -39,7 +39,7 @@ func TestSaveLoad_RoundTrip(t *testing.T) {
 	}
 
 	ecs2 := goke.New()
-	if err := ecs2.Load(path, goke.RegisterFor[Position](), goke.RegisterFor[Velocity]()); err != nil {
+	if err := ecs2.Load(path, goke.LoadComp[Position](), goke.LoadComp[Velocity]()); err != nil {
 		t.Fatalf("Load: %v", err)
 	}
 
@@ -80,16 +80,16 @@ func (m *kinematicsModule) Init(si *goke.SysInit) {
 
 func (m *kinematicsModule) Update(cb *goke.CmdBuf, d time.Duration) {}
 
-func (m *kinematicsModule) LoaderComps() []goke.LoaderComp {
-	return []goke.LoaderComp{goke.RegisterFor[Position](), goke.RegisterFor[Velocity]()}
+func (m *kinematicsModule) LoadComps() []goke.CompToken {
+	return []goke.CompToken{goke.LoadComp[Position](), goke.LoadComp[Velocity]()}
 }
 
 var (
-	_ goke.System            = (*kinematicsModule)(nil)
-	_ goke.ComponentProvider = (*kinematicsModule)(nil)
+	_ goke.System       = (*kinematicsModule)(nil)
+	_ goke.CompProvider = (*kinematicsModule)(nil)
 )
 
-func TestSaveLoad_RoundTrip_WithComponentProvider(t *testing.T) {
+func TestSaveLoad_RoundTrip_WithCompProvider(t *testing.T) {
 	ecs := goke.New()
 	module := &kinematicsModule{}
 	ecs.RegSys(module)
@@ -116,7 +116,7 @@ func TestSaveLoad_RoundTrip_WithComponentProvider(t *testing.T) {
 	ecs2 := goke.New()
 	module2 := &kinematicsModule{}
 	// The caller only knows about its own module — not Position/Velocity by
-	// name — yet Load still works via ComponentProvider/ProvidedComps.
+	// name — yet Load still works via CompProvider/ProvidedComps.
 	if err := ecs2.Load(path, goke.ProvidedComps(module2)...); err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -187,7 +187,7 @@ func TestECS_Load_PanicsIfNotFresh(t *testing.T) {
 			t.Error("expected Load to panic when called after other registration")
 		}
 	}()
-	_ = ecs.Load(filepath.Join(t.TempDir(), "save.bin"), goke.RegisterFor[Position]())
+	_ = ecs.Load(filepath.Join(t.TempDir(), "save.bin"), goke.LoadComp[Position]())
 }
 
 type hasRawPointer struct{ V *int }

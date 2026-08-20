@@ -8,10 +8,10 @@ import (
 	"github.com/kjkrol/goke/v3/internal/persist"
 )
 
-// LoaderComp is a component-type token for Load, produced by
-// RegisterFor[T](). Load matches tokens against the save file's component
-// directory by name, not by position — pass them to Load in any order.
-type LoaderComp struct {
+// CompToken is a component-type token for Load, produced by LoadComp[T]().
+// Load matches tokens against the save file's component directory by name,
+// not by position — pass them to Load in any order.
+type CompToken struct {
 	// Name is the real Go type's name (reflect.Type.String()), used to
 	// match this token against a save file's component directory entry.
 	Name string
@@ -23,11 +23,11 @@ type LoaderComp struct {
 	Register func(ecs *ECS, wantSize *uint32) error
 }
 
-// RegisterFor declares that a Load call may need to register component type
+// LoadComp declares that a Load call may need to register component type
 // T — see [ECS.Load]. The order tokens are passed to Load does not matter.
-func RegisterFor[T any]() LoaderComp {
+func LoadComp[T any]() CompToken {
 	t := reflect.TypeFor[T]()
-	return LoaderComp{
+	return CompToken{
 		Name: t.String(),
 		Register: func(ecs *ECS, wantSize *uint32) error {
 			if wantSize != nil && uint32(t.Size()) != *wantSize {
@@ -39,24 +39,24 @@ func RegisterFor[T any]() LoaderComp {
 	}
 }
 
-// ComponentProvider is implemented by systems or modules that register
-// their own components, exposing them for callers assembling an ECS.Load
-// call without needing to know a module's internal component types by
-// name. Optional — not part of the System interface, so a system with no
+// CompProvider is implemented by systems or modules that register their
+// own components, exposing them for callers assembling an ECS.Load call
+// without needing to know a module's internal component types by name.
+// Optional — not part of the System interface, so a system with no
 // components of its own implements nothing extra. See [ProvidedComps].
-type ComponentProvider interface {
-	LoaderComps() []LoaderComp
+type CompProvider interface {
+	LoadComps() []CompToken
 }
 
-// ProvidedComps collects LoaderComps from every value that implements
-// ComponentProvider, in order — values that don't implement it are
-// skipped. Convenience for assembling an ECS.Load call from a mix of
-// systems, e.g. ProvidedComps(movementSystem, collisionSystem).
-func ProvidedComps(values ...any) []LoaderComp {
-	var out []LoaderComp
+// ProvidedComps collects LoadComps from every value that implements
+// CompProvider, in order — values that don't implement it are skipped.
+// Convenience for assembling an ECS.Load call from a mix of systems, e.g.
+// ProvidedComps(movementSystem, collisionSystem).
+func ProvidedComps(values ...any) []CompToken {
+	var out []CompToken
 	for _, v := range values {
-		if p, ok := v.(ComponentProvider); ok {
-			out = append(out, p.LoaderComps()...)
+		if p, ok := v.(CompProvider); ok {
+			out = append(out, p.LoadComps()...)
 		}
 	}
 	return out
@@ -86,9 +86,8 @@ func (ecs *ECS) Save(path string) error {
 // archetypes, and entities — with their original IDs — into ecs. Must be
 // called before Setup and before any other component registration (panics
 // otherwise) — Load registers components itself, in the file's recorded
-// order, matching the given comps by name (see [RegisterFor],
-// [ComponentProvider]).
-func (ecs *ECS) Load(path string, comps ...LoaderComp) error {
+// order, matching the given comps by name (see [LoadComp], [CompProvider]).
+func (ecs *ECS) Load(path string, comps ...CompToken) error {
 	if ecs.registry.CompDefIndex.Count() > 0 {
 		panic("goke: Load called after other components were already registered — Load must run first, before Setup and before any RegComp call")
 	}

@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-08-20
+
+### Added ✨
+* **`ECS.Pause()`/`Resume()`/`Paused()`** — a stop-the-world toggle for the scheduler. `Tick` panics while paused; `Pause`/`Resume` are idempotent.
+* **`ECS.Save(path)`/`Load(path, comps...)`** — round-trip the entire world (component definitions, archetype layout, entity data, and the entity ID pool itself) to a gzip-wrapped file, preserving exact `uid.UID64` values across the trip. `Save` requires the ECS to be paused first.
+* **`LoadComp[T]()`/`CompProvider`/`ProvidedComps(...)`** — `Load` matches components against the file by type name, not by registration order, so callers don't need to know a dependency's internal `RegComp` order. `CompProvider` lets a system publish its own components' load tokens (`LoadComps() []CompToken`) so a composing program doesn't need to name them directly either.
+* **`Module`/`ECS.RegModule(m)`** — bundles a set of related systems and the components they own behind one value. `RegModule` registers all of a module's systems in one call; `Module.RunPlan(ctx, d)` replays them, from inside your own `SetPlan` closure, in the order and with the `Sync` points the module requires — so composing code doesn't need to know a module's internal system ordering.
+
+### Changed
+* **`RegComp[T]()` now validates that `T` is encodable at registration time.** A component (recursively, including its fields) must be a bool, numeric kind, string, struct, fixed-size array, or a type implementing both `encoding.BinaryMarshaler` and `encoding.BinaryUnmarshaler` — otherwise `RegComp` panics immediately. This is a general property of the storage model (components with pointers/slices/maps/interfaces/chans/funcs already paid an off-chunk indirection cost during iteration), now enforced up front rather than silently allowed. `RegComp` also logs a one-time warning per type for fields that resolve through `string` or `BinaryMarshaler`, since accessing them means a jump outside the contiguous column chunk.
+* **`examples/simple-demo`**: `Order.ID` changed from `string` to `int` — the simplest example in the repo no longer demonstrates the now-documented off-chunk field cost as a default practice.
+
 ## [3.0.0] - 2026-08-17
 
 ### Breaking Changes ⚠️

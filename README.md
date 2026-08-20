@@ -93,6 +93,8 @@ go get github.com/kjkrol/goke/v3
 | **Built-in scheduler** | Declarative `Plan` wires systems into an execution graph — a full ECS runtime, not just a component store |
 | **Command Buffer** | Structural changes during iteration are queued and flushed at explicit `Sync()` points — enables safe `RunParallel` |
 | **Bulk archetype migration** | `Editor` applies add/remove component specs to whole chunks at `Sync()` — block memory copies and deferred compaction instead of per-entity moves |
+| **World persistence** | `Pause`/`Save`/`Load` round-trip the entire world — including exact entity IDs — to a file; `Load` matches components by name via `CompProvider`, not registration order |
+| **Module composition** | `Module`/`ECS.RegModule` bundle a package's systems and components behind one value — `RunPlan` replays the module's own required run/`Sync` order inside your `SetPlan` |
 
 > 💡 **See the Performance & Scalability section below for benchmark results validated from 2¹⁰ to 2²⁰ entities.**
 
@@ -274,6 +276,7 @@ GOKe is an archetype-based ECS built around data-oriented design principles. The
 | [`internal/bulk`](internal/bulk/doc.go) | Bulk-operation contract — `ChunkSnapshot` (point-in-time chunk address, guarded by the source table's structural version) and the `Migrator`/`ValueMigrator` interfaces; the shared vocabulary of chunk-level batch commands |
 | [`internal/ent`](internal/ent/doc.go) | Entity lifecycle — delegates ID allocation and address tracking to `addr.Book`, manages batch entity creation via `Factory`, and bulk archetype migration via `Editor` (add/remove component spec), `Remover` (bulk unlink), and `ValueEditor` (add one component and write a caller-supplied per-entity value into it) |
 | [`internal/query`](internal/query/doc.go) | Query layer: `Matcher` bakes component masks into precomputed per-archetype offsets, enabling zero-allocation bulk iteration (`All`), per-entity subset iteration (`Pick`), and O(1) single-entity access (`Seek`) |
+| [`internal/persist`](internal/persist/doc.go) | World snapshot encoding — `Save`/`Load` a gzip-wrapped file format covering component definitions, archetype layout, entity data, and the entity ID pool state |
 | [`internal/orch`](internal/orch/doc.go) | Plan-based task orchestrator: sequential/parallel execution, deferred mutations via command buffers |
 | [`internal/reg`](internal/reg/doc.go) | Top-level world registry — wires together all subsystems and exposes the unified API for entity and component management |
 | [`goke`](doc.go) (public) | The package you import. `ECS` wires `reg.Registry` + `orch.Scheduler`; `Comp[T]` gives typed access to a component. Construction is gated through systems: `SysInit` (available in a `System`'s `Init`, or via `ecs.Setup` for one-off world seeding) is the only way to get a `Query` or `Factory`; `Editor`/`ValueEditor` are then built from that `Query`. `System`/`SystemFn`/`CmdBuf` round out the scheduling API |
@@ -298,6 +301,7 @@ GOKe is optimized for large-scale, data-oriented workloads. It may not be the be
 
 # Limitations
 
+* **`string` (and other pointer-bearing) component fields are not GC-safe yet.** Chunk memory is allocated as a raw, pointer-free (`noscan`) byte buffer for performance; a `string` or `encoding.BinaryMarshaler`-backed value written into it hides that value's backing allocation from the garbage collector, which can reclaim it independently of the component's lifetime, corrupting the field. This is a known, open issue — until it's fixed, prefer fixed-size, pointer-free component fields (the pattern the whole [`examples/`](./examples) tree follows).
 * **Maximum component types: 128 by default.** The archetype system uses a fixed-size bitmask (`[2]uint64`) for fast component membership checks. Projects requiring more component types can increase this limit by modifying `MaskSize` in `internal/comp` (e.g. `MaskSize = 4` gives 256 component types) and recompiling GOKe — `MaxComponents` is derived automatically as `64 * MaskSize`. This is a compile-time configuration, not a runtime setting.
 
 # License

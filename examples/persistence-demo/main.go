@@ -21,13 +21,13 @@ type movementModule struct {
 
 func (m *movementModule) Init(si *goke.SysInit)                   { si.ECS().RegComp[Position]() }
 func (m *movementModule) Update(cb *goke.CmdBuf, d time.Duration) {}
-func (m *movementModule) LoaderComps() []goke.LoaderComp {
-	return []goke.LoaderComp{goke.RegisterFor[Position]()}
+func (m *movementModule) LoadComps() []goke.CompToken {
+	return []goke.CompToken{goke.LoadComp[Position]()}
 }
 
 var (
-	_ goke.System            = (*movementModule)(nil)
-	_ goke.ComponentProvider = (*movementModule)(nil)
+	_ goke.System       = (*movementModule)(nil)
+	_ goke.CompProvider = (*movementModule)(nil)
 )
 
 func main() {
@@ -85,7 +85,7 @@ func loadWorld(path string) {
 	// Position from the module without naming it; Score is named directly,
 	// since it belongs to this program, not a module. Argument order
 	// doesn't matter — Load matches each token by name, not by position.
-	comps := append(goke.ProvidedComps(module), goke.RegisterFor[Score]())
+	comps := append(goke.ProvidedComps(module), goke.LoadComp[Score]())
 	if err := ecs.Load(path, comps...); err != nil {
 		panic(err)
 	}
