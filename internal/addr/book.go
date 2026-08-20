@@ -56,3 +56,30 @@ func (b *Book) Delete(id uid.UID64) {
 	b.Index.Clear(id)
 	b.pool.Release(id)
 }
+
+// PoolState returns a snapshot of the ID pool's bookkeeping — see
+// [uid.UID64Pool.State].
+func (b *Book) PoolState() (nextIndex uint32, generations []uint32, freeIndices []uint32) {
+	return b.pool.State()
+}
+
+// RestorePoolState replaces the ID pool's bookkeeping with a previously
+// captured snapshot — see [uid.UID64Pool.Restore]. Call once, before any
+// [Book.RestoreKnown] call, since RestoreKnown validates against this state.
+func (b *Book) RestorePoolState(nextIndex uint32, generations []uint32, freeIndices []uint32) {
+	b.pool.Restore(nextIndex, generations, freeIndices)
+}
+
+// RestoreKnown registers a previously-issued id at (archID, ptr, slot),
+// bypassing pool allocation — id must already be recognized as allocated by
+// the pool (via a prior RestorePoolState). Returns false if it isn't,
+// signalling a corrupt or mismatched snapshot; the caller decides how to
+// treat that.
+func (b *Book) RestoreKnown(id uid.UID64, archID arch.ID, ptr unsafe.Pointer, slot colstore.Slot) bool {
+	if !b.pool.IsValid(id) {
+		return false
+	}
+	b.Index.EnsureCap(b.pool.PeekNextIndex())
+	b.Index.UpsertUnchecked(id, archID, ptr, slot)
+	return true
+}
