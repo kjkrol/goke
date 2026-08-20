@@ -70,7 +70,7 @@ integration costs can outweigh the gains of a faster foreign implementation.
 <a id="installation"></a>
 # 📦 Installation
 
-GOKe requires **Go 1.26** or newer.
+GOKe requires **Go 1.27rc3** or newer.
 
 ```bash
 go get github.com/kjkrol/goke/v3
