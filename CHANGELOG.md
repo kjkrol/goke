@@ -5,15 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.2.0] - 2026-08-21
+## [3.1.0] - 2026-08-21
 
 ### Added ✨
+* **`ECS.Pause()`/`Resume()`/`Paused()`** — a stop-the-world toggle for the scheduler. `Tick` panics while paused; `Pause`/`Resume` are idempotent.
+* **`ECS.Save(path)`/`Load(path, comps...)`** — round-trip the entire world (component definitions, archetype layout, entity data, and the entity ID pool itself) to a gzip-wrapped file, preserving exact `uid.UID64` values across the trip. `Save` requires the ECS to be paused first.
+* **`LoadComp[T]()`/`CompProvider`/`ProvidedComps(...)`** — `Load` matches components against the file by type name, not by registration order, so callers don't need to know a dependency's internal `RegComp` order. `CompProvider` lets a system publish its own components' load tokens (`LoadComps() []CompToken`) so a composing program doesn't need to name them directly either.
+* **`Module`/`ECS.RegModule(m)`** — bundles a set of related systems and the components they own behind one value. `RegModule` registers all of a module's systems in one call; `Module.RunPlan(ctx, d)` replays them, from inside your own `SetPlan` closure, in the order and with the `Sync` points the module requires — so composing code doesn't need to know a module's internal system ordering.
 * **`examples/module-demo`** — two independent `Module`s (each owning its own components and systems, unaware of each other) composed together via `RegModule` + `Setup` + `SetPlan`.
 
 ### Changed
-* **`Module` now embeds `SetupProvider`** — every `Module` implementation must supply `SetupSystems()` (returning `nil` is fine) alongside `RegSystems`/`RunPlan`/`LoadComps`, instead of `SetupProvider` being an easy-to-forget, orthogonal interface. `SetupProvider` remains usable standalone for values with nothing to run every tick.
-* **`RegComp[T]()`'s encodability check now also rejects unexported struct fields.** Previously these passed registration silently but panicked deep inside `Save`/`Load`'s reflect-based encoder, which cannot read an unexported field regardless of its type — now caught immediately, at registration, with a clear message.
+* **`RegComp[T]()` now validates that `T` is encodable at registration time.** A component (recursively, including its fields) must be a bool, numeric kind, string, struct, fixed-size array, or a type implementing both `encoding.BinaryMarshaler` and `encoding.BinaryUnmarshaler` — otherwise `RegComp` panics immediately. This is a general property of the storage model (components with pointers/slices/maps/interfaces/chans/funcs already paid an off-chunk indirection cost during iteration), now enforced up front rather than silently allowed. `RegComp` also logs a one-time warning per type for fields that resolve through `string` or `BinaryMarshaler`, since accessing them means a jump outside the contiguous column chunk.
+* **`RegComp[T]()`'s encodability check also rejects unexported struct fields.** Previously these passed registration silently but panicked deep inside `Save`/`Load`'s reflect-based encoder, which cannot read an unexported field regardless of its type — now caught immediately, at registration, with a clear message.
 * **`RegComp[T]()` rejects a type whose `BinaryMarshaler`/`BinaryUnmarshaler` comes only from Go's method promotion of an embedded field, when the type also declares other fields of its own.** Go promotes an embedded type's methods to the outer type, so such a type was silently treated as fully covered by the embedded type's marshaler — dropping its own fields on every `Save`. A struct whose only field is the embedded type is unaffected (nothing else to lose).
+* **`Module` now embeds `SetupProvider`** — every `Module` implementation must supply `SetupSystems()` (returning `nil` is fine) alongside `RegSystems`/`RunPlan`/`LoadComps`, instead of `SetupProvider` being an easy-to-forget, orthogonal interface. `SetupProvider` remains usable standalone for values with nothing to run every tick.
+* **`examples/simple-demo`**: `Order.ID` changed from `string` to `int` — the simplest example in the repo no longer demonstrates the now-documented off-chunk field cost as a default practice.
 * **Requires Go 1.27.0** (stable), up from the `1.27rc3` pre-release pin.
 
 ### Fixed 🐛
@@ -24,18 +30,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * `examples/persistence-demo` simplified to a plain `Save`/`Load` round-trip with directly registered components — the module-composition pattern it used to demonstrate (`CompProvider`/`ProvidedComps`) now lives in `examples/module-demo` instead, so each example covers one feature.
 * Benchmarks are now tracked on an Intel i5-8265U instead of the original Apple M1 Max. `BENCHMARKS.md` and the README's Scalability Validation section were rebuilt around fresh, single-population (1,024 entities) numbers from that machine, replacing the old M1 Max figures outright rather than keeping both around. Also documented three benchmarked operations that existed in `bench/` but were never written up: `Query.SeekH`, `ValueEditor.Add`, and bulk `Remover.Remove`.
 * Fixed a noisy `Factory.Create`/`comp=1` benchmark number that was carrying a one-time cold-start allocation cost from a single-sample measurement (was 59.41 ns/ent, 108,212 B/op) — re-measured with `-benchtime=50000x -count=10`, discarding the one cold-start outlier run: 12.71 ns/ent, 16,497 B/op, consistent with the rest of the table.
-
-## [3.1.0] - 2026-08-20
-
-### Added ✨
-* **`ECS.Pause()`/`Resume()`/`Paused()`** — a stop-the-world toggle for the scheduler. `Tick` panics while paused; `Pause`/`Resume` are idempotent.
-* **`ECS.Save(path)`/`Load(path, comps...)`** — round-trip the entire world (component definitions, archetype layout, entity data, and the entity ID pool itself) to a gzip-wrapped file, preserving exact `uid.UID64` values across the trip. `Save` requires the ECS to be paused first.
-* **`LoadComp[T]()`/`CompProvider`/`ProvidedComps(...)`** — `Load` matches components against the file by type name, not by registration order, so callers don't need to know a dependency's internal `RegComp` order. `CompProvider` lets a system publish its own components' load tokens (`LoadComps() []CompToken`) so a composing program doesn't need to name them directly either.
-* **`Module`/`ECS.RegModule(m)`** — bundles a set of related systems and the components they own behind one value. `RegModule` registers all of a module's systems in one call; `Module.RunPlan(ctx, d)` replays them, from inside your own `SetPlan` closure, in the order and with the `Sync` points the module requires — so composing code doesn't need to know a module's internal system ordering.
-
-### Changed
-* **`RegComp[T]()` now validates that `T` is encodable at registration time.** A component (recursively, including its fields) must be a bool, numeric kind, string, struct, fixed-size array, or a type implementing both `encoding.BinaryMarshaler` and `encoding.BinaryUnmarshaler` — otherwise `RegComp` panics immediately. This is a general property of the storage model (components with pointers/slices/maps/interfaces/chans/funcs already paid an off-chunk indirection cost during iteration), now enforced up front rather than silently allowed. `RegComp` also logs a one-time warning per type for fields that resolve through `string` or `BinaryMarshaler`, since accessing them means a jump outside the contiguous column chunk.
-* **`examples/simple-demo`**: `Order.ID` changed from `string` to `int` — the simplest example in the repo no longer demonstrates the now-documented off-chunk field cost as a default practice.
 
 ## [3.0.0] - 2026-08-17
 
