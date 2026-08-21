@@ -62,6 +62,25 @@ type wrapsMarshaled struct {
 	marshaledType
 }
 
+// ownMethodMultiField declares MarshalBinary/UnmarshalBinary directly (not
+// via an embedded field) and has more than one field — safe, since Go
+// resolves a type's own method over any promoted one, so there's no
+// promotion hazard to detect here.
+type ownMethodMultiField struct {
+	Value int32
+	Tag   string
+}
+
+func (m ownMethodMultiField) MarshalBinary() ([]byte, error)     { return []byte{1}, nil }
+func (m *ownMethodMultiField) UnmarshalBinary(data []byte) error { return nil }
+
+// nestedHazard puts embedsMarshaled (itself a promotion hazard) behind a
+// named field, so ValidateEncodable's error message must report it with a
+// non-empty field path ("Inner"), not as the top-level type.
+type nestedHazard struct {
+	Inner embedsMarshaled
+}
+
 func TestValidateEncodable_Accepts(t *testing.T) {
 	types := []reflect.Type{
 		reflect.TypeFor[bool](),
@@ -78,6 +97,7 @@ func TestValidateEncodable_Accepts(t *testing.T) {
 		reflect.TypeFor[nestedPod](),
 		reflect.TypeFor[marshaledType](),
 		reflect.TypeFor[wrapsMarshaled](),
+		reflect.TypeFor[ownMethodMultiField](),
 	}
 	for _, ty := range types {
 		if err := comp.ValidateEncodable(ty); err != nil {
@@ -177,6 +197,22 @@ func TestValidateEncodable_NestedFieldPath(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "Inner.V") {
 		t.Errorf("expected error to name the nested field path Inner.V, got: %v", err)
+	}
+}
+
+func TestValidateEncodable_NestedPromotedHazard(t *testing.T) {
+	err := comp.ValidateEncodable(reflect.TypeFor[nestedHazard]())
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	if !strings.Contains(err.Error(), "field Inner") {
+		t.Errorf("expected error to name the nested field path Inner, got: %v", err)
+	}
+}
+
+func TestOffChunkFields_Nil(t *testing.T) {
+	if fields := comp.OffChunkFields(nil); fields != nil {
+		t.Errorf("expected nil for a nil type, got %v", fields)
 	}
 }
 
