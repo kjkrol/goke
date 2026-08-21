@@ -1,6 +1,7 @@
 package reg_test
 
 import (
+	"path/filepath"
 	"reflect"
 	"testing"
 	"unsafe"
@@ -293,5 +294,111 @@ func TestRegistry_Reset(t *testing.T) {
 	newID := r.RegComp(reflect.TypeFor[Position]())
 	if newID != 0 {
 		t.Errorf("expected first registration after Reset to get ID 0, got %d", newID)
+	}
+}
+
+func TestRegistry_Save_PanicsWithoutPause(t *testing.T) {
+	r := newRegistry(t)
+
+	defer func() {
+		if recover() == nil {
+			t.Error("expected Save to panic without a prior Pause()")
+		}
+	}()
+	_ = r.Save(filepath.Join(t.TempDir(), "save.bin"))
+}
+
+func TestRegistry_Save_ReturnsFileError(t *testing.T) {
+	r := newRegistry(t)
+	r.Pause()
+
+	err := r.Save(filepath.Join(t.TempDir(), "no-such-dir", "save.bin"))
+	if err == nil {
+		t.Error("expected an error when the target directory doesn't exist")
+	}
+}
+
+func TestRegistry_Load_ReturnsFileError(t *testing.T) {
+	r := newRegistry(t)
+
+	err := r.Load(filepath.Join(t.TempDir(), "does-not-exist.bin"), nil)
+	if err == nil {
+		t.Error("expected an error when the save file doesn't exist")
+	}
+}
+
+func TestRegistry_Load_PanicsIfNotFresh(t *testing.T) {
+	r := newRegistry(t)
+	r.RegComp(reflect.TypeFor[Position]())
+
+	defer func() {
+		if recover() == nil {
+			t.Error("expected Load to panic when called after other registration")
+		}
+	}()
+	_ = r.Load(filepath.Join(t.TempDir(), "save.bin"), []reg.CompToken{reg.LoadComp[Position]()})
+}
+
+func TestRegistry_SaveLoad_RoundTrip(t *testing.T) {
+	r := newRegistry(t)
+	r.RegComp(reflect.TypeFor[Position]())
+
+	var pos iter.ArrayRef[Position]
+	factory := r.CreateFactory(comp.Add(&pos))
+	factory.Create(1)
+	factory.Next()
+	pos.Slice(&factory.Cursor)[0] = Position{X: 1, Y: 2}
+
+	path := filepath.Join(t.TempDir(), "save.bin")
+
+	r.Pause()
+	if !r.Paused() {
+		t.Fatal("expected Paused() true after Pause")
+	}
+	if err := r.Save(path); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	r2 := newRegistry(t)
+	if err := r2.Load(path, []reg.CompToken{reg.LoadComp[Position]()}); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	var trackedPos iter.ArrayRef[Position]
+	matcher := r2.AddMatcher(comp.Track(&trackedPos))
+	matcher.All()
+	found := false
+	for matcher.Next() {
+		positions := trackedPos.Slice(&matcher.Cursor)
+		for i := range positions {
+			found = true
+			if positions[i] != (Position{X: 1, Y: 2}) {
+				t.Errorf("Position = %+v, want {1 2}", positions[i])
+			}
+		}
+	}
+	if !found {
+		t.Fatal("expected the loaded entity to be found")
+	}
+}
+
+func TestRegistry_PauseResume_Idempotent(t *testing.T) {
+	r := newRegistry(t)
+
+	r.Resume() // no-op when not paused
+	if r.Paused() {
+		t.Fatal("expected Paused() false initially")
+	}
+
+	r.Pause()
+	r.Pause() // idempotent
+	if !r.Paused() {
+		t.Fatal("expected Paused() true after Pause")
+	}
+
+	r.Resume()
+	r.Resume() // idempotent
+	if r.Paused() {
+		t.Fatal("expected Paused() false after Resume")
 	}
 }

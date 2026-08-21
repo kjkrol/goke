@@ -98,7 +98,12 @@ func (g *Pack) AddChunks(n int) {
 		return
 	}
 
-	bigBlock := make([]byte, uintptr(n)*g.Layout.ChunkBytes)
+	var bigBlock []byte
+	if g.Layout.NeedsScan {
+		bigBlock = ScannableBytes(uintptr(n) * g.Layout.ChunkBytes)
+	} else {
+		bigBlock = make([]byte, uintptr(n)*g.Layout.ChunkBytes)
+	}
 	g.chunks = append(g.chunks, make([]chunk, n)...)
 	for i := range n {
 		offset := uintptr(i) * g.Layout.ChunkBytes

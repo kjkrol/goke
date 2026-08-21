@@ -21,6 +21,16 @@
 //   - [Include][T] — adds T as a filter-only requirement (no data column)
 //   - [Exclude][T] — adds T as an exclusion constraint
 //
+// # Encoding constraints
+//
+// [DefIndex.Intern] rejects (panics) a type that cannot be encoded:
+// recursively, through structs and fixed-size arrays, every field must be a
+// bool, a numeric kind, a string, or a type implementing
+// encoding.BinaryMarshaler and encoding.BinaryUnmarshaler — checked first,
+// at every level, before a type's own fields are inspected. Ptr,
+// UnsafePointer, Slice, Map, Interface, Chan, and Func are rejected unless
+// covered by that escape hatch. See [ValidateEncodable] and
+// [OffChunkFields].
 // # Constants
 //
 //	MaskSize      = 2    // number of uint64 words in Mask

@@ -1,10 +1,15 @@
 package chunk
 
 import (
+	"reflect"
 	"testing"
+	"unsafe"
 
 	"github.com/kjkrol/goke/v3/internal/comp"
 )
+
+type layoutTestPOD struct{ X, Y float32 }
+type layoutTestOffChunk struct{ Name string }
 
 func TestLayout_Init_FitsWithinL1(t *testing.T) {
 	var l Layout
@@ -35,5 +40,28 @@ func TestLayout_Init_HugeComponentForcesCapacityOne(t *testing.T) {
 
 	if l.ChunkCap != 1 {
 		t.Errorf("expected ChunkCap 1 for an oversized component, got %d", l.ChunkCap)
+	}
+}
+
+func TestLayout_Init_NeedsScan(t *testing.T) {
+	var podLayout Layout
+	podLayout.Init([]comp.Def{
+		{ID: 1, Size: 8, Align: 4, Type: reflect.TypeFor[layoutTestPOD]()},
+	})
+	if podLayout.NeedsScan {
+		t.Error("expected NeedsScan false for a pure-POD archetype")
+	}
+
+	var scanLayout Layout
+	scanLayout.Init([]comp.Def{
+		{ID: 1, Size: 8, Align: 4, Type: reflect.TypeFor[layoutTestPOD]()},
+		{ID: 2, Size: unsafe.Sizeof(layoutTestOffChunk{}), Align: 8, Type: reflect.TypeFor[layoutTestOffChunk]()},
+	})
+	if !scanLayout.NeedsScan {
+		t.Error("expected NeedsScan true for an archetype containing an off-chunk field")
+	}
+	wordSize := unsafe.Sizeof(unsafe.Pointer(nil))
+	if scanLayout.ChunkBytes%wordSize != 0 {
+		t.Errorf("expected ChunkBytes (%d) rounded up to a multiple of %d", scanLayout.ChunkBytes, wordSize)
 	}
 }

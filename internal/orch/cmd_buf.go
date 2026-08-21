@@ -4,6 +4,7 @@ import (
 	"unsafe"
 
 	"github.com/kjkrol/goke/v3/internal/bulk"
+	"github.com/kjkrol/goke/v3/internal/chunk"
 	"github.com/kjkrol/goke/v3/internal/comp"
 	"github.com/kjkrol/uid"
 )
@@ -86,7 +87,7 @@ func (cb *CmdBuf) Clear() {
 func NewCmdBuf() *CmdBuf {
 	return &CmdBuf{
 		cmds:  make([]bufferedCmd, 0, 128),
-		pages: [][]byte{make([]byte, allocBlockSize)},
+		pages: [][]byte{chunk.ScannableBytes(allocBlockSize)},
 	}
 }
 
@@ -239,9 +240,9 @@ func (cb *CmdBuf) reserveSpace(size int, align int) unsafe.Pointer {
 
 		if cb.pageIdx >= len(cb.pages) {
 			blockSize := max(size, allocBlockSize)
-			cb.pages = append(cb.pages, make([]byte, blockSize))
+			cb.pages = append(cb.pages, chunk.ScannableBytes(uintptr(blockSize)))
 		} else if len(cb.pages[cb.pageIdx]) < size {
-			cb.pages[cb.pageIdx] = make([]byte, size)
+			cb.pages[cb.pageIdx] = chunk.ScannableBytes(uintptr(size))
 		}
 	}
 

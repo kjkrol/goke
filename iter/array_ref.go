@@ -3,6 +3,12 @@ package iter
 import "unsafe"
 
 // ArrayRef locates the array for component type T within a Cursor's data.
+//
+// cur.Base points into a chunk (see internal/chunk); when T has a field a
+// GC pointer could hide in (a string, a BinaryMarshaler-backed value), that
+// chunk was allocated as GC-scanned memory rather than a raw noscan []byte,
+// so the pointer stays reachable across GC cycles regardless of how it's
+// reinterpreted here.
 type ArrayRef[T any] struct {
 	Idx int
 }

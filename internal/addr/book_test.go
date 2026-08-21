@@ -146,3 +146,82 @@ func TestBook_MoveUnchecked(t *testing.T) {
 		}
 	}
 }
+
+// TestBook_PoolStateRestore_RoundTrip confirms a fresh Book, restored from a
+// source Book's PoolState, allocates the same future ids as the source —
+// the invariant RestoreKnown/Load depend on.
+func TestBook_PoolStateRestore_RoundTrip(t *testing.T) {
+	var source Book
+	source.Init(8, 8)
+
+	dst := make([]uid.UID64, 3)
+	source.Seed(dst, arch.ID(1), fakePtr(0), colstore.Slot(0))
+	source.Delete(dst[1]) // bumps a generation, adds to the free list
+
+	nextIndex, generations, freeIndices := source.PoolState()
+
+	var restored Book
+	restored.RestorePoolState(nextIndex, generations, freeIndices)
+
+	sourceNext := make([]uid.UID64, 2)
+	source.Seed(sourceNext, arch.ID(2), fakePtr(1), colstore.Slot(0))
+	restoredNext := make([]uid.UID64, 2)
+	restored.Seed(restoredNext, arch.ID(2), fakePtr(1), colstore.Slot(0))
+
+	for i := range sourceNext {
+		if sourceNext[i] != restoredNext[i] {
+			t.Errorf("allocation %d diverged: source=%v restored=%v", i, sourceNext[i], restoredNext[i])
+		}
+	}
+}
+
+// TestBook_RestoreKnown places previously-issued ids at new addresses in a
+// freshly-restored Book without allocating from the pool.
+func TestBook_RestoreKnown(t *testing.T) {
+	var source Book
+	source.Init(8, 8)
+	dst := make([]uid.UID64, 3)
+	source.Seed(dst, arch.ID(1), fakePtr(0), colstore.Slot(0))
+
+	nextIndex, generations, freeIndices := source.PoolState()
+
+	var restored Book
+	restored.RestorePoolState(nextIndex, generations, freeIndices)
+
+	ptr := fakePtr(2)
+	for i, id := range dst {
+		if !restored.RestoreKnown(id, arch.ID(9), ptr, colstore.Slot(i)) {
+			t.Fatalf("id %d: expected RestoreKnown to succeed for a known id", i)
+		}
+	}
+	for i, id := range dst {
+		entry, ok := restored.Get(id)
+		if !ok {
+			t.Fatalf("id %d: expected entry after RestoreKnown", i)
+		}
+		if entry.ArchID != arch.ID(9) || entry.ChunkPtr != ptr || entry.Slot != colstore.Slot(i) {
+			t.Errorf("id %d: unexpected entry %+v", i, entry)
+		}
+	}
+}
+
+// TestBook_RestoreKnown_UnknownID confirms RestoreKnown rejects an id the
+// restored pool state doesn't recognize, without registering it.
+func TestBook_RestoreKnown_UnknownID(t *testing.T) {
+	var source Book
+	source.Init(8, 8)
+	dst := make([]uid.UID64, 1)
+	source.Seed(dst, arch.ID(1), fakePtr(0), colstore.Slot(0))
+	nextIndex, generations, freeIndices := source.PoolState()
+
+	var restored Book
+	restored.RestorePoolState(nextIndex, generations, freeIndices)
+
+	unknown := dst[0] + 1<<32 // same index, bumped generation — not what the pool has on record
+	if restored.RestoreKnown(unknown, arch.ID(1), fakePtr(1), colstore.Slot(0)) {
+		t.Error("expected RestoreKnown to reject an id not recognized by the restored pool")
+	}
+	if _, ok := restored.Get(unknown); ok {
+		t.Error("expected no entry registered for a rejected RestoreKnown call")
+	}
+}

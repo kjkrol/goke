@@ -7,7 +7,7 @@ import (
 	"github.com/kjkrol/goke/v3/internal/comp"
 )
 
-type testStruct1 struct{ a int }
+type testStruct1 struct{ A int }
 
 func TestInitArchetype(t *testing.T) {
 	mi := newDefIndex()

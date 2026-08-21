@@ -22,3 +22,9 @@ type Mutator interface {
 type Runnable interface {
 	Update(*CmdBuf, time.Duration)
 }
+
+// RunnableFunc adapts a plain function to Runnable, the way
+// http.HandlerFunc adapts a function to http.Handler.
+type RunnableFunc func(*CmdBuf, time.Duration)
+
+func (f RunnableFunc) Update(cb *CmdBuf, d time.Duration) { f(cb, d) }

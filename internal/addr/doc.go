@@ -38,6 +38,11 @@
 //   - [Book.Move]          — updates the stored address after archetype migration
 //   - [Book.MoveUnchecked] — same, without capacity/generation checks (bulk hot path)
 //   - [Book.Delete]        — clears the address entry and recycles the ID
+//   - [Book.PoolState]        — snapshots the ID pool's bookkeeping as plain data
+//   - [Book.RestorePoolState] — replaces the ID pool's bookkeeping with a snapshot
+//   - [Book.RestoreKnown]     — registers a previously-issued id at a given address,
+//     bypassing pool allocation; fails if the id isn't recognized by the current
+//     pool bookkeeping (e.g. after RestorePoolState)
 //
 // [Book.Index] is exported as a standalone read-only address index,
 // separate from the ID pool.

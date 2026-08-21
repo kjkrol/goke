@@ -61,4 +61,21 @@ type (
 	// Remover removes whole entities matched by a Query, in bulk, at Sync.
 	// Construct once via SysInit.Remover; apply via MigrateBuf.Commit.
 	Remover = ent.Remover
+
+	// Runnable is an opaque handle returned by RegSys — pass it to
+	// RunCtx.Run/RunParallel inside a Plan. It is not meant to be called
+	// directly; Update is driven by the scheduler.
+	Runnable = orch.Runnable
+
+	// CompToken is a component-type token for Load, produced by LoadComp[T]().
+	// Load matches tokens against the save file's component directory by name,
+	// not by position — pass them to Load in any order.
+	CompToken = reg.CompToken
+
+	// CompProvider is implemented by systems or modules that register their
+	// own components, exposing them for callers assembling an ECS.Load call
+	// without needing to know a module's internal component types by name.
+	// Optional — not part of the System interface, so a system with no
+	// components of its own implements nothing extra. See [ProvidedComps].
+	CompProvider = reg.CompProvider
 )

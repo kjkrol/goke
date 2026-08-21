@@ -107,9 +107,9 @@ func TestDefIndex_MetadataConsistency(t *testing.T) {
 
 	t.Run("Size correctness", func(t *testing.T) {
 		type complexStruct struct {
-			a int64
-			b float32
-			c bool
+			A int64
+			B float32
+			C bool
 		}
 		cType := reflect.TypeFor[complexStruct]()
 		info := c.Intern(cType)
@@ -119,16 +119,25 @@ func TestDefIndex_MetadataConsistency(t *testing.T) {
 		}
 	})
 
-	t.Run("Pointers vs Values", func(t *testing.T) {
-		valType := reflect.TypeFor[position]()
-		ptrType := reflect.TypeOf(&position{})
+	t.Run("Distinct declared types", func(t *testing.T) {
+		posType := reflect.TypeFor[position]()
+		velType := reflect.TypeFor[velocity]()
 
-		infoVal := c.Intern(valType)
-		infoPtr := c.Intern(ptrType)
+		infoPos := c.Intern(posType)
+		infoVel := c.Intern(velType)
 
-		if infoVal.ID == infoPtr.ID {
-			t.Error("value and pointer types must have distinct component IDs")
+		if infoPos.ID == infoVel.ID {
+			t.Error("distinct declared types must have distinct component IDs")
 		}
+	})
+
+	t.Run("Pointer type is rejected", func(t *testing.T) {
+		defer func() {
+			if recover() == nil {
+				t.Error("expected Intern to panic on a pointer component type")
+			}
+		}()
+		c.Intern(reflect.TypeOf(&position{}))
 	})
 }
 
@@ -168,6 +177,19 @@ func TestDefIndex_ByID(t *testing.T) {
 
 	if got := c.ByID(comp.ID(99)); got.Type != nil {
 		t.Errorf("expected ByID for an unregistered ID to return a zero Def, got %+v", got)
+	}
+}
+
+func TestDefIndex_Count(t *testing.T) {
+	c := newDefIndex()
+	if got := c.Count(); got != 0 {
+		t.Errorf("expected 0 on a fresh DefIndex, got %d", got)
+	}
+	c.Intern(reflect.TypeFor[position]())
+	c.Intern(reflect.TypeFor[velocity]())
+	c.Intern(reflect.TypeFor[position]()) // idempotent — must not double-count
+	if got := c.Count(); got != 2 {
+		t.Errorf("expected 2 after interning 2 distinct types, got %d", got)
 	}
 }
 

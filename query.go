@@ -40,15 +40,11 @@ func (q *Query) Next() bool { return q.m.Next() }
 // exist or has been recycled.
 func (q *Query) Seek(entID uid.UID64) bool { return q.m.Seek(entID) }
 
-// SeekH (Seek homogeneous) positions q's Cursor at entID's storage slot. It
-// assumes entID is alive and shares the archetype already cached by a prior
-// Seek call on q — call q.Seek once first to establish it, then call SeekH
-// for the rest of a batch known to be alive and come from that one
-// archetype.
-//
-// Returns false if entID's archetype turns out to differ from the cached
-// one — the Cursor must not be used in that case; call q.Seek(entID)
-// instead. Behavior is undefined if entID is not alive.
+// SeekH positions q's Cursor at entID's storage slot, assuming entID is
+// alive and shares the archetype already cached by a prior Seek call on q —
+// call Seek once, then SeekH for the rest of a batch from that archetype.
+// Returns false if the archetype differs (Cursor is then unusable — call
+// Seek instead); behavior is undefined if entID is not alive.
 func (q *Query) SeekH(entID uid.UID64) bool { return q.m.SeekH(entID) }
 
 // Clear resets the Query to its zero state. Called internally when a Query

@@ -10,18 +10,18 @@ import (
 
 type (
 	Order struct {
-		ID    string
+		ID    int
 		Total float64
 	}
 	Discount  struct{ Percentage float64 }
 	Processed struct{}
 )
 
-var processedID, orderID, discountID goke.CompID
+var orderID, discountID goke.CompID
 
 func main() {
 	ecs := goke.New()
-	processedID = ecs.RegComp[Processed]()
+	_ = ecs.RegComp[Processed]()
 	_ = ecs.RegComp[Order]()
 	discountID = ecs.RegComp[Discount]()
 
@@ -41,7 +41,7 @@ func main() {
 			factory.Next()
 			entityID = factory.IDs[0]
 			fc := &factory.Cursor
-			order.Slice(fc)[0] = Order{ID: "ORD-99", Total: 100.0}
+			order.Slice(fc)[0] = Order{ID: 99, Total: 100.0}
 			discount.Slice(fc)[0] = Discount{Percentage: 20.0}
 		},
 	}
@@ -60,10 +60,13 @@ func main() {
 	ecs.Setup(spawnSystem, logInitialSystem)
 
 	// Define the Billing System to calculate discounted totals for unprocessed orders
+	var processed goke.Comp[Processed]
 	var query *goke.Query
+	var markProcessed *goke.Editor
 	billing := ecs.RegSys(goke.SystemFn{
 		OnInit: func(si *goke.SysInit) {
 			query = si.NewQueryBuilder(&order, &discount).Exclude(goke.Exclude[Processed]()).Build()
+			markProcessed = query.NewEditorBuilder(&processed).Build()
 		},
 		OnUpdate: func(schedule *goke.CmdBuf, d time.Duration) {
 			cursor := query.Cursor()
@@ -71,11 +74,17 @@ func main() {
 			for query.Next() {
 				orders := order.Slice(cursor)
 				discounts := discount.Slice(cursor)
+				// Every matched entity in this chunk is staged into one
+				// MigrateBuf, so Commit applies the Processed tag as a
+				// single block migration instead of one AddOne per entity —
+				// this loop is already iterating the Query, so the batch
+				// path is free; see the README's Bulk operations row.
+				mb := query.BeginMigrate(schedule)
 				for i, entityID := range cursor.IDs {
 					orders[i].Total = orders[i].Total * (1 - discounts[i].Percentage/100)
-					// Defer the assignment of the Processed tag to the next synchronization point
-					schedule.AddOne(entityID, processedID, Processed{})
+					mb.Add(entityID)
 				}
+				mb.Commit(markProcessed)
 			}
 		},
 	})

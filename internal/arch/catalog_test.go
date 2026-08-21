@@ -14,11 +14,11 @@ import (
 )
 
 type position struct {
-	x, y float64
+	X, Y float64
 }
 
 type velocity struct {
-	vx, vy float64
+	VX, VY float64
 }
 
 func newDefIndex() comp.DefIndex {
@@ -247,7 +247,7 @@ func TestCatalog_MigrateEntity_MovesDataAndSwapsSource(t *testing.T) {
 	spawnEntity(t, srcArch, e1)
 
 	srcPtr0 := srcArch.Table.ChunkPtrAt(pos0.Idx)
-	*(*position)(srcArch.Table.ComponentAt(srcPtr0, pos0.Slot, posDef.ID)) = position{x: 9, y: 9}
+	*(*position)(srcArch.Table.ComponentAt(srcPtr0, pos0.Slot, posDef.ID)) = position{X: 9, Y: 9}
 
 	newPtr, newSlot, swappedEntity, swapped := cat.MigrateEntity(e0, srcArchID, srcPtr0, pos0.Slot, dstArchID)
 
@@ -260,7 +260,7 @@ func TestCatalog_MigrateEntity_MovesDataAndSwapsSource(t *testing.T) {
 
 	dstArch := &cat.Archetypes[dstArchID]
 	got := *(*position)(dstArch.Table.ComponentAt(newPtr, newSlot, posDef.ID))
-	if got != (position{x: 9, y: 9}) {
+	if got != (position{X: 9, Y: 9}) {
 		t.Errorf("expected migrated Position data to survive, got %+v", got)
 	}
 }
