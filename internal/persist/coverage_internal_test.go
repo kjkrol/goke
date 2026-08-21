@@ -7,8 +7,13 @@ import (
 	"io"
 	"log"
 	"reflect"
+	"strings"
 	"testing"
 
+	"github.com/kjkrol/uid"
+
+	"github.com/kjkrol/goke/v3/internal/addr"
+	"github.com/kjkrol/goke/v3/internal/arch"
 	"github.com/kjkrol/goke/v3/internal/comp"
 	"github.com/kjkrol/goke/v3/internal/ent"
 	"github.com/kjkrol/goke/v3/iter"
@@ -324,6 +329,68 @@ func TestLoad_InvalidGzipStream_ReturnsError(t *testing.T) {
 	m.Init(ent.DefaultConfig(), nil)
 	if err := Load(bytes.NewReader([]byte("not a gzip stream")), &di, &m.AddressBook, &m.ArchCatalog, nil); err == nil {
 		t.Fatal("expected Load to reject a non-gzip stream")
+	}
+}
+
+// freshArchetype builds a single-component archetype (covPosition) inside
+// an isolated DefIndex/Catalog, without going through ent.Manager/Factory —
+// reserveBatches and loadArchetype only need a Table for a composition,
+// never actual entities.
+func freshArchetype(t *testing.T) (*comp.DefIndex, *arch.Catalog, arch.ID) {
+	t.Helper()
+	var di comp.DefIndex
+	di.Init()
+	def := di.Intern(reflect.TypeFor[covPosition]())
+	composition := comp.Composition{}.With(def)
+
+	var catalog arch.Catalog
+	catalog.Init(func(*arch.Archetype) {})
+	archID := catalog.Upsert(composition)
+	return &di, &catalog, archID
+}
+
+func TestReserveBatches_MultiChunk(t *testing.T) {
+	_, catalog, archID := freshArchetype(t)
+	table := &catalog.Archetypes[archID].Table
+
+	const count = 10000
+	batches := reserveBatches(table, count)
+	if len(batches) < 2 {
+		t.Fatalf("expected reserveBatches to span multiple chunks for %d entities, got %d batch(es)", count, len(batches))
+	}
+
+	total := 0
+	for _, b := range batches {
+		if b.ptr == nil {
+			t.Error("expected a non-nil chunk pointer for every batch")
+		}
+		total += b.n
+	}
+	if total != count {
+		t.Errorf("expected batches to sum to %d slots, got %d", count, total)
+	}
+}
+
+func TestLoadArchetype_UnrecognizedEntity_ReturnsError(t *testing.T) {
+	di, catalog, _ := freshArchetype(t)
+	def := di.ByID(comp.ID(0))
+	ah := archHeader{CompIDs: []uint8{uint8(def.ID)}, EntityCount: 1}
+
+	var book addr.Book
+	book.Init(16, 16)
+	book.RestorePoolState(0, nil, nil) // nextIndex=0: every id fails IsValid's index<nextIndex check
+
+	var buf bytes.Buffer
+	if err := writeUint64(&buf, uint64(uid.UID64(0))); err != nil {
+		t.Fatalf("writeUint64: %v", err)
+	}
+
+	err := loadArchetype(&buf, di, &book, catalog, ah)
+	if err == nil {
+		t.Fatal("expected an error for an entity id not recognized by the restored id pool state")
+	}
+	if !strings.Contains(err.Error(), "not recognized") {
+		t.Errorf("expected the error to mention \"not recognized\", got: %v", err)
 	}
 }
 
