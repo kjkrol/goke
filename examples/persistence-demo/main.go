@@ -3,32 +3,12 @@ package main
 import (
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/kjkrol/goke/v3"
 )
 
 type Position struct{ X, Y float32 }
 type Score struct{ Value int }
-
-// movementModule stands in for a self-contained module (e.g. a physics
-// package) that owns its own components. A caller wiring it up for
-// persistence doesn't need to know Position's name — ComponentProvider
-// exposes it instead.
-type movementModule struct {
-	pos goke.Comp[Position]
-}
-
-func (m *movementModule) Init(si *goke.SysInit)                   { si.ECS().RegComp[Position]() }
-func (m *movementModule) Update(cb *goke.CmdBuf, d time.Duration) {}
-func (m *movementModule) LoadComps() []goke.CompToken {
-	return []goke.CompToken{goke.LoadComp[Position]()}
-}
-
-var (
-	_ goke.System       = (*movementModule)(nil)
-	_ goke.CompProvider = (*movementModule)(nil)
-)
 
 func main() {
 	path := tempSavePath()
@@ -49,16 +29,16 @@ func tempSavePath() string {
 
 func saveWorld(path string) {
 	ecs := goke.New()
-	module := &movementModule{}
-	ecs.RegSys(module)
+	_ = ecs.RegComp[Position]()
 	_ = ecs.RegComp[Score]()
 
+	var pos goke.Comp[Position]
 	var score goke.Comp[Score]
 	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
-		factory := si.NewFactory(&module.pos, &score)
+		factory := si.NewFactory(&pos, &score)
 		factory.Create(3)
 		for factory.Next() {
-			positions := module.pos.Slice(&factory.Cursor)
+			positions := pos.Slice(&factory.Cursor)
 			scores := score.Slice(&factory.Cursor)
 			for i := range positions {
 				positions[i] = Position{X: float32(i), Y: float32(i) * 2}
@@ -78,28 +58,25 @@ func saveWorld(path string) {
 
 func loadWorld(path string) {
 	ecs := goke.New()
-	module := &movementModule{}
 
 	// Load runs before Setup, before any other registration — it registers
-	// components itself, in the file's recorded order. ProvidedComps pulls
-	// Position from the module without naming it; Score is named directly,
-	// since it belongs to this program, not a module. Argument order
-	// doesn't matter — Load matches each token by name, not by position.
-	comps := append(goke.ProvidedComps(module), goke.LoadComp[Score]())
-	if err := ecs.Load(path, comps...); err != nil {
+	// each named component itself, in the file's recorded order. Argument
+	// order doesn't matter — Load matches each token by name, not position.
+	if err := ecs.Load(path, goke.LoadComp[Position](), goke.LoadComp[Score]()); err != nil {
 		panic(err)
 	}
 
+	var pos goke.Comp[Position]
 	var score goke.Comp[Score]
 	var query *goke.Query
 	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
-		query = si.NewQueryBuilder(&module.pos, &score).Build()
+		query = si.NewQueryBuilder(&pos, &score).Build()
 	}})
 
 	query.All()
 	for query.Next() {
 		cursor := query.Cursor()
-		positions := module.pos.Slice(cursor)
+		positions := pos.Slice(cursor)
 		scores := score.Slice(cursor)
 		for i, id := range cursor.IDs {
 			fmt.Printf("Restored entity %v: %+v %+v\n", id, positions[i], scores[i])

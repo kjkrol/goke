@@ -14,18 +14,21 @@ type CmdBuf struct {
 	raw *orch.CmdBuf
 }
 
-// AddOne queues the addition of a component value to an entity, for use
-// outside Query iteration (a lone id from an external event, callback, or
-// saved reference). If the entity already has this component, its data is
-// overwritten on flush.
+// AddOne queues adding a component value to a single entity reached
+// outside a Query loop (an external event, a saved id) — not for entities
+// already being visited in a loop, where Query.BeginMigrate + Editor/
+// ValueEditor batches the change instead. Overwrites existing data.
 func (cb *CmdBuf) AddOne[T any](e uid.UID64, compID CompID, value T) {
 	orch.AddOne(cb.raw, e, compID, value)
 }
 
-// RemoveCompOne queues the removal of a single component from an entity,
-// for use outside Query iteration. No-op if the entity doesn't have it.
+// RemoveCompOne queues removing a component from a single entity reached
+// outside a Query loop — not for entities already being visited in a loop,
+// where Query.BeginMigrate + Editor batches the change instead. No-op if
+// the entity doesn't have it.
 func (cb *CmdBuf) RemoveCompOne(id uid.UID64, compID CompID) { cb.raw.RemoveCompOne(id, compID) }
 
-// RemoveOne queues the removal of a whole entity, for use outside Query
-// iteration.
+// RemoveOne queues removing a single entity reached outside a Query loop —
+// not for entities already being visited in a loop, where Query.BeginMigrate
+// + Remover batches the change instead.
 func (cb *CmdBuf) RemoveOne(id uid.UID64) { cb.raw.RemoveOne(id) }

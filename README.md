@@ -4,7 +4,7 @@
   <img src=".github/docs/img/logo.png" alt="GOKe Logo" width="300">
   <br>
   <a href="https://go.dev">
-    <img src="https://img.shields.io/badge/Go-1.27rc3+-00ADD8?style=flat-square&logo=go" alt="Go Version">
+    <img src="https://img.shields.io/badge/Go-1.27.0+-00ADD8?style=flat-square&logo=go" alt="Go Version">
   </a>
   <a href="https://pkg.go.dev/github.com/kjkrol/goke/v3">
     <img src="https://img.shields.io/badge/GoDoc-Reference-007d9c?style=flat-square&logo=go" alt="GoDoc">
@@ -70,7 +70,7 @@ integration costs can outweigh the gains of a faster foreign implementation.
 <a id="installation"></a>
 # 📦 Installation
 
-GOKe requires **Go 1.27rc3** or newer.
+GOKe requires **Go 1.27.0** or newer.
 
 ```bash
 go get github.com/kjkrol/goke/v3
@@ -92,9 +92,10 @@ go get github.com/kjkrol/goke/v3
 | **Type-safe component API** | Fully generic — no reflection, no interface boxing, no runtime type assertions |
 | **Built-in scheduler** | Declarative `Plan` wires systems into an execution graph — a full ECS runtime, not just a component store |
 | **Command Buffer** | Structural changes during iteration are queued and flushed at explicit `Sync()` points — enables safe `RunParallel` |
-| **Bulk archetype migration** | `Editor` applies add/remove component specs to whole chunks at `Sync()` — block memory copies and deferred compaction instead of per-entity moves |
-| **World persistence** | `Pause`/`Save`/`Load` round-trip the entire world — including exact entity IDs — to a file; `Load` matches components by name via `CompProvider`, not registration order |
-| **Module composition** | `Module`/`ECS.RegModule` bundle a package's systems and components behind one value — `RunPlan` replays the module's own required run/`Sync` order inside your `SetPlan` |
+| **Bulk operations** | `Editor`/`ValueEditor`/`Remover`, staged via `Query.BeginMigrate`/`Add`/`Commit`, batch add/remove-component and remove-entity changes for entities matched by a `Query` — one block memory copy per contiguous run instead of a move per entity |
+| **Single-entity operations** | `CmdBuf.AddOne`/`RemoveOne`/`RemoveCompOne` edit or remove one entity reached without iterating a `Query` (an external event, a saved id) — the complement to bulk operations, not a substitute for them inside a `Query` loop |
+| **World persistence** | Save the whole world's state to a file and restore it exactly: every registered component type, the archetypes entities are grouped into, and each entity's own identity. |
+| **Module composition** | Package a coherent set of components and systems as one self-contained `Module` — a game wires it up without knowing its internals, and can plug it into its own one-time `Setup` (world seeding) or per-tick `Plan` (simulation) |
 
 > 💡 **See the Performance & Scalability section below for benchmark results validated from 2¹⁰ to 2²⁰ entities.**
 
@@ -108,18 +109,21 @@ Benchmarks against other Go ECS libraries (Arche, Donburi, Ento, etc.) are maint
 ⚠️ Before drawing conclusions, verify which GOKe version (tag) is used in the comparison, as published results may lag behind the latest release.
 
 ## Scalability Validation
-`Editor`/`Factory.Create`/`Query.All` were validated across worlds ranging from **2¹⁰ (1,024)** to **2²⁰ (1,048,576)** entities on an **Apple M1 Max**. Structural per-entity cost stays nearly constant across that range; `Query.All`'s per-entity cost roughly doubles at 2²⁰ once the working set outgrows cache (a known trade-off of the chunked SoA layout). `Pick`/`Seek`/`Remove` are currently only benchmarked at a fixed population.
+Benchmarked at a population of **1,024** entities (**100,000** for `Remove Entity`) on an **Intel i5-8265U** (see [BENCHMARKS.md](./BENCHMARKS.md#environment)). Structural operations (`Editor`/`ValueEditor`/`Remover`) stay in the tens-of-ns/entity range regardless of how many components an edit touches; query paths (`Query.All`/`Pick`/`Seek`/`SeekH`) report zero allocations across every component count tested.
 
-| Category | Operation | Observed Cost (2¹⁰–2²⁰ Entities) | Allocs | Technical Mechanism |
+| Category | Operation | Observed Cost | Allocs | Technical Mechanism |
 | :--- | :--- | :--- | :--- | :--- |
-| **Throughput** | **Iteration (Query.All)** | **0.32 - 3.41 ns/ent** | **0** | Linear SoA (0-10 components) |
-| **Subset Query** | **Pick (per-entity, 1,024 only)** | **3.6 - 11.2 ns/ent** | **0** | Per-entity record lookup + pointer math |
-| **Direct Access** | **Seek (single entity, 1,024 only)** | **2.9 - 10.7 ns/ent** | **0** | Index lookup, independent of include/exclude mask |
-| **Structural** | **Batch Create** | **3.9 - 9.0 ns/ent** | 0-1 | Factory-based chunk writes |
-| **Structural** | **Add Component** | **32 - 90 ns/op** | 0 at 2¹⁰; grows with N at 2²⁰ | Archetype migration (1 → 1+N components) |
-| **Structural** | **Add Tag** | **30 - 71 ns/op** | 0 at 2¹⁰; grows with N at 2²⁰ | Archetype migration (zero-size component) |
-| **Structural** | **Remove Component** | **83 - 110 ns/op** | 0 at 2¹⁰; grows with N at 2²⁰ | Archetype migration (10 → 10-N components) |
-| **Structural** | **Remove Entity** | **3.2 ns/op** (population 100,000) | **0** | Swap-and-pop + index recycling |
+| **Throughput** | **Iteration (Query.All)** | **0.39 - 4.18 ns/ent** | **0** | Linear SoA (0-10 components) |
+| **Subset Query** | **Pick (per-entity)** | **5.8 - 19.0 ns/ent** | **0** | Per-entity record lookup + pointer math |
+| **Direct Access** | **Seek (single entity)** | **4.4 - 18.7 ns/ent** | **0** | Index lookup, independent of include/exclude mask |
+| **Direct Access** | **SeekH (homogeneous, cached archetype)** | **2.2 - 16.2 ns/ent** | **0** | Skips generation/mask checks after a prior Seek |
+| **Structural** | **Batch Create** | **8.0 - 18.8 ns/ent** | 0-1 | Factory-based chunk writes |
+| **Structural** | **Add Component** | **5.9 - 18.7 ns/ent** | 0 (grows past N=8) | Archetype migration (1 → 1+N components) |
+| **Structural** | **Add Tag** | **5.6 - 12.9 ns/ent** | **0** | Archetype migration (zero-size component) |
+| **Structural** | **Remove Component** | **14.1 - 19.4 ns/ent** | 0 (grows at N=1) | Archetype migration (10 → 10-N components) |
+| **Structural** | **Add Component + Value (ValueEditor)** | **6.2 - 43.7 ns/ent** | **0** | Archetype migration + per-entity value write |
+| **Structural** | **Bulk Remove (Remover)** | **14.4 - 86.2 ns/ent** | **0** | `CmdBuf`-batched migration, one `Sync` per chunk |
+| **Structural** | **Remove Entity** | **101.7 ns/op** (population 100,000) | **0** | Swap-and-pop + index recycling |
 
 > **Deep Dive**: For the full per-component-count breakdown, methodology, and reproduction instructions, see [**BENCHMARKS.md**](./BENCHMARKS.md).
 
