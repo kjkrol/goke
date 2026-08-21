@@ -29,10 +29,9 @@ func (s *SysInit) NewFactory(comps ...Addable) *Factory {
 	return s.ecs.registry.CreateFactory(opts...)
 }
 
-// ECS returns the underlying *ECS — for calling RegComp (idempotent, safe
-// to call lazily) from within Init. Construction (Query/Factory builders)
-// stays gated through SysInit/Query — ECS no longer exposes any of it.
-func (s *SysInit) ECS() *ECS { return s.ecs }
+// RegComp registers component type T (idempotent, safe to call lazily)
+// from within Init.
+func (s *SysInit) RegComp[T any]() CompID { return s.ecs.RegComp[T]() }
 
 // Remover returns the shared Remover for whole-entity removal — pass it to
 // MigrateBuf.Commit. It carries no per-call configuration (removes any

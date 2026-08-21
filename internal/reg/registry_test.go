@@ -1,6 +1,7 @@
 package reg_test
 
 import (
+	"path/filepath"
 	"reflect"
 	"testing"
 	"unsafe"
@@ -294,4 +295,27 @@ func TestRegistry_Reset(t *testing.T) {
 	if newID != 0 {
 		t.Errorf("expected first registration after Reset to get ID 0, got %d", newID)
 	}
+}
+
+func TestRegistry_Save_PanicsWithoutPause(t *testing.T) {
+	r := newRegistry(t)
+
+	defer func() {
+		if recover() == nil {
+			t.Error("expected Save to panic without a prior Pause()")
+		}
+	}()
+	_ = r.Save(filepath.Join(t.TempDir(), "save.bin"))
+}
+
+func TestRegistry_Load_PanicsIfNotFresh(t *testing.T) {
+	r := newRegistry(t)
+	r.RegComp(reflect.TypeFor[Position]())
+
+	defer func() {
+		if recover() == nil {
+			t.Error("expected Load to panic when called after other registration")
+		}
+	}()
+	_ = r.Load(filepath.Join(t.TempDir(), "save.bin"), []reg.CompToken{reg.LoadComp[Position]()})
 }

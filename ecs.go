@@ -17,8 +17,6 @@ type ECS struct {
 	scheduler orch.Scheduler
 	sysInit   SysInit
 	setupDone bool
-	paused    bool
-	saving    bool
 }
 
 // New creates a new ECS instance. Use ECSOption functions to tune memory
@@ -51,7 +49,11 @@ func (ecs *ECS) RegComp[T any]() CompID {
 func (ecs *ECS) RegSys(system System) Runnable {
 	system.Init(&ecs.sysInit)
 	raw := orch.NewCmdBuf()
-	adapter := &runnableAdapter{sys: system, wrapped: &CmdBuf{raw: raw}}
+	wrapped := &CmdBuf{raw: raw}
+	fn := orch.RunnableFunc(func(_ *orch.CmdBuf, d time.Duration) {
+		system.Update(wrapped, d)
+	})
+	adapter := &fn
 	ecs.scheduler.Register(adapter, raw)
 	return adapter
 }
@@ -63,12 +65,10 @@ func (ecs *ECS) RegModule(m Module) {
 	m.RegSystems(ecs)
 }
 
-// Setup runs each given system exactly once, in order: Init, then Update,
-// then Sync — fully applying one system's effects (including deferred
-// structural changes) before the next system's Init runs. Use it for
-// one-time world seeding; a later system in the list can query and edit
-// entities spawned by an earlier one. Callable only once per ECS lifetime
-// (Reset starts a new one) — build everything you need in that single call.
+// Setup runs each given system once — Init, then Update, then Sync — fully
+// applying its effects before the next system's Init runs, so later systems
+// see what earlier ones spawned. Callable once per ECS lifetime (Reset
+// starts a new one).
 func (ecs *ECS) Setup(systems ...System) {
 	if ecs.setupDone {
 		panic("goke: Setup called more than once — build everything you need (spawns, queries, editors) in a single Setup call")
@@ -77,7 +77,11 @@ func (ecs *ECS) Setup(systems ...System) {
 	for _, sys := range systems {
 		sys.Init(&ecs.sysInit)
 		raw := orch.NewCmdBuf()
-		adapter := &runnableAdapter{sys: sys, wrapped: &CmdBuf{raw: raw}}
+		wrapped := &CmdBuf{raw: raw}
+		fn := orch.RunnableFunc(func(_ *orch.CmdBuf, d time.Duration) {
+			sys.Update(wrapped, d)
+		})
+		adapter := &fn
 		sched := orch.NewScheduler(&ecs.registry)
 		sched.Register(adapter, raw)
 		sched.SetPlan(func(ctx orch.RunCtx, d time.Duration) {
@@ -97,35 +101,41 @@ func (ecs *ECS) SetPlan(plan Plan) {
 // Tick advances the simulation by one step with the given delta time.
 // Panics if the ECS is paused (see [ECS.Pause]) — call [ECS.Resume] first.
 func (ecs *ECS) Tick(duration time.Duration) {
-	if ecs.paused {
+	if ecs.registry.Paused() {
 		panic("goke: Tick called while the ECS is paused — call Resume() first")
 	}
 	ecs.scheduler.Tick(duration)
 }
 
-// Pause stops Tick from running — a subsequent call panics until Resume.
-// General-purpose (a host can use it as an ordinary game pause), and also
-// the required precondition for Save: nothing may mutate the world while a
-// snapshot is being written. Idempotent — calling it while already paused
-// is a no-op.
-func (ecs *ECS) Pause() { ecs.paused = true }
+// Pause stops Tick from running (panics until Resume) — also required
+// before Save. Idempotent.
+func (ecs *ECS) Pause() { ecs.registry.Pause() }
 
 // Resume clears the paused state set by Pause, allowing Tick again.
 // Idempotent — calling it while not paused is a no-op.
-func (ecs *ECS) Resume() { ecs.paused = false }
+func (ecs *ECS) Resume() { ecs.registry.Resume() }
 
 // Paused reports whether the ECS is currently paused.
-func (ecs *ECS) Paused() bool { return ecs.paused }
+func (ecs *ECS) Paused() bool { return ecs.registry.Paused() }
 
 // Reset clears all entities, components, and system state, returning the ECS
 // to its initial (post-New) condition. Registered component types are preserved.
 // Also clears the paused state. Panics if called while a Save is in progress.
 func (ecs *ECS) Reset() {
-	if ecs.saving {
-		panic("goke: Reset called while a Save is in progress")
-	}
 	ecs.scheduler.Reset()
 	ecs.registry.Reset()
 	ecs.setupDone = false
-	ecs.paused = false
+}
+
+// Save writes a full snapshot of the world to path — every entity and
+// component, with original IDs preserved. Requires a prior [ECS.Pause]
+// (panics otherwise).
+func (ecs *ECS) Save(path string) error { return ecs.registry.Save(path) }
+
+// Load reads a snapshot written by Save into ecs — components, archetypes,
+// and entities, with original IDs. Must run before Setup or any other
+// registration (panics otherwise); matches comps by name, any order — see
+// [LoadComp], [CompProvider].
+func (ecs *ECS) Load(path string, comps ...CompToken) error {
+	return ecs.registry.Load(path, comps)
 }

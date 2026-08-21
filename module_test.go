@@ -38,7 +38,7 @@ func (m *fakeModule) SetupSystems() []goke.System {
 }
 
 func (m *fakeModule) LoadComps() []goke.CompToken {
-	return []goke.CompToken{goke.LoadComp[ModuleTag]()}
+	return goke.LoadComps(&m.tag)
 }
 
 var _ goke.Module = (*fakeModule)(nil)

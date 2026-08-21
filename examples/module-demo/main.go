@@ -28,8 +28,8 @@ func newMovementModule(count int) *movementModule { return &movementModule{count
 
 func (m *movementModule) SetupSystems() []goke.System {
 	return []goke.System{goke.SystemFn{OnInit: func(si *goke.SysInit) {
-		si.ECS().RegComp[Position]()
-		si.ECS().RegComp[Velocity]()
+		si.RegComp[Position]()
+		si.RegComp[Velocity]()
 
 		factory := si.NewFactory(&m.pos, &m.vel)
 		factory.Create(m.count)
@@ -67,7 +67,7 @@ func (m *movementModule) RegSystems(ecs *goke.ECS) {
 func (m *movementModule) RunPlan(ctx goke.RunCtx, d time.Duration) { ctx.Run(m.sys, d) }
 
 func (m *movementModule) LoadComps() []goke.CompToken {
-	return []goke.CompToken{goke.LoadComp[Position](), goke.LoadComp[Velocity]()}
+	return goke.LoadComps(&m.pos, &m.vel)
 }
 
 var _ goke.Module = (*movementModule)(nil)
@@ -92,7 +92,7 @@ func newStatsModule() *statsModule { return &statsModule{} }
 
 func (s *statsModule) SetupSystems() []goke.System {
 	return []goke.System{goke.SystemFn{OnInit: func(si *goke.SysInit) {
-		si.ECS().RegComp[Tally]()
+		si.RegComp[Tally]()
 
 		factory := si.NewFactory(&s.tally)
 		factory.Create(1)
@@ -126,7 +126,7 @@ func (s *statsModule) RegSystems(ecs *goke.ECS) {
 func (s *statsModule) RunPlan(ctx goke.RunCtx, d time.Duration) { ctx.Run(s.sys, d) }
 
 func (s *statsModule) LoadComps() []goke.CompToken {
-	return []goke.CompToken{goke.LoadComp[Tally]()}
+	return goke.LoadComps(&s.tally)
 }
 
 // Report exposes statsModule's tally without leaking its Query/Comp

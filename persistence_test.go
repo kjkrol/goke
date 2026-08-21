@@ -27,8 +27,8 @@ func TestSaveLoad_RoundTrip(t *testing.T) {
 				positions[i] = Position{X: float32(i), Y: float32(i) * 10}
 				velocities[i] = Velocity{VX: 1, VY: -1}
 			}
+			ids = append(ids, factory.IDs...)
 		}
-		ids = append(ids, factory.IDs...)
 	}})
 
 	path := filepath.Join(t.TempDir(), "save.bin")
@@ -74,14 +74,14 @@ type kinematicsModule struct {
 }
 
 func (m *kinematicsModule) Init(si *goke.SysInit) {
-	si.ECS().RegComp[Position]()
-	si.ECS().RegComp[Velocity]()
+	si.RegComp[Position]()
+	si.RegComp[Velocity]()
 }
 
 func (m *kinematicsModule) Update(cb *goke.CmdBuf, d time.Duration) {}
 
 func (m *kinematicsModule) LoadComps() []goke.CompToken {
-	return []goke.CompToken{goke.LoadComp[Position](), goke.LoadComp[Velocity]()}
+	return goke.LoadComps(&m.pos, &m.vel)
 }
 
 var (
@@ -103,8 +103,8 @@ func TestSaveLoad_RoundTrip_WithCompProvider(t *testing.T) {
 			for i := range positions {
 				positions[i] = Position{X: float32(i)}
 			}
+			ids = append(ids, factory.IDs...)
 		}
-		ids = append(ids, factory.IDs...)
 	}})
 
 	path := filepath.Join(t.TempDir(), "save.bin")
