@@ -212,10 +212,12 @@ The `Remove` row above times `cb.RemoveOne`'s single-entity swap-and-pop at a fi
 
 ## Benchmark Comparison with Other ECS Libraries
 
-Cross-framework benchmarks are maintained in a dedicated project:
-**[go-ecs-benchmarks](https://github.com/mlange-42/go-ecs-benchmarks)** by [@mlange-42](https://github.com/mlange-42).
+Cross-framework benchmarks are maintained in a dedicated projects:
 
-This project compares GOKe against other Go ECS implementations (Arche, Donburi, Ento, etc.) on a unified workload, eliminating bias from differently-shaped local benchmarks.
+- **[go-ecs-benchmarks](https://github.com/mlange-42/go-ecs-benchmarks)** by [@mlange-42](https://github.com/mlange-42).
+- **[kjkrol/go-ecs-benchmarks](https://github.com/kjkrol/go-ecs-benchmarks)** by [@kjkrol](https://github.com/kjkrol) (should contains latest GOKe results)
+
+These projects compares GOKe against other Go ECS implementations (Arche, Donburi, Ento, etc.) on a unified workload, eliminating bias from differently-shaped local benchmarks.
 
 > ⚠️ **Check the compared versions.** The results published in go-ecs-benchmarks may lag behind GOKe's main branch. Before drawing conclusions, verify which GOKe version (tag) is used in the comparison and re-run the suite against the version you care about.
 

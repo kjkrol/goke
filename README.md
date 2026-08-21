@@ -101,8 +101,10 @@ go get github.com/kjkrol/goke/v3
 GOKe is designed for predictable performance at scale. By utilizing a **Centralized Record System** (dense array lookup) instead of traditional hash maps, structural operations and query execution remain effectively independent of the total entity count ($N$).
 
 ## 📊 Cross-framework comparison
-Benchmarks against other Go ECS libraries (Arche, Donburi, Ento, etc.) are maintained in a dedicated project — [**go-ecs-benchmarks**](https://github.com/mlange-42/go-ecs-benchmarks) by [@mlange-42](https://github.com/mlange-42). 
-
+Benchmarks against other Go ECS libraries (Ark, Donburi, Ento, etc.) are maintained in a dedicated projects:
+- **[go-ecs-benchmarks](https://github.com/mlange-42/go-ecs-benchmarks)** by [@mlange-42](https://github.com/mlange-42).
+- **[kjkrol/go-ecs-benchmarks](https://github.com/kjkrol/go-ecs-benchmarks)** by [@kjkrol](https://github.com/kjkrol) (should contains latest GOKe results)
+  </br>
 ⚠️ Before drawing conclusions, verify which GOKe version (tag) is used in the comparison, as published results may lag behind the latest release.
 
 ## Scalability Validation
