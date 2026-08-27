@@ -10,8 +10,13 @@ type BakedTable struct {
 	ArchID      arch.ID
 	Table       *colstore.Table
 	CompOffsets []uintptr
+	OptOffsets  []uintptr
+	OptPresent  []bool
 }
 
 func (bt *BakedTable) FillCursorNext(cur *iter.Cursor, from int) (int, bool) {
-	return bt.Table.FillCursorNext(cur, from, bt.CompOffsets)
+	idx, ok := bt.Table.FillCursorNext(cur, from, bt.CompOffsets)
+	cur.OptOffsets = bt.OptOffsets
+	cur.OptPresent = bt.OptPresent
+	return idx, ok
 }

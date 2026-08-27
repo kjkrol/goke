@@ -162,6 +162,67 @@ func TestQueryBuilder_EmptyBuild(t *testing.T) {
 	assert.Equal(t, 3, count)
 }
 
+func TestQueryBuilder_Optional(t *testing.T) {
+	ecs := goke.New()
+	_ = ecs.RegComp[position]()
+	_ = ecs.RegComp[velocity]()
+
+	// eA: position only — velocity absent. eB: position + velocity — present.
+	var eA, eB uid.UID64
+	var velComp goke.OptComp[velocity]
+	var query *goke.Query
+	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+		factoryA := si.NewFactory(new(goke.Comp[position]))
+		factoryA.Create(1)
+		factoryA.Next()
+		eA = factoryA.IDs[0]
+
+		var vel goke.Comp[velocity]
+		factoryB := si.NewFactory(new(goke.Comp[position]), &vel)
+		factoryB.Create(1)
+		factoryB.Next()
+		eB = factoryB.IDs[0]
+		*vel.At(&factoryB.Cursor) = velocity{VX: 9, VY: 9}
+
+		query = si.NewQueryBuilder(new(goke.Comp[position])).Optional(&velComp).Build()
+	}})
+
+	seen := map[uid.UID64]bool{}
+	query.All()
+	for query.Next() {
+		cur := query.Cursor()
+		present := velComp.Present(cur)
+		for i, e := range cur.IDs {
+			seen[e] = true
+			switch e {
+			case eA:
+				assert.False(t, present, "eA's chunk should report velocity absent")
+				assert.Nil(t, velComp.Slice(cur), "expected nil Slice for eA's chunk")
+			case eB:
+				assert.True(t, present, "eB's chunk should report velocity present")
+				assert.Equal(t, velocity{VX: 9, VY: 9}, velComp.Slice(cur)[i])
+			}
+		}
+	}
+
+	// Optional never gates the match — both entities are matched by a query
+	// that only requires position.
+	assert.True(t, seen[eA])
+	assert.True(t, seen[eB])
+
+	// OptComp.At (Pick-mode) mirrors Slice's present/absent behavior.
+	query.Pick([]uid.UID64{eA, eB})
+	for query.Next() {
+		cur := query.Cursor()
+		switch query.Entity() {
+		case eA:
+			assert.Nil(t, velComp.At(cur), "expected nil At for eA (velocity absent)")
+		case eB:
+			assert.Equal(t, velocity{VX: 9, VY: 9}, *velComp.At(cur))
+		}
+	}
+}
+
 // --- Query method tests (All, Pick, Seek, SeekH, Cursor, Entity, Idx) ---
 
 func TestQuery_All_SlicesCoverAllEntities(t *testing.T) {

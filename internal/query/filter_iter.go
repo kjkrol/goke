@@ -15,7 +15,9 @@ func (m *Matcher) nextPick() bool {
 			m.bt = m.Get(link.ArchID)
 			m.lastArchID = link.ArchID
 			if m.bt != nil {
-				m.Cursor.Offsets = m.bt.CompOffsets // set once per archetype change
+				m.Cursor.Offsets = m.bt.CompOffsets
+				m.Cursor.OptOffsets = m.bt.OptOffsets
+				m.Cursor.OptPresent = m.bt.OptPresent
 			}
 		}
 		if m.bt == nil {

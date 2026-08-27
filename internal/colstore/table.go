@@ -95,6 +95,19 @@ func (t *Table) BakeOffsets(ids []comp.ID) []uintptr {
 	return offsets
 }
 
+// BakeOptional is BakeOffsets plus a per-id presence flag.
+func (t *Table) BakeOptional(ids []comp.ID) (offsets []uintptr, present []bool) {
+	offsets = make([]uintptr, len(ids))
+	present = make([]bool, len(ids))
+	for i, id := range ids {
+		if col := t.getColumn(id); col != nil {
+			offsets[i] = col.Offset
+			present[i] = true
+		}
+	}
+	return offsets, present
+}
+
 // --- Read ---
 
 func (t *Table) Len() uint32 { return t.chunkPack.Len() }

@@ -10,13 +10,16 @@ type BakedTablesCatalog struct {
 	archTableIndex []int32
 }
 
-// Add bakes the archetype into a BakedTable and registers it in the catalog.
-// compIDs defines which component columns are precomputed for iteration.
-func (c *BakedTablesCatalog) Add(archetype *arch.Archetype, compIDs []comp.ID) {
+// Add bakes the archetype into a BakedTable and registers it in the catalog;
+// optCompIDs are resolved the same way as compIDs but never gate the match.
+func (c *BakedTablesCatalog) Add(archetype *arch.Archetype, compIDs, optCompIDs []comp.ID) {
+	optOffsets, optPresent := archetype.Table.BakeOptional(optCompIDs)
 	c.BakedTables = append(c.BakedTables, BakedTable{
 		ArchID:      archetype.Id,
 		Table:       &archetype.Table,
 		CompOffsets: archetype.Table.BakeOffsets(compIDs),
+		OptOffsets:  optOffsets,
+		OptPresent:  optPresent,
 	})
 
 	if int(archetype.Id) >= len(c.archTableIndex) {

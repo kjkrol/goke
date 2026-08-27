@@ -189,6 +189,17 @@ Branch-free, zero-allocation, linear in component count — 0 B/op and 0 allocs/
 | 9 | 12.60 | 15.98 |
 | 10 | 13.60 | 16.18 |
 
+### Query.Optional vs. two Include/Exclude queries
+
+`Optional[T]()` lets one query read a component that only some matched entities carry, without excluding the rest. The alternative — before `Optional` existed — is two disjoint queries (`Exclude[T]()` for the entities without it, `Include[T]()`/`Track` for the ones with it), each doing a full pass. This compares the two approaches over the same 1,024-entity population, split 50/50 between a component-only archetype and a component+extra-tag archetype (`bench/optional_test.go`, `-benchtime=1000x -count=10`).
+
+| Approach | ns/op | ns/ent |
+| :--- | ---: | ---: |
+| Two queries (Exclude + Include) | 944.7 ± 4% | 0.9225 |
+| One query with Optional | 809.7 ± 4% | 0.7907 |
+
+The single `Optional` query is **~14% faster** — same total entities visited, but one iteration setup/teardown instead of two. 0 B/op and 0 allocs/op on both sides.
+
 ### Entity Lifecycle
 
 | Operation | ns/op | B/op | Technical Mechanism |
@@ -208,7 +219,7 @@ The `Remove` row above times `cb.RemoveOne`'s single-entity swap-and-pop at a fi
 * **Migration cost scales with archetype width, not edit size.** `Del` (from a 10-component archetype) is consistently more expensive than `Add` (from a 1-component anchor) for a comparable number of changed components — vacating the source row touches every column the source tracks, regardless of how many are being changed. See [`internal/ent/editor.go`](internal/ent/editor.go).
 * **Migrating the whole population (`subset=1,024`) is cheaper per entity than migrating half (`subset=512`).** A full-population pass never has to skip over surviving entities during compaction; a partial subset does, and `random` order compounds that with cache-unfriendly access.
 * **Sorted vs random access:** `Pick`/`Seek`/`SeekH` show modest, consistent overhead for randomly-sampled entity order versus sequential — real, but the hot path stays dominated by direct record lookup and pointer arithmetic rather than access locality.
-* **Zero allocations on every query path.** `Query.All`/`Pick`/`Seek`/`SeekH` report 0 B/op and 0 allocs/op across every component count.
+* **Zero allocations on every query path.** `Query.All`/`Pick`/`Seek`/`SeekH` report 0 B/op and 0 allocs/op across every component count — including with `Optional[T]()` columns tracked, whether or not the matched archetype actually carries them.
 
 ## Benchmark Comparison with Other ECS Libraries
 

@@ -48,7 +48,7 @@ func TestBakedTablesCatalog_AddAndGet(t *testing.T) {
 	archetype := &archCatalog.Archetypes[archID]
 
 	var c BakedTablesCatalog
-	c.Add(archetype, []comp.ID{posMeta.ID})
+	c.Add(archetype, []comp.ID{posMeta.ID}, nil)
 
 	bt := c.Get(archID)
 	if bt == nil {
@@ -62,6 +62,29 @@ func TestBakedTablesCatalog_AddAndGet(t *testing.T) {
 	}
 }
 
+func TestBakedTablesCatalog_AddOptional(t *testing.T) {
+	compCatalog := newDefIndex()
+	posMeta := compCatalog.Intern(reflect.TypeFor[testPos]())
+	velMeta := compCatalog.Intern(reflect.TypeFor[testVel]())
+
+	archCatalog := setupArchCatalog()
+	// archID1 carries both Pos and Vel; archID2 carries only Pos.
+	archID1 := archCatalog.Upsert(comp.Composition{}.With(posMeta).With(velMeta))
+	archID2 := archCatalog.Upsert(comp.Composition{}.With(posMeta))
+
+	var c BakedTablesCatalog
+	c.Add(&archCatalog.Archetypes[archID1], []comp.ID{posMeta.ID}, []comp.ID{velMeta.ID})
+	c.Add(&archCatalog.Archetypes[archID2], []comp.ID{posMeta.ID}, []comp.ID{velMeta.ID})
+
+	bt1, bt2 := c.Get(archID1), c.Get(archID2)
+	if !bt1.OptPresent[0] {
+		t.Error("expected OptPresent[0]=true for the archetype that carries Vel")
+	}
+	if bt2.OptPresent[0] {
+		t.Error("expected OptPresent[0]=false for the archetype that does not carry Vel")
+	}
+}
+
 func TestBakedTablesCatalog_GetOutOfRange(t *testing.T) {
 	compCatalog := newDefIndex()
 	posMeta := compCatalog.Intern(reflect.TypeFor[testPos]())
@@ -71,7 +94,7 @@ func TestBakedTablesCatalog_GetOutOfRange(t *testing.T) {
 	archetype := &archCatalog.Archetypes[archID]
 
 	var c BakedTablesCatalog
-	c.Add(archetype, []comp.ID{posMeta.ID})
+	c.Add(archetype, []comp.ID{posMeta.ID}, nil)
 
 	if got := c.Get(arch.ID(999)); got != nil {
 		t.Error("expected nil for archID beyond mapping range")
@@ -89,7 +112,7 @@ func TestBakedTablesCatalog_GetNonMatchedArchID(t *testing.T) {
 	archetype1 := &archCatalog.Archetypes[archID1]
 
 	var c BakedTablesCatalog
-	c.Add(archetype1, []comp.ID{posMeta.ID})
+	c.Add(archetype1, []comp.ID{posMeta.ID}, nil)
 
 	// archID2 was never added to the catalog
 	if got := c.Get(archID2); got != nil {
@@ -109,8 +132,8 @@ func TestBakedTablesCatalog_MultipleArchetypes(t *testing.T) {
 	arch2 := &archCatalog.Archetypes[archID2]
 
 	var c BakedTablesCatalog
-	c.Add(arch1, []comp.ID{posMeta.ID})
-	c.Add(arch2, []comp.ID{velMeta.ID})
+	c.Add(arch1, []comp.ID{posMeta.ID}, nil)
+	c.Add(arch2, []comp.ID{velMeta.ID}, nil)
 
 	bt1 := c.Get(archID1)
 	bt2 := c.Get(archID2)
@@ -138,7 +161,7 @@ func TestBakedTablesCatalog_Clear(t *testing.T) {
 	archetype := &archCatalog.Archetypes[archID]
 
 	var c BakedTablesCatalog
-	c.Add(archetype, []comp.ID{posMeta.ID})
+	c.Add(archetype, []comp.ID{posMeta.ID}, nil)
 
 	c.Clear()
 
@@ -163,9 +186,9 @@ func TestBakedTablesCatalog_GrowOnSequentialArchIDs(t *testing.T) {
 	archID3 := archCatalog.Upsert(comp.Composition{}.With(tagMeta))
 
 	var c BakedTablesCatalog
-	c.Add(&archCatalog.Archetypes[archID1], []comp.ID{posMeta.ID})
-	c.Add(&archCatalog.Archetypes[archID2], []comp.ID{velMeta.ID})
-	c.Add(&archCatalog.Archetypes[archID3], []comp.ID{tagMeta.ID})
+	c.Add(&archCatalog.Archetypes[archID1], []comp.ID{posMeta.ID}, nil)
+	c.Add(&archCatalog.Archetypes[archID2], []comp.ID{velMeta.ID}, nil)
+	c.Add(&archCatalog.Archetypes[archID3], []comp.ID{tagMeta.ID}, nil)
 
 	if c.Get(archID1) == nil {
 		t.Error("expected BakedTable for archID1")
@@ -204,7 +227,7 @@ func TestBakedTablesCatalog_GrowDoesNotOverAllocate(t *testing.T) {
 		})
 		meta := compCatalog.Intern(fieldType)
 		archID := archCatalog.Upsert(comp.Composition{}.With(meta))
-		c.Add(&archCatalog.Archetypes[archID], []comp.ID{meta.ID})
+		c.Add(&archCatalog.Archetypes[archID], []comp.ID{meta.ID}, nil)
 	}
 
 	if len(c.BakedTables) != archetypeCount {

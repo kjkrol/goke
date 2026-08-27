@@ -103,6 +103,77 @@ func TestArrayRef_At_DifferentSlots(t *testing.T) {
 	}
 }
 
+func TestOptArrayRef_Present(t *testing.T) {
+	cur := &Cursor{OptPresent: []bool{true, false}}
+
+	var present, absent OptArrayRef[int32]
+	present.Idx = 0
+	absent.Idx = 1
+
+	if !present.Present(cur) {
+		t.Error("expected Present true at Idx 0")
+	}
+	if absent.Present(cur) {
+		t.Error("expected Present false at Idx 1")
+	}
+}
+
+func TestOptArrayRef_Slice(t *testing.T) {
+	buf := make([]byte, 64)
+	cur := &Cursor{
+		Base:       unsafe.Pointer(&buf[0]),
+		OptOffsets: []uintptr{0},
+		OptPresent: []bool{true},
+		IDs:        make([]uid.UID64, 3),
+	}
+
+	var col OptArrayRef[int32]
+	s := col.Slice(cur)
+	if len(s) != 3 {
+		t.Fatalf("expected slice length 3 (== len(cur.IDs)), got %d", len(s))
+	}
+	s[0], s[1], s[2] = 10, 20, 30
+
+	// A fresh Slice() call must see the same underlying memory, not a copy.
+	again := col.Slice(cur)
+	if again[0] != 10 || again[1] != 20 || again[2] != 30 {
+		t.Errorf("expected writes to persist through the shared memory, got %v", again)
+	}
+
+	// Absent: nil, and must not dereference OptOffsets (left nil on purpose
+	// here to prove Present is checked first).
+	cur.OptPresent = []bool{false}
+	cur.OptOffsets = nil
+	if got := col.Slice(cur); got != nil {
+		t.Errorf("expected nil Slice when absent, got %v", got)
+	}
+}
+
+func TestOptArrayRef_At(t *testing.T) {
+	buf := make([]byte, 64)
+	cur := &Cursor{
+		Base:       unsafe.Pointer(&buf[0]),
+		OptOffsets: []uintptr{0},
+		OptPresent: []bool{true},
+		Slot:       2,
+	}
+
+	var col OptArrayRef[int32]
+	*col.At(cur) = 42
+
+	cur.IDs = make([]uid.UID64, 5)
+	if got := col.Slice(cur)[2]; got != 42 {
+		t.Errorf("expected slot 2 to be 42, got %v", got)
+	}
+
+	// Absent: nil, and must not dereference OptOffsets.
+	cur.OptPresent = []bool{false}
+	cur.OptOffsets = nil
+	if got := col.At(cur); got != nil {
+		t.Errorf("expected nil At when absent, got %v", got)
+	}
+}
+
 func TestArrayRef_At_RespectsIdx(t *testing.T) {
 	buf := make([]byte, 64)
 	cur := &Cursor{

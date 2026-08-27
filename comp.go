@@ -46,6 +46,31 @@ func (c *Comp[T]) asTrack() Opt      { return comp.Track[T](&c.col) }
 func (c *Comp[T]) asAdd() EditOpt    { return comp.Add[T](&c.col) }
 func (c *Comp[T]) asLoad() CompToken { return LoadComp[T]() }
 
+// OptComp gives typed read access to a component whose absence never
+// excludes an archetype from the query — declare with QueryBuilder.Optional.
+type OptComp[T any] struct {
+	col iter.OptArrayRef[T]
+}
+
+// Present reports whether T exists on the current chunk or entity.
+func (c *OptComp[T]) Present(cur *Cursor) bool { return c.col.Present(cur) }
+
+// Slice returns T's slice for the current All-mode chunk, or nil if absent.
+func (c *OptComp[T]) Slice(cur *Cursor) []T { return c.col.Slice(cur) }
+
+// At returns a pointer to T for the current Pick/Seek-mode entity, or nil if absent.
+func (c *OptComp[T]) At(cur *Cursor) *T { return c.col.At(cur) }
+
+// OptTrackable is satisfied by *OptComp[T] for any T — it lets
+// QueryBuilder.Optional accept components (&comp) directly.
+type OptTrackable interface {
+	// asOptTrack is unexported so *OptComp[T] is the only implementer —
+	// this is a sealed interface, not an extension point.
+	asOptTrack() Opt
+}
+
+func (c *OptComp[T]) asOptTrack() Opt { return comp.Optional[T](&c.col) }
+
 // Loadable is satisfied by *Comp[T] for any T — it lets LoadComps accept
 // components (&comp) directly instead of naming their type again.
 type Loadable interface {
