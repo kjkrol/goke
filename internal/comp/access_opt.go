@@ -32,3 +32,12 @@ func Exclude[T any]() AccessOpt {
 		return s.Exclude(compDef.ID)
 	}
 }
+
+// Optional registers T as a tracked column that never gates a match.
+func Optional[T any](col *iter.OptArrayRef[T]) AccessOpt {
+	return func(s *AccessSpec, mi *DefIndex) error {
+		col.Idx = len(s.OptCompInfos)
+		compDef := mi.Intern(reflect.TypeFor[T]())
+		return s.OptComp(compDef)
+	}
+}

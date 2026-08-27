@@ -88,6 +88,14 @@ func (b *QueryBuilder) Exclude(opts ...Opt) *QueryBuilder {
 	return b
 }
 
+// Optional adds tracked data columns (pass &OptComp[T]) that never gate the match.
+func (b *QueryBuilder) Optional(comps ...OptTrackable) *QueryBuilder {
+	for _, c := range comps {
+		b.opts = append(b.opts, c.asOptTrack())
+	}
+	return b
+}
+
 // Build creates the Query from the accumulated options.
 func (b *QueryBuilder) Build() *Query {
 	return &Query{m: b.ecs.registry.AddMatcher(b.opts...), ecs: b.ecs}

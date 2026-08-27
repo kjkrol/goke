@@ -40,6 +40,71 @@ func TestAccessSpec_Comp(t *testing.T) {
 	})
 }
 
+func TestAccessSpec_OptComp(t *testing.T) {
+	t.Run("appends an optional data component", func(t *testing.T) {
+		var s comp.AccessSpec
+		def := comp.Def{ID: 1, Size: 8, Type: reflect.TypeFor[position]()}
+
+		if err := s.OptComp(def); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(s.OptCompInfos) != 1 || s.OptCompInfos[0] != def {
+			t.Errorf("expected OptCompInfos to contain def, got %v", s.OptCompInfos)
+		}
+	})
+
+	t.Run("rejects a duplicate optional component ID", func(t *testing.T) {
+		var s comp.AccessSpec
+		def := comp.Def{ID: 1, Size: 8, Type: reflect.TypeFor[position]()}
+		_ = s.OptComp(def)
+
+		if err := s.OptComp(def); err == nil {
+			t.Error("expected an error when adding the same optional component ID twice")
+		}
+	})
+
+	t.Run("rejects a component already required via Comp", func(t *testing.T) {
+		var s comp.AccessSpec
+		def := comp.Def{ID: 1, Size: 8, Type: reflect.TypeFor[position]()}
+		_ = s.Comp(def)
+
+		if err := s.OptComp(def); err == nil {
+			t.Error("expected an error when a required component is also declared optional")
+		}
+	})
+
+	t.Run("rejects a component already required via Tag", func(t *testing.T) {
+		var s comp.AccessSpec
+		def := comp.Def{ID: 1, Size: 8, Type: reflect.TypeFor[position]()}
+		_ = s.Tag(def.ID)
+
+		if err := s.OptComp(def); err == nil {
+			t.Error("expected an error when a tagged component is also declared optional")
+		}
+	})
+
+	t.Run("rejects a tag (size 0) as an optional data column", func(t *testing.T) {
+		var s comp.AccessSpec
+		tagDef := comp.Def{ID: 1, Size: 0, Type: reflect.TypeFor[position]()}
+
+		if err := s.OptComp(tagDef); err == nil {
+			t.Error("expected an error when adding a zero-size def as an optional data column")
+		}
+	})
+}
+
+func TestAccessSpec_OptCompIDs(t *testing.T) {
+	var s comp.AccessSpec
+	_ = s.OptComp(comp.Def{ID: 3, Size: 8})
+	_ = s.OptComp(comp.Def{ID: 1, Size: 4})
+
+	ids := s.OptCompIDs()
+	want := []comp.ID{3, 1}
+	if len(ids) != len(want) || ids[0] != want[0] || ids[1] != want[1] {
+		t.Errorf("expected OptCompIDs %v in track order, got %v", want, ids)
+	}
+}
+
 func TestAccessSpec_Tag(t *testing.T) {
 	var s comp.AccessSpec
 

@@ -78,14 +78,16 @@
 //
 //   - Query Complexity: A single [Query] can track any number of component columns
 //     declared via [Comp][T]. Additional types can be used as filter-only
-//     constraints via Include/Exclude opts without occupying tracked columns.
+//     constraints via Include/Exclude opts without occupying tracked columns,
+//     or as optionally-tracked columns declared via [OptComp][T] and the
+//     Optional builder method — readable when present, never required to match.
 //
 // # Internal Package Dependencies
 //
 // The internal packages form a strict acyclic dependency graph. Each layer
 // may only import packages from layers below it:
 //
-//	Layer 0   iter      — column-access primitives: Cursor, ArrayRef[T]
+//	Layer 0   iter      — column-access primitives: Cursor, ArrayRef[T], OptArrayRef[T]
 //	Layer 1   comp      — shared primitives: ID, Def, Mask, AccessSpec, DefIndex  (→ iter)
 //	Layer 2   chunk     — cache-aligned chunked memory layout      (→ comp)
 //	Layer 3   colstore  — column-oriented storage                  (→ comp, chunk, iter)

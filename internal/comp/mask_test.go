@@ -214,6 +214,23 @@ func TestNewMask(t *testing.T) {
 	}
 }
 
+func TestNewMask_IgnoresOptCompInfos(t *testing.T) {
+	spec := &AccessSpec{
+		CompInfos:    []Def{{ID: 1}},
+		OptCompInfos: []Def{{ID: 2}},
+		TagIDs:       []ID{5},
+	}
+
+	mask := NewMask(spec)
+
+	if mask.IsSet(2) {
+		t.Error("expected NewMask to ignore OptCompInfos — an optional component must never gate a match")
+	}
+	if mask.Count() != 2 {
+		t.Errorf("expected Count 2 (required comp + tag only), got %d", mask.Count())
+	}
+}
+
 func TestMask_Immutability(t *testing.T) {
 	t.Run("Immutability Check", func(t *testing.T) {
 		original := Mask{}

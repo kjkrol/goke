@@ -33,6 +33,13 @@ type filterIter struct {
 	Idx        int
 }
 
+// seekBake caches a Seek target archetype's resolved offsets and presence.
+type seekBake struct {
+	offsets    []uintptr
+	optOffsets []uintptr
+	optPresent []bool
+}
+
 // Matcher provides three ways to access entities matching a component mask:
 // All (full chunk iteration), Pick (iterate a given entity subset), and Seek
 // (position on a single known entity). Create once via NewMatcher/AddMatcher;
@@ -43,13 +50,14 @@ type Matcher struct {
 	archCatalog *arch.Catalog
 	includeMask comp.Mask
 	compIDs     []comp.ID
+	optCompIDs  []comp.ID
 	excludeMask comp.Mask
 	mode        iterMode
 	Cursor      iter.Cursor
 	allIter
 	filterIter
 	seekTable      *colstore.Table
-	seekOffsets    [arch.MaxID][]uintptr
+	seekBakes      [arch.MaxID]seekBake
 	seekLastArchID arch.ID
 }
 
@@ -68,6 +76,7 @@ func (m *Matcher) Init(entityIndex *addr.Index, archCatalog *arch.Catalog, acces
 	m.archCatalog = archCatalog
 	m.includeMask = includeMask
 	m.compIDs = accessSpec.CompIDs()
+	m.optCompIDs = accessSpec.OptCompIDs()
 	m.excludeMask = excludeMask
 	m.seekLastArchID = arch.NullID
 }
@@ -77,16 +86,17 @@ func (m *Matcher) Clear() {
 	m.archCatalog = nil
 	m.includeMask = comp.Mask{}
 	m.compIDs = nil
+	m.optCompIDs = nil
 	m.excludeMask = comp.Mask{}
 	m.BakedTablesCatalog.Clear()
 	m.seekTable = nil
-	m.seekOffsets = [arch.MaxID][]uintptr{}
+	m.seekBakes = [arch.MaxID]seekBake{}
 	m.seekLastArchID = arch.NullID
 }
 
 func (m *Matcher) BakeIfMatch(archetype *arch.Archetype) {
 	if !archetype.Mask().IsEmpty() && archetype.Mask().Matches(m.includeMask, m.excludeMask) {
-		m.BakedTablesCatalog.Add(archetype, m.compIDs)
+		m.BakedTablesCatalog.Add(archetype, m.compIDs, m.optCompIDs)
 	}
 }
 
@@ -126,12 +136,14 @@ func (m *Matcher) Seek(entID uid.UID64) bool {
 	}
 	if entry.ArchID != m.seekLastArchID {
 		m.seekTable = &m.archCatalog.Archetypes[entry.ArchID].Table
-		offs := m.seekOffsets[entry.ArchID]
-		if offs == nil {
-			offs = m.seekTable.BakeOffsets(m.compIDs)
-			m.seekOffsets[entry.ArchID] = offs
+		b := &m.seekBakes[entry.ArchID]
+		if b.offsets == nil {
+			b.offsets = m.seekTable.BakeOffsets(m.compIDs)
+			b.optOffsets, b.optPresent = m.seekTable.BakeOptional(m.optCompIDs)
 		}
-		m.Cursor.Offsets = offs
+		m.Cursor.Offsets = b.offsets
+		m.Cursor.OptOffsets = b.optOffsets
+		m.Cursor.OptPresent = b.optPresent
 		m.seekLastArchID = entry.ArchID
 	}
 	m.Cursor.Set(entry.ChunkPtr, uintptr(entry.Slot))

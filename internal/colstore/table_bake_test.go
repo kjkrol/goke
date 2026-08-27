@@ -44,6 +44,22 @@ func TestTable_BakeColumnsAndOffsets(t *testing.T) {
 	}
 }
 
+func TestTable_BakeOptional(t *testing.T) {
+	defs := []comp.Def{{ID: 1, Size: 8, Align: 8}}
+	var tbl Table
+	tbl.Init(defs)
+
+	baked := tbl.BakeColumns(defs)
+
+	offsets, present := tbl.BakeOptional([]comp.ID{1, 99})
+	if !present[0] || offsets[0] != baked[0].Offset {
+		t.Errorf("expected present[0]=true with offset %d, got present=%v offsets=%v", baked[0].Offset, present, offsets)
+	}
+	if present[1] {
+		t.Errorf("expected present[1]=false for an untracked component ID, got %v", present)
+	}
+}
+
 func TestTable_ComponentAt(t *testing.T) {
 	defs := []comp.Def{{ID: 1, Size: 8, Align: 8}}
 	tbl := newTestTable(t, defs)
