@@ -209,6 +209,18 @@ func TestQueryBuilder_Optional(t *testing.T) {
 	// that only requires position.
 	assert.True(t, seen[eA])
 	assert.True(t, seen[eB])
+
+	// OptComp.At (Pick-mode) mirrors Slice's present/absent behavior.
+	query.Pick([]uid.UID64{eA, eB})
+	for query.Next() {
+		cur := query.Cursor()
+		switch query.Entity() {
+		case eA:
+			assert.Nil(t, velComp.At(cur), "expected nil At for eA (velocity absent)")
+		case eB:
+			assert.Equal(t, velocity{VX: 9, VY: 9}, *velComp.At(cur))
+		}
+	}
 }
 
 // --- Query method tests (All, Pick, Seek, SeekH, Cursor, Entity, Idx) ---
