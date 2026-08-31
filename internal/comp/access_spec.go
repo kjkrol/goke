@@ -59,7 +59,8 @@ func (s *AccessSpec) OptCompIDs() []ID {
 	return ids
 }
 
-// OptComp registers def as a data column that never gates a match.
+// OptComp registers def as a data column that never gates a match — a
+// zero-size def (tag) is tracked via the archetype mask instead of a column.
 func (s *AccessSpec) OptComp(def Def) error {
 	for _, existing := range s.OptCompInfos {
 		if existing.ID == def.ID {
@@ -73,9 +74,6 @@ func (s *AccessSpec) OptComp(def Def) error {
 	}
 	if slices.Contains(s.TagIDs, def.ID) {
 		return fmt.Errorf("component %s (ID: %d) is already required in this access spec, cannot also be optional", def.Type.String(), def.ID)
-	}
-	if def.Size == 0 {
-		return fmt.Errorf("cannot add %s: tags are not allowed as data columns", def.Type.String())
 	}
 	s.OptCompInfos = append(s.OptCompInfos, def)
 	return nil

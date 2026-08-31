@@ -135,11 +135,12 @@ func (m *Matcher) Seek(entID uid.UID64) bool {
 		return false
 	}
 	if entry.ArchID != m.seekLastArchID {
-		m.seekTable = &m.archCatalog.Archetypes[entry.ArchID].Table
+		archetype := &m.archCatalog.Archetypes[entry.ArchID]
+		m.seekTable = &archetype.Table
 		b := &m.seekBakes[entry.ArchID]
 		if b.offsets == nil {
 			b.offsets = m.seekTable.BakeOffsets(m.compIDs)
-			b.optOffsets, b.optPresent = m.seekTable.BakeOptional(m.optCompIDs)
+			b.optOffsets, b.optPresent = m.seekTable.BakeOptional(m.optCompIDs, archetype.Mask())
 		}
 		m.Cursor.Offsets = b.offsets
 		m.Cursor.OptOffsets = b.optOffsets

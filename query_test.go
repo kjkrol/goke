@@ -2,6 +2,7 @@ package goke_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/kjkrol/goke/v3"
 	"github.com/kjkrol/uid"
@@ -219,6 +220,81 @@ func TestQueryBuilder_Optional(t *testing.T) {
 			assert.Nil(t, velComp.At(cur), "expected nil At for eA (velocity absent)")
 		case eB:
 			assert.Equal(t, velocity{VX: 9, VY: 9}, *velComp.At(cur))
+		}
+	}
+}
+
+// TestQueryBuilder_Optional_Tag mirrors TestQueryBuilder_Optional but for a
+// zero-size tag (Processed) — Optional works the same for tags: it never
+// gates the match, and Present is the only meaningful signal (Slice/At
+// still return data-free values rather than nil when present).
+func TestQueryBuilder_Optional_Tag(t *testing.T) {
+	ecs := goke.New()
+	_ = ecs.RegComp[position]()
+	// Factory-time spawning still requires a real data column (AccessSpec.Comp
+	// is untouched by this change) — a tag is attached post-spawn via
+	// CmdBuf.AddOne, same as TestECS_UseCase's Processed usage.
+	processedID := ecs.RegComp[Processed]()
+
+	// eA: position only — Processed absent. eB: position, then tagged — present.
+	var eA, eB uid.UID64
+	var tagComp goke.OptComp[Processed]
+	var query *goke.Query
+	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+		factoryA := si.NewFactory(new(goke.Comp[position]))
+		factoryA.Create(1)
+		factoryA.Next()
+		eA = factoryA.IDs[0]
+
+		factoryB := si.NewFactory(new(goke.Comp[position]))
+		factoryB.Create(1)
+		factoryB.Next()
+		eB = factoryB.IDs[0]
+
+		query = si.NewQueryBuilder(new(goke.Comp[position])).Optional(&tagComp).Build()
+	}})
+
+	tagHandle := ecs.RegSys(goke.SystemFn{OnUpdate: func(cb *goke.CmdBuf, _ time.Duration) {
+		cb.AddOne(eB, processedID, Processed{})
+	}})
+	ecs.SetPlan(func(ctx goke.RunCtx, d time.Duration) {
+		ctx.Run(tagHandle, d)
+		ctx.Sync()
+	})
+	ecs.Tick(time.Second)
+
+	seen := map[uid.UID64]bool{}
+	query.All()
+	for query.Next() {
+		cur := query.Cursor()
+		present := tagComp.Present(cur)
+		for _, e := range cur.IDs {
+			seen[e] = true
+			switch e {
+			case eA:
+				assert.False(t, present, "eA's chunk should report Processed absent")
+				assert.Nil(t, tagComp.Slice(cur), "expected nil Slice for eA's chunk")
+			case eB:
+				assert.True(t, present, "eB's chunk should report Processed present")
+				assert.Len(t, tagComp.Slice(cur), len(cur.IDs), "expected a data-free Slice sized to the chunk for a present tag")
+			}
+		}
+	}
+
+	// Optional never gates the match — both entities are matched by a query
+	// that only requires position.
+	assert.True(t, seen[eA])
+	assert.True(t, seen[eB])
+
+	// OptComp.At (Pick-mode) mirrors Slice's present/absent behavior.
+	query.Pick([]uid.UID64{eA, eB})
+	for query.Next() {
+		cur := query.Cursor()
+		switch query.Entity() {
+		case eA:
+			assert.Nil(t, tagComp.At(cur), "expected nil At for eA (Processed absent)")
+		case eB:
+			assert.NotNil(t, tagComp.At(cur), "expected non-nil At for eB (Processed present)")
 		}
 	}
 }

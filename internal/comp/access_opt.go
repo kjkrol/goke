@@ -33,7 +33,7 @@ func Exclude[T any]() AccessOpt {
 	}
 }
 
-// Optional registers T as a tracked column that never gates a match.
+// Optional registers T as a tracked column that never gates a match — works for a zero-size tag T too, tracked via the archetype mask instead of a column.
 func Optional[T any](col *iter.OptArrayRef[T]) AccessOpt {
 	return func(s *AccessSpec, mi *DefIndex) error {
 		col.Idx = len(s.OptCompInfos)
