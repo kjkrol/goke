@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.1] - 2026-08-31
+
+### Added ✨
+* **`OptComp[T]`/`Optional[T]()` now track zero-size tags too** - a tag has no data column, so presence falls back to the archetype mask instead of `getColumn`. Replaces the two-query (`Include`+`Exclude`) workaround for a non-gating tag check with one pass; `Slice`/`At` return data-free values for a present tag (there's nothing to read).
+
 ## [3.2.0] - 2026-08-27
 
 ### Added ✨
