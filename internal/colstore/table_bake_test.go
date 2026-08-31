@@ -51,12 +51,31 @@ func TestTable_BakeOptional(t *testing.T) {
 
 	baked := tbl.BakeColumns(defs)
 
-	offsets, present := tbl.BakeOptional([]comp.ID{1, 99})
+	offsets, present := tbl.BakeOptional([]comp.ID{1, 99}, comp.Mask{})
 	if !present[0] || offsets[0] != baked[0].Offset {
 		t.Errorf("expected present[0]=true with offset %d, got present=%v offsets=%v", baked[0].Offset, present, offsets)
 	}
 	if present[1] {
 		t.Errorf("expected present[1]=false for an untracked component ID, got %v", present)
+	}
+}
+
+// TestTable_BakeOptional_TagViaMask guards the fallback path: a tag (no
+// column) is still reported present when the archetype's mask has its bit
+// set, with offset left at 0 (never dereferenced — tags are zero-size).
+func TestTable_BakeOptional_TagViaMask(t *testing.T) {
+	var tbl Table
+	tbl.Init(nil)
+
+	var mask comp.Mask
+	mask = mask.Set(7)
+
+	offsets, present := tbl.BakeOptional([]comp.ID{7, 8}, mask)
+	if !present[0] || offsets[0] != 0 {
+		t.Errorf("expected present[0]=true with offset 0 (tag, no column), got present=%v offsets=%v", present, offsets)
+	}
+	if present[1] {
+		t.Errorf("expected present[1]=false: neither a column nor a mask bit for ID 8, got %v", present)
 	}
 }
 

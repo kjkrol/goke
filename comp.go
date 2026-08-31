@@ -55,10 +55,10 @@ type OptComp[T any] struct {
 // Present reports whether T exists on the current chunk or entity.
 func (c *OptComp[T]) Present(cur *Cursor) bool { return c.col.Present(cur) }
 
-// Slice returns T's slice for the current All-mode chunk, or nil if absent.
+// Slice returns T's slice for the current All-mode chunk (data-free values for a zero-size tag T), or nil if absent.
 func (c *OptComp[T]) Slice(cur *Cursor) []T { return c.col.Slice(cur) }
 
-// At returns a pointer to T for the current Pick/Seek-mode entity, or nil if absent.
+// At returns a pointer to T for the current Pick/Seek-mode entity (a data-free value for a zero-size tag T), or nil if absent.
 func (c *OptComp[T]) At(cur *Cursor) *T { return c.col.At(cur) }
 
 // OptTrackable is satisfied by *OptComp[T] for any T — it lets

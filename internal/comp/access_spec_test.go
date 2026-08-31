@@ -83,12 +83,15 @@ func TestAccessSpec_OptComp(t *testing.T) {
 		}
 	})
 
-	t.Run("rejects a tag (size 0) as an optional data column", func(t *testing.T) {
+	t.Run("accepts a tag (size 0) as an optional data column", func(t *testing.T) {
 		var s comp.AccessSpec
 		tagDef := comp.Def{ID: 1, Size: 0, Type: reflect.TypeFor[position]()}
 
-		if err := s.OptComp(tagDef); err == nil {
-			t.Error("expected an error when adding a zero-size def as an optional data column")
+		if err := s.OptComp(tagDef); err != nil {
+			t.Errorf("unexpected error adding a zero-size def as optional: %v", err)
+		}
+		if len(s.OptCompInfos) != 1 || s.OptCompInfos[0] != tagDef {
+			t.Errorf("expected OptCompInfos to contain tagDef, got %v", s.OptCompInfos)
 		}
 	})
 }
