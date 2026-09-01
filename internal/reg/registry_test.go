@@ -75,6 +75,31 @@ func TestRegistry_CreateFactory_PanicsOnDelOpt(t *testing.T) {
 	r.CreateFactory(comp.Del[Position]())
 }
 
+func TestRegistry_CreateFactory_PanicsOnDuplicateTagAddOpt(t *testing.T) {
+	r := newRegistry(t)
+	r.RegComp(reflect.TypeFor[Tag]())
+
+	defer func() {
+		if recover() == nil {
+			t.Error("expected CreateFactory to panic when the same tag is added twice")
+		}
+	}()
+	r.CreateFactory(comp.Add(new(iter.ArrayRef[Tag])), comp.Add(new(iter.ArrayRef[Tag])))
+}
+
+func TestRegistry_CreateFactory_PanicsOnDuplicateCompAddOpt(t *testing.T) {
+	r := newRegistry(t)
+	r.RegComp(reflect.TypeFor[Position]())
+
+	defer func() {
+		if recover() == nil {
+			t.Error("expected CreateFactory to panic when the same component is added twice")
+		}
+	}()
+	var p1, p2 iter.ArrayRef[Position]
+	r.CreateFactory(comp.Add(&p1), comp.Add(&p2))
+}
+
 func TestRegistry_CreateFactory_AcceptsZeroSizeAddOpt(t *testing.T) {
 	r := newRegistry(t)
 	r.RegComp(reflect.TypeFor[Position]())
