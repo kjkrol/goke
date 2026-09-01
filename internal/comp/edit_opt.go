@@ -27,12 +27,23 @@ func (s *EditSpec) Init(mi *DefIndex, opts ...EditOpt) {
 	}
 }
 
-// Add registers T as a component to add, binding col so its value can be written
-// after the edit. col.Idx is set to T's position among the added columns.
+// Add registers T as a component to add, binding col so its value can be
+// written after the edit. col.Idx is T's position among the added data
+// columns, or -1 if T is zero-size (a tag has no column).
 func Add[T any](col *iter.ArrayRef[T]) EditOpt {
 	return func(s *EditSpec, mi *DefIndex) error {
-		col.Idx = len(s.AddDefs)
-		s.AddDefs = append(s.AddDefs, mi.Intern(reflect.TypeFor[T]()))
+		def := mi.Intern(reflect.TypeFor[T]())
+		col.Idx = -1
+		if def.Size > 0 {
+			n := 0
+			for _, d := range s.AddDefs {
+				if d.Size > 0 {
+					n++
+				}
+			}
+			col.Idx = n
+		}
+		s.AddDefs = append(s.AddDefs, def)
 		return nil
 	}
 }

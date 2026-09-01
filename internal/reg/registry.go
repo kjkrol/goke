@@ -46,7 +46,14 @@ func (r *Registry) CreateFactory(opts ...comp.EditOpt) *ent.Factory {
 	}
 	var accessSpec comp.AccessSpec
 	for i := range spec.AddDefs {
-		if err := accessSpec.Comp(spec.AddDefs[i]); err != nil {
+		def := spec.AddDefs[i]
+		if def.Size == 0 {
+			if err := accessSpec.Tag(def.ID); err != nil {
+				panic(err)
+			}
+			continue
+		}
+		if err := accessSpec.Comp(def); err != nil {
 			panic(err)
 		}
 	}

@@ -20,7 +20,8 @@ func (s *SysInit) NewQueryBuilder(comps ...Trackable) *QueryBuilder {
 
 // NewFactory resolves or creates the archetype from the given components and
 // returns a reusable Factory ready for repeated Create/Next cycles. Each
-// component behaves like Add[T] — pass &comp directly.
+// component behaves like Add[T] — pass &comp directly, or &Comp[T]{} for a
+// zero-size tag.
 func (s *SysInit) NewFactory(comps ...Addable) *Factory {
 	opts := make([]EditOpt, len(comps))
 	for i, c := range comps {

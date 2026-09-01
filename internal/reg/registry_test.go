@@ -75,16 +75,62 @@ func TestRegistry_CreateFactory_PanicsOnDelOpt(t *testing.T) {
 	r.CreateFactory(comp.Del[Position]())
 }
 
-func TestRegistry_CreateFactory_PanicsOnZeroSizeAddOpt(t *testing.T) {
+func TestRegistry_CreateFactory_AcceptsZeroSizeAddOpt(t *testing.T) {
+	r := newRegistry(t)
+	r.RegComp(reflect.TypeFor[Position]())
+	r.RegComp(reflect.TypeFor[Tag]())
+	r.RegComp(reflect.TypeFor[Velocity]())
+
+	var pos iter.ArrayRef[Position]
+	var vel iter.ArrayRef[Velocity]
+	factory := r.CreateFactory(comp.Add(&pos), comp.Add(new(iter.ArrayRef[Tag])), comp.Add(&vel))
+	factory.Create(1)
+	factory.Next()
+	pos.Slice(&factory.Cursor)[0] = Position{X: 1, Y: 2}
+	vel.Slice(&factory.Cursor)[0] = Velocity{VX: 3, VY: 4}
+	id := factory.IDs[0]
+
+	var trackedPos iter.ArrayRef[Position]
+	var trackedVel iter.ArrayRef[Velocity]
+	matcher := r.AddMatcher(comp.Include[Tag](), comp.Track(&trackedPos), comp.Track(&trackedVel))
+	matcher.All()
+	found := false
+	for matcher.Next() {
+		positions := trackedPos.Slice(&matcher.Cursor)
+		velocities := trackedVel.Slice(&matcher.Cursor)
+		for i, gotID := range matcher.Cursor.IDs {
+			if gotID != id {
+				continue
+			}
+			found = true
+			if positions[i] != (Position{X: 1, Y: 2}) {
+				t.Errorf("Position = %+v, want {1 2}", positions[i])
+			}
+			if velocities[i] != (Velocity{VX: 3, VY: 4}) {
+				t.Errorf("Velocity = %+v, want {3 4}", velocities[i])
+			}
+		}
+	}
+	if !found {
+		t.Error("expected the spawned entity to match a query requiring the zero-size tag component")
+	}
+}
+
+func TestRegistry_CreateFactory_SliceOnTagBoundColPanics(t *testing.T) {
 	r := newRegistry(t)
 	r.RegComp(reflect.TypeFor[Tag]())
 
+	var tag iter.ArrayRef[Tag]
+	factory := r.CreateFactory(comp.Add(&tag))
+	factory.Create(1)
+	factory.Next()
+
 	defer func() {
 		if recover() == nil {
-			t.Error("expected CreateFactory to panic when Add targets a zero-size (tag) type")
+			t.Error("expected Slice on a tag-bound col to panic")
 		}
 	}()
-	r.CreateFactory(comp.Add(new(iter.ArrayRef[Tag])))
+	tag.Slice(&factory.Cursor)
 }
 
 func TestRegistry_Remove(t *testing.T) {
