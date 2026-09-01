@@ -28,14 +28,6 @@ func main() {
 		anyQuery = si.NewQueryBuilder().Build()
 	}})
 
-	// markStale tags every entity as Stale in one pass. Every matched entity
-	// in a chunk is staged into the same MigrateBuf before Commit, so the
-	// whole chunk migrates in one block copy — not population separate
-	// cb.AddOne(id, staleID, Stale{}) calls, which would move each entity
-	// individually even though they're all landing in the same destination
-	// archetype. This is the bulk counterpart to examples/single-entity-demo,
-	// which shows the opposite case: entities reached without a Query, where
-	// there's no batch to join.
 	var stale goke.Comp[Stale]
 	var liveQuery *goke.Query
 	var tagStale *goke.Editor
@@ -60,9 +52,6 @@ func main() {
 		},
 	})
 
-	// sweepStale removes every Stale entity in one pass, the same way:
-	// stage the whole matched chunk, then one Commit(remover) per chunk
-	// instead of one cb.RemoveOne(id) per entity.
 	var staleQuery *goke.Query
 	var remover *goke.Remover
 	sweepStale := ecs.RegSys(goke.SystemFn{

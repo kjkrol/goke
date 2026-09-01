@@ -25,15 +25,11 @@ func main() {
 	_ = ecs.RegComp[Order]()
 	discountID = ecs.RegComp[Discount]()
 
-	// Initialize an entity with Order and Discount component data
 	var order goke.Comp[Order]
 	var discount goke.Comp[Discount]
 	var entityID uid.UID64
 
-	// spawnSystem seeds the world. logInitialSystem reads what spawnSystem
-	// just created — ecs.Setup runs each given system fully (Init, Update,
-	// Sync) before the next one starts, so logInitialSystem's Init already
-	// sees the spawned entity.
+	// Setup
 	spawnSystem := goke.SystemFn{
 		OnInit: func(si *goke.SysInit) {
 			factory := si.NewFactory(&order, &discount)
@@ -45,51 +41,45 @@ func main() {
 			discount.Slice(fc)[0] = Discount{Percentage: 20.0}
 		},
 	}
-	var initialQuery *goke.Query
-	logInitialSystem := goke.SystemFn{
+	var logQuery *goke.Query
+	logSystem := goke.SystemFn{
 		OnInit: func(si *goke.SysInit) {
-			initialQuery = si.NewQueryBuilder(&order).Build()
+			logQuery = si.NewQueryBuilder(&order).Build()
 		},
 		OnUpdate: func(_ *goke.CmdBuf, _ time.Duration) {
-			if initialQuery.Seek(entityID) {
-				o := order.At(initialQuery.Cursor())
+			if logQuery.Seek(entityID) {
+				o := order.At(logQuery.Cursor())
 				fmt.Printf("Order id: %v value: %v\n", o.ID, o.Total)
 			}
 		},
 	}
-	ecs.Setup(spawnSystem, logInitialSystem)
+	ecs.Setup(spawnSystem, logSystem)
 
-	// Define the Billing System to calculate discounted totals for unprocessed orders
+	// Configure the execution plan and define system dependencies
 	var processed goke.Comp[Processed]
 	var query *goke.Query
 	var markProcessed *goke.Editor
-	billing := ecs.RegSys(goke.SystemFn{
+	billingSystem := ecs.RegSys(goke.SystemFn{
 		OnInit: func(si *goke.SysInit) {
 			query = si.NewQueryBuilder(&order, &discount).Exclude(goke.Exclude[Processed]()).Build()
-			markProcessed = query.NewEditorBuilder(&processed).Build()
+			markProcessed = query.NewEditorBuilder(&processed).Build() // create editor that adds processed tag
 		},
-		OnUpdate: func(schedule *goke.CmdBuf, d time.Duration) {
+		OnUpdate: func(cb *goke.CmdBuf, d time.Duration) {
 			cursor := query.Cursor()
 			query.All()
 			for query.Next() {
 				orders := order.Slice(cursor)
 				discounts := discount.Slice(cursor)
-				// Every matched entity in this chunk is staged into one
-				// MigrateBuf, so Commit applies the Processed tag as a
-				// single block migration instead of one AddOne per entity —
-				// this loop is already iterating the Query, so the batch
-				// path is free; see the README's Bulk operations row.
-				mb := query.BeginMigrate(schedule)
+				mb := query.BeginMigrate(cb) // create migration buffer
 				for i, entityID := range cursor.IDs {
 					orders[i].Total = orders[i].Total * (1 - discounts[i].Percentage/100)
-					mb.Add(entityID)
+					mb.Add(entityID) // add entity to migration buffer
 				}
-				mb.Commit(markProcessed)
+				mb.Commit(markProcessed) // commit migration buffer using Editor
 			}
 		},
 	})
 
-	// Define the Teardown System to monitor simulation exit conditions
 	close := false
 	var query2 *goke.Query
 	teardownSystem := ecs.RegSys(goke.SystemFn{
@@ -104,8 +94,6 @@ func main() {
 		},
 	})
 
-	// Define the Report System to log the order's value every tick — reads
-	// flow through systems too, not raw lookups pulled out of the ECS.
 	var reportQuery *goke.Query
 	reportSystem := ecs.RegSys(goke.SystemFn{
 		OnInit: func(si *goke.SysInit) {
@@ -119,9 +107,8 @@ func main() {
 		},
 	})
 
-	// Configure the execution plan and define system dependencies
 	ecs.SetPlan(func(ctx goke.RunCtx, d time.Duration) {
-		ctx.Run(billing, d)
+		ctx.Run(billingSystem, d)
 		ctx.Sync()
 		ctx.Run(teardownSystem, d)
 		ctx.Sync()
