@@ -264,3 +264,18 @@ func TestDefIndex_Intern_NoLogForPurePOD(t *testing.T) {
 		t.Errorf("expected no warning for a pure POD type, got: %s", buf.String())
 	}
 }
+
+// A blank field is invisible to persist, so neither the encodability check nor
+// the off-chunk walk may trip over it — whatever its type would otherwise mean.
+func TestBlankFieldsAreSkipped(t *testing.T) {
+	type withBlankString struct {
+		N uint64
+		_ string
+	}
+	if err := comp.ValidateEncodable(reflect.TypeFor[withBlankString]()); err != nil {
+		t.Errorf("ValidateEncodable rejected a type whose only string is a blank field: %v", err)
+	}
+	if got := comp.OffChunkFields(reflect.TypeFor[withBlankString]()); len(got) != 0 {
+		t.Errorf("OffChunkFields = %v, want none", got)
+	}
+}

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"unsafe"
 
+	"github.com/kjkrol/goke/v3/internal/bulk"
 	"github.com/kjkrol/goke/v3/internal/comp"
 	"github.com/kjkrol/uid"
 )
@@ -113,4 +114,34 @@ func assertPanics(t *testing.T, what string, fn func()) {
 		}
 	}()
 	fn()
+}
+
+// A payload the collector must follow into is staged in its own allocation of
+// the element type, not carved out of the pointer-free arena.
+func TestCmdBuf_AddCompValue_StagesScannedPayloadSeparately(t *testing.T) {
+	cb := NewCmdBuf()
+	ids := []uid.UID64{1, 2, 3}
+	var zero withString
+
+	before := cb.plain.offset
+	ptr := cb.AddCompValue(&stubValueMigrator{}, bulk.ChunkSnapshot{}, ids,
+		unsafe.Sizeof(zero), unsafe.Alignof(zero), reflect.TypeFor[withString](), true)
+	if ptr == nil {
+		t.Fatal("expected a non-nil payload pointer")
+	}
+
+	// Only the id copies may come from the arena; the payload must not.
+	idBytes := len(ids) * int(unsafe.Sizeof(uid.UID64(0)))
+	if grew := cb.plain.offset - before; grew > idBytes {
+		t.Errorf("arena grew by %d bytes, want at most %d — the payload took arena space", grew, idBytes)
+	}
+
+	vals := unsafe.Slice((*withString)(ptr), len(ids))
+	for i := range vals {
+		vals[i] = withString{A: uint64(i), Name: "keep me alive"}
+	}
+	runtime.GC()
+	if vals[2].Name != "keep me alive" {
+		t.Errorf("payload string read back as %q", vals[2].Name)
+	}
 }

@@ -176,3 +176,39 @@ func TestSeekH_DifferentArchetypeReportsMismatch(t *testing.T) {
 		t.Error("expected the suggested fallback Seek(eB) to succeed")
 	}
 }
+
+// Seek bypasses the include/exclude filters but not the column check: an
+// archetype missing a tracked component must be refused, cursor untouched.
+func TestSeek_RefusesArchetypeMissingATrackedColumn(t *testing.T) {
+	cat, cc, em := newQueryCatalog()
+
+	var pos iter.ArrayRef[iterPos]
+	var vel iter.ArrayRef[iterVel]
+	posOpt, velOpt := comp.Track(&pos), comp.Track(&vel)
+
+	var withBoth comp.AccessSpec
+	withBoth.Init(cc, posOpt, velOpt)
+	f := em.CreateFactory(withBoth)
+	f.Create(1)
+	f.Next()
+	full := f.IDs[0]
+	*pos.At(&f.Cursor) = iterPos{X: 9}
+
+	var posOnly comp.AccessSpec
+	posOnly.Init(cc, comp.Track(new(iter.ArrayRef[iterPos])))
+	f2 := em.CreateFactory(posOnly)
+	f2.Create(1)
+	f2.Next()
+	partial := f2.IDs[0]
+
+	m := NewMatcher(cat, posOpt, velOpt)
+	if !m.Seek(full) {
+		t.Fatal("expected Seek to find the entity carrying both components")
+	}
+	if m.Seek(partial) {
+		t.Error("Seek returned true for an archetype with no Velocity column, want false")
+	}
+	if got := pos.At(&m.Cursor); got.X != 9 {
+		t.Errorf("cursor moved on a refused Seek: X = %v, want 9", got.X)
+	}
+}

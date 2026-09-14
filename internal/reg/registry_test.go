@@ -473,3 +473,22 @@ func TestRegistry_PauseResume_Idempotent(t *testing.T) {
 		t.Fatal("expected Paused() false after Resume")
 	}
 }
+
+// Defs exposes the same component index RegComp interns into, which is what
+// Scheduler.Register hands to every CmdBuf.
+func TestRegistry_Defs(t *testing.T) {
+	r := newRegistry(t)
+	id := r.RegComp(reflect.TypeFor[Position]())
+
+	defs := r.Defs()
+	if defs == nil {
+		t.Fatal("Defs() = nil")
+	}
+	got, ok := defs.ByType(reflect.TypeFor[Position]())
+	if !ok {
+		t.Fatal("Defs() does not know a type RegComp just interned")
+	}
+	if got.ID != id {
+		t.Errorf("Defs().ByType().ID = %v, want %v as returned by RegComp", got.ID, id)
+	}
+}

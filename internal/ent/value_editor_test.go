@@ -419,3 +419,25 @@ func TestValueEditor_MigrateWithValue_Unlink_RemovesEntities(t *testing.T) {
 		}
 	}
 }
+
+// NeedsScan mirrors the added component's own flag, so staging can choose an
+// allocation the collector will follow when it has to.
+func TestValueEditor_NeedsScan(t *testing.T) {
+	m := newMgr()
+	var mi comp.DefIndex
+	mi.Init()
+
+	var plain comp.EditSpec
+	plain.Init(&mi, comp.Add(new(iter.ArrayRef[mVelocity])))
+	if ent.NewValueEditor(&m.AddressBook, &m.ArchCatalog, plain).NeedsScan() {
+		t.Error("NeedsScan = true for a pointer-free component, want false")
+	}
+
+	var scanned comp.EditSpec
+	scanned.Init(&mi, comp.Add(new(iter.ArrayRef[mLabelled])))
+	if !ent.NewValueEditor(&m.AddressBook, &m.ArchCatalog, scanned).NeedsScan() {
+		t.Error("NeedsScan = false for a component holding a string, want true")
+	}
+}
+
+type mLabelled struct{ Name string }
