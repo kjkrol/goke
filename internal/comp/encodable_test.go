@@ -23,7 +23,8 @@ func (m *marshaledType) UnmarshalBinary(data []byte) error { return nil }
 
 type withString struct {
 	Name string
-	X    float32
+	X    float64 // float64, not float32: a 4-byte tail would be padding, which
+	// Intern rejects alongside an off-chunk field.
 }
 
 type withMarshaled struct {

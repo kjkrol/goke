@@ -38,6 +38,8 @@ type seekBake struct {
 	offsets    []uintptr
 	optOffsets []uintptr
 	optPresent []bool
+	baked      bool // this archetype has been resolved (offsets may legitimately be empty)
+	complete   bool // it has a column for every tracked component
 }
 
 // Matcher provides three ways to access entities matching a component mask:
@@ -126,9 +128,11 @@ func (m *Matcher) Next() bool {
 	return false
 }
 
-// Seek positions the Cursor at entID's storage slot, bypassing the mask;
-// returns false if the entity does not exist. Consecutive Seeks into the
-// same archetype reuse the cached table and column offsets.
+// Seek positions the Cursor at entID's storage slot, bypassing the query's
+// include/exclude filters; returns false, leaving the Cursor untouched, if the
+// entity does not exist or its archetype lacks a column for a tracked
+// component. Consecutive Seeks into the same archetype reuse the cached table
+// and column offsets.
 func (m *Matcher) Seek(entID uid.UID64) bool {
 	entry, ok := m.EntityIndex.Get(entID)
 	if !ok {
@@ -136,12 +140,16 @@ func (m *Matcher) Seek(entID uid.UID64) bool {
 	}
 	if entry.ArchID != m.seekLastArchID {
 		archetype := &m.archCatalog.Archetypes[entry.ArchID]
-		m.seekTable = &archetype.Table
 		b := &m.seekBakes[entry.ArchID]
-		if b.offsets == nil {
-			b.offsets = m.seekTable.BakeOffsets(m.compIDs)
-			b.optOffsets, b.optPresent = m.seekTable.BakeOptional(m.optCompIDs, archetype.Mask())
+		if !b.baked {
+			b.offsets, b.complete = archetype.Table.BakeOffsets(m.compIDs)
+			b.optOffsets, b.optPresent = archetype.Table.BakeOptional(m.optCompIDs, archetype.Mask())
+			b.baked = true
 		}
+		if !b.complete {
+			return false
+		}
+		m.seekTable = &archetype.Table
 		m.Cursor.Offsets = b.offsets
 		m.Cursor.OptOffsets = b.optOffsets
 		m.Cursor.OptPresent = b.optPresent
@@ -165,10 +173,13 @@ func (m *Matcher) ChunkSnapshot() bulk.ChunkSnapshot {
 
 // SeekH (Seek homogeneous) is Seek minus the alive and archetype-change
 // checks: it assumes entID is alive and in the archetype cached by a prior
-// Seek. Returns false when the archetype differs — the Cursor is then
-// invalid; fall back to Seek. Undefined if entID is not alive.
+// Seek. Returns false when the archetype differs, leaving the Cursor exactly
+// as it was — fall back to Seek. Undefined if entID is not alive.
 func (m *Matcher) SeekH(entID uid.UID64) bool {
 	entry := m.EntityIndex.GetUnchecked(entID)
+	if entry.ArchID != m.seekLastArchID || m.seekLastArchID == arch.NullID {
+		return false
+	}
 	m.Cursor.Set(entry.ChunkPtr, uintptr(entry.Slot))
-	return entry.ArchID == m.seekLastArchID
+	return true
 }

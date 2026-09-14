@@ -496,3 +496,82 @@ type position struct {
 type velocity struct {
 	VX, VY float64
 }
+
+func TestQuery_Seek_RefusesArchetypeMissingATrackedColumn(t *testing.T) {
+	ecs := goke.New()
+	_ = ecs.RegComp[Position]()
+	_ = ecs.RegComp[Velocity]()
+
+	var pos goke.Comp[Position]
+	var vel goke.Comp[Velocity]
+	var withVel, withoutVel uid.UID64
+	var query *goke.Query
+	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+		// withVel matches what the query tracks.
+		f0 := si.NewFactory(&pos, &vel)
+		f0.Create(1)
+		f0.Next()
+		withVel = f0.IDs[0]
+		pos.At(&f0.Cursor).X = 7
+
+		// withoutVel has no Velocity column at all.
+		f1 := si.NewFactory(&pos)
+		f1.Create(1)
+		f1.Next()
+		withoutVel = f1.IDs[0]
+
+		query = si.NewQueryBuilder(&pos, &vel).Build()
+	}})
+
+	if !query.Seek(withVel) {
+		t.Fatal("expected Seek to find the entity whose archetype has every tracked column")
+	}
+	assert.Equal(t, float32(7), pos.At(query.Cursor()).X)
+
+	// Seek bypasses the include/exclude filters by design, but it must not
+	// bypass the column check: Velocity bakes as offset 0 here, which is the
+	// entity-ID column, so vel.At() would hand out a pointer into unrelated
+	// storage and writing through it would corrupt the heap.
+	if query.Seek(withoutVel) {
+		t.Error("Seek returned true for an archetype with no Velocity column, want false")
+	}
+
+	// A refused Seek must leave the cursor where the last successful one put
+	// it, so a caller that ignores the result still reads valid memory.
+	assert.Equal(t, float32(7), pos.At(query.Cursor()).X)
+}
+
+func TestQuery_SeekH_MismatchLeavesCursorUntouched(t *testing.T) {
+	ecs := goke.New()
+	_ = ecs.RegComp[Position]()
+	_ = ecs.RegComp[Velocity]()
+
+	var pos goke.Comp[Position]
+	var vel goke.Comp[Velocity]
+	var e0, other uid.UID64
+	var query *goke.Query
+	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+		f0 := si.NewFactory(&pos, &vel)
+		f0.Create(1)
+		f0.Next()
+		e0 = f0.IDs[0]
+		pos.At(&f0.Cursor).X = 5
+
+		f1 := si.NewFactory(&pos)
+		f1.Create(1)
+		f1.Next()
+		other = f1.IDs[0]
+
+		query = si.NewQueryBuilder(&pos, &vel).Build()
+	}})
+
+	if !query.Seek(e0) {
+		t.Fatal("expected Seek to find e0")
+	}
+	if query.SeekH(other) {
+		t.Error("expected SeekH to report an archetype mismatch")
+	}
+	// The cached Offsets still describe e0's archetype, so SeekH must not have
+	// repointed Base/Slot at `other` — pairing the two addresses wrong columns.
+	assert.Equal(t, float32(5), pos.At(query.Cursor()).X)
+}

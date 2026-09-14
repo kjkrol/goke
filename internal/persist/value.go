@@ -90,6 +90,9 @@ func encodeValue(w io.Writer, v reflect.Value) error {
 		return nil
 	case reflect.Struct:
 		for i := range v.NumField() {
+			if v.Type().Field(i).Name == "_" {
+				continue // blank filler field — declared, but carries no data
+			}
 			if err := encodeValue(w, v.Field(i)); err != nil {
 				return err
 			}
@@ -195,6 +198,9 @@ func decodeValue(r io.Reader, v reflect.Value) error {
 		return nil
 	case reflect.Struct:
 		for i := range v.NumField() {
+			if v.Type().Field(i).Name == "_" {
+				continue // blank filler field — nothing was written for it
+			}
 			if err := decodeValue(r, v.Field(i)); err != nil {
 				return err
 			}

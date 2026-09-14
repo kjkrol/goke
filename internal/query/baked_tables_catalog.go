@@ -14,10 +14,12 @@ type BakedTablesCatalog struct {
 // optCompIDs are resolved the same way as compIDs but never gate the match.
 func (c *BakedTablesCatalog) Add(archetype *arch.Archetype, compIDs, optCompIDs []comp.ID) {
 	optOffsets, optPresent := archetype.Table.BakeOptional(optCompIDs, archetype.Mask())
+	// A zero-size tag has no column, so an incomplete bake is expected here.
+	compOffsets, _ := archetype.Table.BakeOffsets(compIDs)
 	c.BakedTables = append(c.BakedTables, BakedTable{
 		ArchID:      archetype.Id,
 		Table:       &archetype.Table,
-		CompOffsets: archetype.Table.BakeOffsets(compIDs),
+		CompOffsets: compOffsets,
 		OptOffsets:  optOffsets,
 		OptPresent:  optPresent,
 	})

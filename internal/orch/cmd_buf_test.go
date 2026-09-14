@@ -365,7 +365,7 @@ func TestCmdBuf_AddCompValue_QueuesCommand(t *testing.T) {
 	cb := NewCmdBuf()
 	m := &stubValueMigrator{}
 
-	ptr := cb.AddCompValue(m, bulk.ChunkSnapshot{}, []uid.UID64{1, 2, 3}, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0)))
+	ptr := cb.AddCompValue(m, bulk.ChunkSnapshot{}, []uid.UID64{1, 2, 3}, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0)), nil, false)
 
 	if len(cb.migrateValueCmds) != 1 {
 		t.Fatalf("expected 1 massMigrateValueCmd, got %d", len(cb.migrateValueCmds))
@@ -386,7 +386,7 @@ func TestCmdBuf_AddCompValue_CopiesIDs(t *testing.T) {
 	m := &stubValueMigrator{}
 	ids := []uid.UID64{10, 20, 30}
 
-	cb.AddCompValue(m, bulk.ChunkSnapshot{}, ids, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0)))
+	cb.AddCompValue(m, bulk.ChunkSnapshot{}, ids, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0)), nil, false)
 	ids[0] = 99
 
 	if cb.migrateValueCmds[0].ids[0] != 10 {
@@ -398,10 +398,10 @@ func TestCmdBuf_AddCompValue_Empty_NoCommand(t *testing.T) {
 	cb := NewCmdBuf()
 	m := &stubValueMigrator{}
 
-	if ptr := cb.AddCompValue(m, bulk.ChunkSnapshot{}, nil, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0))); ptr != nil {
+	if ptr := cb.AddCompValue(m, bulk.ChunkSnapshot{}, nil, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0)), nil, false); ptr != nil {
 		t.Error("expected nil payload pointer for a nil id slice")
 	}
-	cb.AddCompValue(m, bulk.ChunkSnapshot{}, []uid.UID64{}, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0)))
+	cb.AddCompValue(m, bulk.ChunkSnapshot{}, []uid.UID64{}, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0)), nil, false)
 
 	if len(cb.migrateValueCmds) != 0 {
 		t.Errorf("expected no commands for empty id slices, got %d", len(cb.migrateValueCmds))
@@ -412,7 +412,7 @@ func TestCmdBuf_AddCompValue_ZeroElemSize_NoPayloadReserved(t *testing.T) {
 	cb := NewCmdBuf()
 	m := &stubValueMigrator{}
 
-	ptr := cb.AddCompValue(m, bulk.ChunkSnapshot{}, []uid.UID64{1, 2}, 0, 1)
+	ptr := cb.AddCompValue(m, bulk.ChunkSnapshot{}, []uid.UID64{1, 2}, 0, 1, nil, false)
 
 	if ptr != nil {
 		t.Error("expected nil payload pointer when elemSize is 0 (zero-sized added component)")
@@ -425,7 +425,7 @@ func TestCmdBuf_AddCompValue_ZeroElemSize_NoPayloadReserved(t *testing.T) {
 func TestCmdBuf_Clear_ResetsMigrateValueCmds(t *testing.T) {
 	cb := NewCmdBuf()
 	m := &stubValueMigrator{}
-	cb.AddCompValue(m, bulk.ChunkSnapshot{}, []uid.UID64{1, 2}, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0)))
+	cb.AddCompValue(m, bulk.ChunkSnapshot{}, []uid.UID64{1, 2}, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0)), nil, false)
 
 	cb.Clear()
 
@@ -441,7 +441,7 @@ type addCompValueTestSystem struct {
 
 func (s *addCompValueTestSystem) Update(cb *CmdBuf, d time.Duration) {
 	for _, batch := range s.batches {
-		cb.AddCompValue(s.migrator, bulk.ChunkSnapshot{}, batch, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0)))
+		cb.AddCompValue(s.migrator, bulk.ChunkSnapshot{}, batch, unsafe.Sizeof(int32(0)), unsafe.Alignof(int32(0)), nil, false)
 	}
 }
 
@@ -581,8 +581,8 @@ func TestCmdBuf_ReserveSpace_GrowsExistingUndersizedPage(t *testing.T) {
 
 	cb.reserveSpace(4000, 1) // fills most of page 0 (4096 bytes)
 	cb.reserveSpace(200, 1)  // spills onto a freshly appended page 1 (4096 bytes)
-	if len(cb.pages) != 2 {
-		t.Fatalf("setup error: expected 2 pages, got %d", len(cb.pages))
+	if len(cb.plain.pages) != 2 {
+		t.Fatalf("setup error: expected 2 pages, got %d", len(cb.plain.pages))
 	}
 
 	cb.Clear() // pageIdx/offset reset to 0, but both pages (and their sizes) survive
@@ -592,7 +592,7 @@ func TestCmdBuf_ReserveSpace_GrowsExistingUndersizedPage(t *testing.T) {
 	if p == nil {
 		t.Fatal("expected a non-nil pointer after growing the undersized page")
 	}
-	if len(cb.pages[1]) < 5000 {
-		t.Errorf("expected page 1 to grow to at least 5000 bytes, got %d", len(cb.pages[1]))
+	if len(cb.plain.pages[1]) < 5000 {
+		t.Errorf("expected page 1 to grow to at least 5000 bytes, got %d", len(cb.plain.pages[1]))
 	}
 }

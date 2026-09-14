@@ -2,6 +2,7 @@ package orch
 
 import (
 	"errors"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -27,7 +28,21 @@ type mockMutator struct {
 		called bool
 		id     uid.UID64
 	}
-	remover bulk.Migrator
+	remover   bulk.Migrator
+	defs      comp.DefIndex
+	defsReady bool
+}
+
+// Defs satisfies Mutator. int is interned first so it lands on comp.ID(0) —
+// the id these tests stage through AddOne, whose type check resolves against
+// exactly this index.
+func (m *mockMutator) Defs() *comp.DefIndex {
+	if !m.defsReady {
+		m.defs.Init()
+		m.defs.Intern(reflect.TypeFor[int]())
+		m.defsReady = true
+	}
+	return &m.defs
 }
 
 func (m *mockMutator) UpsertComp(uid.UID64, comp.ID) (unsafe.Pointer, error) {

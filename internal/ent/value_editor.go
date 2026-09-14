@@ -50,6 +50,10 @@ func NewValueEditor(book *addr.Book, catalog *arch.Catalog, spec comp.EditSpec) 
 // each holding a pair of float32s) would otherwise defeat a size-only check.
 func (vm *ValueEditor) ValueType() reflect.Type { return vm.spec.AddDefs[0].Type }
 
+// NeedsScan reports whether the added component has a field the GC must follow
+// out of the payload — see comp.Def.NeedsScan.
+func (vm *ValueEditor) NeedsScan() bool { return vm.spec.AddDefs[0].NeedsScan }
+
 // resolve computes and memoizes the destination archetype for srcArchID.
 func (vm *ValueEditor) resolve(srcArchID arch.ID) arch.ID {
 	target := resolveDst(vm.archCatalog, vm.spec, srcArchID)

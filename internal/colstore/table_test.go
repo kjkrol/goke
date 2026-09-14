@@ -138,7 +138,7 @@ func TestTable_SetEntityRange_WrittenIDsVisibleViaCursor(t *testing.T) {
 	tbl.SetEntityRange(ptr, slot, want)
 
 	cur := newCursor(1)
-	offsets := tbl.BakeOffsets([]comp.ID{1})
+	offsets, _ := tbl.BakeOffsets([]comp.ID{1})
 	_, ok := tbl.FillCursorNext(cur, 0, offsets)
 	if !ok {
 		t.Fatal("expected a non-empty chunk after AllocSlots+SetEntityRange")

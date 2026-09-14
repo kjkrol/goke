@@ -34,6 +34,6 @@ func (cb *CmdBuf) AddCompValue[T any](vm *ValueEditor, col *Comp[T], snap ChunkS
 		panic("goke: CmdBuf.AddCompValue: " + t.String() + " does not match this ValueEditor's added component " + vm.ValueType().String())
 	}
 	var zero T
-	ptr := cb.raw.AddCompValue(vm, snap, ids, unsafe.Sizeof(zero), unsafe.Alignof(zero))
+	ptr := cb.raw.AddCompValue(vm, snap, ids, unsafe.Sizeof(zero), unsafe.Alignof(zero), reflect.TypeFor[T](), vm.NeedsScan())
 	return unsafe.Slice((*T)(ptr), len(ids))
 }
