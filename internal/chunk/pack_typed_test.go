@@ -8,14 +8,12 @@ import (
 	"github.com/kjkrol/goke/v3/internal/comp"
 )
 
-// TestPack_AddChunks_ScannableLayout exercises AddChunks' NeedsScan branch
-// (and, through it, ScannableBytes) end-to-end: a chunk allocated as
-// GC-scanned memory must still behave exactly like an ordinary byte chunk
-// for reads/writes through the normal offset arithmetic.
-func TestPack_AddChunks_ScannableLayout(t *testing.T) {
+// A chunk allocated through the archetype's generated type must behave like an
+// ordinary byte chunk under the normal offset arithmetic.
+func TestPack_AddChunks_TypedLayout(t *testing.T) {
 	var layout Layout
 	layout.Init([]comp.Def{
-		{ID: 1, Size: unsafe.Sizeof(layoutTestOffChunk{}), Align: 8, Type: reflect.TypeFor[layoutTestOffChunk]()},
+		{ID: 1, Size: unsafe.Sizeof(layoutTestOffChunk{}), Align: 8, Type: reflect.TypeFor[layoutTestOffChunk](), NeedsScan: true},
 	})
 	if !layout.NeedsScan {
 		t.Fatal("expected NeedsScan true for this layout")
@@ -35,8 +33,6 @@ func TestPack_AddChunks_ScannableLayout(t *testing.T) {
 		t.Errorf("expected to read back %q, got %q", "hello", fieldPtr.Name)
 	}
 
-	// Growing by more than one chunk also goes through the NeedsScan branch
-	// of AddChunks, not just the single-chunk spare-reuse path.
 	g.AddChunks(2)
 	if g.NumChunks() != 3 {
 		t.Fatalf("expected 3 chunks, got %d", g.NumChunks())

@@ -55,7 +55,7 @@ func TestLayout_Init_NeedsScan(t *testing.T) {
 	var scanLayout Layout
 	scanLayout.Init([]comp.Def{
 		{ID: 1, Size: 8, Align: 4, Type: reflect.TypeFor[layoutTestPOD]()},
-		{ID: 2, Size: unsafe.Sizeof(layoutTestOffChunk{}), Align: 8, Type: reflect.TypeFor[layoutTestOffChunk]()},
+		{ID: 2, Size: unsafe.Sizeof(layoutTestOffChunk{}), Align: 8, Type: reflect.TypeFor[layoutTestOffChunk](), NeedsScan: true},
 	})
 	if !scanLayout.NeedsScan {
 		t.Error("expected NeedsScan true for an archetype containing an off-chunk field")

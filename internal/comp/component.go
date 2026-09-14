@@ -17,4 +17,7 @@ type Def struct {
 	Size  uintptr
 	Align uintptr
 	Type  reflect.Type
+	// NeedsScan is true when the GC must follow a field out of the component's
+	// own bytes — a string, or a type behind encoding.BinaryMarshaler.
+	NeedsScan bool
 }

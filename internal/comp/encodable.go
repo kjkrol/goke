@@ -87,6 +87,9 @@ func validateEncodable(t reflect.Type, fieldPath string) error {
 		for i := range t.NumField() {
 			f := t.Field(i)
 			path := subPath(fieldPath, f.Name)
+			if isBlankField(f) {
+				continue
+			}
 			if !f.IsExported() {
 				return fmt.Errorf("comp: field %s is unexported — persist cannot read unexported struct fields (Go's reflect forbids it); export the field, or implement encoding.BinaryMarshaler and encoding.BinaryUnmarshaler on the containing type to treat it as opaque", path)
 			}
@@ -130,6 +133,9 @@ func collectOffChunkFields(t reflect.Type, fieldPath string, out *[]string) {
 	case reflect.Struct:
 		for i := range t.NumField() {
 			f := t.Field(i)
+			if isBlankField(f) {
+				continue
+			}
 			collectOffChunkFields(f.Type, subPath(fieldPath, f.Name), out)
 		}
 	}
@@ -148,3 +154,6 @@ func displayPath(fieldPath string) string {
 	}
 	return fieldPath
 }
+
+// isBlankField reports whether f is a blank (`_`) struct field.
+func isBlankField(f reflect.StructField) bool { return f.Name == "_" }

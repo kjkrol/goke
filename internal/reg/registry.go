@@ -110,6 +110,9 @@ func (r *Registry) CreateValueEditor(opts ...comp.EditOpt) *ent.ValueEditor {
 	return ent.NewValueEditor(&r.EntityManager.AddressBook, &r.EntityManager.ArchCatalog, spec)
 }
 
+// Defs returns the component registry — see [orch.Mutator].
+func (r *Registry) Defs() *comp.DefIndex { return &r.CompDefIndex }
+
 // Pause stops Tick from running — a subsequent call panics until Resume.
 // General-purpose (a host can use it as an ordinary game pause), and also
 // the required precondition for Save: nothing may mutate the world while a

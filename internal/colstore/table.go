@@ -85,14 +85,21 @@ func (t *Table) BakeColumns(defs []comp.Def) []ColBake {
 	return result
 }
 
-func (t *Table) BakeOffsets(ids []comp.ID) []uintptr {
-	offsets := make([]uintptr, len(ids))
+// BakeOffsets resolves each id to its column offset in t. complete reports
+// whether t had a column for every id; a missing one leaves its offset at 0,
+// which is the entity-ID column, so the result must not be dereferenced.
+func (t *Table) BakeOffsets(ids []comp.ID) (offsets []uintptr, complete bool) {
+	offsets = make([]uintptr, len(ids))
+	complete = true
 	for i, id := range ids {
-		if col := t.getColumn(id); col != nil {
-			offsets[i] = col.Offset
+		col := t.getColumn(id)
+		if col == nil {
+			complete = false
+			continue
 		}
+		offsets[i] = col.Offset
 	}
-	return offsets
+	return offsets, complete
 }
 
 // BakeOptional is BakeOffsets plus a per-id presence flag — present via a

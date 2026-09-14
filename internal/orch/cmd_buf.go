@@ -1,10 +1,11 @@
 package orch
 
 import (
+	"reflect"
+	"strconv"
 	"unsafe"
 
 	"github.com/kjkrol/goke/v3/internal/bulk"
-	"github.com/kjkrol/goke/v3/internal/chunk"
 	"github.com/kjkrol/goke/v3/internal/comp"
 	"github.com/kjkrol/uid"
 )
@@ -55,9 +56,16 @@ type CmdBuf struct {
 	migrateValueCmds []migrateValueCmd
 	spawnCmds        []spawnCmd
 	remover          bulk.Migrator
-	pages            [][]byte
-	pageIdx          int
-	offset           int
+	defs             *comp.DefIndex
+	plain            pagePool
+}
+
+// pagePool is a linear allocator over a list of reusable pages, holding only
+// payloads that carry no pointers.
+type pagePool struct {
+	pages   [][]byte
+	pageIdx int
+	offset  int
 }
 
 // SetRemover installs the shared Remover that CmdBuf.Remove queues against.
@@ -67,6 +75,20 @@ func (cb *CmdBuf) SetRemover(r bulk.Migrator) { cb.remover = r }
 // Remover returns the shared Remover installed by SetRemover.
 func (cb *CmdBuf) Remover() bulk.Migrator { return cb.remover }
 
+// SetDefs installs the component registry that AddOne resolves comp.IDs
+// against. Called once by Scheduler.Register.
+func (cb *CmdBuf) SetDefs(defs *comp.DefIndex) { cb.defs = defs }
+
+func (p *pagePool) clearPages() {
+	for i := 0; i <= p.pageIdx; i++ {
+		if i < len(p.pages) {
+			clear(p.pages[i])
+		}
+	}
+	p.pageIdx = 0
+	p.offset = 0
+}
+
 func (cb *CmdBuf) Clear() {
 	clear(cb.cmds)
 	cb.cmds = cb.cmds[:0]
@@ -74,32 +96,40 @@ func (cb *CmdBuf) Clear() {
 	cb.migrateValueCmds = cb.migrateValueCmds[:0]
 	cb.spawnCmds = cb.spawnCmds[:0]
 
-	for i := 0; i <= cb.pageIdx; i++ {
-		if i < len(cb.pages) {
-			clear(cb.pages[i])
-		}
-	}
-
-	cb.pageIdx = 0
-	cb.offset = 0
+	cb.plain.clearPages()
 }
 
 func NewCmdBuf() *CmdBuf {
 	return &CmdBuf{
 		cmds:  make([]bufferedCmd, 0, 128),
-		pages: [][]byte{chunk.ScannableBytes(allocBlockSize)},
+		plain: pagePool{pages: [][]byte{make([]byte, allocBlockSize)}},
 	}
 }
 
-// AddOne queues an add-component command, copying value into the page pool.
+// AddOne queues an add-component command, staging value for Sync. compID is
+// resolved against the registry and must name T.
 func AddOne[T any](cb *CmdBuf, entityID uid.UID64, compID comp.ID, value T) {
 	size := int(unsafe.Sizeof(value))
+
+	scan := false
+	if cb.defs != nil {
+		def := cb.defs.ByID(compID)
+		if def.Type != reflect.TypeFor[T]() {
+			panic("goke: CmdBuf.AddOne: component ID " + strconv.Itoa(int(compID)) +
+				" is registered as " + typeName(def.Type) + ", not " + reflect.TypeFor[T]().String())
+		}
+		scan = def.NeedsScan
+	}
 
 	var ptr unsafe.Pointer
 
 	if size > 0 {
 		align := int(unsafe.Alignof(value))
-		ptr = cb.reserveSpace(size, align)
+		if scan {
+			ptr = unsafe.Pointer(new(T))
+		} else {
+			ptr = cb.reserveSpace(size, align)
+		}
 		*(*T)(ptr) = value
 	} else {
 		ptr = nil
@@ -199,7 +229,7 @@ func (cb *CmdBuf) CommitReserved(op bulk.Migrator, snap bulk.ChunkSnapshot, ids 
 // caller to fill with per-id values for op's added component — the
 // returned pointer is uninitialized, written into by the caller, and read
 // back at Sync when op.MigrateWithValue runs.
-func (cb *CmdBuf) AddCompValue(op bulk.ValueMigrator, snap bulk.ChunkSnapshot, ids []uid.UID64, elemSize, align uintptr) unsafe.Pointer {
+func (cb *CmdBuf) AddCompValue(op bulk.ValueMigrator, snap bulk.ChunkSnapshot, ids []uid.UID64, elemSize, align uintptr, elemType reflect.Type, scan bool) unsafe.Pointer {
 	n := len(ids)
 	if n == 0 {
 		return nil
@@ -212,7 +242,11 @@ func (cb *CmdBuf) AddCompValue(op bulk.ValueMigrator, snap bulk.ChunkSnapshot, i
 
 	var payloadPtr unsafe.Pointer
 	if elemSize > 0 {
-		payloadPtr = cb.reserveSpace(n*int(elemSize), int(align))
+		if scan {
+			payloadPtr = reflect.New(reflect.ArrayOf(n, elemType)).UnsafePointer()
+		} else {
+			payloadPtr = cb.reserveSpace(n*int(elemSize), int(align))
+		}
 	}
 
 	cb.migrateValueCmds = append(cb.migrateValueCmds, migrateValueCmd{
@@ -226,27 +260,36 @@ func (cb *CmdBuf) reset() {
 	cb.migrateCmds = cb.migrateCmds[:0]
 	cb.migrateValueCmds = cb.migrateValueCmds[:0]
 	cb.spawnCmds = cb.spawnCmds[:0]
-	cb.pageIdx = 0
-	cb.offset = 0
+	cb.plain.pageIdx, cb.plain.offset = 0, 0
 }
 
-// reserveSpace returns a pointer to a contiguous block from the page pool.
+// reserveSpace returns a pointer to a contiguous block of arena space.
 func (cb *CmdBuf) reserveSpace(size int, align int) unsafe.Pointer {
-	cb.offset = (cb.offset + align - 1) &^ (align - 1)
+	p := &cb.plain
 
-	if cb.offset+size > allocBlockSize {
-		cb.pageIdx++
-		cb.offset = 0
+	p.offset = (p.offset + align - 1) &^ (align - 1)
 
-		if cb.pageIdx >= len(cb.pages) {
+	if p.offset+size > allocBlockSize {
+		p.pageIdx++
+		p.offset = 0
+
+		if p.pageIdx >= len(p.pages) {
 			blockSize := max(size, allocBlockSize)
-			cb.pages = append(cb.pages, chunk.ScannableBytes(uintptr(blockSize)))
-		} else if len(cb.pages[cb.pageIdx]) < size {
-			cb.pages[cb.pageIdx] = chunk.ScannableBytes(uintptr(size))
+			p.pages = append(p.pages, make([]byte, blockSize))
+		} else if len(p.pages[p.pageIdx]) < size {
+			p.pages[p.pageIdx] = make([]byte, size)
 		}
 	}
 
-	ptr := unsafe.Pointer(&cb.pages[cb.pageIdx][cb.offset])
-	cb.offset += size
+	ptr := unsafe.Pointer(&p.pages[p.pageIdx][p.offset])
+	p.offset += size
 	return ptr
+}
+
+// typeName renders a possibly-unregistered component type for an error message.
+func typeName(t reflect.Type) string {
+	if t == nil {
+		return "(no component registered under that ID)"
+	}
+	return t.String()
 }

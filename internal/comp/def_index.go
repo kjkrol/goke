@@ -50,16 +50,18 @@ func (r *DefIndex) Intern(t reflect.Type) Def {
 		panic(fmt.Sprintf("too many components registered: MaxComponents (%d) limit reached", MaxComponents))
 	}
 
-	for _, path := range OffChunkFields(t) {
+	offChunk := OffChunkFields(t)
+	for _, path := range offChunk {
 		log.Printf("comp: component %s: %s requires a dereference outside the archetype's contiguous chunk memory during iteration, degrading cache locality — consider a fixed-size alternative if this component is iterated in a hot loop", t, path)
 	}
 
 	id := ID(len(r.typeIndex))
 	info := Def{
-		ID:    id,
-		Size:  t.Size(),
-		Align: uintptr(t.Align()),
-		Type:  t,
+		ID:        id,
+		Size:      t.Size(),
+		Align:     uintptr(t.Align()),
+		Type:      t,
+		NeedsScan: len(offChunk) > 0,
 	}
 
 	r.typeIndex[t] = info

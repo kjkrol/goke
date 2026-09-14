@@ -17,6 +17,9 @@ type Mutator interface {
 	// Remover returns a shared bulk.Migrator that removes whole entities,
 	// for CmdBuf.Remove to queue against without the caller building one.
 	Remover() bulk.Migrator
+	// Defs is the component registry, wired into each CmdBuf by
+	// Scheduler.Register.
+	Defs() *comp.DefIndex
 }
 
 type Runnable interface {

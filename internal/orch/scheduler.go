@@ -50,6 +50,7 @@ func (s *Scheduler) SetPlan(plan Plan) {
 
 func (s *Scheduler) Register(runnable Runnable, cb *CmdBuf) {
 	cb.SetRemover(s.mutator.Remover())
+	cb.SetDefs(s.mutator.Defs())
 	s.runnables = append(s.runnables, runnable)
 	s.buffers[runnable] = cb
 }

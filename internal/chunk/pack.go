@@ -1,6 +1,9 @@
 package chunk
 
-import "unsafe"
+import (
+	"reflect"
+	"unsafe"
+)
 
 type Idx uint32
 type Slot uint32
@@ -98,16 +101,9 @@ func (g *Pack) AddChunks(n int) {
 		return
 	}
 
-	var bigBlock []byte
-	if g.Layout.NeedsScan {
-		bigBlock = ScannableBytes(uintptr(n) * g.Layout.ChunkBytes)
-	} else {
-		bigBlock = make([]byte, uintptr(n)*g.Layout.ChunkBytes)
-	}
 	g.chunks = append(g.chunks, make([]chunk, n)...)
 	for i := range n {
-		offset := uintptr(i) * g.Layout.ChunkBytes
-		g.chunks[start+i].init(bigBlock[offset : offset+g.Layout.ChunkBytes : offset+g.Layout.ChunkBytes])
+		g.chunks[start+i].init(g.newChunk())
 	}
 }
 
@@ -193,4 +189,15 @@ func (g *Pack) Clear() {
 	}
 	g.chunks = g.chunks[:0]
 	g.len = 0
+}
+
+// newChunk allocates one chunk, viewed as bytes for the package's offset
+// arithmetic. A scanned archetype goes through its generated type so the GC
+// gets the exact pointer bitmap.
+func (g *Pack) newChunk() []byte {
+	if !g.Layout.NeedsScan {
+		return make([]byte, g.Layout.ChunkBytes)
+	}
+	v := reflect.New(g.Layout.ChunkType)
+	return unsafe.Slice((*byte)(v.UnsafePointer()), g.Layout.ChunkBytes)
 }

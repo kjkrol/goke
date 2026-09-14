@@ -33,14 +33,26 @@ func TestTable_BakeColumnsAndOffsets(t *testing.T) {
 		t.Errorf("expected zero-value ColBake for untracked component, got %+v", missing[0])
 	}
 
-	offsets := tbl.BakeOffsets([]comp.ID{1, 2})
+	offsets, complete := tbl.BakeOffsets([]comp.ID{1, 2})
 	if offsets[0] != baked[0].Offset || offsets[1] != baked[1].Offset {
 		t.Errorf("BakeOffsets %v doesn't match BakeColumns offsets %d/%d", offsets, baked[0].Offset, baked[1].Offset)
 	}
+	if !complete {
+		t.Error("BakeOffsets complete = false for a table holding every requested column, want true")
+	}
 
-	missingOffsets := tbl.BakeOffsets([]comp.ID{99})
+	missingOffsets, complete := tbl.BakeOffsets([]comp.ID{99})
 	if missingOffsets[0] != 0 {
 		t.Errorf("expected offset 0 for untracked component, got %d", missingOffsets[0])
+	}
+	if complete {
+		t.Error("BakeOffsets complete = true for an untracked component, want false — offset 0 is the entity-ID column, so callers must be able to refuse it")
+	}
+
+	// A partially-resolvable request is incomplete as a whole: the caller can't
+	// use the good offsets without also getting the bogus one.
+	if _, complete := tbl.BakeOffsets([]comp.ID{1, 99}); complete {
+		t.Error("BakeOffsets complete = true when only some columns resolved, want false")
 	}
 }
 
