@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+  ## [3.2.3] - 2026-09-14
+
+  ### Fixed 🐛
+  * **Chunk memory now carries the GC's exact pointer bitmap.** 3.1.0 made scanned archetypes
+  allocate as `[]unsafe.Pointer` viewed as bytes, which marked *every* word a pointer —
+  alignment padding included. Padding is never guaranteed zero, so a stale address left there
+  was followed and aborted the process with `found bad pointer in Go heap`. Scanned archetypes
+  now allocate through a generated Go type; pointer-free ones keep plain bytes. `CmdBuf`'s
+  staging arena holds only pointer-free payloads.
+  * **`Query.Seek`/`SeekH` refuse an archetype missing a tracked component's column.** It baked
+  as offset 0 — the entity-ID column — so `Comp[T].At` returned a pointer into unrelated
+  storage. Both now return false, leaving the cursor untouched.
+
+  ### Changed
+  * **`CmdBuf.AddOne` verifies that `compID` names `T`**, as `AddCompValue` already did — a
+  mismatch copied `sizeof(T)` bytes into a column with a different stride.
+  * **Blank (`_`) filler fields are accepted in components** — registration used to reject them
+  as unexported; persistence skips them.
+
 ## [3.2.2] - 2026-09-01
 
 ### Added ✨
