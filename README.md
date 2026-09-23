@@ -137,7 +137,7 @@ make bench
 # Real-World Example
 
 The following demo showcases a simple collision simulation built with GOKe and Ebitengine, via
-the [**gokebiten**](https://github.com/kjkrol/gokebiten) companion repository.
+the [**gram**](https://github.com/kjkrol/gram) companion repository (formerly gokebiten).
 
 It simulates thousands of moving AABBs while maintaining a fixed 120 TPS update loop using archetype-based storage, cache-friendly iteration, and parallel systems.
 
@@ -158,7 +158,7 @@ It simulates thousands of moving AABBs while maintaining a fixed 120 TPS update 
   </thead>
 </table>
 
-> Source code: [gokebiten/examples/collision-demo](https://github.com/kjkrol/gokebiten/tree/main/examples/collision-demo)
+> Source code: [gram/examples/collision-demo](https://github.com/kjkrol/gram/tree/main/examples/collision-demo)
 
 <a id="example"></a>
 # Example

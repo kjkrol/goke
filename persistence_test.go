@@ -66,7 +66,7 @@ func TestSaveLoad_RoundTrip(t *testing.T) {
 }
 
 // kinematicsModule stands in for a self-contained, modular system that
-// registers its own components — analogous to a gokebiten-style module the
+// registers its own components — analogous to a gram-style module the
 // caller doesn't need to know the internals of.
 type kinematicsModule struct {
 	pos goke.Comp[Position]

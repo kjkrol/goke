@@ -51,7 +51,7 @@ type hasUnexportedField struct{ v int }
 // embedsMarshaled embeds marshaledType (anonymous) and also has its own
 // field — marshaledType's promoted MarshalBinary has no way to know about
 // Extra, so this must be rejected (the exact hazard kinematics.Position hit
-// via gokg's plane.AABB).
+// via aabbworld's plane.AABB).
 type embedsMarshaled struct {
 	marshaledType
 	Extra int32

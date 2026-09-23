@@ -25,7 +25,7 @@
   * `Pause`/`Save`/`Load`, with entity IDs preserved across the round trip.
 
 For a full graphics/physics integration example — real-time rendering via
-[Ebitengine](https://ebitengine.org/), spatial management via [GOKg](https://github.com/kjkrol/gokg),
+[Ebitengine](https://ebitengine.org/), spatial management via [aabbworld](https://github.com/kjkrol/aabbworld),
 collision detection and resolution — see the companion repository
-[**gokebiten**](https://github.com/kjkrol/gokebiten) and its
-[collision-demo](https://github.com/kjkrol/gokebiten/tree/main/examples/collision-demo).
+[**gram**](https://github.com/kjkrol/gram) (formerly gokebiten) and its
+[collision-demo](https://github.com/kjkrol/gram/tree/main/examples/collision-demo).
