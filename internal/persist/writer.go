@@ -50,11 +50,7 @@ func saveTo(w io.Writer, defIndex *comp.DefIndex, book *addr.Book, catalog *arch
 	}
 	for _, archID := range lives {
 		a := &catalog.Archetypes[archID]
-		var ids []uint8
-		for id := range a.Mask().AllSet() {
-			ids = append(ids, uint8(id))
-		}
-		h := archHeader{CompIDs: ids, EntityCount: uint32(a.Len())}
+		h := archHeader{CompIDs: archetypeOrder(a), EntityCount: uint32(a.Len())}
 		if err := writeArchHeader(w, h); err != nil {
 			return err
 		}
@@ -67,6 +63,26 @@ func saveTo(w io.Writer, defIndex *comp.DefIndex, book *addr.Book, catalog *arch
 	}
 
 	return nil
+}
+
+// archetypeOrder is a's component IDs in the archetype's own order — its data-bearing components
+// as its composition holds them, the order saveArchetypeData writes their values in, then its
+// tags, which carry none. Load rebuilds the composition in this order and reads the values in it,
+// so they land in their own columns whatever order the component types were registered in.
+func archetypeOrder(a *arch.Archetype) []uint8 {
+	defs := a.Composition().Defs
+	ids := make([]uint8, 0, len(defs))
+	var data comp.Mask
+	for _, def := range defs {
+		ids = append(ids, uint8(def.ID))
+		data = data.Set(def.ID)
+	}
+	for id := range a.Mask().AllSet() {
+		if !data.IsSet(id) {
+			ids = append(ids, uint8(id))
+		}
+	}
+	return ids
 }
 
 func writeComponentDirectory(w io.Writer, defIndex *comp.DefIndex) error {
