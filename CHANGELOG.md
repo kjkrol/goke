@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+  ## [3.2.4] - 2026-10-02
+
+  ### Fixed 🐛
+  * **A save keeps every value in its own column, whatever order the component types were
+  registered in.** Save wrote an archetype's values in the archetype's own order — its components
+  as they came onto the entities — but its directory listed them by type number, and Load read the
+  values in the directory's order. A type registered early (`RegComp`) but put on entities after
+  another, or added later by a migration (`AddOne`) with a lower number, had its values loaded into
+  another component's column. The directory now lists the archetype's own order; saves the bug did
+  not touch load as before, those it did cannot be repaired.
+
   ## [3.2.3] - 2026-09-14
 
   ### Fixed 🐛

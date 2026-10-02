@@ -72,7 +72,9 @@ func readComponentHeader(r io.Reader) (compHeader, error) {
 }
 
 // archHeader is one entry in the save file's archetype directory: its
-// composition (as component IDs, including tags) and live entity count.
+// composition (as component IDs, including tags, in the archetype's own order —
+// its data columns as it holds them, then its tags — the order its values are
+// written in) and live entity count.
 type archHeader struct {
 	CompIDs     []uint8
 	EntityCount uint32
