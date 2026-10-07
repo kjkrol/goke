@@ -2,7 +2,7 @@ package colstore
 
 import "github.com/kjkrol/goke/v3/internal/comp"
 
-type columnPos uint8
+type columnPos uint16
 
 const (
 	entityColumnPos    = columnPos(0)

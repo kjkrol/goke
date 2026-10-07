@@ -304,7 +304,7 @@ GOKe is optimized for large-scale, data-oriented workloads. It may not be the be
 
 # Limitations
 
-* **Maximum component types: 128 by default.** The archetype system uses a fixed-size bitmask (`[2]uint64`) for fast component membership checks. Projects requiring more component types can increase this limit by modifying `MaskSize` in `internal/comp` (e.g. `MaskSize = 4` gives 256 component types) and recompiling GOKe — `MaxComponents` is derived automatically as `64 * MaskSize`. This is a compile-time configuration, not a runtime setting.
+* **Maximum component types: 512 by default.** The archetype system uses a fixed-size bitmask (`[8]uint64`) for fast component membership checks, and a component ID is 16 bits. Projects requiring more component types can increase this limit by modifying `MaskSize` in `internal/comp` (e.g. `MaskSize = 16` gives 1,024 component types) and recompiling GOKe — `MaxComponents` is derived automatically as `64 * MaskSize`. This is a compile-time configuration, not a runtime setting. A wider mask leaves iteration, Seek and migrations as they are; announcing a new archetype to the queries grows with it (see [BENCHMARKS.md](./BENCHMARKS.md#many-queries-benchmany_queries_testgo-internalquerycatalog_bench_testgo)).
 
 # License
 GOKe is licensed under the MIT License. See the LICENSE [file](./LICENSE) for more details.

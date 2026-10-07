@@ -9,27 +9,34 @@ import (
 )
 
 type Catalog struct {
-	matchers    []Matcher
+	// blocks hold the Matchers, each block allocated once with room for blockSize and never
+	// grown: a query keeps a pointer to its Matcher, so no Matcher ever moves; a full block is
+	// followed by a new one
+	blocks      [][]Matcher
+	blockSize   int
 	cc          *comp.DefIndex
 	entityIndex *addr.Index
 	archCatalog *arch.Catalog
 }
 
 func (c *Catalog) Init(cc *comp.DefIndex, entityIndex *addr.Index, archCatalog *arch.Catalog, cfg Config) {
-	c.matchers = make([]Matcher, 0, cfg.Cap)
+	c.blockSize = max(cfg.Cap, 1)
+	c.blocks = [][]Matcher{make([]Matcher, 0, c.blockSize)}
 	c.cc = cc
 	c.entityIndex = entityIndex
 	c.archCatalog = archCatalog
 }
 
-// Add allocates the next free Matcher slot and returns a stable pointer to it.
-// Panics if MaxMatchers is exceeded — increase MaxMatchers in const.go if needed.
+// Add allocates the next Matcher and returns a pointer to it, stable for the lifetime of the ECS
+// world: past a block's room a new block is allocated, the Matchers already given staying put.
 func (c *Catalog) Add() *Matcher {
-	if len(c.matchers) == cap(c.matchers) {
-		panic("query: matcher catalog capacity exceeded — increase MaxMatchers")
+	last := &c.blocks[len(c.blocks)-1]
+	if len(*last) == cap(*last) {
+		c.blocks = append(c.blocks, make([]Matcher, 0, c.blockSize))
+		last = &c.blocks[len(c.blocks)-1]
 	}
-	c.matchers = append(c.matchers, Matcher{})
-	return &c.matchers[len(c.matchers)-1]
+	*last = append(*last, Matcher{})
+	return &(*last)[len(*last)-1]
 }
 
 // NewMatcher creates a Matcher using Track/Include/Exclude opts.
@@ -55,14 +62,18 @@ func (c *Catalog) AddMatcher(accessSpec *comp.AccessSpec) *Matcher {
 }
 
 func (c *Catalog) OnArchetypeCreated(archetype *arch.Archetype) {
-	for i := range c.matchers {
-		c.matchers[i].BakeIfMatch(archetype)
+	for _, block := range c.blocks {
+		for i := range block {
+			block[i].BakeIfMatch(archetype)
+		}
 	}
 }
 
 func (c *Catalog) Reset() {
-	for i := range c.matchers {
-		c.matchers[i].Clear()
+	for _, block := range c.blocks {
+		for i := range block {
+			block[i].Clear()
+		}
 	}
-	c.matchers = c.matchers[:0]
+	c.blocks = [][]Matcher{c.blocks[0][:0]}
 }

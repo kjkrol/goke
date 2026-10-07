@@ -200,6 +200,30 @@ Branch-free, zero-allocation, linear in component count — 0 B/op and 0 allocs/
 
 The single `Optional` query is **~14% faster** — same total entities visited, but one iteration setup/teardown instead of two. 0 B/op and 0 allocs/op on both sides.
 
+### Many queries (`bench/many_queries_test.go`, `internal/query/catalog_bench_test.go`)
+
+A world's queries each keep a matcher in the catalog; past 64 the catalog adds a block of
+matchers instead of refusing. Iterating one query of two components over 1,024 entities does not
+depend on how many others are registered; announcing a new archetype walks every matcher, once per
+archetype ever created — each test is one mask comparison of eight words. Measured on an Apple M1
+Max (Go 1.27.1, `-cpu=1 -benchtime=1000x`, mean of two runs).
+
+| Queries registered | Query.All ns/op | OnArchetypeCreated ns/op (mask of 8 words) | (mask of 2 words, 3.2.x) |
+| ---: | ---: | ---: | ---: |
+| 8 | 616.5 | 80.56 | 20.77 |
+| 56 | 620.8 | 604.3 | 144.8 |
+| 256 | 625.1 | 2,820 | 646.9 |
+| 1,024 | 618.5 | 13,144 | 3,253 |
+
+The mask of 8 words (512 component types) makes announcing an archetype about four times as
+dear as the 2 words of 3.2.x (128 types); iteration, Seek, Pick, migrations and factories measure
+alike with either (interleaved runs, every difference within noise).
+
+All 0 B/op and 0 allocs/op. A matcher is 384 bytes; up to 3.2.4 it was 320 KB — its Seek cache
+an array over every possible archetype — which put about 21 MB on the heap of every world.
+Benchmarks that allocate (Editor, Factory) read faster with that ballast under the default GC,
+which then collects less often; with `GOGC=off` 3.3.0 and 3.2.4 measure alike.
+
 ### Entity Lifecycle
 
 | Operation | ns/op | B/op | Technical Mechanism |

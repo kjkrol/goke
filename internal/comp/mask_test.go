@@ -32,7 +32,7 @@ func TestMask_BasicOperations(t *testing.T) {
 	})
 
 	t.Run("Word Boundaries", func(t *testing.T) {
-		boundaries := []ID{0, 63, 64, 127}
+		boundaries := []ID{0, 63, 64, 127, 128, 255, 256, 448, MaxComponents - 1}
 		mask := Mask{}
 		for _, id := range boundaries {
 			mask = mask.Set(id)
@@ -49,7 +49,7 @@ func TestMask_BasicOperations(t *testing.T) {
 			}
 		}()
 		mask := Mask{}
-		oobID := ID(150)
+		oobID := ID(MaxComponents)
 		mask = mask.Set(oobID)
 		if mask.IsSet(oobID) {
 			t.Error("IsSet should return false for out of bounds IDs")
@@ -240,4 +240,29 @@ func TestMask_Immutability(t *testing.T) {
 			t.Error("Mask should be immutable")
 		}
 	})
+}
+
+// Every word of the mask counts: Count, IsEmpty and Matches see bits in its highest words as in
+// its first.
+func TestMask_HighWords(t *testing.T) {
+	high := []ID{130, 300, MaxComponents - 1}
+	m := Mask{}
+	for _, id := range high {
+		m = m.Set(id)
+	}
+	if m.Count() != len(high) {
+		t.Errorf("Count = %d, want %d", m.Count(), len(high))
+	}
+	if m.IsEmpty() {
+		t.Error("a mask with bits only in its high words reads empty")
+	}
+	if !m.Matches(Mask{}.Set(300), Mask{}) {
+		t.Error("a mask holding bit 300 does not match an include of it")
+	}
+	if m.Matches(Mask{}.Set(301), Mask{}) {
+		t.Error("a mask without bit 301 matches an include of it")
+	}
+	if m.Matches(Mask{}, Mask{}.Set(MaxComponents-1)) {
+		t.Error("a mask holding the last bit matches an exclude of it")
+	}
 }

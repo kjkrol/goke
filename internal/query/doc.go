@@ -25,5 +25,9 @@
 // # Catalog
 //
 // [Catalog] holds all registered Matchers and fans out to each matching
-// matcher whenever a new archetype is created.
+// matcher whenever a new archetype is created. It keeps them in blocks of a
+// fixed size (InitialMatchers by default): a query holds a pointer to its
+// Matcher, so a block never grows — a full one is followed by a new block —
+// and no Matcher ever moves. A Matcher's Seek bakes grow with the archetypes
+// it meets, so it stays small whatever the archetype limit.
 package query

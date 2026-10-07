@@ -3,6 +3,9 @@ package persist
 import (
 	"fmt"
 	"io"
+	"math"
+
+	"github.com/kjkrol/goke/v3/internal/comp"
 )
 
 // Magic identifies a goke save file; the first bytes written by Save and
@@ -76,16 +79,19 @@ func readComponentHeader(r io.Reader) (compHeader, error) {
 // its data columns as it holds them, then its tags — the order its values are
 // written in) and live entity count.
 type archHeader struct {
-	CompIDs     []uint8
+	CompIDs     []comp.ID
 	EntityCount uint32
 }
+
+// A component ID is written in two bytes: the build fails once MaxComponents outgrows them.
+var _ [math.MaxUint16 + 1 - comp.MaxComponents]struct{}
 
 func writeArchHeader(w io.Writer, h archHeader) error {
 	if err := writeUint32(w, uint32(len(h.CompIDs))); err != nil {
 		return err
 	}
 	for _, id := range h.CompIDs {
-		if err := writeUint8(w, id); err != nil {
+		if err := writeUint16(w, uint16(id)); err != nil {
 			return err
 		}
 	}
@@ -97,13 +103,13 @@ func readArchHeader(r io.Reader) (archHeader, error) {
 	if err != nil {
 		return archHeader{}, err
 	}
-	ids := make([]uint8, n)
+	ids := make([]comp.ID, n)
 	for i := range ids {
-		id, err := readUint8(r)
+		id, err := readUint16(r)
 		if err != nil {
 			return archHeader{}, err
 		}
-		ids[i] = id
+		ids[i] = comp.ID(id)
 	}
 	count, err := readUint32(r)
 	if err != nil {

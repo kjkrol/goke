@@ -1,6 +1,7 @@
 package query
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/kjkrol/goke/v3/internal/comp"
@@ -185,7 +186,9 @@ func TestCatalog_Reset(t *testing.T) {
 	}
 }
 
-func TestCatalog_AddPanicsWhenFull(t *testing.T) {
+// A catalog grows past its initial capacity: matchers added before it grew keep their place and
+// still learn of every new archetype, as those added after do.
+func TestCatalog_GrowsPastItsInitialCapacity(t *testing.T) {
 	var cc comp.DefIndex
 	cc.Init()
 	var em ent.Manager
@@ -193,14 +196,23 @@ func TestCatalog_AddPanicsWhenFull(t *testing.T) {
 	cat.Init(&cc, &em.AddressBook.Index, &em.ArchCatalog, Config{Cap: 2})
 	em.Init(ent.DefaultConfig(), cat.OnArchetypeCreated)
 
-	cat.Add()
-	cat.Add()
+	type Position struct{ X, Y float32 }
+	pos := cc.Intern(reflect.TypeFor[Position]())
+	var matchers []*Matcher
+	for range 100 {
+		var spec comp.AccessSpec
+		spec.Comp(pos)
+		matchers = append(matchers, cat.AddMatcher(&spec))
+	}
+	var spec comp.AccessSpec
+	spec.Comp(pos)
+	f := em.CreateFactory(spec)
+	f.Create(1)
+	f.Next()
 
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("expected panic when catalog capacity is exceeded")
+	for _, i := range []int{0, 1, 2, 99} {
+		if len(matchers[i].BakedTables) != 1 {
+			t.Errorf("matcher %d of 100 baked %d tables after a new archetype, want 1", i, len(matchers[i].BakedTables))
 		}
-	}()
-
-	cat.Add()
+	}
 }

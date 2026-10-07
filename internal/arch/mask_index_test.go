@@ -134,3 +134,23 @@ func TestMaskIndex_UpsertNullPanics(t *testing.T) {
 		m.Upsert(comp.Mask{}.Set(1), NullID)
 	})
 }
+
+// Masks that differ only in their high words are told apart: each of the eight words reaches the
+// hash, and every one of them finds its own archetype.
+func TestMaskIndex_HighWordsAreToldApart(t *testing.T) {
+	var m MaskIndex
+	var masks []comp.Mask
+	for word := range comp.MaskSize {
+		for bit := range 4 {
+			masks = append(masks, comp.Mask{}.Set(0).Set(comp.ID(64*word+bit+1)))
+		}
+	}
+	for i, mask := range masks {
+		m.Upsert(mask, ID(i+1))
+	}
+	for i, mask := range masks {
+		if id, ok := m.Get(mask); !ok || id != ID(i+1) {
+			t.Errorf("mask %d (bit %d) found %d %v, want %d", i, 64*(i/4)+i%4+1, id, ok, i+1)
+		}
+	}
+}

@@ -4,12 +4,12 @@ import (
 	"reflect"
 )
 
-type ID uint8
+type ID uint16
 
 const (
-	MaskSize         = 2
+	MaskSize         = 8
 	MaxComponents    = 64 * MaskSize
-	EntityID      ID = ^ID(0) // sentinel — max uint8, outside the valid component ID range (0..MaxComponents-1)
+	EntityID      ID = ^ID(0) // sentinel — max uint16, outside the valid component ID range (0..MaxComponents-1)
 )
 
 type Def struct {

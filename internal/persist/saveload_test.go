@@ -369,3 +369,86 @@ func TestSaveLoad_CorruptedByte_ReturnsError(t *testing.T) {
 		t.Fatal("expected an error for a save file with a corrupted byte")
 	}
 }
+
+// reqType is req for a type known only at run time.
+func reqType(di *comp.DefIndex, t reflect.Type) persist.CompRequest {
+	return persist.CompRequest{
+		Name: t.String(),
+		Register: func(wantSize *uint32) error {
+			if wantSize != nil && uint32(t.Size()) != *wantSize {
+				return fmt.Errorf("size mismatch for %s: file has %d, current type has %d", t, *wantSize, t.Size())
+			}
+			di.Intern(t)
+			return nil
+		},
+	}
+}
+
+// A world of 300 component types saves and loads whole: an archetype of the types numbered 0,
+// 255, 256 and 299 comes back with those very types and their values — a component ID past a
+// byte is written whole, never cut down to another type.
+func TestSaveLoad_RoundTrip_ComponentIDsPastAByte(t *testing.T) {
+	const types = 300
+	kinds := make([]reflect.Type, types)
+	for i := range kinds {
+		kinds[i] = reflect.ArrayOf(i+1, reflect.TypeFor[byte]())
+	}
+	var di comp.DefIndex
+	di.Init()
+	for _, k := range kinds {
+		di.Intern(k)
+	}
+	m := newTestManager()
+	used := []comp.ID{0, 255, 256, 299}
+	var spec comp.AccessSpec
+	spec.Init(&di)
+	for _, id := range used {
+		if err := spec.Comp(di.ByID(id)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ids := m.CreateFactory(spec).SpawnAll(2)
+	value := func(e, id int) byte { return byte(17*e + id%251 + 1) }
+	for e, entID := range ids {
+		entry, _ := m.AddressBook.Get(entID)
+		table := &m.ArchCatalog.Archetypes[entry.ArchID].Table
+		for _, id := range used {
+			*(*byte)(table.ComponentAt(entry.ChunkPtr, entry.Slot, id)) = value(e, int(id))
+		}
+	}
+
+	var buf bytes.Buffer
+	if err := persist.Save(&buf, &di, &m.AddressBook, &m.ArchCatalog); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	var di2 comp.DefIndex
+	di2.Init()
+	m2 := newTestManager()
+	reqs := make([]persist.CompRequest, types)
+	for i, k := range kinds {
+		reqs[i] = reqType(&di2, k)
+	}
+	if err := persist.Load(&buf, &di2, &m2.AddressBook, &m2.ArchCatalog, reqs); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	for e, entID := range ids {
+		entry, ok := m2.AddressBook.Get(entID)
+		if !ok {
+			t.Fatalf("entity %d missing after Load", e)
+		}
+		archetype := &m2.ArchCatalog.Archetypes[entry.ArchID]
+		if got := archetype.Mask().Count(); got != len(used) {
+			t.Errorf("entity %d's archetype has %d types after Load, want %d", e, got, len(used))
+		}
+		for _, id := range used {
+			if !archetype.Mask().IsSet(id) {
+				t.Errorf("entity %d lost component type %d (%v)", e, id, kinds[id])
+				continue
+			}
+			if got := *(*byte)(archetype.Table.ComponentAt(entry.ChunkPtr, entry.Slot, id)); got != value(e, int(id)) {
+				t.Errorf("entity %d, type %d: value %d after Load, want %d", e, id, got, value(e, int(id)))
+			}
+		}
+	}
+}

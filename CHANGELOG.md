@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+  ## [3.3.0] - 2026-10-07
+
+  ### Added ✨
+  * **`WithMatcherCap(n)`** sets how many matchers a world keeps in one block of memory: a hint
+  for a world that builds many queries, never a limit.
+
+  ### Changed 🔧
+  * **512 component types.** The component mask grows from 2 words to 8 and a component ID from
+  8 bits to 16 (`MaskSize = 8`, `MaxComponents = 512`). Iteration, Seek, Pick, migrations and
+  factories measure as before; announcing a new archetype to the queries costs about four times
+  as much (13 µs for 1024 queries, once per combination of components).
+  * **A world builds as many queries as it needs.** The matcher catalog held at most 64
+  matchers in one array — a query keeps a pointer to its matcher, so the array could never
+  move — and panicked past it. It now keeps them in blocks of 64: a full block is followed by a
+  new one and no matcher ever moves.
+  * **A matcher is 384 bytes, not 320 KB.** Its Seek cache was an array over every possible
+  archetype (4096 × 80 bytes), so a world's first 64 matchers put about 21 MB on the heap
+  whatever it held. The cache now grows with the archetypes Seek meets; Seek pays for it only
+  when the archetype changes, SeekH and iteration never. Benchmarks that allocate read slower
+  under the default GC without those 21 MB holding the collector off; with `GOGC=off` they
+  measure as before (see BENCHMARKS.md).
+
   ## [3.2.4] - 2026-10-02
 
   ### Fixed 🐛

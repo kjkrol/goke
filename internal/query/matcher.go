@@ -59,7 +59,7 @@ type Matcher struct {
 	allIter
 	filterIter
 	seekTable      *colstore.Table
-	seekBakes      [arch.MaxID]seekBake
+	seekBakes      []seekBake // by archetype, grown to the highest one Seek has met
 	seekLastArchID arch.ID
 }
 
@@ -92,7 +92,7 @@ func (m *Matcher) Clear() {
 	m.excludeMask = comp.Mask{}
 	m.BakedTablesCatalog.Clear()
 	m.seekTable = nil
-	m.seekBakes = [arch.MaxID]seekBake{}
+	m.seekBakes = nil
 	m.seekLastArchID = arch.NullID
 }
 
@@ -140,6 +140,9 @@ func (m *Matcher) Seek(entID uid.UID64) bool {
 	}
 	if entry.ArchID != m.seekLastArchID {
 		archetype := &m.archCatalog.Archetypes[entry.ArchID]
+		if int(entry.ArchID) >= len(m.seekBakes) {
+			m.growSeekBakes(int(entry.ArchID) + 1)
+		}
 		b := &m.seekBakes[entry.ArchID]
 		if !b.baked {
 			b.offsets, b.complete = archetype.Table.BakeOffsets(m.compIDs)
@@ -157,6 +160,14 @@ func (m *Matcher) Seek(entID uid.UID64) bool {
 	}
 	m.Cursor.Set(entry.ChunkPtr, uintptr(entry.Slot))
 	return true
+}
+
+// growSeekBakes makes room for the bakes of the archetypes below n, at least doubling: a new
+// archetype met by Seek costs a copy once in a while, never a bake already made.
+func (m *Matcher) growSeekBakes(n int) {
+	grown := make([]seekBake, max(n, 2*len(m.seekBakes)))
+	copy(grown, m.seekBakes)
+	m.seekBakes = grown
 }
 
 // ChunkSnapshot captures the chunk most recently advanced to by Next in All

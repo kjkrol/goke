@@ -1,5 +1,7 @@
 package arch
 
+import "math/bits"
+
 import "github.com/kjkrol/goke/v3/internal/comp"
 
 const (
@@ -21,7 +23,10 @@ func (m *MaskIndex) Reset() {
 }
 
 func hashMask(m comp.Mask) uint64 {
-	h := m[0] ^ (m[1] * 0x517cc1b727220a95)
+	h := m[0]
+	for i := 1; i < len(m); i++ {
+		h ^= bits.RotateLeft64(m[i]*0x517cc1b727220a95, 17*(i-1))
+	}
 	h ^= h >> 33
 	h *= 0xff51afd7ed558ccd
 	h ^= h >> 33

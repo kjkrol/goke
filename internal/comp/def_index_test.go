@@ -239,3 +239,20 @@ func TestDefIndex_InternPanicsWhenFull(t *testing.T) {
 	}()
 	c.Intern(reflect.ArrayOf(comp.MaxComponents+1, reflect.TypeFor[byte]()))
 }
+
+// A registry takes MaxComponents types — 512 — and refuses the next one by name.
+func TestDefIndex_TakesMaxComponentsTypes(t *testing.T) {
+	var di comp.DefIndex
+	di.Init()
+	for i := range comp.MaxComponents {
+		if def := di.Intern(reflect.ArrayOf(i+1, reflect.TypeFor[byte]())); def.ID != comp.ID(i) {
+			t.Fatalf("type %d got ID %d", i, def.ID)
+		}
+	}
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("a registry of MaxComponents types took one more")
+		}
+	}()
+	di.Intern(reflect.ArrayOf(comp.MaxComponents+1, reflect.TypeFor[byte]()))
+}

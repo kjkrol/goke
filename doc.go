@@ -64,9 +64,10 @@
 //
 // To maintain extreme performance, the engine operates with certain fixed limits:
 //
-//   - Component Types: The engine supports up to 128 unique component types per registry.
-//     This is determined by the Mask (2x64-bit fields), ensuring that
-//     archetype matching remains a fast, constant-time bitwise operation.
+//   - Component Types: The engine supports up to 512 unique component types per registry.
+//     This is determined by the Mask (8x64-bit fields), ensuring that
+//     archetype matching remains a fast, constant-time bitwise operation; a
+//     component ID is 16 bits.
 //
 //   - Memory Pre-allocation: Archetypes and internal structures are initialized
 //     with predefined capacities (configurable via ECSOption). This reduces
@@ -75,6 +76,11 @@
 //
 //   - Entity Indexing: Entities are 64-bit identifiers, allowing for a virtually
 //     unlimited number of entities, constrained only by the available system RAM.
+//
+//   - Number of Queries: A world builds as many queries as it needs. Their matchers
+//     live in blocks (64 by default, [WithMatcherCap]); a full block is followed by a
+//     new one and no matcher ever moves, so a [Query] keeps its matcher for good. A
+//     matcher is a few hundred bytes; every new archetype is announced to each of them.
 //
 //   - Query Complexity: A single [Query] can track any number of component columns
 //     declared via [Comp][T]. Additional types can be used as filter-only
