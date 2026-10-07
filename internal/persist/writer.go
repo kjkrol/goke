@@ -69,17 +69,17 @@ func saveTo(w io.Writer, defIndex *comp.DefIndex, book *addr.Book, catalog *arch
 // as its composition holds them, the order saveArchetypeData writes their values in, then its
 // tags, which carry none. Load rebuilds the composition in this order and reads the values in it,
 // so they land in their own columns whatever order the component types were registered in.
-func archetypeOrder(a *arch.Archetype) []uint16 {
+func archetypeOrder(a *arch.Archetype) []comp.ID {
 	defs := a.Composition().Defs
-	ids := make([]uint16, 0, len(defs))
+	ids := make([]comp.ID, 0, len(defs))
 	var data comp.Mask
 	for _, def := range defs {
-		ids = append(ids, uint16(def.ID))
+		ids = append(ids, def.ID)
 		data = data.Set(def.ID)
 	}
 	for id := range a.Mask().AllSet() {
 		if !data.IsSet(id) {
-			ids = append(ids, uint16(id))
+			ids = append(ids, id)
 		}
 	}
 	return ids

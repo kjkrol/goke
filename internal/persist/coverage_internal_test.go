@@ -209,7 +209,7 @@ func TestReadHeader_BadVersion(t *testing.T) {
 // An archetype naming a component the save's directory does not have is an error, not a panic.
 func TestLoadArchetype_UnknownComponent_ReturnsError(t *testing.T) {
 	di, catalog, _ := freshArchetype(t)
-	ah := archHeader{CompIDs: []uint16{uint16(di.Count())}, EntityCount: 0}
+	ah := archHeader{CompIDs: []comp.ID{comp.ID(di.Count())}, EntityCount: 0}
 	var book addr.Book
 	book.Init(16, 16)
 	err := loadArchetype(&bytes.Buffer{}, di, &book, catalog, ah)
@@ -387,7 +387,7 @@ func TestReserveBatches_MultiChunk(t *testing.T) {
 func TestLoadArchetype_UnrecognizedEntity_ReturnsError(t *testing.T) {
 	di, catalog, _ := freshArchetype(t)
 	def := di.ByID(comp.ID(0))
-	ah := archHeader{CompIDs: []uint16{uint16(def.ID)}, EntityCount: 1}
+	ah := archHeader{CompIDs: []comp.ID{def.ID}, EntityCount: 1}
 
 	var book addr.Book
 	book.Init(16, 16)
