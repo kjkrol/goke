@@ -76,6 +76,11 @@
 //   - Entity Indexing: Entities are 64-bit identifiers, allowing for a virtually
 //     unlimited number of entities, constrained only by the available system RAM.
 //
+//   - Number of Queries: A world builds as many queries as it needs. Their matchers
+//     live in blocks (64 by default, [WithMatcherCap]); a full block is followed by a
+//     new one and no matcher ever moves, so a [Query] keeps its matcher for good. A
+//     matcher is a few hundred bytes; every new archetype is announced to each of them.
+//
 //   - Query Complexity: A single [Query] can track any number of component columns
 //     declared via [Comp][T]. Additional types can be used as filter-only
 //     constraints via Include/Exclude opts without occupying tracked columns,
