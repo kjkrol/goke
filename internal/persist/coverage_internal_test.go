@@ -205,6 +205,29 @@ func TestReadHeader_BadVersion(t *testing.T) {
 	}
 }
 
+// A save of format 1 — component IDs in one byte — is refused by name, never read wrong.
+func TestReadHeader_RefusesFormat1(t *testing.T) {
+	var buf bytes.Buffer
+	buf.WriteString(Magic)
+	_ = writeUint32(&buf, 1)
+	err := readHeader(&buf)
+	if err == nil || !strings.Contains(err.Error(), "unsupported save file version 1") {
+		t.Fatalf("a save of format 1: error %v, want it refused as version 1", err)
+	}
+}
+
+// An archetype naming a component the save's directory does not have is an error, not a panic.
+func TestLoadArchetype_UnknownComponent_ReturnsError(t *testing.T) {
+	di, catalog, _ := freshArchetype(t)
+	ah := archHeader{CompIDs: []uint16{uint16(di.Count())}, EntityCount: 0}
+	var book addr.Book
+	book.Init(16, 16)
+	err := loadArchetype(&bytes.Buffer{}, di, &book, catalog, ah)
+	if err == nil || !strings.Contains(err.Error(), "names component") {
+		t.Fatalf("an archetype of an unknown component: error %v, want it refused", err)
+	}
+}
+
 func TestReserveBatches_ZeroCount(t *testing.T) {
 	if batches := reserveBatches(nil, 0); batches != nil {
 		t.Errorf("expected no batches for a zero count, got %v", batches)
@@ -374,7 +397,7 @@ func TestReserveBatches_MultiChunk(t *testing.T) {
 func TestLoadArchetype_UnrecognizedEntity_ReturnsError(t *testing.T) {
 	di, catalog, _ := freshArchetype(t)
 	def := di.ByID(comp.ID(0))
-	ah := archHeader{CompIDs: []uint8{uint8(def.ID)}, EntityCount: 1}
+	ah := archHeader{CompIDs: []uint16{uint16(def.ID)}, EntityCount: 1}
 
 	var book addr.Book
 	book.Init(16, 16)

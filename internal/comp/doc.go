@@ -33,6 +33,6 @@
 // [OffChunkFields].
 // # Constants
 //
-//	MaskSize      = 2    // number of uint64 words in Mask
-//	MaxComponents = 128  // 64 * MaskSize — max registered component types
+//	MaskSize      = 8    // number of uint64 words in Mask
+//	MaxComponents = 512  // 64 * MaskSize — max registered component types
 package comp

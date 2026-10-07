@@ -144,6 +144,9 @@ type slotBatch struct {
 func loadArchetype(r io.Reader, defIndex *comp.DefIndex, book *addr.Book, catalog *arch.Catalog, ah archHeader) error {
 	var composition comp.Composition
 	for _, id := range ah.CompIDs {
+		if int(id) >= defIndex.Count() {
+			return fmt.Errorf("persist: an archetype names component %d, but the save file's directory has %d", id, defIndex.Count())
+		}
 		composition = composition.With(defIndex.ByID(comp.ID(id)))
 	}
 	archID := catalog.Upsert(composition)

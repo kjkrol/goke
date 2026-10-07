@@ -74,23 +74,28 @@ func (s Mask) IsSet(bit ID) bool {
 }
 
 func (s Mask) IsEmpty() bool {
-	return s[0] == 0 && s[1] == 0
+	for i := range MaskSize {
+		if s[i] != 0 {
+			return false
+		}
+	}
+	return true
 }
 
 func (s Mask) Count() int {
-	return bits.OnesCount64(s[0]) +
-		bits.OnesCount64(s[1])
+	n := 0
+	for i := range MaskSize {
+		n += bits.OnesCount64(s[i])
+	}
+	return n
 }
 
 // Matches returns true if the mask contains all bits from include AND none from exclude.
 func (s Mask) Matches(include, exclude Mask) bool {
-	if (s[0]&include[0]) != include[0] ||
-		(s[1]&include[1]) != include[1] {
-		return false
-	}
-	if (s[0]&exclude[0]) != 0 ||
-		(s[1]&exclude[1]) != 0 {
-		return false
+	for i := range MaskSize {
+		if s[i]&include[i] != include[i] || s[i]&exclude[i] != 0 {
+			return false
+		}
 	}
 	return true
 }

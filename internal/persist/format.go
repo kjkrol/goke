@@ -9,8 +9,9 @@ import (
 // checked by Load.
 const Magic = "GKSV"
 
-// FormatVersion is the current save-file format version.
-const FormatVersion uint32 = 1
+// FormatVersion is the current save-file format version: 2 writes component IDs in two bytes
+// (up to 512 component types), where 1 wrote them in one.
+const FormatVersion uint32 = 2
 
 func writeHeader(w io.Writer) error {
 	if _, err := io.WriteString(w, Magic); err != nil {
@@ -76,7 +77,7 @@ func readComponentHeader(r io.Reader) (compHeader, error) {
 // its data columns as it holds them, then its tags — the order its values are
 // written in) and live entity count.
 type archHeader struct {
-	CompIDs     []uint8
+	CompIDs     []uint16
 	EntityCount uint32
 }
 
@@ -85,7 +86,7 @@ func writeArchHeader(w io.Writer, h archHeader) error {
 		return err
 	}
 	for _, id := range h.CompIDs {
-		if err := writeUint8(w, id); err != nil {
+		if err := writeUint16(w, id); err != nil {
 			return err
 		}
 	}
@@ -97,9 +98,9 @@ func readArchHeader(r io.Reader) (archHeader, error) {
 	if err != nil {
 		return archHeader{}, err
 	}
-	ids := make([]uint8, n)
+	ids := make([]uint16, n)
 	for i := range ids {
-		id, err := readUint8(r)
+		id, err := readUint16(r)
 		if err != nil {
 			return archHeader{}, err
 		}
