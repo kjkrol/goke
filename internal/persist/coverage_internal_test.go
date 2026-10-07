@@ -2,6 +2,7 @@ package persist
 
 import (
 	"bytes"
+	"compress/gzip"
 	"errors"
 	"fmt"
 	"io"
@@ -417,7 +418,18 @@ func TestLoadArchetype_UnrecognizedEntity_ReturnsError(t *testing.T) {
 	}
 }
 
-func TestLoad_TrailingData_ReturnsError(t *testing.T) {
+// loadCoverageSave loads data into a fresh world asking for the coverage world's components.
+func loadCoverageSave(data []byte) error {
+	var di comp.DefIndex
+	di.Init()
+	var m ent.Manager
+	m.Init(ent.DefaultConfig(), nil)
+	comps := []CompRequest{covReq[covPosition](&di), covReq[covName](&di), covReq[covStamp](&di), covReq[covWide](&di)}
+	return Load(bytes.NewReader(data), &di, &m.AddressBook, &m.ArchCatalog, comps)
+}
+
+// A byte after the gzip stream is read as the start of a next member, cut short.
+func TestLoad_TrailingDataAfterGzipStream_ReturnsError(t *testing.T) {
 	di, m := buildCoverageWorld(t)
 	var buf bytes.Buffer
 	if err := Save(&buf, di, &m.AddressBook, &m.ArchCatalog); err != nil {
@@ -425,12 +437,52 @@ func TestLoad_TrailingData_ReturnsError(t *testing.T) {
 	}
 	buf.WriteByte(0)
 
-	var di2 comp.DefIndex
-	di2.Init()
-	var m2 ent.Manager
-	m2.Init(ent.DefaultConfig(), nil)
-	comps := []CompRequest{covReq[covPosition](&di2), covReq[covName](&di2), covReq[covStamp](&di2), covReq[covWide](&di2)}
-	if err := Load(bytes.NewReader(buf.Bytes()), &di2, &m2.AddressBook, &m2.ArchCatalog, comps); err == nil {
-		t.Fatal("expected Load to reject a save file with trailing data after the payload")
+	err := loadCoverageSave(buf.Bytes())
+	if err == nil {
+		t.Fatal("expected Load to reject a save file with trailing data after the gzip stream")
 	}
+	if !errors.Is(err, io.ErrUnexpectedEOF) {
+		t.Errorf("expected an unexpected EOF of the next gzip member, got: %v", err)
+	}
+}
+
+// A byte inside the gzip stream past the payload's end decompresses fine and is refused.
+func TestLoad_TrailingDataAfterPayload_ReturnsError(t *testing.T) {
+	di, m := buildCoverageWorld(t)
+	var saved bytes.Buffer
+	if err := Save(&saved, di, &m.AddressBook, &m.ArchCatalog); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	gr, err := gzip.NewReader(&saved)
+	if err != nil {
+		t.Fatalf("gzip.NewReader: %v", err)
+	}
+	payload, err := io.ReadAll(gr)
+	if err != nil {
+		t.Fatalf("io.ReadAll: %v", err)
+	}
+	if err := loadCoverageSave(gzipped(t, payload)); err != nil {
+		t.Fatalf("the payload recompressed as it was should load: %v", err)
+	}
+
+	err = loadCoverageSave(gzipped(t, append(payload, 0)))
+	if err == nil {
+		t.Fatal("expected Load to reject a payload followed by a byte inside the gzip stream")
+	}
+	if !strings.Contains(err.Error(), "unexpected trailing data") {
+		t.Errorf("expected the error to mention \"unexpected trailing data\", got: %v", err)
+	}
+}
+
+func gzipped(t *testing.T, payload []byte) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	if _, err := gw.Write(payload); err != nil {
+		t.Fatalf("gzip write: %v", err)
+	}
+	if err := gw.Close(); err != nil {
+		t.Fatalf("gzip close: %v", err)
+	}
+	return buf.Bytes()
 }
