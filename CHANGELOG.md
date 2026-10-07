@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for a world that builds many queries, never a limit.
 
   ### Changed 🔧
+  * **512 component types.** The component mask grows from 2 words to 8 and a component ID from
+  8 bits to 16 (`MaskSize = 8`, `MaxComponents = 512`). Iteration, Seek, Pick, migrations and
+  factories measure as before; announcing a new archetype to the queries costs about four times
+  as much (13 µs for 1024 queries, once per combination of components).
   * **A world builds as many queries as it needs.** The matcher catalog held at most 64
   matchers in one array — a query keeps a pointer to its matcher, so the array could never
   move — and panicked past it. It now keeps them in blocks of 64: a full block is followed by a
@@ -22,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   when the archetype changes, SeekH and iteration never. Benchmarks that allocate read slower
   under the default GC without those 21 MB holding the collector off; with `GOGC=off` they
   measure as before (see BENCHMARKS.md).
+
+  ### Breaking 💥
+  * **Save format 2.** Component IDs are written in two bytes; a save of 3.2.x (format 1) is
+  refused by its version (`unsupported save file version 1`) and does not load.
 
   ## [3.2.4] - 2026-10-02
 

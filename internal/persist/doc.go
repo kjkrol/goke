@@ -2,6 +2,13 @@
 // byte stream: entity ID pool bookkeeping, component type definitions,
 // archetype compositions, and per-entity component data.
 //
+// # Format
+//
+// A save opens with Magic and FormatVersion. Version 2 writes an archetype's
+// composition as component IDs of two bytes — up to 512 component types; a
+// save of version 1, its IDs in one byte, is refused by its version, never
+// read wrong.
+//
 // # Value encoding
 //
 // [EncodeValue] and [DecodeValue] read and write a single value of a given

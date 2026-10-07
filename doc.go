@@ -64,9 +64,10 @@
 //
 // To maintain extreme performance, the engine operates with certain fixed limits:
 //
-//   - Component Types: The engine supports up to 128 unique component types per registry.
-//     This is determined by the Mask (2x64-bit fields), ensuring that
-//     archetype matching remains a fast, constant-time bitwise operation.
+//   - Component Types: The engine supports up to 512 unique component types per registry.
+//     This is determined by the Mask (8x64-bit fields), ensuring that
+//     archetype matching remains a fast, constant-time bitwise operation; a
+//     component ID is 16 bits.
 //
 //   - Memory Pre-allocation: Archetypes and internal structures are initialized
 //     with predefined capacities (configurable via ECSOption). This reduces
