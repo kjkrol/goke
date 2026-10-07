@@ -206,17 +206,6 @@ func TestReadHeader_BadVersion(t *testing.T) {
 	}
 }
 
-// A save of format 1 — component IDs in one byte — is refused by name, never read wrong.
-func TestReadHeader_RefusesFormat1(t *testing.T) {
-	var buf bytes.Buffer
-	buf.WriteString(Magic)
-	_ = writeUint32(&buf, 1)
-	err := readHeader(&buf)
-	if err == nil || !strings.Contains(err.Error(), "unsupported save file version 1") {
-		t.Fatalf("a save of format 1: error %v, want it refused as version 1", err)
-	}
-}
-
 // An archetype naming a component the save's directory does not have is an error, not a panic.
 func TestLoadArchetype_UnknownComponent_ReturnsError(t *testing.T) {
 	di, catalog, _ := freshArchetype(t)

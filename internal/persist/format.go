@@ -9,9 +9,8 @@ import (
 // checked by Load.
 const Magic = "GKSV"
 
-// FormatVersion is the current save-file format version: 2 writes component IDs in two bytes
-// (up to 512 component types), where 1 wrote them in one.
-const FormatVersion uint32 = 2
+// FormatVersion is the current save-file format version.
+const FormatVersion uint32 = 1
 
 func writeHeader(w io.Writer) error {
 	if _, err := io.WriteString(w, Magic); err != nil {

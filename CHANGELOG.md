@@ -27,10 +27,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   under the default GC without those 21 MB holding the collector off; with `GOGC=off` they
   measure as before (see BENCHMARKS.md).
 
-  ### Breaking 💥
-  * **Save format 2.** Component IDs are written in two bytes; a save of 3.2.x (format 1) is
-  refused by its version (`unsupported save file version 1`) and does not load.
-
   ## [3.2.4] - 2026-10-02
 
   ### Fixed 🐛
