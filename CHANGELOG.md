@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+  ## [Unreleased]
+
+  ### Changed 🔧
+  * **A world builds as many queries as it needs.** The matcher catalog held at most 64 matchers
+  in one array — a query keeps a pointer to its matcher, so the array could never move — and
+  panicked past it. It now keeps them in blocks of 64: a full block is followed by a new one and
+  no matcher ever moves. Up to 64 queries the memory is laid out as before. `WithMatcherCap(n)`
+  sets a block's size for a world that builds many queries.
+
   ## [3.2.4] - 2026-10-02
 
   ### Fixed 🐛

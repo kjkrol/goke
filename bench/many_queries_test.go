@@ -8,8 +8,8 @@ import (
 )
 
 // manyQueries are how many other queries the ECS holds while one is measured: a game's plugins
-// register dozens. The catalog holds at most 64 matchers before growable matchers.
-var manyQueries = []int{8, 56}
+// register dozens; past 64 the catalog has grown.
+var manyQueries = []int{8, 56, 256, 1024}
 
 // registerQueries builds n queries of rotating shapes over the standard components, none of them
 // iterated: the catalog holds a matcher for each.

@@ -10,7 +10,7 @@ import (
 )
 
 // catalogMatchers are how many matchers the catalog holds while an archetype is announced.
-var catalogMatchers = []int{8, 56}
+var catalogMatchers = []int{8, 56, 256, 1024}
 
 // Benchmark_Catalog_OnArchetypeCreated measures announcing a new archetype to a catalog of n
 // matchers, none of which it matches: the walk over the matchers and their mask test — what every

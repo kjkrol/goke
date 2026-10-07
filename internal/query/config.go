@@ -6,6 +6,6 @@ type Config struct {
 
 func DefaultConfig() Config {
 	return Config{
-		Cap: MaxMatchers,
+		Cap: InitialMatchers,
 	}
 }

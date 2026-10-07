@@ -28,7 +28,7 @@ import (
 //
 // Matchers are created once outside b.Run: with -count=N each b.Run callback is
 // called N times, so creating a new Matcher inside would accumulate N matchers per
-// sub-benchmark on the same ECS and eventually exceed MaxMatchers.
+// sub-benchmark on the same ECS, growing the catalog and skewing what is measured.
 func Benchmark_Matcher_All(b *testing.B) {
 	ecs := setupECS()
 

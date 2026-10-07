@@ -16,3 +16,11 @@ func WithEntityFreeCap(cap int) ECSOption {
 		c.Entity.FreeCap = cap
 	}
 }
+
+// WithMatcherCap sets how many queries the world has room for before its catalog of matchers
+// grows: a hint for a world that builds many queries, never a limit.
+func WithMatcherCap(cap int) ECSOption {
+	return func(c *Config) {
+		c.Matcher.Cap = cap
+	}
+}

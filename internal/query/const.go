@@ -1,8 +1,7 @@
 package query
 
 const (
-	// MaxMatchers is the maximum number of Matchers that can be registered in a Catalog.
-	// The Catalog pre-allocates this capacity once at Init time so that pointers
-	// to individual Matcher slots remain stable for the lifetime of the ECS world.
-	MaxMatchers = 64
+	// InitialMatchers is how many Matchers a Catalog keeps in one block of memory: past it a new
+	// block follows — a hint, never a limit.
+	InitialMatchers = 64
 )
