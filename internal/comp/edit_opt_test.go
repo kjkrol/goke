@@ -2,6 +2,7 @@ package comp_test
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/kjkrol/goke/v3/internal/comp"
@@ -75,4 +76,32 @@ func TestEditSpec_Init(t *testing.T) {
 		}()
 		s.Init(&mi, failingOpt)
 	})
+}
+
+func TestEditOpt_AddOf(t *testing.T) {
+	type tag struct{}
+	var mi comp.DefIndex
+	mi.Init()
+	var s comp.EditSpec
+	var col1 iter.ArrayRef[position]
+	tagIdx, velIdx := 7, 7
+
+	if err := comp.Add(&col1)(&s, &mi); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := comp.AddOf(reflect.TypeFor[tag](), &tagIdx)(&s, &mi); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tagIdx != -1 {
+		t.Errorf("expected AddOf of a tag to set idx -1, got %d", tagIdx)
+	}
+	if err := comp.AddOf(reflect.TypeFor[velocity](), &velIdx)(&s, &mi); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if velIdx != 1 {
+		t.Errorf("expected AddOf after one data column and a tag to set idx 1, got %d", velIdx)
+	}
+	if len(s.AddDefs) != 3 {
+		t.Errorf("expected 3 AddDefs, got %v", s.AddDefs)
+	}
 }

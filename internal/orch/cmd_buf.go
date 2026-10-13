@@ -109,39 +109,43 @@ func NewCmdBuf() *CmdBuf {
 // AddOne queues an add-component command, staging value for Sync. compID is
 // resolved against the registry and must name T.
 func AddOne[T any](cb *CmdBuf, entityID uid.UID64, compID comp.ID, value T) {
-	size := int(unsafe.Sizeof(value))
-
-	scan := false
+	def := comp.Def{Size: unsafe.Sizeof(value), Align: unsafe.Alignof(value)}
 	if cb.defs != nil {
-		def := cb.defs.ByID(compID)
+		def = cb.defs.ByID(compID)
 		if def.Type != reflect.TypeFor[T]() {
 			panic("goke: CmdBuf.AddOne: component ID " + strconv.Itoa(int(compID)) +
 				" is registered as " + typeName(def.Type) + ", not " + reflect.TypeFor[T]().String())
 		}
-		scan = def.NeedsScan
 	}
-
-	var ptr unsafe.Pointer
-
-	if size > 0 {
-		align := int(unsafe.Alignof(value))
-		if scan {
-			ptr = unsafe.Pointer(new(T))
-		} else {
-			ptr = cb.reserveSpace(size, align)
-		}
+	if ptr := cb.stage(entityID, compID, def); ptr != nil {
 		*(*T)(ptr) = value
-	} else {
-		ptr = nil
 	}
+}
 
+// Reserve queues an add-component command for compID on entityID and returns the staged slot
+// the caller writes the value into before Sync — what AddOne does around its own write. The
+// slot is nil for a tag.
+func (cb *CmdBuf) Reserve(entityID uid.UID64, compID comp.ID) unsafe.Pointer {
+	return cb.stage(entityID, compID, cb.defs.ByID(compID))
+}
+
+func (cb *CmdBuf) stage(entityID uid.UID64, compID comp.ID, def comp.Def) unsafe.Pointer {
+	var ptr unsafe.Pointer
+	if def.Size > 0 {
+		if def.NeedsScan {
+			ptr = reflect.New(def.Type).UnsafePointer()
+		} else {
+			ptr = cb.reserveSpace(int(def.Size), int(def.Align))
+		}
+	}
 	cb.cmds = append(cb.cmds, bufferedCmd{
 		cType:    cmdAssignComp,
 		entityID: entityID,
 		compID:   compID,
-		size:     uintptr(size),
+		size:     def.Size,
 		dataPtr:  ptr,
 	})
+	return ptr
 }
 
 func (cb *CmdBuf) RemoveCompOne(entityID uid.UID64, compID comp.ID) {

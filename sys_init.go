@@ -1,5 +1,7 @@
 package goke
 
+import "reflect"
+
 // SysInit is the capability handle passed to System.Init and used by
 // ecs.Setup — the only way to construct Query and Factory builders. Editor
 // and ValueEditor builders come from an already-built Query instead (see
@@ -33,6 +35,9 @@ func (s *SysInit) NewFactory(comps ...Addable) *Factory {
 // RegComp registers component type T (idempotent, safe to call lazily)
 // from within Init.
 func (s *SysInit) RegComp[T any]() CompID { return s.ecs.RegComp[T]() }
+
+// RegCompOf is RegComp for a component type known at run time.
+func (s *SysInit) RegCompOf(t reflect.Type) CompID { return s.ecs.RegCompOf(t) }
 
 // Remover returns the shared Remover for whole-entity removal — pass it to
 // MigrateBuf.Commit. It carries no per-call configuration (removes any

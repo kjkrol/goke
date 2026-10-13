@@ -1,6 +1,8 @@
 package goke
 
 import (
+	"unsafe"
+
 	"github.com/kjkrol/uid"
 
 	"github.com/kjkrol/goke/v3/internal/orch"
@@ -20,6 +22,13 @@ type CmdBuf struct {
 // ValueEditor batches the change instead. Overwrites existing data.
 func (cb *CmdBuf) AddOne[T any](e uid.UID64, compID CompID, value T) {
 	orch.AddOne(cb.raw, e, compID, value)
+}
+
+// Reserve queues adding the component compID to a single entity and returns the staged slot
+// to write its value into before the next Sync: AddOne for a type known only at run time.
+// The slot is nil for a tag.
+func (cb *CmdBuf) Reserve(e uid.UID64, compID CompID) unsafe.Pointer {
+	return cb.raw.Reserve(e, compID)
 }
 
 // RemoveCompOne queues removing a component from a single entity reached

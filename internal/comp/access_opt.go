@@ -26,6 +26,14 @@ func Track[T any](col *iter.ArrayRef[T]) AccessOpt {
 	}
 }
 
+// TrackOf is Track for a component known by its type: idx gets its track position.
+func TrackOf(t reflect.Type, idx *int) AccessOpt {
+	return func(s *AccessSpec, mi *DefIndex) error {
+		*idx = len(s.CompInfos)
+		return s.Comp(mi.Intern(t))
+	}
+}
+
 func Exclude[T any]() AccessOpt {
 	return func(s *AccessSpec, mi *DefIndex) error {
 		compDef := mi.Intern(reflect.TypeFor[T]())
@@ -39,5 +47,13 @@ func Optional[T any](col *iter.OptArrayRef[T]) AccessOpt {
 		col.Idx = len(s.OptCompInfos)
 		compDef := mi.Intern(reflect.TypeFor[T]())
 		return s.OptComp(compDef)
+	}
+}
+
+// OptionalOf is Optional for a component known by its type: idx gets its optional position.
+func OptionalOf(t reflect.Type, idx *int) AccessOpt {
+	return func(s *AccessSpec, mi *DefIndex) error {
+		*idx = len(s.OptCompInfos)
+		return s.OptComp(mi.Intern(t))
 	}
 }

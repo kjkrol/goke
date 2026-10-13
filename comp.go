@@ -1,6 +1,8 @@
 package goke
 
 import (
+	"reflect"
+
 	"github.com/kjkrol/goke/v3/internal/comp"
 	"github.com/kjkrol/goke/v3/internal/reg"
 	"github.com/kjkrol/goke/v3/iter"
@@ -25,6 +27,9 @@ func (c *Comp[T]) Slice(cur *Cursor) []T { return c.col.Slice(cur) }
 
 // At returns a pointer to the component for the current Pick/Seek-mode entity.
 func (c *Comp[T]) At(cur *Cursor) *T { return c.col.At(cur) }
+
+// Index is the column's track position, as a Column reads it; set as the column is bound.
+func (c *Comp[T]) Index() int { return c.col.Idx }
 
 // Trackable is satisfied by *Comp[T] for any T — it lets NewQueryBuilder
 // accept components (&comp) directly as tracked data columns.
@@ -61,6 +66,10 @@ func (c *OptComp[T]) Slice(cur *Cursor) []T { return c.col.Slice(cur) }
 // At returns a pointer to T for the current Pick/Seek-mode entity (a data-free value for a zero-size tag T), or nil if absent.
 func (c *OptComp[T]) At(cur *Cursor) *T { return c.col.At(cur) }
 
+// Index is the column's optional position, as an OptColumn reads it; set as the column is
+// bound.
+func (c *OptComp[T]) Index() int { return c.col.Idx }
+
 // OptTrackable is satisfied by *OptComp[T] for any T — it lets
 // QueryBuilder.Optional accept components (&comp) directly.
 type OptTrackable interface {
@@ -85,6 +94,9 @@ func Remove[T any]() EditOpt { return comp.Del[T]() }
 // LoadComp declares that a Load call may need to register component type
 // T — see [ECS.Load]. The order tokens are passed to Load does not matter.
 func LoadComp[T any]() CompToken { return reg.LoadComp[T]() }
+
+// LoadCompOf is LoadComp for a component type known at run time.
+func LoadCompOf(t reflect.Type) CompToken { return reg.LoadCompOf(t) }
 
 // ProvidedComps collects LoadComps from every value that implements
 // CompProvider, in order — values that don't implement it are skipped.

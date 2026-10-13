@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+  ## [3.4.0] - 2026-10-13
+
+  ### Added ✨
+  * **Components known only at run time.** `RegCompOf(t)` on the ECS and on `SysInit`,
+  `LoadCompOf(t)` and the columns `NewColumn(t)` / `NewOptColumn(t)` are `RegComp[T]`,
+  `LoadComp[T]`, `Comp[T]` and `OptComp[T]` for a `reflect.Type`: a column goes where a
+  `&Comp[T]` goes and reads the same memory (`Base`, `At`, `Present`), so a library that
+  learns its component types from a registry walks and writes them as typed code does;
+  `Comp.Index` and `OptComp.Index` tell a typed column's position, so a Column can read it.
+  * **`CmdBuf.Reserve(e, compID)`** queues an add and hands back the staged slot to write the
+  value into before `Sync`: `AddOne` without the type parameter (`AddOne` is written over it).
+  * **`ECS.CmdBuf(r)`** is the buffer a registered system's `Update` is handed, for a system
+  that queues changes from outside its own `Update`.
+
   ## [3.3.0] - 2026-10-07
 
   ### Added ✨

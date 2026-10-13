@@ -48,6 +48,26 @@ func Add[T any](col *iter.ArrayRef[T]) EditOpt {
 	}
 }
 
+// AddOf is Add for a component known by its type: idx gets its position among the added data
+// columns, -1 for a tag.
+func AddOf(t reflect.Type, idx *int) EditOpt {
+	return func(s *EditSpec, mi *DefIndex) error {
+		def := mi.Intern(t)
+		*idx = -1
+		if def.Size > 0 {
+			n := 0
+			for _, d := range s.AddDefs {
+				if d.Size > 0 {
+					n++
+				}
+			}
+			*idx = n
+		}
+		s.AddDefs = append(s.AddDefs, def)
+		return nil
+	}
+}
+
 func Del[T any]() EditOpt {
 	return func(s *EditSpec, mi *DefIndex) error {
 		s.DelDefs = append(s.DelDefs, mi.Intern(reflect.TypeFor[T]()))

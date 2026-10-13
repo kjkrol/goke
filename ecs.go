@@ -17,6 +17,7 @@ type ECS struct {
 	scheduler orch.Scheduler
 	sysInit   SysInit
 	setupDone bool
+	cmdBufs   map[Runnable]*CmdBuf
 }
 
 // New creates a new ECS instance. Use ECSOption functions to tune memory
@@ -43,6 +44,13 @@ func (ecs *ECS) RegComp[T any]() CompID {
 	return ecs.registry.RegComp(compType)
 }
 
+// RegCompOf is RegComp for a component type known at run time.
+func (ecs *ECS) RegCompOf(t reflect.Type) CompID { return ecs.registry.RegComp(t) }
+
+// CmdBuf is the command buffer of a registered system, the one its Update is handed: for a
+// system that queues changes outside its own Update, applied at the next Sync as any.
+func (ecs *ECS) CmdBuf(r Runnable) *CmdBuf { return ecs.cmdBufs[r] }
+
 // RegSys registers a system. The system's Init method is called
 // immediately. Returns a Runnable handle — pass it to RunCtx.Run/RunParallel
 // inside a Plan.
@@ -55,6 +63,10 @@ func (ecs *ECS) RegSys(system System) Runnable {
 	})
 	adapter := &fn
 	ecs.scheduler.Register(adapter, raw)
+	if ecs.cmdBufs == nil {
+		ecs.cmdBufs = map[Runnable]*CmdBuf{}
+	}
+	ecs.cmdBufs[adapter] = wrapped
 	return adapter
 }
 

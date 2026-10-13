@@ -1,6 +1,7 @@
 package comp_test
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/kjkrol/goke/v3/internal/comp"
@@ -88,5 +89,47 @@ func TestAccessOpt_Exclude(t *testing.T) {
 
 	if len(s.ExCompIDs) != 1 {
 		t.Errorf("expected Exclude to add an ExCompID, got %v", s.ExCompIDs)
+	}
+}
+
+func TestAccessOpt_TrackOf(t *testing.T) {
+	var mi comp.DefIndex
+	mi.Init()
+	var s comp.AccessSpec
+	var col1 iter.ArrayRef[position]
+	idx := -1
+
+	if err := comp.Track(&col1)(&s, &mi); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := comp.TrackOf(reflect.TypeFor[velocity](), &idx)(&s, &mi); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if idx != 1 {
+		t.Errorf("expected TrackOf after one Track to set idx 1, got %d", idx)
+	}
+	if len(s.CompInfos) != 2 || s.CompInfos[1].Type != reflect.TypeFor[velocity]() {
+		t.Errorf("expected velocity as the second tracked column, got %v", s.CompInfos)
+	}
+}
+
+func TestAccessOpt_OptionalOf(t *testing.T) {
+	var mi comp.DefIndex
+	mi.Init()
+	var s comp.AccessSpec
+	var col1 iter.OptArrayRef[position]
+	idx := -1
+
+	if err := comp.Optional(&col1)(&s, &mi); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := comp.OptionalOf(reflect.TypeFor[velocity](), &idx)(&s, &mi); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if idx != 1 {
+		t.Errorf("expected OptionalOf after one Optional to set idx 1, got %d", idx)
+	}
+	if len(s.OptCompInfos) != 2 || s.OptCompInfos[1].Type != reflect.TypeFor[velocity]() {
+		t.Errorf("expected velocity as the second optional column, got %v", s.OptCompInfos)
 	}
 }

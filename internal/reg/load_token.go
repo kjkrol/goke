@@ -22,8 +22,10 @@ type CompToken struct {
 
 // LoadComp declares that a Load call may need to register component type
 // T — see [Registry.Load]. The order tokens are passed to Load does not matter.
-func LoadComp[T any]() CompToken {
-	t := reflect.TypeFor[T]()
+func LoadComp[T any]() CompToken { return LoadCompOf(reflect.TypeFor[T]()) }
+
+// LoadCompOf is LoadComp for a component type known at run time.
+func LoadCompOf(t reflect.Type) CompToken {
 	return CompToken{
 		Name: t.String(),
 		Register: func(r *Registry, wantSize *uint32) error {
