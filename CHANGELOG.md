@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+  ## [3.4.1] - 2026-10-14
+
+  ### Fixed 🐛
+  * **`Query.Seek` after an iteration.** `All` and `Pick` leave the Cursor's offsets a chunk's;
+  a `Seek` into the archetype the last `Seek` cached then kept them, and `Comp.At` read another
+  archetype's column. `All` and `Pick` now forget the cached archetype, so the next `Seek` bakes
+  its offsets afresh.
+
   ## [3.4.0] - 2026-10-13
 
   ### Added ✨

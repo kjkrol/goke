@@ -106,6 +106,7 @@ func (m *Matcher) BakeIfMatch(archetype *arch.Archetype) {
 func (m *Matcher) All() *Matcher {
 	m.mode = modeAll
 	m.allIter = allIter{chunkIdx: -1}
+	m.seekLastArchID = arch.NullID // the Cursor's offsets will be a chunk's: Seek bakes afresh
 	return m
 }
 
@@ -114,6 +115,7 @@ func (m *Matcher) All() *Matcher {
 func (m *Matcher) Pick(selected []uid.UID64) *Matcher {
 	m.mode = modePick
 	m.filterIter = filterIter{selected: selected, lastArchID: arch.NullID}
+	m.seekLastArchID = arch.NullID
 	return m
 }
 
