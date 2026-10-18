@@ -1,6 +1,8 @@
 package goke
 
 import (
+	"time"
+
 	"github.com/kjkrol/uid"
 
 	"github.com/kjkrol/goke/v3/internal/bulk"
@@ -33,6 +35,19 @@ func (q *Query) Pick(selected []uid.UID64) *Query { q.m.Pick(selected); return q
 // Next advances the iterator one step. Returns false when exhausted.
 // The current mode (set by All or Pick) determines which iteration path runs.
 func (q *Query) Next() bool { return q.m.Next() }
+
+// Paced starts walking, as All does, the blocks whose turn it is this run by the query's pace
+// (PacedBy), d a step; without a pace every block, as All.
+func (q *Query) Paced(d time.Duration) *Query {
+	q.m.Paced(d)
+	return q
+}
+
+// Dt is the step of the block a Paced walk stands on: d times its period.
+func (q *Query) Dt() time.Duration { return q.m.Dt() }
+
+// Due reports whether the block a walk stands on has its turn this run by the query's pace.
+func (q *Query) Due() bool { return q.m.Due() }
 
 // Seek positions the Cursor at entID's storage slot, independent of the
 // Query's include/exclude mask — the caller is trusted to know the entity
@@ -149,6 +164,23 @@ func (b *MigrateBuf) Commit(op bulk.Migrator) {
 // Include adds a required component type T to the Query's filter.
 // Only entities that possess this component will be matched.
 func Include[T any]() Opt { return comp.Include[T]() }
+
+// With adds opts to the query: filters, columns, a pace.
+func (b *QueryBuilder) With(opts ...Opt) *QueryBuilder {
+	b.opts = append(b.opts, opts...)
+	return b
+}
+
+// PacedBy is the pace of a query walked with Paced: the runs numbered by step, a block carrying a
+// ruled component going as its rule says, every other block every run.
+func PacedBy(step func() uint64, rules ...PaceRule) Opt { return comp.PacedBy(step, rules...) }
+
+// Every is the pace of the blocks carrying T: the runs where step % n == n-1, over n steps each;
+// a block meeting several rules goes by the slowest.
+func Every[T any](n uint64) PaceRule { return comp.Every[T](n) }
+
+// Never is the pace of the blocks carrying T: no run, whatever else they carry.
+func Never[T any]() PaceRule { return comp.Never[T]() }
 
 // Exclude adds an exclusion for component type T to the Query's filter.
 // Entities that possess this component will not be matched.

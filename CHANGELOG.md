@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+  ## [3.5.0] - 2026-10-18
+
+  ### Added ✨
+  * **Paced queries.** `QueryBuilder.With(goke.PacedBy(step, rules...))` paces a query: the
+  blocks carrying a component of an `Every[T](n)` rule go every n-th run (`step() % n == n-1`),
+  over a step n times as long, those of a `Never[T]()` rule never, a block meeting several by
+  the slowest, `Never` winning; every other block every run. `Query.Paced(d)` walks the blocks
+  whose turn it is, `Query.Dt()` gives the step of the one it stands on, and `Query.Due()` says,
+  in any walk, whether it has its turn; `All` walks every block as before. A block's period is
+  worked out once, as its archetype is matched.
+  * **`QueryBuilder.With(opts...)`** adds any options to a query: filters, columns, a pace.
+
   ## [3.4.1] - 2026-10-14
 
   ### Fixed 🐛

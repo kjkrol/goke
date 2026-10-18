@@ -12,6 +12,8 @@ type BakedTable struct {
 	CompOffsets []uintptr
 	OptOffsets  []uintptr
 	OptPresent  []bool
+	// every Period-th run of a paced walk, none at 0
+	Period uint64
 }
 
 func (bt *BakedTable) FillCursorNext(cur *iter.Cursor, from int) (int, bool) {

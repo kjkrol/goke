@@ -32,6 +32,10 @@ type (
 	// it never adds or removes components.
 	Opt = comp.AccessOpt
 
+	// PaceRule says how often a paced query goes over the blocks carrying a component (Every,
+	// Never).
+	PaceRule = comp.PaceRuleOpt
+
 	// Factory bulk-spawns entities for a single archetype using a chunk-based iterator.
 	// Call Create to set the count, then loop with Next; access entities via Entity and
 	// components via col.Slice(&factory.Cursor).
