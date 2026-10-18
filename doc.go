@@ -60,6 +60,14 @@
 //     yield per-entity component pointers resolved via the entity-to-storage
 //     index. All access is zero-allocation and reflection-free.
 //
+//  7. Paced Queries:
+//     A query built [QueryBuilder.With] a [PacedBy] goes over the blocks carrying
+//     a ruled component as its rules say: [Every] n-th run over a step n times as
+//     long, [Never]. Query.Paced walks the blocks whose turn it is, [Query.Dt]
+//     their step; Query.All still walks every one, [Query.Due] telling which
+//     have their turn. The period of a block is worked out once, as its
+//     archetype is matched.
+//
 // # Hardware Constraints & Limits
 //
 // To maintain extreme performance, the engine operates with certain fixed limits:

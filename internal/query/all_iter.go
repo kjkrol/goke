@@ -16,3 +16,21 @@ func (m *Matcher) nextAll() bool {
 	m.Cursor.IDs = nil
 	return false
 }
+
+// nextPaced is nextAll over the tables whose turn it is.
+func (m *Matcher) nextPaced() bool {
+	m.chunkIdx++
+	for m.tableIdx < len(m.BakedTables) {
+		bt := &m.BakedTables[m.tableIdx]
+		if m.due(bt) {
+			if idx, ok := bt.FillCursorNext(&m.Cursor, m.chunkIdx); ok {
+				m.chunkIdx = idx
+				return true
+			}
+		}
+		m.tableIdx++
+		m.chunkIdx = 0
+	}
+	m.Cursor.IDs = nil
+	return false
+}

@@ -1,6 +1,8 @@
 package query
 
 import (
+	"time"
+
 	"github.com/kjkrol/uid"
 
 	"github.com/kjkrol/goke/v3/internal/addr"
@@ -17,6 +19,7 @@ const (
 	modeNone iterMode = iota
 	modeAll
 	modePick
+	modePaced
 )
 
 type allIter struct {
@@ -56,6 +59,10 @@ type Matcher struct {
 	excludeMask comp.Mask
 	mode        iterMode
 	Cursor      iter.Cursor
+	pace        *comp.Pace
+	// the run a walk began in, by the pace's step, and a paced walk's step
+	now uint64
+	d   time.Duration
 	allIter
 	filterIter
 	seekTable      *colstore.Table
@@ -80,6 +87,7 @@ func (m *Matcher) Init(entityIndex *addr.Index, archCatalog *arch.Catalog, acces
 	m.compIDs = accessSpec.CompIDs()
 	m.optCompIDs = accessSpec.OptCompIDs()
 	m.excludeMask = excludeMask
+	m.pace = accessSpec.Pace
 	m.seekLastArchID = arch.NullID
 }
 
@@ -90,6 +98,7 @@ func (m *Matcher) Clear() {
 	m.compIDs = nil
 	m.optCompIDs = nil
 	m.excludeMask = comp.Mask{}
+	m.pace = nil
 	m.BakedTablesCatalog.Clear()
 	m.seekTable = nil
 	m.seekBakes = nil
@@ -99,6 +108,7 @@ func (m *Matcher) Clear() {
 func (m *Matcher) BakeIfMatch(archetype *arch.Archetype) {
 	if !archetype.Mask().IsEmpty() && archetype.Mask().Matches(m.includeMask, m.excludeMask) {
 		m.BakedTablesCatalog.Add(archetype, m.compIDs, m.optCompIDs)
+		m.BakedTables[len(m.BakedTables)-1].Period = m.pace.Period(archetype.Mask())
 	}
 }
 
@@ -106,7 +116,31 @@ func (m *Matcher) BakeIfMatch(archetype *arch.Archetype) {
 func (m *Matcher) All() *Matcher {
 	m.mode = modeAll
 	m.allIter = allIter{chunkIdx: -1}
+	m.seekLastArchID = arch.NullID // the Cursor's offsets will be a chunk's: Seek bakes afresh
+	if m.pace != nil {
+		m.now = m.pace.Step()
+	}
 	return m
+}
+
+// Paced starts the iteration All does over the archetypes whose turn it is this run, each over a
+// step of d times its period; advance with Next.
+func (m *Matcher) Paced(d time.Duration) *Matcher {
+	m.All()
+	m.mode, m.d = modePaced, d
+	return m
+}
+
+// Due reports whether the archetype Next stands on has its turn this run.
+func (m *Matcher) Due() bool { return m.due(&m.BakedTables[m.tableIdx]) }
+
+// Dt is the step of the archetype a Paced iteration stands on.
+func (m *Matcher) Dt() time.Duration {
+	return m.d * time.Duration(m.BakedTables[m.tableIdx].Period)
+}
+
+func (m *Matcher) due(bt *BakedTable) bool {
+	return bt.Period == 1 || bt.Period != 0 && m.now%bt.Period == bt.Period-1
 }
 
 // Pick starts iteration over the given entities, skipping those that do not
@@ -114,6 +148,7 @@ func (m *Matcher) All() *Matcher {
 func (m *Matcher) Pick(selected []uid.UID64) *Matcher {
 	m.mode = modePick
 	m.filterIter = filterIter{selected: selected, lastArchID: arch.NullID}
+	m.seekLastArchID = arch.NullID
 	return m
 }
 
@@ -124,6 +159,8 @@ func (m *Matcher) Next() bool {
 		return m.nextAll()
 	case modePick:
 		return m.nextPick()
+	case modePaced:
+		return m.nextPaced()
 	}
 	return false
 }

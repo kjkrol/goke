@@ -10,6 +10,7 @@ type AccessSpec struct {
 	OptCompInfos []Def
 	TagIDs       []ID
 	ExCompIDs    []ID
+	Pace         *Pace
 }
 
 // Init applies opts against mi, populating s in place.
