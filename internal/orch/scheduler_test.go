@@ -31,6 +31,9 @@ type mockMutator struct {
 	remover   bulk.Migrator
 	defs      comp.DefIndex
 	defsReady bool
+	// checks counts CheckWrites calls; removedAtCheck is removeCall.called at the last one
+	checks         int
+	removedAtCheck bool
 }
 
 // Defs satisfies Mutator. int is interned first so it lands on comp.ID(0) —
@@ -62,6 +65,11 @@ func (m *mockMutator) Remove(id uid.UID64) bool {
 	return true
 }
 
+func (m *mockMutator) CheckWrites() {
+	m.checks++
+	m.removedAtCheck = m.removeCall.called
+}
+
 func (m *mockMutator) Remover() bulk.Migrator {
 	if m.remover == nil {
 		m.remover = &stubMigrator{}
@@ -85,6 +93,25 @@ func TestScheduler_Tick_PanicsWithoutPlan(t *testing.T) {
 		}
 	}()
 	sched.Tick(time.Millisecond)
+}
+
+// Sync checks the writes once, before it applies any buffer
+func TestScheduler_Sync_ChecksWritesBeforeApplying(t *testing.T) {
+	mut := &mockMutator{}
+	sched := NewScheduler(mut)
+	sys := &fnRunnable{fn: func(cb *CmdBuf, d time.Duration) { cb.RemoveOne(uid.UID64(7)) }}
+	sched.Register(sys, NewCmdBuf())
+	sched.SetPlan(func(ctx RunCtx, d time.Duration) {
+		ctx.Run(sys, d)
+		_ = ctx.Sync()
+	})
+
+	sched.Tick(time.Millisecond)
+
+	if mut.checks != 1 || mut.removedAtCheck || !mut.removeCall.called {
+		t.Errorf("checks %d, removed before the check %v, removed %v; want 1, false, true",
+			mut.checks, mut.removedAtCheck, mut.removeCall.called)
+	}
 }
 
 func TestScheduler_Tick_RunsThePlan(t *testing.T) {

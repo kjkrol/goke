@@ -1,6 +1,7 @@
 package goke_test
 
 import (
+	"strings"
 	"testing"
 	"time"
 	"unsafe"
@@ -149,5 +150,147 @@ func TestChunkVer_CountsGokesOwnWrites(t *testing.T) {
 	step(func(cb *goke.CmdBuf) { cb.RemoveOne(ids[0]) })
 	if _, now := chunkVers(t, reader); now == tableVer {
 		t.Error("a removal left TableVer as it was")
+	}
+}
+
+// with WithMutCheck a write through Comp panics at the next Sync, naming the archetype;
+// without it nothing is checked
+func TestWithMutCheck_PanicsOnAWriteThroughComp(t *testing.T) {
+	for _, check := range []bool{false, true} {
+		var opts []goke.ECSOption
+		if check {
+			opts = append(opts, goke.WithMutCheck())
+		}
+		ecs := goke.New(opts...)
+		var read goke.Comp[moved]
+		var q *goke.Query
+		ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+			f := si.NewFactory(&read)
+			f.Create(4)
+			for f.Next() {
+			}
+			q = si.NewQueryBuilder(&read).Build()
+		}})
+		sys := ecs.RegSys(goke.SystemFn{OnUpdate: func(*goke.CmdBuf, time.Duration) {
+			for q.All(); q.Next(); {
+				read.Slice(q.Cursor())[1].X++
+			}
+		}})
+		ecs.SetPlan(func(ctx goke.RunCtx, d time.Duration) {
+			ctx.Run(sys, d)
+			_ = ctx.Sync()
+		})
+
+		func() {
+			defer func() {
+				msg, _ := recover().(string)
+				if check && !strings.Contains(msg, "[goke_test.moved]") {
+					t.Errorf("panic %q does not name the archetype [goke_test.moved]", msg)
+				}
+				if !check && msg != "" {
+					t.Errorf("without WithMutCheck a write through Comp panicked: %s", msg)
+				}
+			}()
+			ecs.Tick(time.Millisecond)
+		}()
+	}
+}
+
+type flagged struct{}
+
+// under WithMutCheck every write through Mut and every change goke makes itself passes, each in
+// a Sync of its own
+func TestWithMutCheck_PassesMutAndGokesWrites(t *testing.T) {
+	ecs := goke.New(goke.WithMutCheck())
+	markedID := ecs.RegComp[marked]()
+	movedID := ecs.RegComp[moved]()
+	flaggedID := ecs.RegComp[flagged]()
+	var write goke.Mut[moved]
+	var read goke.Comp[moved]
+	var mark goke.Comp[marked]
+	var walk, plain *goke.Query
+	var f *goke.Factory
+	var addMark *goke.Editor
+	var setMoved *goke.ValueEditor
+	var remover *goke.Remover
+	var ids []uid.UID64
+	ecs.Setup(goke.SystemFn{OnInit: func(si *goke.SysInit) {
+		f = si.NewFactory(&write)
+		f.Create(3000)
+		for f.Next() {
+			ids = append(ids, f.IDs...)
+		}
+		walk = si.NewQueryBuilder(&write).Build()
+		plain = si.NewQueryBuilder(&read).Exclude(goke.Exclude[marked]()).Build()
+		addMark = plain.NewEditorBuilder(&mark).Build()
+		setMoved = plain.NewValueEditorBuilder(&read).Build()
+		remover = si.Remover()
+	}})
+	migrate := func(cb *goke.CmdBuf, op func(*goke.MigrateBuf)) {
+		plain.All()
+		plain.Next()
+		op(plain.BeginMigrate(cb))
+	}
+	ops := []func(cb *goke.CmdBuf){
+		func(*goke.CmdBuf) {
+			for walk.All(); walk.Next(); {
+				write.Slice(walk.Cursor())[0].X++
+			}
+		},
+		func(*goke.CmdBuf) {
+			walk.Seek(ids[5])
+			write.At(walk.Cursor()).Y++
+		},
+		func(cb *goke.CmdBuf) { cb.AddOne(ids[6], movedID, moved{X: 1}) },
+		func(cb *goke.CmdBuf) { cb.AddOne(ids[7], markedID, marked{N: 1}) },
+		func(cb *goke.CmdBuf) { cb.RemoveCompOne(ids[7], markedID) },
+		func(cb *goke.CmdBuf) { cb.AddOne(ids[8], flaggedID, flagged{}) },
+		func(cb *goke.CmdBuf) { cb.AddOne(ids[9], flaggedID, flagged{}) },
+		func(cb *goke.CmdBuf) { cb.RemoveOne(ids[10]) },
+		func(*goke.CmdBuf) {
+			f.Create(5)
+			for f.Next() {
+			}
+		},
+		func(cb *goke.CmdBuf) {
+			migrate(cb, func(b *goke.MigrateBuf) {
+				b.Add(plain.Cursor().IDs[0])
+				b.Commit(addMark)
+			})
+		},
+		func(cb *goke.CmdBuf) {
+			plain.All()
+			plain.Next()
+			cur := plain.Cursor()
+			vals := cb.AddCompValue(setMoved, &read, plain.ChunkSnapshot(), cur.IDs[:2])
+			vals[0], vals[1] = moved{X: 7}, moved{X: 8}
+		},
+		func(cb *goke.CmdBuf) {
+			migrate(cb, func(b *goke.MigrateBuf) {
+				b.Add(plain.Cursor().IDs[1])
+				b.Commit(remover)
+			})
+		},
+	}
+	tick := 0
+	sys := ecs.RegSys(goke.SystemFn{OnUpdate: func(cb *goke.CmdBuf, _ time.Duration) {
+		ops[tick](cb)
+		tick++
+	}})
+	ecs.SetPlan(func(ctx goke.RunCtx, d time.Duration) {
+		ctx.Run(sys, d)
+		_ = ctx.Sync()
+		_ = ctx.Sync()
+	})
+	for range ops {
+		ecs.Tick(time.Millisecond)
+	}
+}
+
+func TestWithMutCheck(t *testing.T) {
+	var c goke.Config
+	goke.WithMutCheck()(&c)
+	if !c.MutCheck {
+		t.Error("WithMutCheck left Config.MutCheck false")
 	}
 }

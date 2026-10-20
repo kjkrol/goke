@@ -20,6 +20,8 @@ type Mutator interface {
 	// Defs is the component registry, wired into each CmdBuf by
 	// Scheduler.Register.
 	Defs() *comp.DefIndex
+	// CheckWrites runs as every Sync begins, before any buffer is applied.
+	CheckWrites()
 }
 
 type Runnable interface {

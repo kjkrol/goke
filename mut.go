@@ -6,9 +6,9 @@ import (
 )
 
 // Mut is Comp for writing: Slice and At also count a change of the cursor's chunk (Cursor.Ver,
-// ChunkSnapshot.Ver); a write through Comp goes unseen. The count is the chunk's, so parallel
-// writers of one archetype race on it; take a chunk's Mut slice first, or the slices taken
-// before it lose their bounds check elimination.
+// ChunkSnapshot.Ver); a write through Comp goes unseen but by WithMutCheck. The count is the
+// chunk's, so parallel writers of one archetype race on it; take a chunk's Mut slice first, or
+// the slices taken before it lose their bounds check elimination.
 type Mut[T any] struct {
 	col iter.ArrayRef[T]
 }

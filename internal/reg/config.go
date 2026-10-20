@@ -9,6 +9,8 @@ import (
 type Config struct {
 	Entity  ent.Config
 	Matcher query.Config
+	// MutCheck makes every Sync check that no chunk changed past its change counter.
+	MutCheck bool
 }
 
 // DefaultConfig returns a configuration with sensible defaults for most use cases.

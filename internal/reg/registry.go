@@ -21,6 +21,7 @@ type Registry struct {
 	CompDefIndex   comp.DefIndex
 	MatcherCatalog query.Catalog
 	sharedRemover  *ent.Remover
+	mutCheck       *arch.MutCheck
 	paused         bool
 	saving         bool
 }
@@ -32,6 +33,9 @@ func (r *Registry) Init(cfg Config) {
 	r.EntityManager.Init(cfg.Entity, func(a *arch.Archetype) {
 		r.MatcherCatalog.OnArchetypeCreated(a)
 	})
+	if cfg.MutCheck {
+		r.mutCheck = arch.NewMutCheck()
+	}
 }
 
 func (r *Registry) RegComp(compType reflect.Type) comp.ID {
@@ -108,6 +112,14 @@ func (r *Registry) CreateValueEditor(opts ...comp.EditOpt) *ent.ValueEditor {
 		panic("goke: ValueEditor requires exactly one added component")
 	}
 	return ent.NewValueEditor(&r.EntityManager.AddressBook, &r.EntityManager.ArchCatalog, spec)
+}
+
+// CheckWrites satisfies orch.Mutator: with Config.MutCheck it panics on a chunk changed since
+// the last call past its change counter, else it does nothing.
+func (r *Registry) CheckWrites() {
+	if r.mutCheck != nil {
+		r.mutCheck.Check(&r.EntityManager.ArchCatalog)
+	}
 }
 
 // Defs returns the component registry — see [orch.Mutator].
@@ -198,6 +210,9 @@ func (r *Registry) Reset() {
 	r.EntityManager.Reset()
 	r.CompDefIndex.Reset()
 	r.MatcherCatalog.Reset()
+	if r.mutCheck != nil {
+		r.mutCheck.Reset()
+	}
 	r.paused = false
 }
 

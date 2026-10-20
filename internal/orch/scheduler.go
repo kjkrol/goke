@@ -83,6 +83,7 @@ func (s *Scheduler) RunParallel(d time.Duration, runnables ...Runnable) {
 }
 
 func (s *Scheduler) Sync() error {
+	s.mutator.CheckWrites()
 	for _, cb := range s.buffers {
 		if len(cb.cmds) > 0 || len(cb.migrateCmds) > 0 || len(cb.migrateValueCmds) > 0 || len(cb.spawnCmds) > 0 {
 			err := s.applyBufferCmds(cb)

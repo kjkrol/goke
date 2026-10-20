@@ -24,3 +24,12 @@ func WithMatcherCap(cap int) ECSOption {
 		c.Matcher.Cap = cap
 	}
 }
+
+// WithMutCheck makes every Sync panic, naming the archetype, on a chunk whose bytes changed since
+// the last Sync while its change counter did not: a write through Comp where Mut belongs. For
+// tests: each Sync hashes every chunk.
+func WithMutCheck() ECSOption {
+	return func(c *Config) {
+		c.MutCheck = true
+	}
+}
