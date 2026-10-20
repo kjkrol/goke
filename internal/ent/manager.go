@@ -52,7 +52,8 @@ func (m *Manager) CreateFactory(accessSpec comp.AccessSpec) *Factory {
 }
 
 // UpsertComp ensures the entity has the given component, migrating to a new
-// archetype if necessary, and returns a pointer to the component's storage slot.
+// archetype if necessary, and returns a pointer to the component's storage slot,
+// a change of its chunk counted for the write to come.
 // If the component is a zero-size tag, returns (nil, nil).
 func (m *Manager) UpsertComp(entityID uid.UID64, compDef comp.Def) (unsafe.Pointer, error) {
 	entry, ok := m.AddressBook.Get(entityID)
@@ -73,7 +74,9 @@ func (m *Manager) UpsertComp(entityID uid.UID64, compDef comp.Def) (unsafe.Point
 		return nil, nil
 	}
 
-	return m.ArchCatalog.Archetypes[targetArchID].Table.ComponentAt(targetPtr, targetSlot, compDef.ID), nil
+	table := &m.ArchCatalog.Archetypes[targetArchID].Table
+	*table.VerAt(targetPtr)++
+	return table.ComponentAt(targetPtr, targetSlot, compDef.ID), nil
 }
 
 // RemoveComp removes the given component from the entity, migrating it to the

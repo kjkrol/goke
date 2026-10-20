@@ -5,6 +5,7 @@
 // [Cursor] is a value that describes the current position within a column iteration:
 //
 //   - Base      — raw pointer to the start of the current memory block
+//   - Ver       — the change counter of that block, counted by a write to it
 //   - Offsets   — per-component byte offsets from Base, one entry per tracked component
 //   - Slot      — index into IDs (and into each tracked array) for single-entity access
 //   - IDs       — the entity IDs currently addressable via Base/Offsets

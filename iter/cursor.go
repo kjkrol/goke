@@ -15,6 +15,9 @@ type Cursor struct {
 	OptPresent []bool
 	Slot       uintptr
 	IDs        []uid.UID64
+	// Ver is the change counter of the chunk Base points into: a write to the chunk counts
+	// there, *Ver++, as goke.Mut does.
+	Ver *uint32
 }
 
 // Set positions the cursor at (base, slot) without touching Offsets or IDs.

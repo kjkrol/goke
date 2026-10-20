@@ -17,8 +17,12 @@ type Layout struct {
 	Offsets    []uintptr
 	NeedsScan  bool
 
+	// VerOffset is where a chunk keeps its change counter, a uint32 past the last column.
+	VerOffset uintptr
+
 	// ChunkType describes one chunk as a Go type: an array of entity ids
-	// followed by one array per component column. Set only when NeedsScan.
+	// followed by one array per component column and the change counter. Set
+	// only when NeedsScan.
 	ChunkType reflect.Type
 }
 
@@ -57,12 +61,16 @@ func (l *Layout) Init(compDefs []comp.Def) {
 			currentOffset += compDef.Size * capacity
 		}
 
+		verOffset := alignUp(currentOffset, unsafe.Alignof(uint32(0)))
+		currentOffset = verOffset + unsafe.Sizeof(uint32(0))
+
 		chunkBytes := alignUp(currentOffset, unsafe.Sizeof(unsafe.Pointer(nil)))
 
 		if capacity == 1 || (chunkBytes <= L1DataCacheSize && !hasCacheSetConflict(offsets)) {
 			l.ChunkCap = uint32(capacity)
 			l.ChunkBytes = chunkBytes
 			l.Offsets = offsets
+			l.VerOffset = verOffset
 			if needsScan {
 				l.ChunkType = buildChunkType(compDefs, capacity, l)
 			}
@@ -93,14 +101,20 @@ func buildChunkType(compDefs []comp.Def, capacity uintptr, l *Layout) reflect.Ty
 			Type: reflect.ArrayOf(int(capacity), columnElem(compDef)),
 		})
 	}
+	fields = append(fields, reflect.StructField{Name: "Ver", Type: reflect.TypeFor[uint32]()})
 
 	t := reflect.StructOf(fields)
 
 	for i := range t.NumField() {
-		if got, want := t.Field(i).Offset, l.Offsets[i]; got != want {
+		want := l.VerOffset
+		if i < len(l.Offsets) {
+			want = l.Offsets[i]
+		}
+		if got := t.Field(i).Offset; got != want {
 			panic(fmt.Sprintf(
-				"chunk: column %d of the generated chunk type sits at offset %d but the layout computed %d — "+
-					"the two must agree or every column access is misaddressed", i, got, want))
+				"chunk: field %d of the generated chunk type sits at offset %d but the layout "+
+					"computed %d — the two must agree or every column access is misaddressed",
+				i, got, want))
 		}
 	}
 	if t.Size() != l.ChunkBytes {

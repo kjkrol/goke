@@ -8,10 +8,11 @@ import (
 	"github.com/kjkrol/goke/v3/iter"
 )
 
-// Comp gives typed read/write access to a component. Declare one, pass its
+// Comp gives typed access to a component. Declare one, pass its
 // address (&comp) directly to NewFactory/NewQueryBuilder/NewEditorBuilder —
 // it binds itself. Use Slice(cursor) in All/Factory-mode, At(cursor) in
-// Pick/Seek-mode.
+// Pick/Seek-mode. It is for reading: a system writing the component declares
+// a Mut, which counts the change; values put in a Factory batch count with it.
 //
 // T must be encodable — recursively a bool, numeric kind, string, struct,
 // fixed-size array, or a type implementing encoding.BinaryMarshaler and
@@ -31,19 +32,19 @@ func (c *Comp[T]) At(cur *Cursor) *T { return c.col.At(cur) }
 // Index is the column's track position, as a Column reads it; set as the column is bound.
 func (c *Comp[T]) Index() int { return c.col.Idx }
 
-// Trackable is satisfied by *Comp[T] for any T — it lets NewQueryBuilder
+// Trackable is satisfied by *Comp[T] and *Mut[T] for any T — it lets NewQueryBuilder
 // accept components (&comp) directly as tracked data columns.
 type Trackable interface {
-	// asTrack is unexported so *Comp[T] is the only implementer — this is a
-	// sealed interface, not an extension point.
+	// asTrack is unexported so the package's columns are the only implementers —
+	// this is a sealed interface, not an extension point.
 	asTrack() Opt
 }
 
-// Addable is satisfied by *Comp[T] for any T — it lets NewFactory and
+// Addable is satisfied by *Comp[T] and *Mut[T] for any T — it lets NewFactory and
 // NewEditorBuilder accept components (&comp) directly as added components.
 type Addable interface {
-	// asAdd is unexported so *Comp[T] is the only implementer — this is a
-	// sealed interface, not an extension point.
+	// asAdd is unexported so the package's columns are the only implementers —
+	// this is a sealed interface, not an extension point.
 	asAdd() EditOpt
 }
 
@@ -80,11 +81,11 @@ type OptTrackable interface {
 
 func (c *OptComp[T]) asOptTrack() Opt { return comp.Optional[T](&c.col) }
 
-// Loadable is satisfied by *Comp[T] for any T — it lets LoadComps accept
+// Loadable is satisfied by *Comp[T] and *Mut[T] for any T — it lets LoadComps accept
 // components (&comp) directly instead of naming their type again.
 type Loadable interface {
-	// asLoad is unexported so *Comp[T] is the only implementer — this is a
-	// sealed interface, not an extension point.
+	// asLoad is unexported so the package's columns are the only implementers —
+	// this is a sealed interface, not an extension point.
 	asLoad() CompToken
 }
 

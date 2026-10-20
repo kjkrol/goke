@@ -123,6 +123,7 @@ func (vm *ValueEditor) applyGroup(srcArchID arch.ID, ids []uid.UID64, slotRefs [
 			if dst == nil {
 				return
 			}
+			*srcTable.VerAt(ref.Ptr)++
 			copyMemory(dst, elemAt(payload, i, elemSize), elemSize)
 		}
 		return

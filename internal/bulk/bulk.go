@@ -14,11 +14,15 @@ import (
 // Positions derived from it are valid only while TableVer still matches the
 // source table's structural version (no removal or relocation since capture);
 // that short lifetime is why it may carry ChunkIdx, which Entry omits.
+//
+// A chunk, known by ArchID and ChunkPtr, changed since an earlier snapshot of it when TableVer
+// differs (then every chunk of the table is to be read anew) or, TableVer the same, Ver differs.
 type ChunkSnapshot struct {
 	ArchID      arch.ID        // archetype owning the chunk
 	ChunkPtr    unsafe.Pointer // chunk's base memory address — its stable identity
 	ChunkIdx    colstore.Idx   // chunk's position within the table's chunk pack
 	TableVer    uint32         // source table's structural version at capture time
+	Ver         uint32         // chunk's change counter at capture time
 	SlotAligned bool           // the accompanying ids[i] lives at slot i — no per-entity Slot lookups needed
 }
 

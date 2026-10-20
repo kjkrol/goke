@@ -203,6 +203,8 @@ func TestValueEditor_MigrateWithValue_ComponentAlreadyPresent_WritesInPlace(t *t
 
 	entry0, _ := m.AddressBook.Get(ids[0])
 	srcArchID := entry0.ArchID
+	ver := m.ArchCatalog.Archetypes[srcArchID].Table.VerAt(entry0.ChunkPtr)
+	verBefore := *ver
 
 	var editSpec comp.EditSpec
 	editSpec.Init(&mi, comp.Add(new(iter.ArrayRef[mVelocity])))
@@ -210,6 +212,9 @@ func TestValueEditor_MigrateWithValue_ComponentAlreadyPresent_WritesInPlace(t *t
 
 	values := []mVelocity{{VX: 5, VY: 5}, {VX: 6, VY: 6}}
 	applyByChunksWithValue(m, vm, ids, values)
+	if *ver == verBefore {
+		t.Error("values written in place must count on their chunk")
+	}
 
 	for i, id := range ids {
 		entry, ok := m.AddressBook.Get(id)

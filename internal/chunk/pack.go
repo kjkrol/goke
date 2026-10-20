@@ -53,6 +53,7 @@ func (g *Pack) AllocSlot() Pos {
 	slot := c.Len
 	c.Len++
 	g.len++
+	*g.VerAt(c.Ptr)++
 
 	return Pos{Idx: lastIdx, Slot: slot}
 }
@@ -64,7 +65,14 @@ func (g *Pack) Extend(idx Idx, n int) (base unsafe.Pointer, startSlot Slot) {
 	g.chunks[idx].Len += Slot(n)
 	g.len += uint32(n)
 	base = g.chunks[idx].Ptr
+	*g.VerAt(base)++
 	return
+}
+
+// VerAt is the change counter of the chunk at ptr, kept in the chunk's memory so it moves with
+// the chunk; AllocSlot and Extend count on it.
+func (g *Pack) VerAt(ptr unsafe.Pointer) *uint32 {
+	return (*uint32)(unsafe.Add(ptr, g.Layout.VerOffset))
 }
 
 func (g *Pack) FreeSlot(idx Idx) {

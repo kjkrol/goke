@@ -54,7 +54,9 @@
 //  6. Type-Safe Queries & Cache-Optimized Iteration:
 //     Data retrieval is handled through [Query] obtained via [SysInit.NewQueryBuilder].
 //     Component columns are declared with [Comp][T] and accessed via
-//     [Comp.Slice] (bulk) or [Comp.At] (per-entity). Bulk iteration via
+//     [Comp.Slice] (bulk) or [Comp.At] (per-entity); a system writing a column
+//     declares it [Mut][T], whose Slice and At also count a change of the chunk,
+//     told to a reader by [ChunkSnapshot]'s TableVer and Ver. Bulk iteration via
 //     Query.All yields SoA chunks (Go slices over native memory), while
 //     subset queries via Query.Pick or single-entity access via Query.Seek
 //     yield per-entity component pointers resolved via the entity-to-storage

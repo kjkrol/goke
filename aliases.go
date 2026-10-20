@@ -59,7 +59,10 @@ type (
 
 	// ChunkSnapshot is a point-in-time capture of a single table chunk.
 	// Obtained from Query.ChunkSnapshot() during Query.All() iteration; passed
-	// to cb.Migrate so the Editor can skip per-entity addr.Book lookups.
+	// to cb.Migrate so the Editor can skip per-entity addr.Book lookups. A chunk,
+	// known by ArchID and ChunkPtr, changed since an earlier snapshot of it when
+	// TableVer differs (then every chunk of the table is to be read anew) or,
+	// TableVer the same, Ver differs.
 	ChunkSnapshot = bulk.ChunkSnapshot
 
 	// Remover removes whole entities matched by a Query, in bulk, at Sync.

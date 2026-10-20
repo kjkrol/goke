@@ -71,8 +71,9 @@ func (q *Query) Clear() { q.m.Clear() }
 func (q *Query) Cursor() *iter.Cursor { return &q.m.Cursor }
 
 // ChunkSnapshot captures the chunk most recently advanced to by Next() in
-// All-mode — used internally by BeginMigrate. Valid only between a Next()
-// that returned true and the following Next(); undefined in Pick/Seek mode.
+// All-mode — for BeginMigrate, and for a reader telling which chunks changed
+// (see ChunkSnapshot). Valid only between a Next() that returned true and the
+// following Next(); undefined in Pick/Seek mode.
 func (q *Query) ChunkSnapshot() ChunkSnapshot { return q.m.ChunkSnapshot() }
 
 // Entity returns the current entity in Pick-mode iteration.

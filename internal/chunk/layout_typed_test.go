@@ -61,6 +61,7 @@ func TestBuildChunkType_RejectsLayoutDisagreement(t *testing.T) {
 	cases := map[string]func(l *Layout){
 		"wrong column offset": func(l *Layout) { l.Offsets[1]++ },
 		"wrong chunk size":    func(l *Layout) { l.ChunkBytes++ },
+		"wrong ver offset":    func(l *Layout) { l.VerOffset++ },
 	}
 	for name, corrupt := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -68,6 +69,7 @@ func TestBuildChunkType_RejectsLayoutDisagreement(t *testing.T) {
 				ChunkCap:   good.ChunkCap,
 				ChunkBytes: good.ChunkBytes,
 				Offsets:    append([]uintptr(nil), good.Offsets...),
+				VerOffset:  good.VerOffset,
 			}
 			corrupt(&l)
 

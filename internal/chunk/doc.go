@@ -23,6 +23,7 @@
 //   - ChunkCap   — max slots per chunk
 //   - ChunkBytes — total byte size of one chunk
 //   - Offsets    — byte offset of each field array within the chunk
+//   - VerOffset  — byte offset of the chunk's change counter, past the last field array
 //
 // # Pack
 //

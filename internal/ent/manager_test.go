@@ -145,10 +145,15 @@ func TestManager_UpsertComp_Idempotent(t *testing.T) {
 	ptr1, _ := m.UpsertComp(id, posDef)
 	*(*Position)(ptr1) = Position{X: 7, Y: 8}
 	entryBefore, _ := m.AddressBook.Get(id)
+	table := &m.ArchCatalog.Archetypes[entryBefore.ArchID].Table
+	verBefore, tableVerBefore := *table.VerAt(entryBefore.ChunkPtr), table.Version()
 
 	ptr2, err := m.UpsertComp(id, posDef)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	if *table.VerAt(entryBefore.ChunkPtr) == verBefore || table.Version() != tableVerBefore {
+		t.Error("an in-place upsert must count on the entity's chunk and leave the table version")
 	}
 
 	entryAfter, _ := m.AddressBook.Get(id)
