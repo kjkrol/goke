@@ -9,7 +9,7 @@ import (
 	"github.com/kjkrol/goke/v3/iter"
 )
 
-// every way of standing on an entity points Cursor.Ver at the counter of the entity's own
+// every way of standing on an entity points Cursor.Ver() at the counter of the entity's own
 // chunk, and a walk's snapshot carries the counter's value
 func TestMatcher_CursorVerIsTheChunksCounter(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
@@ -30,22 +30,22 @@ func TestMatcher_CursorVerIsTheChunksCounter(t *testing.T) {
 		return em.ArchCatalog.Archetypes[entry.ArchID].Table.VerAt(entry.ChunkPtr)
 	}
 	first, last := ids[0], ids[len(ids)-1]
-	if !m.Seek(last) || m.Cursor.Ver != want(last) {
+	if !m.Seek(last) || m.Cursor.Ver() != want(last) {
 		t.Error("Seek does not point Ver at the entity's chunk")
 	}
-	if !m.SeekH(first) || m.Cursor.Ver != want(first) {
+	if !m.SeekH(first) || m.Cursor.Ver() != want(first) {
 		t.Error("SeekH does not point Ver at the entity's chunk")
 	}
 	for m.Pick([]uid.UID64{first, last}); m.Next(); {
-		if m.Cursor.Ver != want(m.Entity) {
+		if m.Cursor.Ver() != want(m.Entity) {
 			t.Errorf("Pick does not point Ver at the chunk of %v", m.Entity)
 		}
 	}
 	chunks := 0
 	for m.All(); m.Next(); chunks++ {
-		*m.Cursor.Ver += uint32(chunks)
-		if s := m.ChunkSnapshot(); s.Ver != *m.Cursor.Ver || m.Cursor.Ver != want(m.Cursor.IDs[0]) {
-			t.Errorf("chunk %d: snapshot Ver %d, counter %d", chunks, s.Ver, *m.Cursor.Ver)
+		*m.Cursor.Ver() += uint32(chunks)
+		if s := m.ChunkSnapshot(); s.Ver != *m.Cursor.Ver() || m.Cursor.Ver() != want(m.Cursor.IDs[0]) {
+			t.Errorf("chunk %d: snapshot Ver %d, counter %d", chunks, s.Ver, *m.Cursor.Ver())
 		}
 	}
 	if chunks < 2 {

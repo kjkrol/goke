@@ -33,3 +33,17 @@ func TestCursor_Set_PositionsBaseAndSlot_LeavesOffsetsAndIDs(t *testing.T) {
 		t.Error("expected Set to leave IDs untouched")
 	}
 }
+
+// Ver follows Base: a Set into another chunk of the same layout points it at that chunk's counter
+func TestCursor_Ver_FollowsBase(t *testing.T) {
+	var a, b [4]uint32
+	cur := &Cursor{Base: unsafe.Pointer(&a[0]), VerOffset: 3 * unsafe.Sizeof(uint32(0))}
+	if cur.Ver() != &a[3] {
+		t.Error("Ver is not Base plus VerOffset")
+	}
+	cur.Set(unsafe.Pointer(&b[0]), 1)
+	*cur.Ver()++
+	if b[3] != 1 {
+		t.Errorf("a count through Ver after Set reached %d, want b's counter at 1", b[3])
+	}
+}

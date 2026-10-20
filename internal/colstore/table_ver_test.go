@@ -13,7 +13,7 @@ func TestTable_CursorsPointAtTheirChunksCounter(t *testing.T) {
 	chunkCap := int(tbl.chunkPack.Layout.ChunkCap)
 	tbl.ReserveSlots(chunkCap + 1)
 	tbl.SpawnCursor(cur, 0, chunkCap, []ColBake{{Offset: 0, CompSize: 8}})
-	if cur.Ver != tbl.VerAt(tbl.ChunkPtrAt(0)) {
+	if cur.Ver() != tbl.VerAt(tbl.ChunkPtrAt(0)) {
 		t.Error("SpawnCursor's Ver is not chunk 0's counter")
 	}
 	tbl.SpawnCursor(cur, 1, 1, []ColBake{{Offset: 0, CompSize: 8}})
@@ -22,11 +22,11 @@ func TestTable_CursorsPointAtTheirChunksCounter(t *testing.T) {
 	if !ok || idx != 1 {
 		t.Fatalf("FillCursorNext(1) = %d, %v", idx, ok)
 	}
-	if cur.Ver != tbl.VerAt(tbl.ChunkPtrAt(1)) {
+	if cur.Ver() != tbl.VerAt(tbl.ChunkPtrAt(1)) {
 		t.Error("FillCursorNext's Ver is not chunk 1's counter")
 	}
-	if *cur.Ver != 1 {
-		t.Errorf("chunk 1 counts %d after one spawn, want 1", *cur.Ver)
+	if *cur.Ver() != 1 {
+		t.Errorf("chunk 1 counts %d after one spawn, want 1", *cur.Ver())
 	}
 }
 

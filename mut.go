@@ -15,13 +15,13 @@ type Mut[T any] struct {
 
 // Slice is Comp.Slice, counting a change of the current All-mode chunk or Factory batch.
 func (c *Mut[T]) Slice(cur *Cursor) []T {
-	*cur.Ver++
+	*cur.Ver()++
 	return c.col.Slice(cur)
 }
 
 // At is Comp.At, counting a change of the chunk of the current Pick/Seek-mode entity.
 func (c *Mut[T]) At(cur *Cursor) *T {
-	*cur.Ver++
+	*cur.Ver()++
 	return c.col.At(cur)
 }
 

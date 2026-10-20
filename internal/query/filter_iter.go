@@ -1,7 +1,5 @@
 package query
 
-import "unsafe"
-
 // nextPick advances the Matcher's Pick-mode iterator to the next matching entity.
 // Sets m.Entity, m.Idx, and m.Cursor for the matched entity. Returns false when exhausted.
 func (m *Matcher) nextPick() bool {
@@ -20,7 +18,7 @@ func (m *Matcher) nextPick() bool {
 				m.Cursor.Offsets = m.bt.CompOffsets
 				m.Cursor.OptOffsets = m.bt.OptOffsets
 				m.Cursor.OptPresent = m.bt.OptPresent
-				m.verOffset = m.bt.Table.VerOffset()
+				m.Cursor.VerOffset = m.bt.Table.VerOffset()
 			}
 		}
 		if m.bt == nil {
@@ -28,7 +26,6 @@ func (m *Matcher) nextPick() bool {
 		}
 		m.Entity = e
 		m.Cursor.Set(link.ChunkPtr, uintptr(link.Slot)) // per entity: chunk base + slot only
-		m.Cursor.Ver = (*uint32)(unsafe.Add(link.ChunkPtr, m.verOffset))
 		return true
 	}
 	return false

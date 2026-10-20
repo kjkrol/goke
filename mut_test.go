@@ -20,8 +20,8 @@ func chunkVers(t *testing.T, q *goke.Query) (map[unsafe.Pointer]uint32, uint32) 
 	var tableVer uint32
 	for q.All(); q.Next(); {
 		s := q.ChunkSnapshot()
-		if s.Ver != *q.Cursor().Ver {
-			t.Fatalf("ChunkSnapshot.Ver %d, Cursor.Ver %d", s.Ver, *q.Cursor().Ver)
+		if s.Ver != *q.Cursor().Ver() {
+			t.Fatalf("ChunkSnapshot.Ver %d, Cursor.Ver %d", s.Ver, *q.Cursor().Ver())
 		}
 		vers[s.ChunkPtr] = s.Ver
 		tableVer = s.TableVer

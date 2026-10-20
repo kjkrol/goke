@@ -2,7 +2,6 @@ package query
 
 import (
 	"time"
-	"unsafe"
 
 	"github.com/kjkrol/uid"
 
@@ -33,7 +32,6 @@ type filterIter struct {
 	pos        int
 	lastArchID arch.ID
 	bt         *BakedTable
-	verOffset  uintptr
 	Entity     uid.UID64
 	Idx        int
 }
@@ -70,7 +68,6 @@ type Matcher struct {
 	seekTable      *colstore.Table
 	seekBakes      []seekBake // by archetype, grown to the highest one Seek has met
 	seekLastArchID arch.ID
-	seekVerOffset  uintptr
 }
 
 func (m *Matcher) Init(entityIndex *addr.Index, archCatalog *arch.Catalog, accessSpec *comp.AccessSpec) {
@@ -196,11 +193,10 @@ func (m *Matcher) Seek(entID uid.UID64) bool {
 		m.Cursor.Offsets = b.offsets
 		m.Cursor.OptOffsets = b.optOffsets
 		m.Cursor.OptPresent = b.optPresent
+		m.Cursor.VerOffset = archetype.Table.VerOffset()
 		m.seekLastArchID = entry.ArchID
-		m.seekVerOffset = archetype.Table.VerOffset()
 	}
 	m.Cursor.Set(entry.ChunkPtr, uintptr(entry.Slot))
-	m.Cursor.Ver = (*uint32)(unsafe.Add(entry.ChunkPtr, m.seekVerOffset))
 	return true
 }
 
@@ -221,7 +217,7 @@ func (m *Matcher) ChunkSnapshot() bulk.ChunkSnapshot {
 		ChunkPtr: m.Cursor.Base,
 		ChunkIdx: colstore.Idx(m.chunkIdx),
 		TableVer: bt.Table.Version(),
-		Ver:      *m.Cursor.Ver,
+		Ver:      *m.Cursor.Ver(),
 	}
 }
 
@@ -235,6 +231,5 @@ func (m *Matcher) SeekH(entID uid.UID64) bool {
 		return false
 	}
 	m.Cursor.Set(entry.ChunkPtr, uintptr(entry.Slot))
-	m.Cursor.Ver = (*uint32)(unsafe.Add(entry.ChunkPtr, m.seekVerOffset))
 	return true
 }

@@ -15,10 +15,13 @@ type Cursor struct {
 	OptPresent []bool
 	Slot       uintptr
 	IDs        []uid.UID64
-	// Ver is the change counter of the chunk Base points into: a write to the chunk counts
-	// there, *Ver++, as goke.Mut does.
-	Ver *uint32
+	// VerOffset is where the chunk Base points into keeps its change counter, from Base.
+	VerOffset uintptr
 }
+
+// Ver is the change counter of the chunk Base points into: a write to the chunk counts there,
+// *Ver()++, as goke.Mut does.
+func (c *Cursor) Ver() *uint32 { return (*uint32)(unsafe.Add(c.Base, c.VerOffset)) }
 
 // Set positions the cursor at (base, slot) without touching Offsets or IDs.
 func (c *Cursor) Set(base unsafe.Pointer, slot uintptr) {

@@ -165,9 +165,9 @@ func (t *Table) FillCursorNext(cur *iter.Cursor, from int, offsets []uintptr) (i
 	}
 	ptr := t.chunkPack.ChunkPtr(chunk.Idx(idx))
 	cur.Base = ptr
-	cur.Ver = t.chunkPack.VerAt(ptr)
 	cur.Offsets = offsets
 	cur.IDs = unsafe.Slice((*uid.UID64)(t.columns[entityColumnPos].At(ptr, 0)), int(t.chunkPack.ChunkLen(chunk.Idx(idx))))
+	cur.VerOffset = t.chunkPack.Layout.VerOffset
 	return idx, true
 }
 
@@ -233,8 +233,8 @@ func (t *Table) MoveEntityFrom(src *Table, entityID uid.UID64, srcPtr unsafe.Poi
 func (t *Table) SpawnCursor(cur *iter.Cursor, idx Idx, n int, colBakes []ColBake) ([]uid.UID64, Pos) {
 	base, slot, ids := t.spawnEntitySlice(idx, n)
 	cur.Base = base
-	cur.Ver = t.chunkPack.VerAt(base)
 	cur.IDs = ids
+	cur.VerOffset = t.chunkPack.Layout.VerOffset
 	for i, colBake := range colBakes {
 		cur.Offsets[i] = colBake.Offset + uintptr(slot)*colBake.CompSize
 	}
