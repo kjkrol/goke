@@ -91,6 +91,7 @@ go get github.com/kjkrol/goke/v3
 | **Command Buffer** | Structural changes during iteration are queued and flushed at explicit `Sync()` points — enables safe `RunParallel` |
 | **Bulk operations** | `Editor`/`ValueEditor`/`Remover`, staged via `Query.BeginMigrate`/`Add`/`Commit`, batch add/remove-component and remove-entity changes for entities matched by a `Query` — one block memory copy per contiguous run instead of a move per entity |
 | **Single-entity operations** | `CmdBuf.AddOne`/`RemoveOne`/`RemoveCompOne` edit or remove one entity reached without iterating a `Query` (an external event, a saved id) — the complement to bulk operations, not a substitute for them inside a `Query` loop |
+| **Change detection** | `Mut[T]` counts a write on its chunk; `ChunkSnapshot` `TableVer`/`Ver` tell a reader which chunks changed; `WithMutCheck` catches writes through `Comp` in tests |
 | **World persistence** | Save the whole world's state to a file and restore it exactly: every registered component type, the archetypes entities are grouped into, and each entity's own identity. |
 | **Module composition** | Package a coherent set of components and systems as one self-contained `Module` — a game wires it up without knowing its internals, and can plug it into its own one-time `Setup` (world seeding) or per-tick `Plan` (simulation) |
 

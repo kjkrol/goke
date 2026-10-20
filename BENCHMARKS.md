@@ -189,6 +189,22 @@ Branch-free, zero-allocation, linear in component count — 0 B/op and 0 allocs/
 | 9 | 12.60 | 15.98 |
 | 10 | 13.60 | 16.18 |
 
+### Mut against Comp (`Benchmark_Mut`)
+
+Writing one component through `Mut[T]` against `Comp[T]`, median of 6, `-cpu=1`, at `0e88ff2`,
+2026-10-20, an idle machine. The loop body is the same instructions: per chunk `Mut.Slice` adds a
+load and an increment, `Mut.At` one per call; queries that do not write cost the same as in
+3.5.0 (`Matcher_*` within ±3%).
+
+| Walk | Comp | Mut |
+| :--- | ---: | ---: |
+| All, 1,024 entities (3 chunks) | 614 ns | 628 ns |
+| All, 65,536 entities (153 chunks) | 40.0 µs | 40.8 µs |
+| All, 65,536, the Mut slice taken after the others | | 50.2 µs |
+| Seek 512 of 1,024 | 3.4 µs | 3.5 µs |
+| SeekH 512 of 1,024 | 2.5 µs | 2.9 µs |
+| Sync over 65,536 entities, `WithMutCheck` off / on | 12 ns | 516 µs |
+
 ### Query.Optional vs. two Include/Exclude queries
 
 `Optional[T]()` lets one query read a component that only some matched entities carry, without excluding the rest. The alternative — before `Optional` existed — is two disjoint queries (`Exclude[T]()` for the entities without it, `Include[T]()`/`Track` for the ones with it), each doing a full pass. This compares the two approaches over the same 1,024-entity population, split 50/50 between a component-only archetype and a component+extra-tag archetype (`bench/optional_test.go`, `-benchtime=1000x -count=10`).

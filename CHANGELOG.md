@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+  ## [3.6.0] - 2026-10-20
+
+  ### Added ✨
+  * **Change versions per chunk.** A chunk keeps a change counter in its own memory, past its
+  last column, so it travels with the chunk through compaction and reuse. `Mut[T]` is `Comp[T]`
+  for a system that writes: its `Slice` and `At` also count a change of the chunk the cursor
+  stands on, one increment a call and nothing in the loop body; `Comp[T]` stays for reading.
+  `Cursor.Ver()` is the counter (`Cursor.VerOffset` where a chunk keeps it), `ChunkSnapshot.Ver`
+  its value. goke counts its own writes too: an entity appended to a chunk, an `AddOne` over a
+  component the entity has, a `ValueEditor` writing in place. A reader that remembers a chunk by
+  `ArchID` and `ChunkPtr` knows it changed when `TableVer` moved (the whole table is to be read
+  anew) or, `TableVer` the same, `Ver` did; it forgets all on `Reset` and `Load`. Writes through
+  `Column`, `OptColumn` and `OptComp` are not counted (add `*cur.Ver()++`). Writers run in
+  parallel on one archetype share its chunks' counters; take a chunk's `Mut` slice before its
+  other slices, or those keep their bounds checks.
+  * **`WithMutCheck()`**, a mode for tests: every Sync hashes every chunk and panics, naming the
+  archetype, on one whose bytes changed while neither its counter nor its table's version did:
+  a write through `Comp` where `Mut` belongs. Without it a Sync pays one call.
+
+  ### Changed 🔧
+  * A chunk gives 4 bytes of its L1 budget to the counter; a layout whose columns filled the
+  budget to the byte holds one entity fewer per chunk.
+
   ## [3.5.0] - 2026-10-18
 
   ### Added ✨
