@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+  ## [3.6.0]
+
+  ### Added ✨
+  * **`Query.Fork()`** is a Query over what another matches, walking on its own: a query and its
+  forks may walk and seek on different goroutines at once, as long as no component is written by
+  one of them while another reads or writes it and no entity or archetype changes meanwhile. A
+  fork adds nothing to the matcher catalog.
+
+  ### Changed
+  * **`Query.Clear()`** ends the walk of the query it is called on: `Next` reports nothing until
+  `All`, `Pick` or `Paced` starts another, and what the query matches, and its forks, stay as
+  they are. It used to clear what the query matched.
+
+  ### Performance 🚀
+  * **Smaller matchers.** A query's walk (cursor, places, the last Seek's archetype) lives in the
+  Query, its matching rule (masks, tracked columns) in the catalog beside the matchers: a matcher
+  is 80 bytes instead of 504, and a new archetype is tried against the rules alone
+  (`Catalog_OnArchetypeCreated` −31 to −38%).
+  * **Seek reads the tables baked as archetypes come** instead of working offsets out at its
+  first visit to an archetype; a query with Include or Exclude filters, which Seek ignores, also
+  bakes apart the archetypes holding every tracked component. With the walk in the Query:
+  `Matcher_Seek` −6%, `Matcher_SeekH` −9%, `Matcher_Pick` −6% (medians, 10000x), the rest of
+  the suite within the noise, allocations unchanged.
+
+  ### Fixed 🐛
+  * **The archetype limit's panic** says a world holds 4095 combinations of components (ID 0 is
+  never used), names `arch.MaxID` and lists the combination asked for; it said "Max archetype
+  number exceeded: 4096".
+
   ## [3.5.0] - 2026-10-18
 
   ### Added ✨
