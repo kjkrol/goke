@@ -13,10 +13,6 @@ type Matcher struct {
 	BakedTablesCatalog
 	EntityIndex *addr.Index
 	archCatalog *arch.Catalog
-	includeMask comp.Mask
-	compIDs     []comp.ID
-	optCompIDs  []comp.ID
-	excludeMask comp.Mask
 	pace        *comp.Pace
 	// Seek ignores a query's filters, so a filtered one bakes apart the archetypes holding every
 	// tracked component; nil when they are just the matched ones
@@ -28,28 +24,39 @@ type seekTables struct {
 	BakedTablesCatalog
 }
 
-func (m *Matcher) Init(entityIndex *addr.Index, archCatalog *arch.Catalog, accessSpec *comp.AccessSpec) {
-	includeMask := comp.NewMask(accessSpec)
+// rule is what a Matcher matches and the columns it bakes
+type rule struct {
+	include, exclude    comp.Mask
+	compIDs, optCompIDs []comp.ID
+	filtered            bool // Include or Exclude given: the Matcher keeps Seek tables apart
+}
 
-	var excludeMask comp.Mask
-	for _, id := range accessSpec.ExCompIDs {
-		if includeMask.IsSet(id) {
+func newRule(s *comp.AccessSpec) rule {
+	include := comp.NewMask(s)
+	var exclude comp.Mask
+	for _, id := range s.ExCompIDs {
+		if include.IsSet(id) {
 			panic("ECS Matcher Error: component cannot be both REQUIRED and EXCLUDED")
 		}
-		excludeMask = excludeMask.Set(id)
+		exclude = exclude.Set(id)
 	}
+	return rule{include: include, exclude: exclude, compIDs: s.CompIDs(),
+		optCompIDs: s.OptCompIDs(), filtered: len(s.TagIDs) > 0 || len(s.ExCompIDs) > 0}
+}
 
+// wants reports whether an archetype of mask is one r matches or, r filtered, one Seek may need
+func (r *rule) wants(mask comp.Mask) bool {
+	return !mask.IsEmpty() && (r.filtered || mask.Matches(r.include, r.exclude))
+}
+
+func (m *Matcher) Init(entityIndex *addr.Index, archCatalog *arch.Catalog, accessSpec *comp.AccessSpec) {
 	m.EntityIndex = entityIndex
 	m.archCatalog = archCatalog
-	m.includeMask = includeMask
-	m.compIDs = accessSpec.CompIDs()
-	m.optCompIDs = accessSpec.OptCompIDs()
-	m.excludeMask = excludeMask
 	m.pace = accessSpec.Pace
 	if len(accessSpec.TagIDs) > 0 || len(accessSpec.ExCompIDs) > 0 {
 		var tracked comp.Mask
-		for _, id := range m.compIDs {
-			tracked = tracked.Set(id)
+		for _, def := range accessSpec.CompInfos {
+			tracked = tracked.Set(def.ID)
 		}
 		m.seekable = &seekTables{tracked: tracked}
 	}
@@ -58,26 +65,24 @@ func (m *Matcher) Init(entityIndex *addr.Index, archCatalog *arch.Catalog, acces
 func (m *Matcher) Clear() {
 	m.EntityIndex = nil
 	m.archCatalog = nil
-	m.includeMask = comp.Mask{}
-	m.compIDs = nil
-	m.optCompIDs = nil
-	m.excludeMask = comp.Mask{}
 	m.pace = nil
 	m.BakedTablesCatalog.Clear()
 	m.seekable = nil
 }
 
-func (m *Matcher) BakeIfMatch(archetype *arch.Archetype) {
+// bake adds archetype to m's tables if r matches it, and to a filtered query's Seek tables if it
+// holds every tracked component
+func (m *Matcher) bake(archetype *arch.Archetype, r *rule) {
 	mask := archetype.Mask()
 	if mask.IsEmpty() {
 		return
 	}
-	if mask.Matches(m.includeMask, m.excludeMask) {
-		m.BakedTablesCatalog.Add(archetype, m.compIDs, m.optCompIDs)
+	if mask.Matches(r.include, r.exclude) {
+		m.BakedTablesCatalog.Add(archetype, r.compIDs, r.optCompIDs)
 		m.BakedTables[len(m.BakedTables)-1].Period = m.pace.Period(mask)
 	}
 	if s := m.seekable; s != nil && mask.Matches(s.tracked, comp.Mask{}) {
-		s.Add(archetype, m.compIDs, m.optCompIDs)
+		s.Add(archetype, r.compIDs, r.optCompIDs)
 	}
 }
 
