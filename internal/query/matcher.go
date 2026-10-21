@@ -41,7 +41,6 @@ type seekBake struct {
 	offsets    []uintptr
 	optOffsets []uintptr
 	optPresent []bool
-	baked      bool // this archetype has been resolved (offsets may legitimately be empty)
 	complete   bool // it has a column for every tracked component
 }
 
@@ -66,7 +65,8 @@ type Matcher struct {
 	allIter
 	filterIter
 	seekTable      *colstore.Table
-	seekBakes      []seekBake // by archetype, grown to the highest one Seek has met
+	seekAt         []uint16   // by archetype: 0 none yet, else 1 + the place of its bake
+	seekBakes      []seekBake // the archetypes Seek has met, in the order it met them
 	seekLastArchID arch.ID
 }
 
@@ -101,7 +101,7 @@ func (m *Matcher) Clear() {
 	m.pace = nil
 	m.BakedTablesCatalog.Clear()
 	m.seekTable = nil
-	m.seekBakes = nil
+	m.seekAt, m.seekBakes = nil, nil
 	m.seekLastArchID = arch.NullID
 }
 
@@ -175,21 +175,17 @@ func (m *Matcher) Seek(entID uid.UID64) bool {
 	if !ok {
 		return false
 	}
-	if entry.ArchID != m.seekLastArchID {
-		archetype := &m.archCatalog.Archetypes[entry.ArchID]
-		if int(entry.ArchID) >= len(m.seekBakes) {
-			m.growSeekBakes(int(entry.ArchID) + 1)
-		}
-		b := &m.seekBakes[entry.ArchID]
-		if !b.baked {
-			b.offsets, b.complete = archetype.Table.BakeOffsets(m.compIDs)
-			b.optOffsets, b.optPresent = archetype.Table.BakeOptional(m.optCompIDs, archetype.Mask())
-			b.baked = true
+	if id := entry.ArchID; id != m.seekLastArchID {
+		var b *seekBake
+		if int(id) < len(m.seekAt) && m.seekAt[id] != 0 {
+			b = &m.seekBakes[m.seekAt[id]-1]
+		} else {
+			b = m.bake(id)
 		}
 		if !b.complete {
 			return false
 		}
-		m.seekTable = &archetype.Table
+		m.seekTable = &m.archCatalog.Archetypes[id].Table
 		m.Cursor.Offsets = b.offsets
 		m.Cursor.OptOffsets = b.optOffsets
 		m.Cursor.OptPresent = b.optPresent
@@ -199,12 +195,21 @@ func (m *Matcher) Seek(entID uid.UID64) bool {
 	return true
 }
 
-// growSeekBakes makes room for the bakes of the archetypes below n, at least doubling: a new
-// archetype met by Seek costs a copy once in a while, never a bake already made.
-func (m *Matcher) growSeekBakes(n int) {
-	grown := make([]seekBake, max(n, 2*len(m.seekBakes)))
-	copy(grown, m.seekBakes)
-	m.seekBakes = grown
+// bake works out the offsets of m's columns in archetype id at the first Seek there, making
+// room in seekAt for id as append does: at least doubling, 2 bytes a slot.
+func (m *Matcher) bake(id arch.ID) *seekBake {
+	if int(id) >= len(m.seekAt) {
+		grown := make([]uint16, max(int(id)+1, 2*len(m.seekAt)))
+		copy(grown, m.seekAt)
+		m.seekAt = grown
+	}
+	a := &m.archCatalog.Archetypes[id]
+	var b seekBake
+	b.offsets, b.complete = a.Table.BakeOffsets(m.compIDs)
+	b.optOffsets, b.optPresent = a.Table.BakeOptional(m.optCompIDs, a.Mask())
+	m.seekBakes = append(m.seekBakes, b)
+	m.seekAt[id] = uint16(len(m.seekBakes))
+	return &m.seekBakes[len(m.seekBakes)-1]
 }
 
 // ChunkSnapshot captures the chunk most recently advanced to by Next in All

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kjkrol/goke/v3/internal/comp"
+	"github.com/kjkrol/goke/v3/internal/ent"
 	"github.com/kjkrol/goke/v3/iter"
 	"github.com/kjkrol/uid"
 )
@@ -210,5 +211,51 @@ func TestSeek_RefusesArchetypeMissingATrackedColumn(t *testing.T) {
 	}
 	if got := pos.At(&m.Cursor); got.X != 9 {
 		t.Errorf("cursor moved on a refused Seek: X = %v, want 9", got.X)
+	}
+}
+
+type seekPad[T any] struct{ V T }
+
+// spawnPosAnd is an entity carrying an iterPos at x and a T, in the archetype of the two
+func spawnPosAnd[T any](cc *comp.DefIndex, em *ent.Manager, x float32) uid.UID64 {
+	var pos iter.ArrayRef[iterPos]
+	var other iter.ArrayRef[T]
+	var spec comp.AccessSpec
+	spec.Init(cc, comp.Track(&pos), comp.Track(&other))
+	f := em.CreateFactory(spec)
+	f.Create(1)
+	f.Next()
+	*pos.At(&f.Cursor) = iterPos{X: x}
+	return f.IDs[0]
+}
+
+// Seek keeps the offsets of the archetypes it has met only, however high their numbers, and
+// finds each again without working it out anew.
+func TestSeek_BakesOnlyTheArchetypesItMeets(t *testing.T) {
+	cat, cc, em := newQueryCatalog()
+	first := spawnPosAnd[iterVel](cc, em, 1)
+	spawnPosAnd[seekPad[int8]](cc, em, 2)
+	spawnPosAnd[seekPad[int16]](cc, em, 3)
+	spawnPosAnd[seekPad[int32]](cc, em, 4)
+	last := spawnPosAnd[seekPad[int64]](cc, em, 5)
+	var pos iter.ArrayRef[iterPos]
+	m := NewMatcher(cat, comp.Track(&pos))
+
+	for _, step := range []struct {
+		id    uid.UID64
+		x     float32
+		bakes int
+	}{{last, 5, 1}, {first, 1, 2}, {last, 5, 2}, {first, 1, 2}} {
+		if !m.Seek(step.id) || pos.At(&m.Cursor).X != step.x {
+			t.Fatalf("Seek(%v): want X %v", step.id, step.x)
+		}
+		if len(m.seekBakes) != step.bakes {
+			t.Errorf("after Seek(%v): %d archetypes' offsets kept, want %d", step.id,
+				len(m.seekBakes), step.bakes)
+		}
+	}
+	lastArch, _ := em.AddressBook.Index.Get(last)
+	if len(m.seekAt) <= int(lastArch.ArchID) {
+		t.Errorf("seekAt holds %d archetypes, below %d", len(m.seekAt), lastArch.ArchID)
 	}
 }
