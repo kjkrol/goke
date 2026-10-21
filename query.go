@@ -17,69 +17,69 @@ import (
 // entity). Call All() or Pick() to set the iteration mode and loop with
 // Next(), or call Seek() directly for single-entity access.
 type Query struct {
-	m   *query.Matcher
+	w   query.Walker
 	ecs *ECS
 }
 
 // All prepares the Query for full chunk iteration and returns q.
 // Call Next() to advance through matched entity chunks; read component
 // slices with Comp[T].Slice. Do not call All concurrently on the same Query.
-func (q *Query) All() *Query { q.m.All(); return q }
+func (q *Query) All() *Query { q.w.All(); return q }
 
 // Pick prepares the Query to iterate over the given entities and returns q.
 // Call Next() to advance; read component pointers with Comp[T].At. Entities
 // that do not match the Query's mask are skipped. Do not call Pick
 // concurrently on the same Query.
-func (q *Query) Pick(selected []uid.UID64) *Query { q.m.Pick(selected); return q }
+func (q *Query) Pick(selected []uid.UID64) *Query { q.w.Pick(selected); return q }
 
 // Next advances the iterator one step. Returns false when exhausted.
 // The current mode (set by All or Pick) determines which iteration path runs.
-func (q *Query) Next() bool { return q.m.Next() }
+func (q *Query) Next() bool { return q.w.Next() }
 
 // Paced starts walking, as All does, the blocks whose turn it is this run by the query's pace
 // (PacedBy), d a step; without a pace every block, as All.
 func (q *Query) Paced(d time.Duration) *Query {
-	q.m.Paced(d)
+	q.w.Paced(d)
 	return q
 }
 
 // Dt is the step of the block a Paced walk stands on: d times its period.
-func (q *Query) Dt() time.Duration { return q.m.Dt() }
+func (q *Query) Dt() time.Duration { return q.w.Dt() }
 
 // Due reports whether the block a walk stands on has its turn this run by the query's pace.
-func (q *Query) Due() bool { return q.m.Due() }
+func (q *Query) Due() bool { return q.w.Due() }
 
 // Seek positions the Cursor at entID's storage slot, independent of the
 // Query's include/exclude mask — the caller is trusted to know the entity
 // carries the tracked components. Returns false if the entity does not
 // exist or has been recycled.
-func (q *Query) Seek(entID uid.UID64) bool { return q.m.Seek(entID) }
+func (q *Query) Seek(entID uid.UID64) bool { return q.w.Seek(entID) }
 
 // SeekH positions q's Cursor at entID's storage slot, assuming entID is
 // alive and shares the archetype already cached by a prior Seek call on q —
 // call Seek once, then SeekH for the rest of a batch from that archetype.
 // Returns false if the archetype differs (Cursor is then unusable — call
 // Seek instead); behavior is undefined if entID is not alive.
-func (q *Query) SeekH(entID uid.UID64) bool { return q.m.SeekH(entID) }
+func (q *Query) SeekH(entID uid.UID64) bool { return q.w.SeekH(entID) }
 
-// Clear resets the Query to its zero state. Called internally when a Query
-// is released back to its catalog.
-func (q *Query) Clear() { q.m.Clear() }
+// Clear ends q's walk: Next reports nothing until All, Pick or Paced starts another; what q
+// matches stays as it is.
+func (q *Query) Clear() { q.w.Clear() }
 
 // Cursor returns the Query's current cursor, populated by Next or Seek.
 // Pass it to Comp[T].Slice (All-mode) or Comp[T].At (Pick/Seek-mode).
-func (q *Query) Cursor() *iter.Cursor { return &q.m.Cursor }
+func (q *Query) Cursor() *iter.Cursor { return &q.w.Cursor }
 
 // ChunkSnapshot captures the chunk most recently advanced to by Next() in
 // All-mode — used internally by BeginMigrate. Valid only between a Next()
 // that returned true and the following Next(); undefined in Pick/Seek mode.
-func (q *Query) ChunkSnapshot() ChunkSnapshot { return q.m.ChunkSnapshot() }
+func (q *Query) ChunkSnapshot() ChunkSnapshot { return q.w.ChunkSnapshot() }
 
 // Entity returns the current entity in Pick-mode iteration.
-func (q *Query) Entity() uid.UID64 { return q.m.Entity }
+func (q *Query) Entity() uid.UID64 { return q.w.Entity }
 
 // Idx returns the current index into the slice passed to Pick.
-func (q *Query) Idx() int { return q.m.Idx }
+func (q *Query) Idx() int { return q.w.Idx }
 
 // ----------------- BUILDER -----------------
 
@@ -113,7 +113,9 @@ func (b *QueryBuilder) Optional(comps ...OptTrackable) *QueryBuilder {
 
 // Build creates the Query from the accumulated options.
 func (b *QueryBuilder) Build() *Query {
-	return &Query{m: b.ecs.registry.AddMatcher(b.opts...), ecs: b.ecs}
+	q := &Query{ecs: b.ecs}
+	q.w.Init(b.ecs.registry.AddMatcher(b.opts...))
+	return q
 }
 
 // NewEditorBuilder starts an EditorBuilder, adding the given components

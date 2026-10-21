@@ -10,7 +10,7 @@ import (
 
 func TestFilterIter_EmptySelected(t *testing.T) {
 	cat, _, _ := newQueryCatalog()
-	m := NewMatcher(cat)
+	m := walk(NewMatcher(cat))
 
 	m.Pick(nil)
 	if m.Next() {
@@ -29,7 +29,7 @@ func TestFilterIter_EntityInMatcher(t *testing.T) {
 	f.Next()
 	e := f.IDs[0]
 
-	m := NewMatcher(cat, _trackOpt0)
+	m := walk(NewMatcher(cat, _trackOpt0))
 
 	m.Pick([]uid.UID64{e})
 	if !m.Next() {
@@ -58,7 +58,7 @@ func TestFilterIter_EntityNotInMatcher(t *testing.T) {
 	e := f.IDs[0]
 
 	_trackOpt0 := comp.Track(new(iter.ArrayRef[iterPos]))
-	m := NewMatcher(cat, _trackOpt0)
+	m := walk(NewMatcher(cat, _trackOpt0))
 
 	m.Pick([]uid.UID64{e})
 	if m.Next() {
@@ -77,7 +77,7 @@ func TestFilterIter_SkipsDeletedEntity(t *testing.T) {
 	f.Next()
 	e := f.IDs[0]
 
-	m := NewMatcher(cat, _trackOpt0)
+	m := walk(NewMatcher(cat, _trackOpt0))
 
 	em.Remove(e)
 
@@ -100,7 +100,7 @@ func TestFilterIter_At(t *testing.T) {
 	e := f.IDs[0]
 	*pos.At(&f.Cursor) = iterPos{X: 5, Y: 7}
 
-	m := NewMatcher(cat, posOpt)
+	m := walk(NewMatcher(cat, posOpt))
 
 	m.Pick([]uid.UID64{e})
 	if !m.Next() {
@@ -129,7 +129,7 @@ func TestFilterIter_AtMutation(t *testing.T) {
 	e := f.IDs[0]
 	*pos.At(&f.Cursor) = iterPos{X: 1}
 
-	m := NewMatcher(cat, posOpt)
+	m := walk(NewMatcher(cat, posOpt))
 
 	// mutate via At pointer
 	m.Pick([]uid.UID64{e})
@@ -164,7 +164,7 @@ func TestFilterIter_IdxTracksPosition(t *testing.T) {
 	f.Next()
 	e1 := f.IDs[0]
 
-	m := NewMatcher(cat, _trackOpt0)
+	m := walk(NewMatcher(cat, _trackOpt0))
 
 	// position 0 = e0 (valid), position 1 = ghost (invalid), position 2 = e1 (valid)
 	ghost := uid.UID64(0xDEADBEEF)
@@ -203,7 +203,7 @@ func TestFilterIter_MultipleComps(t *testing.T) {
 	*pos.At(&f.Cursor) = iterPos{X: 3, Y: 4}
 	*vel.At(&f.Cursor) = iterVel{VX: 1, VY: 2}
 
-	m := NewMatcher(cat, comp.Track(&pos), comp.Track(&vel))
+	m := walk(NewMatcher(cat, comp.Track(&pos), comp.Track(&vel)))
 
 	m.Pick([]uid.UID64{e})
 	if !m.Next() {
@@ -228,7 +228,7 @@ func TestFilterIter_ResetOnSecondCall(t *testing.T) {
 	f.Next()
 	e := f.IDs[0]
 
-	m := NewMatcher(cat, comp.Track(new(iter.ArrayRef[iterPos])))
+	m := walk(NewMatcher(cat, comp.Track(new(iter.ArrayRef[iterPos]))))
 	selected := []uid.UID64{e}
 
 	count := func() int {

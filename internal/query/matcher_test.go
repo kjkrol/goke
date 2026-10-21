@@ -19,17 +19,17 @@ func TestMatcher_Clear(t *testing.T) {
 	f.Next()
 
 	_trackOpt0 := comp.Track(new(iter.ArrayRef[iterPos]))
-	m := NewMatcher(cat, _trackOpt0)
-	if len(m.BakedTables) == 0 {
+	m := walk(NewMatcher(cat, _trackOpt0))
+	if len(m.Matcher().BakedTables) == 0 {
 		t.Fatal("matcher should have baked tables before Clear")
 	}
 
-	m.Clear()
+	m.Matcher().Clear()
 
-	if m.BakedTables != nil {
+	if m.Matcher().BakedTables != nil {
 		t.Error("BakedTables should be nil after Clear")
 	}
-	if m.EntityIndex != nil {
+	if m.Matcher().EntityIndex != nil {
 		t.Error("EntityIndex should be nil after Clear")
 	}
 }
@@ -44,8 +44,8 @@ func TestMatcher_AllAfterClear(t *testing.T) {
 	f.Next()
 
 	_trackOpt0 := comp.Track(new(iter.ArrayRef[iterPos]))
-	m := NewMatcher(cat, _trackOpt0)
-	m.Clear()
+	m := walk(NewMatcher(cat, _trackOpt0))
+	m.Matcher().Clear()
 
 	it := m.All()
 	if it.Next() {
@@ -62,7 +62,7 @@ func TestMatcher_ChunkSnapshot(t *testing.T) {
 	f.Create(2)
 	f.Next()
 
-	m := NewMatcher(cat, comp.Track(new(iter.ArrayRef[iterPos])))
+	m := walk(NewMatcher(cat, comp.Track(new(iter.ArrayRef[iterPos]))))
 	m.All()
 	if !m.Next() {
 		t.Fatal("expected at least one chunk to iterate")
@@ -70,7 +70,7 @@ func TestMatcher_ChunkSnapshot(t *testing.T) {
 
 	snap := m.ChunkSnapshot()
 
-	bt := &m.BakedTables[m.tableIdx]
+	bt := &m.Matcher().BakedTables[m.tableIdx]
 	if snap.ArchID != bt.ArchID {
 		t.Errorf("expected ArchID %v, got %v", bt.ArchID, snap.ArchID)
 	}
@@ -110,7 +110,7 @@ func TestMatcher_Init_AppliesNonConflictingExclude(t *testing.T) {
 	f.Create(1)
 	f.Next()
 
-	m := NewMatcher(cat, comp.Track(new(iter.ArrayRef[iterPos])), comp.Exclude[iterVel]())
+	m := walk(NewMatcher(cat, comp.Track(new(iter.ArrayRef[iterPos])), comp.Exclude[iterVel]()))
 
 	count := 0
 	m.All()
@@ -141,7 +141,7 @@ func TestNewMatcher_PanicsOnOptError(t *testing.T) {
 // rather than iterate anything.
 func TestMatcher_Next_WithoutModeReturnsFalse(t *testing.T) {
 	cat, _, _ := newQueryCatalog()
-	m := NewMatcher(cat)
+	m := walk(NewMatcher(cat))
 
 	if m.Next() {
 		t.Error("expected Next to return false when no mode was set")
@@ -158,10 +158,10 @@ func TestCatalog_NewMatcher(t *testing.T) {
 	f.Next()
 
 	_trackOpt0 := comp.Track(new(iter.ArrayRef[iterPos]))
-	m := NewMatcher(cat, _trackOpt0)
+	m := walk(NewMatcher(cat, _trackOpt0))
 
-	if len(m.BakedTables) != 1 {
-		t.Errorf("expected 1 BakedTable, got %d", len(m.BakedTables))
+	if len(m.Matcher().BakedTables) != 1 {
+		t.Errorf("expected 1 BakedTable, got %d", len(m.Matcher().BakedTables))
 	}
 }
 
@@ -174,15 +174,15 @@ func TestCatalog_Reset(t *testing.T) {
 	f.Create(1)
 	f.Next()
 
-	m := NewMatcher(cat, comp.Track(new(iter.ArrayRef[iterPos])))
-	if len(m.BakedTables) == 0 {
+	m := walk(NewMatcher(cat, comp.Track(new(iter.ArrayRef[iterPos]))))
+	if len(m.Matcher().BakedTables) == 0 {
 		t.Fatal("matcher should have baked tables before Reset")
 	}
 
 	cat.Reset()
 
-	if len(m.BakedTables) != 0 {
-		t.Errorf("expected 0 BakedTables after catalog Reset, got %d", len(m.BakedTables))
+	if len(m.Matcher().BakedTables) != 0 {
+		t.Errorf("expected 0 BakedTables after catalog Reset, got %d", len(m.Matcher().BakedTables))
 	}
 }
 

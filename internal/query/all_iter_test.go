@@ -16,7 +16,7 @@ type (
 
 func TestAllIter_EmptyMatcher(t *testing.T) {
 	cat, _, _ := newQueryCatalog()
-	m := NewMatcher(cat)
+	m := walk(NewMatcher(cat))
 
 	m.All()
 	if m.Next() {
@@ -40,7 +40,7 @@ func TestAllIter_SingleEntity(t *testing.T) {
 	e := f.IDs[0]
 	*pos.At(&f.Cursor) = iterPos{X: 1, Y: 2}
 
-	m := NewMatcher(cat, posOpt)
+	m := walk(NewMatcher(cat, posOpt))
 
 	var visited []uid.UID64
 	m.All()
@@ -76,7 +76,7 @@ func TestAllIter_SliceValues(t *testing.T) {
 	e2 := f.IDs[0]
 	*pos.At(&f.Cursor) = iterPos{X: 30, Y: 40}
 
-	m := NewMatcher(cat, posOpt)
+	m := walk(NewMatcher(cat, posOpt))
 
 	got := map[uid.UID64]iterPos{}
 	m.All()
@@ -106,7 +106,7 @@ func TestAllIter_SliceInPlaceMutation(t *testing.T) {
 	f.Next()
 	*pos.At(&f.Cursor) = iterPos{X: 5, Y: 3}
 
-	m := NewMatcher(cat, comp.Track(&pos))
+	m := walk(NewMatcher(cat, comp.Track(&pos)))
 
 	m.All()
 	for m.Next() {
@@ -152,7 +152,7 @@ func TestAllIter_MultipleArchetypes(t *testing.T) {
 	*posB.At(&fB.Cursor) = iterPos{X: 2}
 
 	_trackOpt0 := comp.Track(new(iter.ArrayRef[iterPos]))
-	m := NewMatcher(cat, _trackOpt0)
+	m := walk(NewMatcher(cat, _trackOpt0))
 
 	visited := map[uid.UID64]bool{}
 	m.All()
@@ -176,7 +176,7 @@ func TestAllIter_ResetOnSecondCall(t *testing.T) {
 	f.Create(1)
 	f.Next()
 
-	m := NewMatcher(cat, comp.Track(new(iter.ArrayRef[iterPos])))
+	m := walk(NewMatcher(cat, comp.Track(new(iter.ArrayRef[iterPos]))))
 
 	count := func() int {
 		n := 0

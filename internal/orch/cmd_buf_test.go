@@ -89,14 +89,14 @@ func TestCmdBuf_ComponentCmds(t *testing.T) {
 	}
 
 	// compA should be gone: a matcher requiring it must not match e
-	matcherA := registry.AddMatcher(comp.Include[mockCompA]())
+	matcherA := walkOf(registry.AddMatcher(comp.Include[mockCompA]()))
 	if matcherA.Pick([]uid.UID64{e}).Next() {
 		t.Errorf("Expected compA to be removed")
 	}
 
 	// compB should be present with the assigned value
 	var colB iter.ArrayRef[mockCompB]
-	matcherB := registry.AddMatcher(comp.Track(&colB))
+	matcherB := walkOf(registry.AddMatcher(comp.Track(&colB)))
 	if !matcherB.Pick([]uid.UID64{e}).Next() {
 		t.Fatalf("Expected compB to be present")
 	}
@@ -595,4 +595,11 @@ func TestCmdBuf_ReserveSpace_GrowsExistingUndersizedPage(t *testing.T) {
 	if len(cb.plain.pages[1]) < 5000 {
 		t.Errorf("expected page 1 to grow to at least 5000 bytes, got %d", len(cb.plain.pages[1]))
 	}
+}
+
+// walkOf is a Walker over m, standing nowhere
+func walkOf(m *query.Matcher) *query.Walker {
+	var w query.Walker
+	w.Init(m)
+	return &w
 }

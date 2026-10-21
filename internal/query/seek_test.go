@@ -22,7 +22,7 @@ func TestSeek_FindsEntity(t *testing.T) {
 	e := f.IDs[0]
 	*pos.At(&f.Cursor) = iterPos{X: 1, Y: 2}
 
-	m := NewMatcher(cat, posOpt)
+	m := walk(NewMatcher(cat, posOpt))
 
 	if !m.Seek(e) {
 		t.Fatal("expected Seek to find the entity")
@@ -34,7 +34,7 @@ func TestSeek_FindsEntity(t *testing.T) {
 
 func TestSeek_UnknownEntity(t *testing.T) {
 	cat, _, _ := newQueryCatalog()
-	m := NewMatcher(cat)
+	m := walk(NewMatcher(cat))
 
 	if m.Seek(uid.UID64(999)) {
 		t.Error("expected Seek to fail for an unknown entity")
@@ -66,7 +66,7 @@ func TestSeek_AcrossArchetypes(t *testing.T) {
 	*posB.At(&fb.Cursor) = iterPos{X: 2}
 
 	var pos iter.ArrayRef[iterPos]
-	m := NewMatcher(cat, comp.Track(&pos))
+	m := walk(NewMatcher(cat, comp.Track(&pos)))
 
 	for i := 0; i < 3; i++ {
 		if !m.Seek(eA) || pos.At(&m.Cursor).X != 1 {
@@ -96,7 +96,7 @@ func TestSeek_IgnoresIncludeExcludeMask(t *testing.T) {
 
 	// Matcher tracks Pos but excludes Vel — All/Pick would skip this entity,
 	// but Seek must still find it since it bypasses the mask entirely.
-	m := NewMatcher(cat, comp.Track(&pos), comp.Exclude[iterVel]())
+	m := walk(NewMatcher(cat, comp.Track(&pos), comp.Exclude[iterVel]()))
 
 	if !m.Seek(e) {
 		t.Fatal("expected Seek to find the entity regardless of the exclude mask")
@@ -125,7 +125,7 @@ func TestSeekH_SameArchetypeMatches(t *testing.T) {
 	f.Cursor.Slot = 1
 	*pos.At(&f.Cursor) = iterPos{X: 2}
 
-	m := NewMatcher(cat, posOpt)
+	m := walk(NewMatcher(cat, posOpt))
 	if !m.Seek(e0) {
 		t.Fatal("expected Seek to find e0")
 	}
@@ -165,7 +165,7 @@ func TestSeekH_DifferentArchetypeReportsMismatch(t *testing.T) {
 	eB := fb.IDs[0]
 
 	var pos iter.ArrayRef[iterPos]
-	m := NewMatcher(cat, comp.Track(&pos))
+	m := walk(NewMatcher(cat, comp.Track(&pos)))
 
 	if !m.Seek(eA) {
 		t.Fatal("expected Seek to find eA")
@@ -202,7 +202,7 @@ func TestSeek_RefusesArchetypeMissingATrackedColumn(t *testing.T) {
 	f2.Next()
 	partial := f2.IDs[0]
 
-	m := NewMatcher(cat, posOpt, velOpt)
+	m := walk(NewMatcher(cat, posOpt, velOpt))
 	if !m.Seek(full) {
 		t.Fatal("expected Seek to find the entity carrying both components")
 	}
@@ -239,7 +239,7 @@ func TestSeek_BakesOnlyTheArchetypesItMeets(t *testing.T) {
 	spawnPosAnd[seekPad[int32]](cc, em, 4)
 	last := spawnPosAnd[seekPad[int64]](cc, em, 5)
 	var pos iter.ArrayRef[iterPos]
-	m := NewMatcher(cat, comp.Track(&pos))
+	m := walk(NewMatcher(cat, comp.Track(&pos)))
 
 	for _, step := range []struct {
 		id    uid.UID64
@@ -249,13 +249,13 @@ func TestSeek_BakesOnlyTheArchetypesItMeets(t *testing.T) {
 		if !m.Seek(step.id) || pos.At(&m.Cursor).X != step.x {
 			t.Fatalf("Seek(%v): want X %v", step.id, step.x)
 		}
-		if len(m.seekBakes) != step.bakes {
+		if len(m.Matcher().seekBakes) != step.bakes {
 			t.Errorf("after Seek(%v): %d archetypes' offsets kept, want %d", step.id,
-				len(m.seekBakes), step.bakes)
+				len(m.Matcher().seekBakes), step.bakes)
 		}
 	}
 	lastArch, _ := em.AddressBook.Index.Get(last)
-	if len(m.seekAt) <= int(lastArch.ArchID) {
-		t.Errorf("seekAt holds %d archetypes, below %d", len(m.seekAt), lastArch.ArchID)
+	if len(m.Matcher().seekAt) <= int(lastArch.ArchID) {
+		t.Errorf("seekAt holds %d archetypes, below %d", len(m.Matcher().seekAt), lastArch.ArchID)
 	}
 }

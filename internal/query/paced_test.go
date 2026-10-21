@@ -57,7 +57,8 @@ func pacedMatcher(t *testing.T, now *uint64) (*Matcher, map[uint64]int) {
 
 func TestMatcher_PacedWalksTheTablesWhoseTurnItIs(t *testing.T) {
 	var now uint64
-	m, periods := pacedMatcher(t, &now)
+	matcher, periods := pacedMatcher(t, &now)
+	m := walk(matcher)
 	const d = 10 * time.Millisecond
 	for _, c := range []struct {
 		now  uint64
@@ -69,7 +70,7 @@ func TestMatcher_PacedWalksTheTablesWhoseTurnItIs(t *testing.T) {
 		now = c.now
 		got := map[uint64]time.Duration{}
 		for m.Paced(d); m.Next(); {
-			got[m.BakedTables[m.tableIdx].Period] = m.Dt()
+			got[m.tables.BakedTables[m.tableIdx].Period] = m.Dt()
 		}
 		if len(got) != len(c.want) || got[1] != c.want[1] || got[2] != c.want[2] {
 			t.Errorf("run %d: walked %v, want %v", c.now, got, c.want)
@@ -88,7 +89,7 @@ func TestMatcher_ClearForgetsThePace(t *testing.T) {
 	var now uint64
 	m, _ := pacedMatcher(t, &now)
 	m.Clear()
-	if m.pace != nil || m.Next() {
+	if m.pace != nil || walk(m).All().Next() {
 		t.Error("a cleared matcher keeps its pace or walks on")
 	}
 }

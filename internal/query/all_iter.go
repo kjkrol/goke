@@ -1,36 +1,36 @@
 package query
 
-// nextAll advances the Matcher's All-mode iterator to the next non-empty chunk.
-// Populates m.Cursor. Returns false when exhausted.
-func (m *Matcher) nextAll() bool {
-	m.chunkIdx++
-	for m.tableIdx < len(m.BakedTables) {
-		bt := &m.BakedTables[m.tableIdx]
-		if idx, ok := bt.FillCursorNext(&m.Cursor, m.chunkIdx); ok {
-			m.chunkIdx = idx
+// nextAll advances the All-mode walk to the next non-empty chunk.
+// Populates w.Cursor. Returns false when exhausted.
+func (w *Walker) nextAll() bool {
+	w.chunkIdx++
+	for w.tableIdx < len(w.tables.BakedTables) {
+		bt := &w.tables.BakedTables[w.tableIdx]
+		if idx, ok := bt.FillCursorNext(&w.Cursor, w.chunkIdx); ok {
+			w.chunkIdx = idx
 			return true
 		}
-		m.tableIdx++
-		m.chunkIdx = 0
+		w.tableIdx++
+		w.chunkIdx = 0
 	}
-	m.Cursor.IDs = nil
+	w.Cursor.IDs = nil
 	return false
 }
 
 // nextPaced is nextAll over the tables whose turn it is.
-func (m *Matcher) nextPaced() bool {
-	m.chunkIdx++
-	for m.tableIdx < len(m.BakedTables) {
-		bt := &m.BakedTables[m.tableIdx]
-		if m.due(bt) {
-			if idx, ok := bt.FillCursorNext(&m.Cursor, m.chunkIdx); ok {
-				m.chunkIdx = idx
+func (w *Walker) nextPaced() bool {
+	w.chunkIdx++
+	for w.tableIdx < len(w.tables.BakedTables) {
+		bt := &w.tables.BakedTables[w.tableIdx]
+		if w.due(bt) {
+			if idx, ok := bt.FillCursorNext(&w.Cursor, w.chunkIdx); ok {
+				w.chunkIdx = idx
 				return true
 			}
 		}
-		m.tableIdx++
-		m.chunkIdx = 0
+		w.tableIdx++
+		w.chunkIdx = 0
 	}
-	m.Cursor.IDs = nil
+	w.Cursor.IDs = nil
 	return false
 }

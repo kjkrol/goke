@@ -456,7 +456,8 @@ func TestQuery_SeekH_DifferentArchetypeReportsMismatch(t *testing.T) {
 	}
 }
 
-func TestQuery_Clear_NextYieldsNothing(t *testing.T) {
+// Clear ends the walk, not what the query matches: Next reports nothing till a new walk starts.
+func TestQuery_Clear_EndsTheWalk(t *testing.T) {
 	ecs := goke.New()
 	_ = ecs.RegComp[Position]()
 
@@ -475,10 +476,13 @@ func TestQuery_Clear_NextYieldsNothing(t *testing.T) {
 	}
 
 	query.Clear()
-
-	query.All()
 	if query.Next() {
 		t.Error("expected Next to yield nothing after Clear")
+	}
+
+	query.All()
+	if !query.Next() {
+		t.Error("expected a new walk after Clear to find the entity")
 	}
 }
 

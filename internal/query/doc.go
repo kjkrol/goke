@@ -1,15 +1,20 @@
 // Package query implements the query layer. It matches archetypes against
 // component requirements and provides zero-allocation access to the matched
-// data through a single type, [Matcher], with three access patterns.
+// data: a [Matcher] holds what a query matches, a [Walker] walks it.
 //
 // # Matcher
 //
 // A [Matcher] filters archetypes by component mask (include and exclude
-// sets) and exposes three access patterns: All (chunk-by-chunk iteration),
-// Pick (per-entity iteration over a given entity subset), and Seek (direct
-// positioning on a single known entity, independent of the mask). Matchers
-// are built once at initialization and updated automatically as new
-// archetypes are created.
+// sets) and bakes each matching one into a table. Matchers are built once at
+// initialization and updated automatically as new archetypes are created.
+//
+// # Walker
+//
+// A [Walker] walks one Matcher with a cursor of its own, in three patterns:
+// All (chunk-by-chunk iteration), Pick (per-entity iteration over a given
+// entity subset), and Seek (direct positioning on a single known entity,
+// independent of the mask). Walkers of one Matcher may walk on as many
+// goroutines while no entity or archetype changes.
 //
 // SeekH is Seek's per-entity fast path: it skips the archetype-change and
 // alive checks, trusting the caller to have already established the target
