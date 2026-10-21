@@ -63,8 +63,17 @@ func (q *Query) Seek(entID uid.UID64) bool { return q.w.Seek(entID) }
 func (q *Query) SeekH(entID uid.UID64) bool { return q.w.SeekH(entID) }
 
 // Clear ends q's walk: Next reports nothing until All, Pick or Paced starts another; what q
-// matches stays as it is.
+// matches, and its forks, stay as they are.
 func (q *Query) Clear() { q.w.Clear() }
+
+// Fork is a Query over what q matches, walking on its own: q and its forks may walk and seek on
+// different goroutines at once, as long as no component is written by one of them while another
+// reads or writes it, and no entity or archetype changes meanwhile.
+func (q *Query) Fork() *Query {
+	f := &Query{ecs: q.ecs}
+	f.w.Init(q.w.Matcher())
+	return f
+}
 
 // Cursor returns the Query's current cursor, populated by Next or Seek.
 // Pass it to Comp[T].Slice (All-mode) or Comp[T].At (Pick/Seek-mode).
