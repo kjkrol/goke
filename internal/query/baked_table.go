@@ -14,6 +14,8 @@ type BakedTable struct {
 	OptPresent  []bool
 	// every Period-th run of a paced walk, none at 0
 	Period uint64
+	// a column for every tracked component: Seek positions only in such a table
+	Complete bool
 }
 
 func (bt *BakedTable) FillCursorNext(cur *iter.Cursor, from int) (int, bool) {

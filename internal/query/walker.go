@@ -124,27 +124,21 @@ func (w *Walker) Next() bool {
 // Seek positions the Cursor at entID's storage slot, bypassing the query's
 // include/exclude filters; returns false, leaving the Cursor untouched, if the
 // entity does not exist or its archetype lacks a column for a tracked
-// component. Consecutive Seeks into the same archetype reuse the cached
-// column offsets.
+// component. Consecutive Seeks into the same archetype reuse its column
+// offsets, baked as the archetype came.
 func (w *Walker) Seek(entID uid.UID64) bool {
 	entry, ok := w.entityIndex.Get(entID)
 	if !ok {
 		return false
 	}
 	if id := entry.ArchID; id != w.seekLastArchID {
-		m := w.m
-		var b *seekBake
-		if int(id) < len(m.seekAt) && m.seekAt[id] != 0 {
-			b = &m.seekBakes[m.seekAt[id]-1]
-		} else {
-			b = m.bake(id)
-		}
-		if !b.complete {
+		bt := w.m.seekTable(id)
+		if bt == nil {
 			return false
 		}
-		w.Cursor.Offsets = b.offsets
-		w.Cursor.OptOffsets = b.optOffsets
-		w.Cursor.OptPresent = b.optPresent
+		w.Cursor.Offsets = bt.CompOffsets
+		w.Cursor.OptOffsets = bt.OptOffsets
+		w.Cursor.OptPresent = bt.OptPresent
 		w.seekLastArchID = id
 	}
 	w.Cursor.Set(entry.ChunkPtr, uintptr(entry.Slot))

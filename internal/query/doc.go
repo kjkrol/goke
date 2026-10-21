@@ -33,6 +33,6 @@
 // matcher whenever a new archetype is created. It keeps them in blocks of a
 // fixed size (InitialMatchers by default): a query holds a pointer to its
 // Matcher, so a block never grows — a full one is followed by a new block —
-// and no Matcher ever moves. A Matcher's Seek bakes grow with the archetypes
-// it meets, so it stays small whatever the archetype limit.
+// and no Matcher ever moves. Seek reads the tables baked as archetypes came,
+// so walkers seeking on many goroutines only read their Matcher.
 package query

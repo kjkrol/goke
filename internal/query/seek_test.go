@@ -229,9 +229,9 @@ func spawnPosAnd[T any](cc *comp.DefIndex, em *ent.Manager, x float32) uid.UID64
 	return f.IDs[0]
 }
 
-// Seek keeps the offsets of the archetypes it has met only, however high their numbers, and
-// finds each again without working it out anew.
-func TestSeek_BakesOnlyTheArchetypesItMeets(t *testing.T) {
+// Seek reads the tables baked as archetypes came: an unfiltered query keeps no tables apart, and
+// seeking across its archetypes adds none.
+func TestSeek_ReadsTheTablesBakedAsArchetypesCame(t *testing.T) {
 	cat, cc, em := newQueryCatalog()
 	first := spawnPosAnd[iterVel](cc, em, 1)
 	spawnPosAnd[seekPad[int8]](cc, em, 2)
@@ -241,21 +241,51 @@ func TestSeek_BakesOnlyTheArchetypesItMeets(t *testing.T) {
 	var pos iter.ArrayRef[iterPos]
 	m := walk(NewMatcher(cat, comp.Track(&pos)))
 
+	if m.Matcher().seekable != nil {
+		t.Fatal("an unfiltered query keeps Seek tables apart")
+	}
 	for _, step := range []struct {
-		id    uid.UID64
-		x     float32
-		bakes int
-	}{{last, 5, 1}, {first, 1, 2}, {last, 5, 2}, {first, 1, 2}} {
+		id uid.UID64
+		x  float32
+	}{{last, 5}, {first, 1}, {last, 5}, {first, 1}} {
 		if !m.Seek(step.id) || pos.At(&m.Cursor).X != step.x {
 			t.Fatalf("Seek(%v): want X %v", step.id, step.x)
 		}
-		if len(m.Matcher().seekBakes) != step.bakes {
-			t.Errorf("after Seek(%v): %d archetypes' offsets kept, want %d", step.id,
-				len(m.Matcher().seekBakes), step.bakes)
-		}
 	}
-	lastArch, _ := em.AddressBook.Index.Get(last)
-	if len(m.Matcher().seekAt) <= int(lastArch.ArchID) {
-		t.Errorf("seekAt holds %d archetypes, below %d", len(m.Matcher().seekAt), lastArch.ArchID)
+	if n := len(m.Matcher().BakedTables); n != 5 {
+		t.Errorf("%d tables after seeking, want the 5 archetypes", n)
+	}
+}
+
+// A filtered query bakes apart, for Seek, the archetypes holding every tracked component, the
+// filtered out among them; one lacking a tracked component stays out.
+func TestSeek_FilteredQueryBakesApartTheArchetypesWithItsColumns(t *testing.T) {
+	cat, cc, em := newQueryCatalog()
+	kept := spawnPosAnd[seekPad[int8]](cc, em, 1)
+	excluded := spawnPosAnd[iterVel](cc, em, 2)
+	var velOnly iter.ArrayRef[iterVel]
+	var spec comp.AccessSpec
+	spec.Init(cc, comp.Track(&velOnly))
+	f := em.CreateFactory(spec)
+	f.Create(1)
+	f.Next()
+	without := f.IDs[0]
+	var pos iter.ArrayRef[iterPos]
+	m := walk(NewMatcher(cat, comp.Track(&pos), comp.Exclude[iterVel]()))
+
+	if n := len(m.Matcher().BakedTables); n != 1 {
+		t.Errorf("%d matched tables, want 1", n)
+	}
+	if s := m.Matcher().seekable; s == nil || len(s.BakedTables) != 2 {
+		t.Fatalf("Seek tables apart: %v, want the 2 archetypes holding iterPos", s)
+	}
+	if !m.Seek(kept) || pos.At(&m.Cursor).X != 1 {
+		t.Error("Seek into the matched archetype")
+	}
+	if !m.Seek(excluded) || pos.At(&m.Cursor).X != 2 {
+		t.Error("Seek into the archetype the filter leaves out")
+	}
+	if m.Seek(without) {
+		t.Error("Seek into an archetype without iterPos")
 	}
 }
