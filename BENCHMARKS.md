@@ -119,19 +119,24 @@ All cells above are 0 allocs/op.
 
 ### Query.All (full archetype scan, SoA chunks)
 
+The four query tables below are 3.6.0's, medians of 5 runs at `-benchtime=10000x` interleaved
+with 3.5.0 on the same machine: against it `All` within the noise, `Pick` −6%, `Seek` −6%,
+`SeekH` −9% (medians over the component counts), as a query's walk now lives in the Query and
+`Seek` reads tables baked as archetypes come.
+
 | Components | ns/ent |
 | :--- | ---: |
-| 0 (entity only) | 0.3897 |
-| 1 | 0.7228 |
-| 2 | 0.9275 |
-| 3 | 1.164 |
-| 4 | 1.819 |
-| 5 | 2.057 |
-| 6 | 2.577 |
-| 7 | 2.955 |
-| 8 | 3.336 |
-| 9 | 3.996 |
-| 10 | 4.178 |
+| 0 (entity only) | 0.3850 |
+| 1 | 0.7155 |
+| 2 | 0.9270 |
+| 3 | 1.155 |
+| 4 | 1.226 |
+| 5 | 1.859 |
+| 6 | 2.316 |
+| 7 | 2.747 |
+| 8 | 3.328 |
+| 9 | 3.709 |
+| 10 | 4.123 |
 
 Branch-free, zero-allocation, linear in component count — 0 B/op and 0 allocs/op across the board.
 
@@ -141,17 +146,17 @@ Branch-free, zero-allocation, linear in component count — 0 B/op and 0 allocs/
 
 | Components | sorted ns/ent | random ns/ent |
 | :--- | ---: | ---: |
-| 0 | 5.761 | 6.425 |
-| 1 | 9.784 | 9.161 |
-| 2 | 9.228 | 8.790 |
-| 3 | 11.03 | 11.39 |
-| 4 | 10.41 | 11.81 |
-| 5 | 11.77 | 12.61 |
-| 6 | 12.69 | 13.63 |
-| 7 | 14.16 | 14.92 |
-| 8 | 14.70 | 16.45 |
-| 9 | 15.03 | 18.65 |
-| 10 | 15.70 | 19.04 |
+| 0 | 5.349 | 5.343 |
+| 1 | 7.069 | 7.592 |
+| 2 | 7.904 | 7.786 |
+| 3 | 9.438 | 9.920 |
+| 4 | 9.499 | 10.69 |
+| 5 | 10.45 | 11.68 |
+| 6 | 12.00 | 12.92 |
+| 7 | 13.76 | 14.96 |
+| 8 | 13.67 | 15.71 |
+| 9 | 14.50 | 16.71 |
+| 10 | 15.45 | 17.08 |
 
 ### Query.Seek (single-entity access, 512 of 1,024 entities)
 
@@ -159,17 +164,17 @@ Branch-free, zero-allocation, linear in component count — 0 B/op and 0 allocs/
 
 | Components | sorted ns/ent | random ns/ent |
 | :--- | ---: | ---: |
-| 0 | 4.383 | 4.766 |
-| 1 | 6.882 | 7.845 |
-| 2 | 7.727 | 8.022 |
-| 3 | 9.395 | 10.63 |
-| 4 | 9.242 | 10.43 |
-| 5 | 11.20 | 12.39 |
-| 6 | 11.29 | 13.07 |
-| 7 | 12.69 | 14.81 |
-| 8 | 13.41 | 15.72 |
-| 9 | 15.60 | 18.70 |
-| 10 | 15.34 | 18.54 |
+| 0 | 3.961 | 4.018 |
+| 1 | 6.098 | 6.385 |
+| 2 | 6.462 | 7.780 |
+| 3 | 8.434 | 9.646 |
+| 4 | 8.445 | 9.985 |
+| 5 | 10.11 | 11.47 |
+| 6 | 10.59 | 12.80 |
+| 7 | 12.02 | 14.03 |
+| 8 | 12.52 | 15.46 |
+| 9 | 14.82 | 17.86 |
+| 10 | 14.74 | 17.67 |
 
 ### Query.SeekH (homogeneous seek fast path, 512 of 1,024 entities)
 
@@ -177,17 +182,17 @@ Branch-free, zero-allocation, linear in component count — 0 B/op and 0 allocs/
 
 | Components | sorted ns/ent | random ns/ent |
 | :--- | ---: | ---: |
-| 0 | 2.272 | 2.247 |
-| 1 | 4.198 | 4.528 |
-| 2 | 5.041 | 5.017 |
-| 3 | 7.400 | 7.771 |
-| 4 | 7.598 | 8.349 |
-| 5 | 8.553 | 9.905 |
-| 6 | 9.184 | 11.38 |
-| 7 | 11.06 | 13.43 |
-| 8 | 11.34 | 14.07 |
-| 9 | 12.60 | 15.98 |
-| 10 | 13.60 | 16.18 |
+| 0 | 2.098 | 2.095 |
+| 1 | 3.378 | 3.776 |
+| 2 | 3.644 | 4.461 |
+| 3 | 6.275 | 7.108 |
+| 4 | 6.727 | 8.026 |
+| 5 | 8.187 | 9.963 |
+| 6 | 8.213 | 9.807 |
+| 7 | 9.388 | 11.91 |
+| 8 | 10.76 | 13.46 |
+| 9 | 12.01 | 14.91 |
+| 10 | 12.62 | 15.72 |
 
 ### Query.Optional vs. two Include/Exclude queries
 
@@ -219,8 +224,20 @@ The mask of 8 words (512 component types) makes announcing an archetype about fo
 dear as the 2 words of 3.2.x (128 types); iteration, Seek, Pick, migrations and factories measure
 alike with either (interleaved runs, every difference within noise).
 
-All 0 B/op and 0 allocs/op. A matcher is 384 bytes; up to 3.2.4 it was 320 KB — its Seek cache
-an array over every possible archetype — which put about 21 MB on the heap of every world.
+Since 3.6.0 the catalog keeps each matcher's rule (its masks and tracked columns) beside the
+matcher blocks, and a new archetype is tried against the rules alone. On the i5-8265U, medians
+of 10 runs at `-benchtime=1000x`, interleaved:
+
+| Queries registered | Query.All ns/op | OnArchetypeCreated ns/op, 3.5.0 | 3.6.0 |
+| ---: | ---: | ---: | ---: |
+| 8 | 1,471 | 78.2 | 53.7 |
+| 56 | 1,489 | 576.5 | 412.9 |
+| 256 | 1,452 | 2,916 | 1,902 |
+| 1,024 | 1,455 | 12,970 | 8,056 |
+
+All 0 B/op and 0 allocs/op. A matcher is 80 bytes (504 in 3.5.0, its walk then still inside
+it); up to 3.2.4 it was 320 KB — its Seek cache an array over every possible archetype — which
+put about 21 MB on the heap of every world.
 Benchmarks that allocate (Editor, Factory) read faster with that ballast under the default GC,
 which then collects less often; with `GOGC=off` 3.3.0 and 3.2.4 measure alike.
 
