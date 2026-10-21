@@ -117,7 +117,7 @@ func TestRegistry_CreateFactory_AcceptsZeroSizeAddOpt(t *testing.T) {
 
 	var trackedPos iter.ArrayRef[Position]
 	var trackedVel iter.ArrayRef[Velocity]
-	matcher := r.AddMatcher(comp.Include[Tag](), comp.Track(&trackedPos), comp.Track(&trackedVel))
+	matcher := walkOf(r.AddMatcher(comp.Include[Tag](), comp.Track(&trackedPos), comp.Track(&trackedVel)))
 	matcher.All()
 	found := false
 	for matcher.Next() {
@@ -436,7 +436,7 @@ func TestRegistry_SaveLoad_RoundTrip(t *testing.T) {
 	}
 
 	var trackedPos iter.ArrayRef[Position]
-	matcher := r2.AddMatcher(comp.Track(&trackedPos))
+	matcher := walkOf(r2.AddMatcher(comp.Track(&trackedPos)))
 	matcher.All()
 	found := false
 	for matcher.Next() {

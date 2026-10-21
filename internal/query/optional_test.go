@@ -33,7 +33,7 @@ func TestOptional_AllMode_PresentAndAbsent(t *testing.T) {
 
 	var pos iter.ArrayRef[iterPos]
 	var vel iter.OptArrayRef[iterVel]
-	m := NewMatcher(cat, comp.Track(&pos), comp.Optional(&vel))
+	m := walk(NewMatcher(cat, comp.Track(&pos), comp.Optional(&vel)))
 
 	seen := map[uid.UID64]bool{}
 	m.All()
@@ -91,7 +91,7 @@ func TestOptional_PickMode_PresentAndAbsent(t *testing.T) {
 
 	var pos iter.ArrayRef[iterPos]
 	var vel iter.OptArrayRef[iterVel]
-	m := NewMatcher(cat, comp.Track(&pos), comp.Optional(&vel))
+	m := walk(NewMatcher(cat, comp.Track(&pos), comp.Optional(&vel)))
 
 	m.Pick([]uid.UID64{eA, eB})
 	for m.Next() {
@@ -139,7 +139,7 @@ func TestOptional_Seek_PresentAndAbsent(t *testing.T) {
 
 	var pos iter.ArrayRef[iterPos]
 	var vel iter.OptArrayRef[iterVel]
-	m := NewMatcher(cat, comp.Track(&pos), comp.Optional(&vel))
+	m := walk(NewMatcher(cat, comp.Track(&pos), comp.Optional(&vel)))
 
 	if !m.Seek(eA) {
 		t.Fatal("expected Seek to find eA")
@@ -184,7 +184,7 @@ func TestOptional_SeekH_SameArchetypeReusesCache(t *testing.T) {
 
 	var trackedPos iter.ArrayRef[iterPos]
 	var vel iter.OptArrayRef[iterVel]
-	m := NewMatcher(cat, comp.Track(&trackedPos), comp.Optional(&vel))
+	m := walk(NewMatcher(cat, comp.Track(&trackedPos), comp.Optional(&vel)))
 
 	if !m.Seek(e0) {
 		t.Fatal("expected Seek to find e0")

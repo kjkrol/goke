@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kjkrol/goke/v3/internal/comp"
+	"github.com/kjkrol/goke/v3/internal/query"
 	"github.com/kjkrol/goke/v3/iter"
 )
 
@@ -19,7 +20,7 @@ func TestRegistry_AddMatcher_MatchesExistingArchetype(t *testing.T) {
 	pos.Slice(&factory.Cursor)[0] = Position{X: 1, Y: 2}
 
 	var trackedPos iter.ArrayRef[Position]
-	matcher := r.AddMatcher(comp.Track(&trackedPos))
+	matcher := walkOf(r.AddMatcher(comp.Track(&trackedPos)))
 
 	count := 0
 	matcher.All()
@@ -43,7 +44,7 @@ func TestRegistry_AddMatcher_ReactsToArchetypeCreatedAfterward(t *testing.T) {
 	r.RegComp(reflect.TypeFor[Position]())
 
 	var trackedPos iter.ArrayRef[Position]
-	matcher := r.AddMatcher(comp.Track(&trackedPos))
+	matcher := walkOf(r.AddMatcher(comp.Track(&trackedPos)))
 
 	count := 0
 	matcher.All()
@@ -83,7 +84,7 @@ func TestRegistry_AddMatcher_RespectsExclude(t *testing.T) {
 	factory.Create(1)
 	factory.Next()
 
-	matcher := r.AddMatcher(comp.Include[Position](), comp.Exclude[Tag]())
+	matcher := walkOf(r.AddMatcher(comp.Include[Position](), comp.Exclude[Tag]()))
 
 	count := 0
 	matcher.All()
@@ -95,4 +96,11 @@ func TestRegistry_AddMatcher_RespectsExclude(t *testing.T) {
 	if count != 1 {
 		t.Errorf("expected 1 match (Position without Tag), got %d", count)
 	}
+}
+
+// walkOf is a Walker over m, standing nowhere
+func walkOf(m *query.Matcher) *query.Walker {
+	var w query.Walker
+	w.Init(m)
+	return &w
 }

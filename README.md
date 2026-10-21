@@ -90,6 +90,7 @@ go get github.com/kjkrol/goke/v3
 | **Built-in scheduler** | Declarative `Plan` wires systems into an execution graph — a full ECS runtime, not just a component store |
 | **Command Buffer** | Structural changes during iteration are queued and flushed at explicit `Sync()` points — enables safe `RunParallel` |
 | **Bulk operations** | `Editor`/`ValueEditor`/`Remover`, staged via `Query.BeginMigrate`/`Add`/`Commit`, batch add/remove-component and remove-entity changes for entities matched by a `Query` — one block memory copy per contiguous run instead of a move per entity |
+| **Query forks** | `Query.Fork` is another walk over what a query matches, with a cursor of its own over the same baked tables: queries walk and seek on several goroutines at once, as long as none writes a component another reads or writes |
 | **Single-entity operations** | `CmdBuf.AddOne`/`RemoveOne`/`RemoveCompOne` edit or remove one entity reached without iterating a `Query` (an external event, a saved id) — the complement to bulk operations, not a substitute for them inside a `Query` loop |
 | **World persistence** | Save the whole world's state to a file and restore it exactly: every registered component type, the archetypes entities are grouped into, and each entity's own identity. |
 | **Module composition** | Package a coherent set of components and systems as one self-contained `Module` — a game wires it up without knowing its internals, and can plug it into its own one-time `Setup` (world seeding) or per-tick `Plan` (simulation) |
@@ -112,10 +113,10 @@ Benchmarked at a population of **1,024** entities (**100,000** for `Remove Entit
 
 | Category | Operation | Observed Cost | Allocs | Technical Mechanism |
 | :--- | :--- | :--- | :--- | :--- |
-| **Throughput** | **Iteration (Query.All)** | **0.39 - 4.18 ns/ent** | **0** | Linear SoA (0-10 components) |
-| **Subset Query** | **Pick (per-entity)** | **5.8 - 19.0 ns/ent** | **0** | Per-entity record lookup + pointer math |
-| **Direct Access** | **Seek (single entity)** | **4.4 - 18.7 ns/ent** | **0** | Index lookup, independent of include/exclude mask |
-| **Direct Access** | **SeekH (homogeneous, cached archetype)** | **2.2 - 16.2 ns/ent** | **0** | Skips generation/mask checks after a prior Seek |
+| **Throughput** | **Iteration (Query.All)** | **0.39 - 4.12 ns/ent** | **0** | Linear SoA (0-10 components) |
+| **Subset Query** | **Pick (per-entity)** | **5.3 - 17.1 ns/ent** | **0** | Per-entity record lookup + pointer math |
+| **Direct Access** | **Seek (single entity)** | **4.0 - 17.9 ns/ent** | **0** | Index lookup, independent of include/exclude mask |
+| **Direct Access** | **SeekH (homogeneous, cached archetype)** | **2.1 - 15.7 ns/ent** | **0** | Skips generation/mask checks after a prior Seek |
 | **Structural** | **Batch Create** | **8.0 - 18.8 ns/ent** | 0-1 | Factory-based chunk writes |
 | **Structural** | **Add Component** | **5.9 - 18.7 ns/ent** | 0 (grows past N=8) | Archetype migration (1 → 1+N components) |
 | **Structural** | **Add Tag** | **5.6 - 12.9 ns/ent** | **0** | Archetype migration (zero-size component) |
@@ -278,7 +279,7 @@ GOKe is an archetype-based ECS built around data-oriented design principles. The
 | [`internal/addr`](internal/addr/doc.go) | Entity address book — manages entity ID lifecycle (uid pool) and maps each ID to its current storage address (`Entry`) via a flat index in O(1); generation check guards against stale references |
 | [`internal/bulk`](internal/bulk/doc.go) | Bulk-operation contract — `ChunkSnapshot` (point-in-time chunk address, guarded by the source table's structural version) and the `Migrator`/`ValueMigrator` interfaces; the shared vocabulary of chunk-level batch commands |
 | [`internal/ent`](internal/ent/doc.go) | Entity lifecycle — delegates ID allocation and address tracking to `addr.Book`, manages batch entity creation via `Factory`, and bulk archetype migration via `Editor` (add/remove component spec), `Remover` (bulk unlink), and `ValueEditor` (add one component and write a caller-supplied per-entity value into it) |
-| [`internal/query`](internal/query/doc.go) | Query layer: `Matcher` bakes component masks into precomputed per-archetype offsets, enabling zero-allocation bulk iteration (`All`), per-entity subset iteration (`Pick`), and O(1) single-entity access (`Seek`) |
+| [`internal/query`](internal/query/doc.go) | Query layer: `Matcher` bakes the archetypes a query matches into precomputed per-column offsets and a `Walker` walks them with a cursor of its own: zero-allocation bulk iteration (`All`), per-entity subset iteration (`Pick`), and O(1) single-entity access (`Seek`); `Query.Fork` is another Walker over the same Matcher |
 | [`internal/persist`](internal/persist/doc.go) | World snapshot encoding — `Save`/`Load` a gzip-wrapped file format covering component definitions, archetype layout, entity data, and the entity ID pool state |
 | [`internal/orch`](internal/orch/doc.go) | Plan-based task orchestrator: sequential/parallel execution, deferred mutations via command buffers |
 | [`internal/reg`](internal/reg/doc.go) | Top-level world registry — wires together all subsystems and exposes the unified API for entity and component management |
@@ -305,6 +306,7 @@ GOKe is optimized for large-scale, data-oriented workloads. It may not be the be
 # Limitations
 
 * **Maximum component types: 512 by default.** The archetype system uses a fixed-size bitmask (`[8]uint64`) for fast component membership checks, and a component ID is 16 bits. Projects requiring more component types can increase this limit by modifying `MaskSize` in `internal/comp` (e.g. `MaskSize = 16` gives 1,024 component types) and recompiling GOKe — `MaxComponents` is derived automatically as `64 * MaskSize`. This is a compile-time configuration, not a runtime setting. A wider mask leaves iteration, Seek and migrations as they are; announcing a new archetype to the queries grows with it (see [BENCHMARKS.md](./BENCHMARKS.md#many-queries-benchmany_queries_testgo-internalquerycatalog_bench_testgo)).
+* **Maximum archetypes: 4,095.** Every distinct combination of components and tags entities carry is an archetype; a world holds at most 4,095 (`arch.MaxID` 4096 in `internal/arch`, ID 0 unused), fixed at compile time. Asking for one more panics with the limit and the combination asked for.
 
 # License
 GOKe is licensed under the MIT License. See the LICENSE [file](./LICENSE) for more details.

@@ -1,7 +1,9 @@
 package arch
 
 import (
+	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"unsafe"
 
@@ -297,5 +299,40 @@ func TestCatalog_AddArchetype_PanicsWhenMaxIDExceeded(t *testing.T) {
 	// registration needed, since MaskIndex only cares about the Mask value.
 	for i := uint64(1); i <= uint64(MaxID)+1; i++ {
 		cat.Upsert(comp.Composition{Mask: comp.Mask{i, 0}})
+	}
+}
+
+func TestCatalog_PanicsPastMaxID(t *testing.T) {
+	cat := newTestCatalog()
+	only := func(i uint64) comp.Composition {
+		var m comp.Mask
+		m[0] = i
+		return comp.Composition{Mask: m}
+	}
+	for i := uint64(1); cat.Len() < MaxID; i++ {
+		cat.Upsert(only(i))
+	}
+	defer func() {
+		msg, _ := recover().(string)
+		want := fmt.Sprintf("too many archetypes: a world holds at most %d", MaxID-RootID)
+		if !strings.Contains(msg, want) {
+			t.Fatalf("an archetype past MaxID: got panic %q, want one with %q", msg, want)
+		}
+	}()
+	cat.Upsert(only(1 << 20))
+}
+
+type marker struct{}
+
+// describe names a combination's data components by type and counts its tags
+func TestDescribe_NamesDataComponentsAndCountsTags(t *testing.T) {
+	mi := newDefIndex()
+	pos := mi.Intern(reflect.TypeFor[position]())
+	vel := mi.Intern(reflect.TypeFor[velocity]())
+	tag := mi.Intern(reflect.TypeFor[marker]())
+	set := comp.Composition{}.With(pos).With(vel).With(tag)
+
+	if got, want := describe(set), "[arch.position arch.velocity] and 1 tags"; got != want {
+		t.Errorf("describe: got %q, want %q", got, want)
 	}
 }

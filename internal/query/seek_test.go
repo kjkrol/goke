@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kjkrol/goke/v3/internal/comp"
+	"github.com/kjkrol/goke/v3/internal/ent"
 	"github.com/kjkrol/goke/v3/iter"
 	"github.com/kjkrol/uid"
 )
@@ -21,7 +22,7 @@ func TestSeek_FindsEntity(t *testing.T) {
 	e := f.IDs[0]
 	*pos.At(&f.Cursor) = iterPos{X: 1, Y: 2}
 
-	m := NewMatcher(cat, posOpt)
+	m := walk(NewMatcher(cat, posOpt))
 
 	if !m.Seek(e) {
 		t.Fatal("expected Seek to find the entity")
@@ -33,7 +34,7 @@ func TestSeek_FindsEntity(t *testing.T) {
 
 func TestSeek_UnknownEntity(t *testing.T) {
 	cat, _, _ := newQueryCatalog()
-	m := NewMatcher(cat)
+	m := walk(NewMatcher(cat))
 
 	if m.Seek(uid.UID64(999)) {
 		t.Error("expected Seek to fail for an unknown entity")
@@ -65,7 +66,7 @@ func TestSeek_AcrossArchetypes(t *testing.T) {
 	*posB.At(&fb.Cursor) = iterPos{X: 2}
 
 	var pos iter.ArrayRef[iterPos]
-	m := NewMatcher(cat, comp.Track(&pos))
+	m := walk(NewMatcher(cat, comp.Track(&pos)))
 
 	for i := 0; i < 3; i++ {
 		if !m.Seek(eA) || pos.At(&m.Cursor).X != 1 {
@@ -95,7 +96,7 @@ func TestSeek_IgnoresIncludeExcludeMask(t *testing.T) {
 
 	// Matcher tracks Pos but excludes Vel — All/Pick would skip this entity,
 	// but Seek must still find it since it bypasses the mask entirely.
-	m := NewMatcher(cat, comp.Track(&pos), comp.Exclude[iterVel]())
+	m := walk(NewMatcher(cat, comp.Track(&pos), comp.Exclude[iterVel]()))
 
 	if !m.Seek(e) {
 		t.Fatal("expected Seek to find the entity regardless of the exclude mask")
@@ -124,7 +125,7 @@ func TestSeekH_SameArchetypeMatches(t *testing.T) {
 	f.Cursor.Slot = 1
 	*pos.At(&f.Cursor) = iterPos{X: 2}
 
-	m := NewMatcher(cat, posOpt)
+	m := walk(NewMatcher(cat, posOpt))
 	if !m.Seek(e0) {
 		t.Fatal("expected Seek to find e0")
 	}
@@ -164,7 +165,7 @@ func TestSeekH_DifferentArchetypeReportsMismatch(t *testing.T) {
 	eB := fb.IDs[0]
 
 	var pos iter.ArrayRef[iterPos]
-	m := NewMatcher(cat, comp.Track(&pos))
+	m := walk(NewMatcher(cat, comp.Track(&pos)))
 
 	if !m.Seek(eA) {
 		t.Fatal("expected Seek to find eA")
@@ -201,7 +202,7 @@ func TestSeek_RefusesArchetypeMissingATrackedColumn(t *testing.T) {
 	f2.Next()
 	partial := f2.IDs[0]
 
-	m := NewMatcher(cat, posOpt, velOpt)
+	m := walk(NewMatcher(cat, posOpt, velOpt))
 	if !m.Seek(full) {
 		t.Fatal("expected Seek to find the entity carrying both components")
 	}
@@ -210,5 +211,81 @@ func TestSeek_RefusesArchetypeMissingATrackedColumn(t *testing.T) {
 	}
 	if got := pos.At(&m.Cursor); got.X != 9 {
 		t.Errorf("cursor moved on a refused Seek: X = %v, want 9", got.X)
+	}
+}
+
+type seekPad[T any] struct{ V T }
+
+// spawnPosAnd is an entity carrying an iterPos at x and a T, in the archetype of the two
+func spawnPosAnd[T any](cc *comp.DefIndex, em *ent.Manager, x float32) uid.UID64 {
+	var pos iter.ArrayRef[iterPos]
+	var other iter.ArrayRef[T]
+	var spec comp.AccessSpec
+	spec.Init(cc, comp.Track(&pos), comp.Track(&other))
+	f := em.CreateFactory(spec)
+	f.Create(1)
+	f.Next()
+	*pos.At(&f.Cursor) = iterPos{X: x}
+	return f.IDs[0]
+}
+
+// Seek reads the tables baked as archetypes came: an unfiltered query keeps no tables apart, and
+// seeking across its archetypes adds none.
+func TestSeek_ReadsTheTablesBakedAsArchetypesCame(t *testing.T) {
+	cat, cc, em := newQueryCatalog()
+	first := spawnPosAnd[iterVel](cc, em, 1)
+	spawnPosAnd[seekPad[int8]](cc, em, 2)
+	spawnPosAnd[seekPad[int16]](cc, em, 3)
+	spawnPosAnd[seekPad[int32]](cc, em, 4)
+	last := spawnPosAnd[seekPad[int64]](cc, em, 5)
+	var pos iter.ArrayRef[iterPos]
+	m := walk(NewMatcher(cat, comp.Track(&pos)))
+
+	if m.Matcher().seekable != nil {
+		t.Fatal("an unfiltered query keeps Seek tables apart")
+	}
+	for _, step := range []struct {
+		id uid.UID64
+		x  float32
+	}{{last, 5}, {first, 1}, {last, 5}, {first, 1}} {
+		if !m.Seek(step.id) || pos.At(&m.Cursor).X != step.x {
+			t.Fatalf("Seek(%v): want X %v", step.id, step.x)
+		}
+	}
+	if n := len(m.Matcher().BakedTables); n != 5 {
+		t.Errorf("%d tables after seeking, want the 5 archetypes", n)
+	}
+}
+
+// A filtered query bakes apart, for Seek, the archetypes holding every tracked component, the
+// filtered out among them; one lacking a tracked component stays out.
+func TestSeek_FilteredQueryBakesApartTheArchetypesWithItsColumns(t *testing.T) {
+	cat, cc, em := newQueryCatalog()
+	kept := spawnPosAnd[seekPad[int8]](cc, em, 1)
+	excluded := spawnPosAnd[iterVel](cc, em, 2)
+	var velOnly iter.ArrayRef[iterVel]
+	var spec comp.AccessSpec
+	spec.Init(cc, comp.Track(&velOnly))
+	f := em.CreateFactory(spec)
+	f.Create(1)
+	f.Next()
+	without := f.IDs[0]
+	var pos iter.ArrayRef[iterPos]
+	m := walk(NewMatcher(cat, comp.Track(&pos), comp.Exclude[iterVel]()))
+
+	if n := len(m.Matcher().BakedTables); n != 1 {
+		t.Errorf("%d matched tables, want 1", n)
+	}
+	if s := m.Matcher().seekable; s == nil || len(s.BakedTables) != 2 {
+		t.Fatalf("Seek tables apart: %v, want the 2 archetypes holding iterPos", s)
+	}
+	if !m.Seek(kept) || pos.At(&m.Cursor).X != 1 {
+		t.Error("Seek into the matched archetype")
+	}
+	if !m.Seek(excluded) || pos.At(&m.Cursor).X != 2 {
+		t.Error("Seek into the archetype the filter leaves out")
+	}
+	if m.Seek(without) {
+		t.Error("Seek into an archetype without iterPos")
 	}
 }
