@@ -1,7 +1,9 @@
 package arch
 
 import (
+	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"unsafe"
 
@@ -298,4 +300,24 @@ func TestCatalog_AddArchetype_PanicsWhenMaxIDExceeded(t *testing.T) {
 	for i := uint64(1); i <= uint64(MaxID)+1; i++ {
 		cat.Upsert(comp.Composition{Mask: comp.Mask{i, 0}})
 	}
+}
+
+func TestCatalog_PanicsPastMaxID(t *testing.T) {
+	cat := newTestCatalog()
+	only := func(i uint64) comp.Composition {
+		var m comp.Mask
+		m[0] = i
+		return comp.Composition{Mask: m}
+	}
+	for i := uint64(1); cat.Len() < MaxID; i++ {
+		cat.Upsert(only(i))
+	}
+	defer func() {
+		msg, _ := recover().(string)
+		want := fmt.Sprintf("too many archetypes: a world holds at most %d", MaxID-RootID)
+		if !strings.Contains(msg, want) {
+			t.Fatalf("an archetype past MaxID: got panic %q, want one with %q", msg, want)
+		}
+	}()
+	cat.Upsert(only(1 << 20))
 }

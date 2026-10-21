@@ -2,6 +2,8 @@ package arch
 
 import (
 	"fmt"
+	"math/bits"
+	"strings"
 	"unsafe"
 
 	"github.com/kjkrol/uid"
@@ -94,11 +96,26 @@ func (r *Catalog) Reset() {
 
 func (r *Catalog) addArchetype(set comp.Composition) ID {
 	if r.lastArchetypeId >= MaxID {
-		panic(fmt.Sprintf("Max archetype number exceeded: %d", MaxID))
+		panic(fmt.Sprintf("goke: too many archetypes: a world holds at most %d combinations of "+
+			"components (arch.MaxID %d, ID 0 unused); asked for one more: %s",
+			MaxID-RootID, MaxID, describe(set)))
 	}
 	archID := r.lastArchetypeId
 	r.Archetypes[archID].Init(archID, set)
 	r.maskIndex.Upsert(set.Mask, archID)
 	r.lastArchetypeId++
 	return archID
+}
+
+// describe names set's components for a message: its data components' types and how many tags
+func describe(set comp.Composition) string {
+	names := make([]string, 0, len(set.Defs))
+	for _, d := range set.Defs {
+		names = append(names, fmt.Sprint(d.Type))
+	}
+	tags := -len(set.Defs)
+	for _, w := range set.Mask {
+		tags += bits.OnesCount64(w)
+	}
+	return fmt.Sprintf("[%s] and %d tags", strings.Join(names, " "), tags)
 }
