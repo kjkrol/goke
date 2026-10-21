@@ -321,3 +321,18 @@ func TestCatalog_PanicsPastMaxID(t *testing.T) {
 	}()
 	cat.Upsert(only(1 << 20))
 }
+
+type marker struct{}
+
+// describe names a combination's data components by type and counts its tags
+func TestDescribe_NamesDataComponentsAndCountsTags(t *testing.T) {
+	mi := newDefIndex()
+	pos := mi.Intern(reflect.TypeFor[position]())
+	vel := mi.Intern(reflect.TypeFor[velocity]())
+	tag := mi.Intern(reflect.TypeFor[marker]())
+	set := comp.Composition{}.With(pos).With(vel).With(tag)
+
+	if got, want := describe(set), "[arch.position arch.velocity] and 1 tags"; got != want {
+		t.Errorf("describe: got %q, want %q", got, want)
+	}
+}
