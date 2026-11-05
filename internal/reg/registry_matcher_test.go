@@ -20,7 +20,7 @@ func TestRegistry_AddMatcher_MatchesExistingArchetype(t *testing.T) {
 	pos.Slice(&factory.Cursor)[0] = Position{X: 1, Y: 2}
 
 	var trackedPos iter.ArrayRef[Position]
-	matcher := walkOf(r.AddMatcher(comp.Track(&trackedPos)))
+	matcher := walkOf(r.AddMatcher(nil, comp.Track(&trackedPos)))
 
 	count := 0
 	matcher.All()
@@ -44,7 +44,7 @@ func TestRegistry_AddMatcher_ReactsToArchetypeCreatedAfterward(t *testing.T) {
 	r.RegComp(reflect.TypeFor[Position]())
 
 	var trackedPos iter.ArrayRef[Position]
-	matcher := walkOf(r.AddMatcher(comp.Track(&trackedPos)))
+	matcher := walkOf(r.AddMatcher(nil, comp.Track(&trackedPos)))
 
 	count := 0
 	matcher.All()
@@ -84,7 +84,7 @@ func TestRegistry_AddMatcher_RespectsExclude(t *testing.T) {
 	factory.Create(1)
 	factory.Next()
 
-	matcher := walkOf(r.AddMatcher(comp.Include[Position](), comp.Exclude[Tag]()))
+	matcher := walkOf(r.AddMatcher(nil, comp.Include[Position](), comp.Exclude[Tag]()))
 
 	count := 0
 	matcher.All()
@@ -103,4 +103,20 @@ func walkOf(m *query.Matcher) *query.Walker {
 	var w query.Walker
 	w.Init(m)
 	return &w
+}
+
+func TestRegistry_AddMatcher_AddsAccess(t *testing.T) {
+	r := newRegistry(t)
+	posID := r.RegComp(reflect.TypeFor[Position]())
+	velID := r.RegComp(reflect.TypeFor[Velocity]())
+
+	var acc comp.Access
+	var pos iter.ArrayRef[Position]
+	var vel iter.ArrayRef[Velocity]
+	r.AddMatcher(&acc, comp.Track(&pos))
+	r.AddMatcher(&acc, comp.ReadOnly(reflect.TypeFor[Velocity](), comp.Track(&vel)))
+
+	if !acc.Writes.IsSet(posID) || acc.Writes.IsSet(velID) || !acc.Reads.IsSet(velID) {
+		t.Errorf("expected Position written and Velocity read across both matchers, got %+v", acc)
+	}
 }

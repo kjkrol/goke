@@ -89,6 +89,7 @@ go get github.com/kjkrol/goke/v3
 | **Type-safe component API** | Fully generic — no reflection, no interface boxing, no runtime type assertions |
 | **Built-in scheduler** | Declarative `Plan` wires systems into an execution graph — a full ECS runtime, not just a component store |
 | **Command Buffer** | Structural changes during iteration are queued and flushed at explicit `Sync()` points — enables safe `RunParallel` |
+| **Read-only components** | `CompRO[T]`/`OptCompRO[T]` track a column a query only reads — values come out as copies (`SliceRO[T].At`, `Get`); `RunParallel` panics if one of its systems writes a component another reads or writes through its queries |
 | **Bulk operations** | `Editor`/`ValueEditor`/`Remover`, staged via `Query.BeginMigrate`/`Add`/`Commit`, batch add/remove-component and remove-entity changes for entities matched by a `Query` — one block memory copy per contiguous run instead of a move per entity |
 | **Query forks** | `Query.Fork` is another walk over what a query matches, with a cursor of its own over the same baked tables: queries walk and seek on several goroutines at once, as long as none writes a component another reads or writes |
 | **Single-entity operations** | `CmdBuf.AddOne`/`RemoveOne`/`RemoveCompOne` edit or remove one entity reached without iterating a `Query` (an external event, a saved id) — the complement to bulk operations, not a substitute for them inside a `Query` loop |
@@ -114,6 +115,7 @@ Benchmarked at a population of **1,024** entities (**100,000** for `Remove Entit
 | Category | Operation | Observed Cost | Allocs | Technical Mechanism |
 | :--- | :--- | :--- | :--- | :--- |
 | **Throughput** | **Iteration (Query.All)** | **0.39 - 4.12 ns/ent** | **0** | Linear SoA (0-10 components) |
+| **Throughput** | **Iteration, read-only columns (CompRO)** | **1.59 ns/ent** (vs 1.48 via Comp) | **0** | Values copied out of the column (1 written + 2 read) |
 | **Subset Query** | **Pick (per-entity)** | **5.3 - 17.1 ns/ent** | **0** | Per-entity record lookup + pointer math |
 | **Direct Access** | **Seek (single entity)** | **4.0 - 17.9 ns/ent** | **0** | Index lookup, independent of include/exclude mask |
 | **Direct Access** | **SeekH (homogeneous, cached archetype)** | **2.1 - 15.7 ns/ent** | **0** | Skips generation/mask checks after a prior Seek |
@@ -236,14 +238,17 @@ func main() {
 	// Register the report system: reads and prints, same pattern as
 	// movementSystem — reads flow through systems too, not raw lookups
 	// pulled out of the ECS.
+	// CompRO[T] is Comp[T] for a component the system only reads: Get hands
+	// out a copy, and RunParallel counts it as read, not written.
+	var posRead goke.CompRO[Pos]
 	var reportQuery *goke.Query
 	reportSystem := ecs.RegSys(goke.SystemFn{
 		OnInit: func(si *goke.SysInit) {
-			reportQuery = si.NewQueryBuilder(&pos).Build()
+			reportQuery = si.NewQueryBuilder(&posRead).Build()
 		},
 		OnUpdate: func(_ *goke.CmdBuf, _ time.Duration) {
 			if reportQuery.Seek(entityID) {
-				p := pos.At(reportQuery.Cursor())
+				p := posRead.Get(reportQuery.Cursor())
 				fmt.Printf("Final Position: {X: %.2f, Y: %.2f}\n", p.X, p.Y)
 			}
 		},
@@ -281,9 +286,9 @@ GOKe is an archetype-based ECS built around data-oriented design principles. The
 | [`internal/ent`](internal/ent/doc.go) | Entity lifecycle — delegates ID allocation and address tracking to `addr.Book`, manages batch entity creation via `Factory`, and bulk archetype migration via `Editor` (add/remove component spec), `Remover` (bulk unlink), and `ValueEditor` (add one component and write a caller-supplied per-entity value into it) |
 | [`internal/query`](internal/query/doc.go) | Query layer: `Matcher` bakes the archetypes a query matches into precomputed per-column offsets and a `Walker` walks them with a cursor of its own: zero-allocation bulk iteration (`All`), per-entity subset iteration (`Pick`), and O(1) single-entity access (`Seek`); `Query.Fork` is another Walker over the same Matcher |
 | [`internal/persist`](internal/persist/doc.go) | World snapshot encoding — `Save`/`Load` a gzip-wrapped file format covering component definitions, archetype layout, entity data, and the entity ID pool state |
-| [`internal/orch`](internal/orch/doc.go) | Plan-based task orchestrator: sequential/parallel execution, deferred mutations via command buffers |
+| [`internal/orch`](internal/orch/doc.go) | Plan-based task orchestrator: sequential/parallel execution — `RunParallel` refusing systems whose component access conflicts — and deferred mutations via command buffers |
 | [`internal/reg`](internal/reg/doc.go) | Top-level world registry — wires together all subsystems and exposes the unified API for entity and component management |
-| [`goke`](doc.go) (public) | The package you import. `ECS` wires `reg.Registry` + `orch.Scheduler`; `Comp[T]` gives typed access to a component. Construction is gated through systems: `SysInit` (available in a `System`'s `Init`, or via `ecs.Setup` for one-off world seeding) is the only way to get a `Query` or `Factory`; `Editor`/`ValueEditor` are then built from that `Query`. `System`/`SystemFn`/`CmdBuf` round out the scheduling API |
+| [`goke`](doc.go) (public) | The package you import. `ECS` wires `reg.Registry` + `orch.Scheduler`; `Comp[T]` gives typed access to a component, `CompRO[T]` read-only access. Construction is gated through systems: `SysInit` (available in a `System`'s `Init`, or via `ecs.Setup` for one-off world seeding) is the only way to get a `Query` or `Factory`; `Editor`/`ValueEditor` are then built from that `Query`. `System`/`SystemFn`/`CmdBuf` round out the scheduling API |
 
 <a id="roadmap"></a>
 # 🗺️ Roadmap
@@ -307,6 +312,8 @@ GOKe is optimized for large-scale, data-oriented workloads. It may not be the be
 
 * **Maximum component types: 512 by default.** The archetype system uses a fixed-size bitmask (`[8]uint64`) for fast component membership checks, and a component ID is 16 bits. Projects requiring more component types can increase this limit by modifying `MaskSize` in `internal/comp` (e.g. `MaskSize = 16` gives 1,024 component types) and recompiling GOKe — `MaxComponents` is derived automatically as `64 * MaskSize`. This is a compile-time configuration, not a runtime setting. A wider mask leaves iteration, Seek and migrations as they are; announcing a new archetype to the queries grows with it (see [BENCHMARKS.md](./BENCHMARKS.md#many-queries-benchmany_queries_testgo-internalquerycatalog_bench_testgo)).
 * **Maximum archetypes: 4,095.** Every distinct combination of components and tags entities carry is an archetype; a world holds at most 4,095 (`arch.MaxID` 4096 in `internal/arch`, ID 0 unused), fixed at compile time. Asking for one more panics with the limit and the combination asked for.
+
+* **`RunParallel` sees only what queries do.** A system's access is what the queries built in its `Init` track; a query another system walks still counts to the one that built it, and state outside queries (shared Go values, a `Factory` used in `Update`) is not checked.
 
 # License
 GOKe is licensed under the MIT License. See the LICENSE [file](./LICENSE) for more details.

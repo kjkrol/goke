@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kjkrol/goke/v3/internal/comp"
+	"github.com/kjkrol/goke/v3/iter"
 )
 
 func TestAccessSpec_Comp(t *testing.T) {
@@ -194,4 +195,65 @@ func TestAccessSpec_Init(t *testing.T) {
 		}()
 		s.Init(&mi, comp.Include[position](), comp.Include[position]())
 	})
+}
+
+func TestAccessSpec_Access(t *testing.T) {
+	type marked struct{}
+	var mi comp.DefIndex
+	mi.Init()
+	var pos iter.ArrayRef[position]
+	var vel iter.ArrayRef[velocity]
+	var rot iter.OptArrayRef[rotation]
+	var tag iter.OptArrayRef[marked]
+	var s comp.AccessSpec
+	s.Init(&mi,
+		comp.Track(&pos),
+		comp.ReadOnly(reflect.TypeFor[velocity](), comp.Track(&vel)),
+		comp.Optional(&rot),
+		comp.Optional(&tag),
+	)
+
+	id := func(typ reflect.Type) comp.ID { return mi.Intern(typ).ID }
+	a := s.Access()
+	if !a.Writes.IsSet(id(reflect.TypeFor[position]())) || !a.Writes.IsSet(id(reflect.TypeFor[rotation]())) {
+		t.Errorf("expected position and rotation written, got %v", a.Writes)
+	}
+	if a.Writes.IsSet(id(reflect.TypeFor[velocity]())) || !a.Reads.IsSet(id(reflect.TypeFor[velocity]())) {
+		t.Errorf("expected velocity only read, got reads %v writes %v", a.Reads, a.Writes)
+	}
+	if a.Writes.IsSet(id(reflect.TypeFor[marked]())) || a.Reads.IsSet(id(reflect.TypeFor[marked]())) {
+		t.Errorf("expected the tag neither read nor written")
+	}
+	if vel.Idx != 1 {
+		t.Errorf("expected ReadOnly to keep the track position, got %d", vel.Idx)
+	}
+}
+
+func TestAccess_Conflicts(t *testing.T) {
+	read := func(id comp.ID) comp.Access { return comp.Access{Reads: comp.Mask{}.Set(id)} }
+	write := func(id comp.ID) comp.Access { return comp.Access{Writes: comp.Mask{}.Set(id)} }
+
+	cases := []struct {
+		name     string
+		a, b     comp.Access
+		conflict bool
+	}{
+		{"read-read", read(1), read(1), false},
+		{"write-write", write(1), write(1), true},
+		{"write-read", write(1), read(1), true},
+		{"read-write", read(1), write(1), true},
+		{"disjoint writes", write(1), write(2), false},
+	}
+	for _, c := range cases {
+		if got := !c.a.Conflicts(c.b).IsEmpty(); got != c.conflict {
+			t.Errorf("%s: expected conflict %v, got %v", c.name, c.conflict, got)
+		}
+	}
+
+	var sum comp.Access
+	sum.Add(read(1))
+	sum.Add(write(2))
+	if !sum.Reads.IsSet(1) || !sum.Writes.IsSet(2) {
+		t.Errorf("expected Add to merge reads and writes, got %+v", sum)
+	}
 }

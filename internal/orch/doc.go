@@ -20,7 +20,9 @@
 // provides two execution modes:
 //
 //   - Run         — sequential execution
-//   - RunParallel — concurrent execution via goroutines
+//   - RunParallel — concurrent execution via goroutines, refused (a panic) when one
+//     Runnable writes a component another reads or writes, by the access each
+//     was registered with
 //
 // # CmdBuf
 //
