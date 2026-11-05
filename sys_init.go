@@ -1,19 +1,24 @@
 package goke
 
-import "reflect"
+import (
+	"reflect"
+
+	"github.com/kjkrol/goke/v3/internal/comp"
+)
 
 // SysInit is the capability handle passed to System.Init and used by
 // ecs.Setup — the only way to construct Query and Factory builders. Editor
 // and ValueEditor builders come from an already-built Query instead (see
 // Query.NewEditorBuilder / Query.NewValueEditorBuilder).
 type SysInit struct {
-	ecs *ECS
+	ecs    *ECS
+	access *comp.Access
 }
 
 // NewQueryBuilder starts a QueryBuilder, tracking the given components as
 // data columns (equivalent to Track[T] for each).
 func (s *SysInit) NewQueryBuilder(comps ...Trackable) *QueryBuilder {
-	b := &QueryBuilder{ecs: s.ecs, opts: make([]Opt, 0, len(comps))}
+	b := &QueryBuilder{ecs: s.ecs, access: s.access, opts: make([]Opt, 0, len(comps))}
 	for _, c := range comps {
 		b.opts = append(b.opts, c.asTrack())
 	}

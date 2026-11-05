@@ -31,11 +31,11 @@ func (c *Comp[T]) At(cur *Cursor) *T { return c.col.At(cur) }
 // Index is the column's track position, as a Column reads it; set as the column is bound.
 func (c *Comp[T]) Index() int { return c.col.Idx }
 
-// Trackable is satisfied by *Comp[T] for any T — it lets NewQueryBuilder
-// accept components (&comp) directly as tracked data columns.
+// Trackable is satisfied by *Comp[T], *CompRO[T] and *Column — it lets
+// NewQueryBuilder accept components (&comp) directly as tracked data columns.
 type Trackable interface {
-	// asTrack is unexported so *Comp[T] is the only implementer — this is a
-	// sealed interface, not an extension point.
+	// asTrack is unexported so goke's own column types are the only
+	// implementers — this is a sealed interface, not an extension point.
 	asTrack() Opt
 }
 
@@ -70,21 +70,82 @@ func (c *OptComp[T]) At(cur *Cursor) *T { return c.col.At(cur) }
 // bound.
 func (c *OptComp[T]) Index() int { return c.col.Idx }
 
-// OptTrackable is satisfied by *OptComp[T] for any T — it lets
-// QueryBuilder.Optional accept components (&comp) directly.
+// OptTrackable is satisfied by *OptComp[T], *OptCompRO[T] and *OptColumn —
+// it lets QueryBuilder.Optional accept components (&comp) directly.
 type OptTrackable interface {
-	// asOptTrack is unexported so *OptComp[T] is the only implementer —
-	// this is a sealed interface, not an extension point.
+	// asOptTrack is unexported so goke's own column types are the only
+	// implementers — this is a sealed interface, not an extension point.
 	asOptTrack() Opt
 }
 
 func (c *OptComp[T]) asOptTrack() Opt { return comp.Optional[T](&c.col) }
 
-// Loadable is satisfied by *Comp[T] for any T — it lets LoadComps accept
-// components (&comp) directly instead of naming their type again.
+// SliceRO is a component's values over the current All-mode chunk, to read: At hands out a copy.
+type SliceRO[T any] struct {
+	s []T
+}
+
+// Len equals len(cursor.IDs).
+func (s SliceRO[T]) Len() int { return len(s.s) }
+
+// At is the i-th value.
+func (s SliceRO[T]) At(i int) T { return s.s[i] }
+
+// CompRO is Comp for a component the query only reads: RunParallel counts it as read, not
+// written. It tracks a data column as Comp does, but goes to no Factory or Editor.
+type CompRO[T any] struct {
+	col iter.ArrayRef[T]
+}
+
+// Slice is the component's values over the current All-mode chunk.
+func (c *CompRO[T]) Slice(cur *Cursor) SliceRO[T] { return SliceRO[T]{c.col.Slice(cur)} }
+
+// Get is the value of the current Pick/Seek-mode entity.
+func (c *CompRO[T]) Get(cur *Cursor) T { return *c.col.At(cur) }
+
+// Index is the column's track position, as a Column reads it; set as the column is bound.
+func (c *CompRO[T]) Index() int { return c.col.Idx }
+
+func (c *CompRO[T]) asTrack() Opt {
+	return comp.ReadOnly(reflect.TypeFor[T](), comp.Track[T](&c.col))
+}
+func (c *CompRO[T]) asLoad() CompToken { return LoadComp[T]() }
+
+// OptCompRO is OptComp for a component the query only reads, as CompRO is for Comp.
+type OptCompRO[T any] struct {
+	col iter.OptArrayRef[T]
+}
+
+// Present reports whether T exists on the current chunk or entity.
+func (c *OptCompRO[T]) Present(cur *Cursor) bool { return c.col.Present(cur) }
+
+// Slice is T's values over the current All-mode chunk (data-free values for a zero-size tag T),
+// none if absent.
+func (c *OptCompRO[T]) Slice(cur *Cursor) SliceRO[T] { return SliceRO[T]{c.col.Slice(cur)} }
+
+// Get is T's value for the current Pick/Seek-mode entity (a data-free value for a zero-size tag
+// T), false if absent.
+func (c *OptCompRO[T]) Get(cur *Cursor) (T, bool) {
+	if p := c.col.At(cur); p != nil {
+		return *p, true
+	}
+	var zero T
+	return zero, false
+}
+
+// Index is the column's optional position, as an OptColumn reads it; set as the column is
+// bound.
+func (c *OptCompRO[T]) Index() int { return c.col.Idx }
+
+func (c *OptCompRO[T]) asOptTrack() Opt {
+	return comp.ReadOnly(reflect.TypeFor[T](), comp.Optional[T](&c.col))
+}
+
+// Loadable is satisfied by *Comp[T], *CompRO[T] and *Column — it lets
+// LoadComps accept components (&comp) directly instead of naming their type again.
 type Loadable interface {
-	// asLoad is unexported so *Comp[T] is the only implementer — this is a
-	// sealed interface, not an extension point.
+	// asLoad is unexported so goke's own column types are the only
+	// implementers — this is a sealed interface, not an extension point.
 	asLoad() CompToken
 }
 

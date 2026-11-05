@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/kjkrol/goke/v3/internal/comp"
 	"github.com/kjkrol/goke/v3/internal/orch"
 	"github.com/kjkrol/goke/v3/internal/reg"
 )
@@ -55,14 +56,15 @@ func (ecs *ECS) CmdBuf(r Runnable) *CmdBuf { return ecs.cmdBufs[r] }
 // immediately. Returns a Runnable handle — pass it to RunCtx.Run/RunParallel
 // inside a Plan.
 func (ecs *ECS) RegSys(system System) Runnable {
-	system.Init(&ecs.sysInit)
+	access := new(comp.Access)
+	system.Init(&SysInit{ecs: ecs, access: access})
 	raw := orch.NewCmdBuf()
 	wrapped := &CmdBuf{raw: raw}
 	fn := orch.RunnableFunc(func(_ *orch.CmdBuf, d time.Duration) {
 		system.Update(wrapped, d)
 	})
 	adapter := &fn
-	ecs.scheduler.Register(adapter, raw)
+	ecs.scheduler.Register(adapter, raw, access)
 	if ecs.cmdBufs == nil {
 		ecs.cmdBufs = map[Runnable]*CmdBuf{}
 	}
@@ -95,7 +97,7 @@ func (ecs *ECS) Setup(systems ...System) {
 		})
 		adapter := &fn
 		sched := orch.NewScheduler(&ecs.registry)
-		sched.Register(adapter, raw)
+		sched.Register(adapter, raw, nil)
 		sched.SetPlan(func(ctx orch.RunCtx, d time.Duration) {
 			ctx.Run(adapter, d)
 			_ = ctx.Sync()

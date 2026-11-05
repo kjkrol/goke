@@ -80,7 +80,7 @@ func TestCmdBuf_ComponentCmds(t *testing.T) {
 		target: e,
 	}
 
-	sched.Register(sys, NewCmdBuf())
+	sched.Register(sys, NewCmdBuf(), nil)
 	sched.Run(sys, 0)
 
 	err := sched.Sync()
@@ -89,14 +89,14 @@ func TestCmdBuf_ComponentCmds(t *testing.T) {
 	}
 
 	// compA should be gone: a matcher requiring it must not match e
-	matcherA := walkOf(registry.AddMatcher(comp.Include[mockCompA]()))
+	matcherA := walkOf(registry.AddMatcher(nil, comp.Include[mockCompA]()))
 	if matcherA.Pick([]uid.UID64{e}).Next() {
 		t.Errorf("Expected compA to be removed")
 	}
 
 	// compB should be present with the assigned value
 	var colB iter.ArrayRef[mockCompB]
-	matcherB := walkOf(registry.AddMatcher(comp.Track(&colB)))
+	matcherB := walkOf(registry.AddMatcher(nil, comp.Track(&colB)))
 	if !matcherB.Pick([]uid.UID64{e}).Next() {
 		t.Fatalf("Expected compB to be present")
 	}
@@ -333,7 +333,7 @@ func TestScheduler_Sync_AppliesSpawnCmds(t *testing.T) {
 	sys := &fnRunnable{fn: func(cb *CmdBuf, d time.Duration) {
 		cb.Spawn(sp, 3, &outIDs)
 	}}
-	sched.Register(sys, NewCmdBuf())
+	sched.Register(sys, NewCmdBuf(), nil)
 	sched.Run(sys, 0)
 
 	if err := sched.Sync(); err != nil {
@@ -455,7 +455,7 @@ func TestScheduler_Sync_AppliesAddCompValueCmds(t *testing.T) {
 
 	m := &stubValueMigrator{}
 	sys := &addCompValueTestSystem{migrator: m, batches: [][]uid.UID64{{1, 2, 3}}}
-	sched.Register(sys, NewCmdBuf())
+	sched.Register(sys, NewCmdBuf(), nil)
 	sched.Run(sys, 0)
 
 	if err := sched.Sync(); err != nil {
@@ -497,7 +497,7 @@ func TestScheduler_Sync_AppliesMigrateCmds(t *testing.T) {
 
 	m := &stubMigrator{}
 	sys := newMigrateSystem(m, []uid.UID64{1, 2, 3})
-	sched.Register(sys, NewCmdBuf())
+	sched.Register(sys, NewCmdBuf(), nil)
 	sched.Run(sys, 0)
 
 	if err := sched.Sync(); err != nil {
@@ -525,7 +525,7 @@ func TestScheduler_Sync_EachChunkAppliedSeparately(t *testing.T) {
 		[]uid.UID64{1, 2},
 		[]uid.UID64{3, 4, 5},
 	)
-	sched.Register(sys, NewCmdBuf())
+	sched.Register(sys, NewCmdBuf(), nil)
 	sched.Run(sys, 0)
 
 	if err := sched.Sync(); err != nil {

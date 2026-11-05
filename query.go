@@ -95,8 +95,9 @@ func (q *Query) Idx() int { return q.w.Idx }
 // QueryBuilder assembles a Query's access options. Start with
 // NewQueryBuilder, optionally chain Include/Exclude, and finish with Build.
 type QueryBuilder struct {
-	ecs  *ECS
-	opts []Opt
+	ecs    *ECS
+	access *comp.Access
+	opts   []Opt
 }
 
 // Include adds required (filter-only, no data access) component types,
@@ -120,10 +121,11 @@ func (b *QueryBuilder) Optional(comps ...OptTrackable) *QueryBuilder {
 	return b
 }
 
-// Build creates the Query from the accumulated options.
+// Build creates the Query from the accumulated options. What its columns read and write counts
+// to the system whose Init builds it, whichever system walks it later.
 func (b *QueryBuilder) Build() *Query {
 	q := &Query{ecs: b.ecs}
-	q.w.Init(b.ecs.registry.AddMatcher(b.opts...))
+	q.w.Init(b.ecs.registry.AddMatcher(b.access, b.opts...))
 	return q
 }
 

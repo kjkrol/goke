@@ -72,9 +72,13 @@ func (r *Registry) RemoveComp(entID uid.UID64, compID comp.ID) error {
 	return r.EntityManager.RemoveComp(entID, r.CompDefIndex.ByID(compID))
 }
 
-func (r *Registry) AddMatcher(opts ...comp.AccessOpt) *query.Matcher {
+// AddMatcher is the matcher of opts; acc, unless nil, gets their Access too.
+func (r *Registry) AddMatcher(acc *comp.Access, opts ...comp.AccessOpt) *query.Matcher {
 	var accessSpec comp.AccessSpec
 	accessSpec.Init(&r.CompDefIndex, opts...)
+	if acc != nil {
+		acc.Add(accessSpec.Access())
+	}
 	return r.MatcherCatalog.AddMatcher(&accessSpec)
 }
 

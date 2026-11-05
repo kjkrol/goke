@@ -2,7 +2,9 @@ package orch
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -117,9 +119,9 @@ func TestScheduler_RunParallel_RunsAllRunnablesConcurrently(t *testing.T) {
 		}}
 	}
 	r1, r2, r3 := makeRunnable(), makeRunnable(), makeRunnable()
-	sched.Register(r1, NewCmdBuf())
-	sched.Register(r2, NewCmdBuf())
-	sched.Register(r3, NewCmdBuf())
+	sched.Register(r1, NewCmdBuf(), nil)
+	sched.Register(r2, NewCmdBuf(), nil)
+	sched.Register(r3, NewCmdBuf(), nil)
 
 	sched.RunParallel(time.Millisecond, r1, r2, r3)
 
@@ -136,7 +138,7 @@ func TestScheduler_Reset_ClearsStateAndPlan(t *testing.T) {
 	r := &fnRunnable{fn: func(cb *CmdBuf, d time.Duration) {
 		cb.RemoveOne(uid.UID64(1))
 	}}
-	sched.Register(r, NewCmdBuf())
+	sched.Register(r, NewCmdBuf(), nil)
 	sched.SetPlan(func(ctx RunCtx, d time.Duration) {})
 	sched.Run(r, 0) // queue a command so the buffer has state to clear
 
@@ -164,7 +166,7 @@ func TestScheduler_Sync_PropagatesUpsertCompError(t *testing.T) {
 	r := &fnRunnable{fn: func(cb *CmdBuf, d time.Duration) {
 		AddOne(cb, uid.UID64(1), comp.ID(0), 42)
 	}}
-	sched.Register(r, NewCmdBuf())
+	sched.Register(r, NewCmdBuf(), nil)
 	sched.Run(r, 0)
 
 	err := sched.Sync()
@@ -183,7 +185,7 @@ func TestScheduler_Sync_DispatchesRemoveOne(t *testing.T) {
 	r := &fnRunnable{fn: func(cb *CmdBuf, d time.Duration) {
 		cb.RemoveOne(target)
 	}}
-	sched.Register(r, NewCmdBuf())
+	sched.Register(r, NewCmdBuf(), nil)
 	sched.Run(r, 0)
 
 	if err := sched.Sync(); err != nil {
@@ -204,7 +206,7 @@ func TestScheduler_Sync_DispatchesRemoveCompOne(t *testing.T) {
 	r := &fnRunnable{fn: func(cb *CmdBuf, d time.Duration) {
 		cb.RemoveCompOne(target, wantComp)
 	}}
-	sched.Register(r, NewCmdBuf())
+	sched.Register(r, NewCmdBuf(), nil)
 	sched.Run(r, 0)
 
 	if err := sched.Sync(); err != nil {
@@ -214,5 +216,51 @@ func TestScheduler_Sync_DispatchesRemoveCompOne(t *testing.T) {
 	if !mut.removeCompCall.called || mut.removeCompCall.id != target || mut.removeCompCall.comp != wantComp {
 		t.Errorf("expected RemoveComp(%v,%v), got called=%v id=%v comp=%v",
 			target, wantComp, mut.removeCompCall.called, mut.removeCompCall.id, mut.removeCompCall.comp)
+	}
+}
+
+func TestScheduler_RunParallel_Conflicts(t *testing.T) {
+	mut := &mockMutator{}
+	posID := mut.Defs().Intern(reflect.TypeFor[float64]()).ID
+	velID := mut.Defs().Intern(reflect.TypeFor[string]()).ID
+	read := func(id comp.ID) *comp.Access { return &comp.Access{Reads: comp.Mask{}.Set(id)} }
+	write := func(id comp.ID) *comp.Access { return &comp.Access{Writes: comp.Mask{}.Set(id)} }
+
+	cases := []struct {
+		name   string
+		access []*comp.Access
+		panic  string
+	}{
+		{"readers", []*comp.Access{read(posID), read(posID)}, ""},
+		{"disjoint writers", []*comp.Access{write(posID), write(velID)}, ""},
+		{"no queries", []*comp.Access{nil, write(posID), nil}, ""},
+		{"writer and reader", []*comp.Access{read(velID), read(posID), write(posID)}, "runnables 1 and 2 conflict on float64"},
+		{"writers", []*comp.Access{write(velID), write(velID)}, "runnables 0 and 1 conflict on string"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			sched := NewScheduler(mut)
+			var ran atomic.Int32
+			runnables := make([]Runnable, len(c.access))
+			for i, acc := range c.access {
+				r := &fnRunnable{fn: func(*CmdBuf, time.Duration) { ran.Add(1) }}
+				sched.Register(r, NewCmdBuf(), acc)
+				runnables[i] = r
+			}
+
+			defer func() {
+				msg := ""
+				if p := recover(); p != nil {
+					msg = fmt.Sprint(p)
+				}
+				if c.panic == "" && msg != "" || !strings.Contains(msg, c.panic) {
+					t.Fatalf("expected panic %q, got %q", c.panic, msg)
+				}
+				if c.panic != "" && ran.Load() != 0 {
+					t.Errorf("expected no runnable to run, %d did", ran.Load())
+				}
+			}()
+			sched.RunParallel(time.Millisecond, runnables...)
+		})
 	}
 }

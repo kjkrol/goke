@@ -205,6 +205,21 @@ Branch-free, zero-allocation, linear in component count — 0 B/op and 0 allocs/
 
 The single `Optional` query is **~14% faster** — same total entities visited, but one iteration setup/teardown instead of two. 0 B/op and 0 allocs/op on both sides.
 
+### Query.All with read-only columns (`CompRO` vs `Comp`)
+
+One query writing `Pos` and reading `Vel` and `Acc`, the two read columns tracked through `Comp`
+(`rw`: `velSlice[i].X`) or through `CompRO` (`read`: `velSlice.At(i)`), the loop otherwise the same
+(`bench/matcher_all_read_test.go`, `-benchtime=10000x -count=5`, two rounds interleaved, medians
+of the 10 runs).
+
+| Columns read through | ns/ent |
+| :--- | ---: |
+| `Comp` | 1.480 |
+| `CompRO` | 1.586 |
+
+`CompRO` is **~7% slower** here: `At(i)` hands out a copy, so the loop loads both values before it
+writes `Pos`; neither loop has a bounds check left. 0 B/op and 0 allocs/op on both sides.
+
 ### Many queries (`bench/many_queries_test.go`, `internal/query/catalog_bench_test.go`)
 
 A world's queries each keep a matcher in the catalog; past 64 the catalog adds a block of
@@ -261,6 +276,7 @@ The `Remove` row above times `cb.RemoveOne`'s single-entity swap-and-pop at a fi
 * **Migrating the whole population (`subset=1,024`) is cheaper per entity than migrating half (`subset=512`).** A full-population pass never has to skip over surviving entities during compaction; a partial subset does, and `random` order compounds that with cache-unfriendly access.
 * **Sorted vs random access:** `Pick`/`Seek`/`SeekH` show modest, consistent overhead for randomly-sampled entity order versus sequential — real, but the hot path stays dominated by direct record lookup and pointer arithmetic rather than access locality.
 * **Zero allocations on every query path.** `Query.All`/`Pick`/`Seek`/`SeekH` report 0 B/op and 0 allocs/op across every component count — including with `Optional[T]()` columns tracked, whether or not the matched archetype actually carries them.
+* **Read-only columns cost a few percent.** Reading through `CompRO` instead of `Comp` is ~7% slower in a tight All loop — the price of `RunParallel` knowing the column is only read.
 
 ## Benchmark Comparison with Other ECS Libraries
 

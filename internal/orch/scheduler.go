@@ -2,9 +2,12 @@ package orch
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 	"unsafe"
+
+	"github.com/kjkrol/goke/v3/internal/comp"
 )
 
 type RunCtx interface {
@@ -19,6 +22,7 @@ type Scheduler struct {
 	mutator   Mutator
 	runnables []Runnable
 	buffers   map[Runnable]*CmdBuf
+	access    map[Runnable]*comp.Access
 	plan      Plan
 }
 
@@ -33,6 +37,7 @@ func (s *Scheduler) Reset() {
 		}
 	}
 	clear(s.buffers)
+	clear(s.access)
 	s.plan = nil
 }
 
@@ -40,6 +45,7 @@ func NewScheduler(mutator Mutator) Scheduler {
 	return Scheduler{
 		mutator:   mutator,
 		buffers:   make(map[Runnable]*CmdBuf),
+		access:    make(map[Runnable]*comp.Access),
 		runnables: make([]Runnable, 0),
 	}
 }
@@ -48,11 +54,14 @@ func (s *Scheduler) SetPlan(plan Plan) {
 	s.plan = plan
 }
 
-func (s *Scheduler) Register(runnable Runnable, cb *CmdBuf) {
+// Register adds runnable with its command buffer and what its queries do to components, which
+// RunParallel checks; nil for none.
+func (s *Scheduler) Register(runnable Runnable, cb *CmdBuf, access *comp.Access) {
 	cb.SetRemover(s.mutator.Remover())
 	cb.SetDefs(s.mutator.Defs())
 	s.runnables = append(s.runnables, runnable)
 	s.buffers[runnable] = cb
+	s.access[runnable] = access
 }
 
 func (s *Scheduler) Tick(duration time.Duration) {
@@ -68,7 +77,10 @@ func (s *Scheduler) Run(runnable Runnable, d time.Duration) {
 	runnable.Update(s.buffers[runnable], d)
 }
 
+// RunParallel runs runnables at once; panics, running none, if one writes a component another
+// reads or writes through its queries.
 func (s *Scheduler) RunParallel(d time.Duration, runnables ...Runnable) {
+	s.checkParallel(runnables)
 	var wg sync.WaitGroup
 
 	for _, runnable := range runnables {
@@ -80,6 +92,29 @@ func (s *Scheduler) RunParallel(d time.Duration, runnables ...Runnable) {
 	}
 
 	wg.Wait()
+}
+
+func (s *Scheduler) checkParallel(runnables []Runnable) {
+	for i, ri := range runnables {
+		a := s.access[ri]
+		if a == nil {
+			continue
+		}
+		for j := i + 1; j < len(runnables); j++ {
+			b := s.access[runnables[j]]
+			if b == nil {
+				continue
+			}
+			if c := a.Conflicts(*b); !c.IsEmpty() {
+				var names []string
+				for id := range c.AllSet() {
+					names = append(names, s.mutator.Defs().ByID(id).Type.String())
+				}
+				panic(fmt.Sprintf("goke: RunParallel: runnables %d and %d conflict on %s — one writes what the other reads or writes",
+					i, j, strings.Join(names, ", ")))
+			}
+		}
+	}
 }
 
 func (s *Scheduler) Sync() error {

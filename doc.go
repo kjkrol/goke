@@ -35,11 +35,15 @@
 //     system. The order and concurrency of execution are defined via a Plan.
 //
 //  4. Thread Safety & Parallelism:
-//     The engine allows for synchronous or parallel system execution. While the engine
-//     provides the tools for high-performance concurrent processing (RunParallel),
-//     it follows a "Power to the Programmer" philosophy: it is the developer's
-//     responsibility to ensure that systems running in parallel operate on disjoint
-//     component sets to avoid data races.
+//     The engine allows for synchronous or parallel system execution. RunParallel
+//     panics if one of its systems writes a component another reads or writes
+//     through the queries they built in Init: a [Comp], [OptComp], [Column] or
+//     [OptColumn] counts as written, a [CompRO], [OptCompRO] or a column of
+//     [NewColumnRO] or [NewOptColumnRO] as read, and Include/Exclude filters as
+//     neither. Values queued on a CmdBuf land
+//     at Sync, after the systems run, so they count as neither too. What the check
+//     cannot see — state outside queries, a Factory used in Update — stays the
+//     developer's to keep apart.
 //
 //  5. Deferred Commands:
 //     To maintain state consistency during system updates, modifications to the

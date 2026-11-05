@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+  ## [3.7.0]
+
+  ### Added ✨
+  * **Read-only components.** `CompRO[T]` and `OptCompRO[T]` track a column a query only reads,
+  as `Comp[T]` and `OptComp[T]` do: `Slice` is a `SliceRO[T]` whose `At(i)` hands out a copy,
+  `Get` the value of the entity a Seek or Pick stands on. They go to no Factory or Editor.
+  `NewColumnRO` and `NewOptColumnRO` mark a column of a type known at run time the same way, its
+  memory still handed out. Reading through `CompRO` costs ~7% over `Comp` in a tight All loop
+  (`Matcher_All_Read`: 1.586 vs 1.480 ns/ent), 0 allocations on both.
+
+  ### Changed
+  * **`RunParallel` checks what its systems do to components.** A system's access is what the
+  queries built in its Init track: `Comp`, `OptComp`, `Column` and `OptColumn` write, the
+  read-only ones read, Include/Exclude filters and values queued on a CmdBuf (they land at Sync)
+  neither. `RunParallel` panics, running none of them, if one writes a component another reads or
+  writes, naming the components.
+  ⚠️ A plan whose parallel systems share a component through `Comp` — even if they only read
+  it — now panics: declare the readers' columns with `CompRO`/`OptCompRO` (`NewColumnRO`,
+  `NewOptColumnRO`), or run the systems apart. The check is a pass over the systems' access masks
+  before they start; no other hot path changed.
+
   ## [3.6.0]
 
   ### Added ✨

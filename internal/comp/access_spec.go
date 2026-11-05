@@ -11,6 +11,41 @@ type AccessSpec struct {
 	TagIDs       []ID
 	ExCompIDs    []ID
 	Pace         *Pace
+	Reads        Mask
+}
+
+// Access is what queries do to components through their tracked columns: Writes those they may
+// write, Reads those they only read.
+type Access struct{ Reads, Writes Mask }
+
+// Access is what s's tracked columns do; a tag, holding no data, is neither.
+func (s *AccessSpec) Access() Access {
+	a := Access{Reads: s.Reads}
+	for _, defs := range [2][]Def{s.CompInfos, s.OptCompInfos} {
+		for _, def := range defs {
+			if def.Size > 0 && !s.Reads.IsSet(def.ID) {
+				a.Writes = a.Writes.Set(def.ID)
+			}
+		}
+	}
+	return a
+}
+
+// Add has a do what b does too.
+func (a *Access) Add(b Access) {
+	for i := range MaskSize {
+		a.Reads[i] |= b.Reads[i]
+		a.Writes[i] |= b.Writes[i]
+	}
+}
+
+// Conflicts are the components one of a and b writes while the other reads or writes them.
+func (a Access) Conflicts(b Access) Mask {
+	var m Mask
+	for i := range MaskSize {
+		m[i] = a.Writes[i]&(b.Writes[i]|b.Reads[i]) | b.Writes[i]&a.Reads[i]
+	}
+	return m
 }
 
 // Init applies opts against mi, populating s in place.

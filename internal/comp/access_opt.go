@@ -34,6 +34,14 @@ func TrackOf(t reflect.Type, idx *int) AccessOpt {
 	}
 }
 
+// ReadOnly is opt, tracking a column of t, for a query that only reads it.
+func ReadOnly(t reflect.Type, opt AccessOpt) AccessOpt {
+	return func(s *AccessSpec, mi *DefIndex) error {
+		s.Reads = s.Reads.Set(mi.Intern(t).ID)
+		return opt(s, mi)
+	}
+}
+
 func Exclude[T any]() AccessOpt {
 	return func(s *AccessSpec, mi *DefIndex) error {
 		compDef := mi.Intern(reflect.TypeFor[T]())

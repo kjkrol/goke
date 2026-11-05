@@ -95,11 +95,13 @@ func main() {
 	})
 
 	// System C: Judge the results
+	var diceRead goke.CompRO[Dice]
 	var diceQuery *goke.Query
 	judgeSys := ecs.RegSys(goke.SystemFn{
 		OnInit: func(si *goke.SysInit) {
-			// Query for reading the dice entity's value each turn
-			diceQuery = si.NewQueryBuilder(&dice).Build()
+			// Query for reading the dice entity's value each turn: CompRO marks
+			// Dice as read-only, so RunParallel would let it run beside other readers
+			diceQuery = si.NewQueryBuilder(&diceRead).Build()
 		},
 		OnUpdate: func(schedule *goke.CmdBuf, d time.Duration) {
 			if gameFinished {
@@ -108,7 +110,7 @@ func main() {
 			turnCounter++
 
 			diceQuery.Seek(diceEnt)
-			diceComp := dice.At(diceQuery.Cursor())
+			diceComp := diceRead.Get(diceQuery.Cursor())
 			fmt.Printf("🎲 Turn %d | Dice Result: %d\n", turnCounter, diceComp.Value)
 
 			playerCursor := vPlayers.Cursor()

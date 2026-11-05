@@ -15,10 +15,15 @@ type Column struct {
 	Idx  int
 	typ  reflect.Type
 	size uintptr
+	read bool
 }
 
 // NewColumn is the column of the component type t.
 func NewColumn(t reflect.Type) *Column { return &Column{typ: t, size: t.Size()} }
+
+// NewColumnRO is NewColumn for a component a query only reads, as CompRO is: RunParallel
+// counts it as read, though Base and At still hand out its memory.
+func NewColumnRO(t reflect.Type) *Column { return &Column{typ: t, size: t.Size(), read: true} }
 
 // Type is the component type the column is of.
 func (c *Column) Type() reflect.Type { return c.typ }
@@ -43,7 +48,12 @@ func (c *Column) At(cur *Cursor) unsafe.Pointer {
 	return unsafe.Add(cur.Base, cur.Offsets[c.Idx]+cur.Slot*c.size)
 }
 
-func (c *Column) asTrack() Opt      { return comp.TrackOf(c.typ, &c.Idx) }
+func (c *Column) asTrack() Opt {
+	if c.read {
+		return comp.ReadOnly(c.typ, comp.TrackOf(c.typ, &c.Idx))
+	}
+	return comp.TrackOf(c.typ, &c.Idx)
+}
 func (c *Column) asAdd() EditOpt    { return comp.AddOf(c.typ, &c.Idx) }
 func (c *Column) asLoad() CompToken { return LoadCompOf(c.typ) }
 
@@ -53,10 +63,16 @@ type OptColumn struct {
 	Idx  int
 	typ  reflect.Type
 	size uintptr
+	read bool
 }
 
 // NewOptColumn is the optional column of the component type t.
 func NewOptColumn(t reflect.Type) *OptColumn { return &OptColumn{typ: t, size: t.Size()} }
+
+// NewOptColumnRO is NewOptColumn for a component a query only reads, as NewColumnRO is.
+func NewOptColumnRO(t reflect.Type) *OptColumn {
+	return &OptColumn{typ: t, size: t.Size(), read: true}
+}
 
 // Type is the component type the column is of.
 func (c *OptColumn) Type() reflect.Type { return c.typ }
@@ -84,9 +100,17 @@ func (c *OptColumn) At(cur *Cursor) unsafe.Pointer {
 	return unsafe.Add(cur.Base, cur.OptOffsets[c.Idx]+cur.Slot*c.size)
 }
 
-func (c *OptColumn) asOptTrack() Opt { return comp.OptionalOf(c.typ, &c.Idx) }
+func (c *OptColumn) asOptTrack() Opt {
+	if c.read {
+		return comp.ReadOnly(c.typ, comp.OptionalOf(c.typ, &c.Idx))
+	}
+	return comp.OptionalOf(c.typ, &c.Idx)
+}
 
 var (
+	_ Trackable    = (*CompRO[int])(nil)
+	_ Loadable     = (*CompRO[int])(nil)
+	_ OptTrackable = (*OptCompRO[int])(nil)
 	_ Trackable    = (*Column)(nil)
 	_ Addable      = (*Column)(nil)
 	_ Loadable     = (*Column)(nil)
