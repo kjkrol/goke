@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+  ## [3.6.1]
+
+  ### Changed
+  * **`github.com/kjkrol/uid` v1.3.0.** uid's v1.2.0 was tagged by mistake from code older than
+  v0.2.1 and stays in the module proxy, so `go get -u` raised uid to a version without
+  `PeekNextIndex`, `State` and `Restore` and goke stopped compiling (kjkrol/uid#2). v1.3.0 is
+  v0.3.0's code and retracts v1.2.0.
+
   ## [3.6.0]
 
   ### Added ✨
