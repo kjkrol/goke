@@ -79,14 +79,14 @@ go get github.com/kjkrol/goke/v3
 
 | Capability | How |
 |:---|:---|
-| **Zero-allocation hot paths** | Chunk-based SoA layout with direct pointer arithmetic — no GC pressure during iteration or component access |
+| **Zero-allocation hot paths** | Iterating and reading or writing components allocates nothing, so a running simulation gives the garbage collector no new work. Chunks are ordinary Go heap memory the GC knows about — not off-heap (see [Memory Model](#memory-model)) |
 | **Predictable iteration speed** | Linear SoA memory access — cache-friendly, branch-free inner loops; sub-nanosecond per entity at scale |
 | **Predictable iteration cost** | Per-entity overhead stays constant regardless of how much logic runs in the loop body |
 | **O(1) component lookup** | Entity-to-storage is a direct array index, not a hash map — constant time at any world size |
 | **Safe entity recycling** | 64-bit generational IDs detect stale references after deletion, preventing ABA bugs |
 | **Cache-friendly storage** | Contiguous SoA chunks; growth appends new chunks, removal uses swap-and-pop — no fragmentation |
 | **Batch entity creation** | `Factory` writes components directly into chunk-shaped batches — no per-entity allocation |
-| **Type-safe component API** | Fully generic — no reflection, no interface boxing, no runtime type assertions |
+| **Type-safe component API** | Fully generic — reading and writing components involves no reflection, no interface boxing, no runtime type assertions. Reflection stays off that path: it describes a component type on first use, allocates storage and drives persistence |
 | **Built-in scheduler** | Declarative `Plan` wires systems into an execution graph — a full ECS runtime, not just a component store |
 | **Command Buffer** | Structural changes during iteration are queued and flushed at explicit `Sync()` points — enables safe `RunParallel` |
 | **Bulk operations** | `Editor`/`ValueEditor`/`Remover`, staged via `Query.BeginMigrate`/`Add`/`Commit`, batch add/remove-component and remove-entity changes for entities matched by a `Query` — one block memory copy per contiguous run instead of a move per entity |
@@ -294,6 +294,17 @@ Current development focus and planned improvements:
 > **Live Feature Tracker**
 > We manage our long-term goals through GitHub Issues. View all planned core engine expansions and functional capabilities here:
 > [**Explore all Pending Features ↗**](https://github.com/kjkrol/goke/issues?q=state%3Aopen%20label%3Afeature)
+
+<a id="memory-model"></a>
+# Memory Model
+
+"Zero-allocation" describes what the hot paths do, not where the memory lives.
+
+* **Chunks are ordinary Go heap memory.** No off-heap allocation, no `mmap`, no CGO. Memory is allocated when a chunk is created, not while iterating.
+* **The GC sees every pointer stored in a chunk.** An archetype whose components are all pointer-free is allocated as a plain byte block, which the GC never scans. An archetype with a component that holds a pointer (a `string`, a `time.Time`) is allocated through a Go type generated for its layout, so the GC has its exact pointer bitmap.
+* **Component access stays inside one allocation.** A component's address is `unsafe.Add` from the chunk's base, with no `uintptr` round trip. The test suite runs with `-race`, which enables `checkptr`.
+* **Component types are checked on first use.** A component may be built, recursively, from bools, numeric types, strings, structs with exported fields and fixed-size arrays. Pointers, `uintptr`, slices, maps, interfaces, channels, funcs and unexported fields panic with the offending field's path. A type implementing both `encoding.BinaryMarshaler` and `encoding.BinaryUnmarshaler` is accepted as opaque, whatever it holds — the rule exists so that every component can be saved.
+* **A pointer-backed field costs a jump.** A string's bytes live outside the chunk, so reading them leaves the contiguous column. GOKe logs this once per component type; keep such fields out of components iterated in hot loops.
 
 # When NOT to Use GOKe
 GOKe is optimized for large-scale, data-oriented workloads. It may not be the best fit for every project.
